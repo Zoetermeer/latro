@@ -18,7 +18,7 @@ namespace Accounts {
   }
 
   fun (Ledger) ApplyBalanceChange(String, Float, (fun (Float, Float) : Float)) : Unit
-  (this) ApplyBalanceChange(name, amount, f) := {
+  (this).ApplyBalanceChange(name, amount, f) := {
     match (this.Entries.Find(name)) with
       | Some acct ->
         acct.Balance = f(acct.Balance, amount);
@@ -26,7 +26,7 @@ namespace Accounts {
   }
 
   fun (Ledger) ExecuteCommand(Command) : Unit
-  (this) ExecuteCommand(Add name cardNumber amount) := {
+  (this).ExecuteCommand(Add name cardNumber amount) := {
     acct := Account {
       Name = name,
       CardNumber = cardNumber,
@@ -36,23 +36,24 @@ namespace Accounts {
     this.Entries.Insert(name, acct);
   }
 
-  ExecuteCommand(Charge name amount) {
+  (this).ExecuteCommand(Charge name amount) {
     match (this.Entries.Find(name)) with
       | Some acct ->
         acct.Balance -= amount;
       | _ -> ()
   }
 
-  ExecuteCommand(Credit name amount) {
+  (this).ExecuteCommand(Credit name amount) {
     match (this.Entries.Find(name)) with
       | Some acct ->
         acct.Balance += amount;
       | _ -> ()
   }
 
-  ExecuteCommand(_) { () }
+  (this).ExecuteCommand(_) { () }
 
-  fun (this Ledger) ProcessCommand(String line) : Bool {
+  fun (Ledger) ProcessCommand(String) : Bool
+  (this).ProcessCommand(line) := {
     parts := line.Split(" ");
     command := match parts with
       | ["Add", name, cardNumber, amount] -> Add name cardNumber amount

@@ -5,10 +5,14 @@ namespace Core {
 
   type [T] Option = Some T | None
 
+  fun [T] ([T] Option) IsJust() : Bool
+  (Some _).IsJust() := { True }
+  (_).IsJust() := { False }
+
   << Pure >>
   fun (String) Split(String) : String[]
-  ("") Split(sep) := { [] }
-  (this) Split(sep) := {
+  ("").Split(sep) := { [] }
+  (this).Split(sep) := {
 
   }
 
