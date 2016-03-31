@@ -17,54 +17,56 @@ namespace Accounts {
     [String, Account] Hash Entries;
   }
 
+
   fun (Ledger) ApplyBalanceChange(String, Float, (fun (Float, Float) : Float)) : Unit
-  (this).ApplyBalanceChange(name, amount, f) := {
-    match (this.Entries.Find(name)) with
+  (ledger).ApplyBalanceChange(name, amount, f) := {
+    match (ledger.Entries.Find(name)) with
       | Some acct ->
         acct.Balance = f(acct.Balance, amount);
       | _ -> ()
   }
 
+
   fun (Ledger) ExecuteCommand(Command) : Unit
-  (this).ExecuteCommand(Add name cardNumber amount) := {
+  (ledger).ExecuteCommand(Add name cardNumber amount) := {
     acct := Account {
       Name = name,
       CardNumber = cardNumber,
       Balance = amount
     };
 
-    this.Entries.Insert(name, acct);
+    ledger.Entries.Insert(name, acct);
   }
 
-  (this).ExecuteCommand(Charge name amount) {
-    match (this.Entries.Find(name)) with
-      | Some acct ->
-        acct.Balance -= amount;
-      | _ -> ()
+  (ledger).ExecuteCommand(Charge name amount) := {
+    ledger.ApplyBalanceCharge(name, amount, (-))
   }
 
-  (this).ExecuteCommand(Credit name amount) {
-    match (this.Entries.Find(name)) with
-      | Some acct ->
-        acct.Balance += amount;
-      | _ -> ()
+  (ledger).ExecuteCommand(Credit name amount) := {
+    ledger.ApplyBalanceCharge(name, amount, (+))
   }
 
-  (this).ExecuteCommand(_) { () }
+  (_).ExecuteCommand(_) { () }
+
+
+  << Pure >>
+  fun ParseCommand(String) : (Command, Bool)
+  ParseCommand(commandString) := {
+    parts := line.Split(" ");
+    switch (parts) {
+      case ["Add", name, cardNumber, amount] -> (Add name cardNumber amount, False)
+      case ["Charge", name, amount] -> (Charge name amount, False)
+      case ["Credit", name, amount] -> (Credit name amount, False)
+      case _ -> (Quit, True)
+    }
+  }
+
 
   fun (Ledger) ProcessCommand(String) : Bool
-  (this).ProcessCommand(line) := {
-    parts := line.Split(" ");
-    command := match parts with
-      | ["Add", name, cardNumber, amount] -> Add name cardNumber amount
-      | ["Charge", name, amount] -> Charge name amount
-      | ["Credit", name, amount] -> Credit name amount
-      | ["Quit"] -> Quit
-      ;
+  (ledger).ProcessCommand(line) := {
+    (command, shouldExit) := ParseCommand(line);
+    ledger.ExecuteCommand(command);
 
-    shouldExit := false
-    match command with
-      | Add name cardNumber amount ->
-        
+    shouldExit
   }
 }

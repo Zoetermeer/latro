@@ -2,13 +2,13 @@ import Core
 
 Main := module {
   : Entrypoint {
-    fun Main(String[] _) : Int {
+    Main(_) := {
       ledger := Accounts.Ledger{ }
-      while (true) {
+      while (True) {
         line := IO.ReadLine(IO.Stdin);
-        shouldExit := ledger.ProcessCommand(line);
+        done := ledger.ProcessCommand(line);
 
-        if (shouldExit) {
+        if (done) {
           break;
         }
       }

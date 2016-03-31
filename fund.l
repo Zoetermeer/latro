@@ -3,7 +3,8 @@ namespace AccountsProgram {
     type Connection = struct { }
     type Row = struct { }
 
-    fun (this Connection) Query(string query) : Row[] {
+    fun (Connection) Query(String) : Row[]
+    (connection).Query(query) := {
 
     }
   }
@@ -41,7 +42,9 @@ namespace AccountsProgram {
 
   //Post hoc typeclass instantiation for a (struct) type
   Fund : Show {
-    fun (this Fund) Show() : string {
+    //Debatable whether we need explicit annotations
+    //for functions in interface instantiations
+    (theFund).Show() {
       this.LongName
     }
   }
