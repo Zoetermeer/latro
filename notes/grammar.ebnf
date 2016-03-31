@@ -1,0 +1,9 @@
+comp_unit ::= imports { top_level_dec ... }
+
+imports ::=
+  | "import" qualified_id ";"
+  | id := "import" qualified_id ";"
+
+top_level_dec ::=
+  | namespace_dec
+  | module_dec ...
