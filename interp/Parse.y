@@ -32,6 +32,7 @@ import Syntax
   ';' { TokenSemi }
   '.' { TokenDot }
   '=' { TokenEq }
+  ':' { TokenColon }
   id  { TokenId $$ }
 
 %name parse
@@ -56,8 +57,18 @@ ModuleExp : QualifiedId { ModuleExpRef $1 }
 ModuleLevelDecs : ModuleLevelDec { [$1] }
                 | ModuleLevelDecs ModuleLevelDec { $1 ++ [$2] }
 
-ModuleLevelDec : type id '=' QualifiedId { ModuleLevelDecType $ TypeDecTy $2 $4 }
+ModuleLevelDec : TypeDec  { ModuleLevelDecType $1 }
 
+TypeDec : type id '=' QualifiedId { TypeDecTy $2 $4 }
+        | type id '=' AdtAlternatives { TypeDecAdt $2 $4 }
+
+AdtAlternatives : AdtAlternative  { [$1] }
+                | AdtAlternatives AdtAlternative  { $1 ++ [$2] }
+
+AdtAlternative : '|' id Tys { AdtAlternative $2 $3 }
+
+Tys : QualifiedId { [$1] }
+    | Tys QualifiedId { $1 ++ [$2] }
 
 QualifiedId : id  { Id $1 }
             | QualifiedId '.' id  { Path $1 $3 }

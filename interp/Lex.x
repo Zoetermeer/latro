@@ -29,6 +29,7 @@ tokens :-
   [\;] { \s -> TokenSemi }
   [\.] { \s -> TokenDot }
   [\=] { \s -> TokenEq }
+  [\:] { \s -> TokenColon }
   $alpha [$alpha $digit \_ \']* { \s -> TokenId s }
 
 {
@@ -53,6 +54,7 @@ data Token =
   | TokenSemi
   | TokenDot
   | TokenEq
+  | TokenColon
   | TokenId String
   deriving (Show)
 

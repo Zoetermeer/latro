@@ -5,6 +5,10 @@ ReboundPrims := Prims
 
 m := module {
   type SpecialInt = Int
-
   type SpecialBool = Bool
+
+  type Custom =
+    | Foo Int
+    | Bar String
+    | Baz SpecialBool Int String
 }

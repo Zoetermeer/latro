@@ -27,6 +27,11 @@ data ModuleLevelDec =
 
 data TypeDec =
     TypeDecTy RawId Ty
+  | TypeDecAdt RawId [AdtAlternative]
+  deriving (Eq, Show)
+
+data AdtAlternative =
+    AdtAlternative RawId [Ty]
   deriving (Eq, Show)
 
 type Ty = QualifiedId
