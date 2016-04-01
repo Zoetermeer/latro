@@ -20,11 +20,15 @@ import Syntax
   fun { TokenFun }
   imp { TokenImp }
   test { TokenTest }
+  True { TokenTrue }
+  False { TokenFalse }
   ':=' { TokenAssign }
   '[' { TokenLBracket }
   ']' { TokenRBracket }
   '{' { TokenLBrace }
   '}' { TokenRBrace }
+  '(' { TokenLParen }
+  ')' { TokenRParen }
   '|' { TokenPipe }
   '+' { TokenPlus }
   '-' { TokenMinus }
@@ -33,31 +37,38 @@ import Syntax
   '.' { TokenDot }
   '=' { TokenEq }
   ':' { TokenColon }
+  ',' { TokenComma }
+  num { TokenNumLit $$ }
   id  { TokenId $$ }
 
 %name parse
 
 %%
 
-CompUnit : Imports ModuleDecs { CompUnit $1 $2 }
+CompUnit : Exps { $1 }
 
-Imports : Import  { [$1] }
-        | Imports Import { $1 ++ [$2] }
+Exps : ExpT { [$1] }
+     | Exps ExpT { $1 ++ [$2] }
+     | {- empty -} { [] }
 
-Import : import QualifiedId ';' { Import $2 }
+ExpT : Exp ';'  { $1 }
 
-ModuleDecs : ModuleDec { [$1] }
-           | ModuleDecs ModuleDec { $1 ++ [$2] }
+Exp : Exp '+' Exp { ExpAdd $1 $3 }
+    | Exp '-' Exp { ExpSub $1 $3 }
+    | Exp '(' ArgExps ')' { ExpApp $1 $3 }
+    | '(' Exp ')' { $2 }
+    | '!' Exp { ExpNot $2 }
+    | import QualifiedId { ExpImport $2 }
+    | id ':=' Exp { ExpAssign $1 $3 }
+    | TypeDec { ExpTypeDec $1 }
+    | module '{' Exps '}'  { ExpModule $3 }
+    | num { ExpNum $1 }
+    | True { ExpBool True }
+    | False { ExpBool False }
+    | QualifiedId { ExpQualId $1 }
 
-ModuleDec : id ':=' ModuleExp { ModuleDec $1 $3 }
-
-ModuleExp : QualifiedId { ModuleExpRef $1 }
-          | module '{' ModuleLevelDecs '}'  { ModuleExpDef $3 }
-
-ModuleLevelDecs : ModuleLevelDec { [$1] }
-                | ModuleLevelDecs ModuleLevelDec { $1 ++ [$2] }
-
-ModuleLevelDec : TypeDec  { ModuleLevelDecType $1 }
+ArgExps : Exp { [$1] }
+        | ArgExps ',' Exp { $1 ++ [$3] }
 
 TypeDec : type id '=' QualifiedId { TypeDecTy $2 $4 }
         | type id '=' AdtAlternatives { TypeDecAdt $2 $4 }

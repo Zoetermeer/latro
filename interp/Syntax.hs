@@ -7,18 +7,28 @@ data QualifiedId =
   | Path QualifiedId RawId
   deriving (Eq, Show)
 
-data CompUnit = CompUnit [Import] [ModuleDec]
+data CompUnit = CompUnit [Exp]
   deriving (Eq, Show)
 
-data Import = Import QualifiedId
+data Exp =
+    ExpAdd Exp Exp
+  | ExpSub Exp Exp
+  | ExpNot Exp
+  | ExpApp Exp [Exp]
+  | ExpImport QualifiedId
+  | ExpAssign RawId Exp
+  | ExpTypeDec TypeDec
+  | ExpModule [Exp]
+  | ExpStms [Stm] Exp
+  | ExpNum String
+  | ExpBool Bool
+  | ExpQualId QualifiedId
   deriving (Eq, Show)
 
-data ModuleDec = ModuleDec RawId ModuleExp
-  deriving (Eq, Show)
-
-data ModuleExp =
-    ModuleExpRef QualifiedId
-  | ModuleExpDef [ModuleLevelDec]
+data Stm =
+    StmImport QualifiedId
+  | StmAssign RawId Exp
+  | StmTypeDec TypeDec
   deriving (Eq, Show)
 
 data ModuleLevelDec =

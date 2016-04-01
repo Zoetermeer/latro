@@ -17,11 +17,15 @@ tokens :-
   fun { \s -> TokenFun }
   imp { \s -> TokenImp }
   test { \s -> TokenTest }
+  True { \s -> TokenTrue }
+  False { \s -> TokenFalse }
   ":=" { \s -> TokenAssign }
   [\[] { \s -> TokenLBracket }
   [\]] { \s -> TokenRBracket }
   [\{] { \s -> TokenLBrace }
   [\}] { \s -> TokenRBrace }
+  [\(] { \s -> TokenLParen }
+  [\)] { \s -> TokenRParen }
   [\|] { \s -> TokenPipe }
   [\+] { \s -> TokenPlus }
   [\-] { \s -> TokenMinus }
@@ -30,6 +34,8 @@ tokens :-
   [\.] { \s -> TokenDot }
   [\=] { \s -> TokenEq }
   [\:] { \s -> TokenColon }
+  [\,] { \s -> TokenComma }
+  $digit+ { \s -> TokenNumLit s }
   $alpha [$alpha $digit \_ \']* { \s -> TokenId s }
 
 {
@@ -42,11 +48,15 @@ data Token =
   | TokenFun
   | TokenImp
   | TokenTest
+  | TokenTrue
+  | TokenFalse
   | TokenAssign
   | TokenLBracket
   | TokenRBracket
   | TokenLBrace
   | TokenRBrace
+  | TokenLParen
+  | TokenRParen
   | TokenPipe
   | TokenPlus
   | TokenMinus
@@ -55,6 +65,8 @@ data Token =
   | TokenDot
   | TokenEq
   | TokenColon
+  | TokenComma
+  | TokenNumLit String
   | TokenId String
   deriving (Show)
 

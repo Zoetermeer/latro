@@ -1,7 +1,30 @@
-comp_unit ::= imports { module_dec ... }
+comp_unit ::= exp
 
-imports ::=
+exp ::=
+  | "(" exp ")"
+  | exp "+" exp
+  | exp "-" exp
+  | "!" exp
+  | exp "(" arg_exps ")"
+  | "module" "{" module_level_dec ... "}"
+  | stms exp
+  | num_lit
+  | bool_lit
+  | qualified_id
+
+num_lit ::= digits
+bool_lit ::= "True" | "False"
+
+arg_exps ::= exp {"," exp}+
+
+stms ::=
+  | stm
+  | stms stm
+
+stm ::=
   | "import" qualified_id ";"
+  | id ":=" exp ";"
+  | type_dec ";"
 
 module_dec ::=
   | id ":=" module_exp
