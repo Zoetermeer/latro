@@ -1,11 +1,18 @@
 module Syntax where
 
+import Text.Printf (printf)
+
 type RawId = String
 
 data QualifiedId =
     Id RawId
   | Path QualifiedId RawId
-  deriving (Eq, Show)
+  deriving (Eq)
+
+instance (Show QualifiedId) where
+  show (Id raw) = raw
+  show (Path qid raw) =
+    printf "%s.%s" (show qid) raw
 
 data CompUnit = CompUnit [Exp]
   deriving (Eq, Show)

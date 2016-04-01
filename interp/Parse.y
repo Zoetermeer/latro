@@ -73,6 +73,7 @@ Exp : Exp '+' Exp { ExpAdd $1 $3 }
 
 ArgExps : Exp { [$1] }
         | ArgExps ',' Exp { $1 ++ [$3] }
+        | {- empty -} { [] }
 
 TypeDec : type id '=' QualifiedId { TypeDecTy $2 $4 }
         | type id '=' AdtAlternatives { TypeDecAdt $2 $4 }
