@@ -29,6 +29,8 @@ tokens :-
   [\|] { \s -> TokenPipe }
   [\+] { \s -> TokenPlus }
   [\-] { \s -> TokenMinus }
+  [\*] { \s -> TokenStar }
+  [\/] { \s -> TokenFSlash }
   [\!] { \s -> TokenExclamation }
   [\;] { \s -> TokenSemi }
   [\.] { \s -> TokenDot }
@@ -60,6 +62,8 @@ data Token =
   | TokenPipe
   | TokenPlus
   | TokenMinus
+  | TokenStar
+  | TokenFSlash
   | TokenExclamation
   | TokenSemi
   | TokenDot

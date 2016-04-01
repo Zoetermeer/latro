@@ -32,6 +32,8 @@ import Syntax
   '|' { TokenPipe }
   '+' { TokenPlus }
   '-' { TokenMinus }
+  '*' { TokenStar }
+  '/' { TokenFSlash }
   '!' { TokenExclamation }
   ';' { TokenSemi }
   '.' { TokenDot }
@@ -45,7 +47,7 @@ import Syntax
 
 %%
 
-CompUnit : Exps { $1 }
+CompUnit : Exps { CompUnit $1 }
 
 Exps : ExpT { [$1] }
      | Exps ExpT { $1 ++ [$2] }
@@ -55,6 +57,8 @@ ExpT : Exp ';'  { $1 }
 
 Exp : Exp '+' Exp { ExpAdd $1 $3 }
     | Exp '-' Exp { ExpSub $1 $3 }
+    | Exp '/' Exp { ExpDiv $1 $3 }
+    | Exp '*' Exp { ExpMul $1 $3 }
     | Exp '(' ArgExps ')' { ExpApp $1 $3 }
     | '(' Exp ')' { $2 }
     | '!' Exp { ExpNot $2 }

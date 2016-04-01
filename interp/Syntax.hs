@@ -13,6 +13,8 @@ data CompUnit = CompUnit [Exp]
 data Exp =
     ExpAdd Exp Exp
   | ExpSub Exp Exp
+  | ExpDiv Exp Exp
+  | ExpMul Exp Exp
   | ExpNot Exp
   | ExpApp Exp [Exp]
   | ExpImport QualifiedId
