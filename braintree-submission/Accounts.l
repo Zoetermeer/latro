@@ -1,8 +1,8 @@
 import Core
 
-namespace Accounts {
+Accounts := module {
   type Command =
-      Add String String Int
+    | Add String String Int
     | Charge String Int
     | Credit String Int
     | Quit

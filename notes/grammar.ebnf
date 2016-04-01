@@ -1,9 +1,53 @@
-comp_unit ::= imports { top_level_dec ... }
+comp_unit ::= imports { module_dec ... }
 
 imports ::=
   | "import" qualified_id ";"
-  | id := "import" qualified_id ";"
 
-top_level_dec ::=
-  | namespace_dec
-  | module_dec ...
+module_dec ::=
+  | id ":=" module_exp
+
+module_exp ::=
+  | id_or_qualified_id
+  | "module" "{" module_level_dec ... "}"
+
+module_level_dec ::=
+  | type_dec
+  | interface_dec
+  | imp_dec
+  | fun_dec
+
+type_dec ::=
+  | "type" id "=" type_def
+
+type_def ::=
+  | adt_def
+  | struct_def
+  | ty
+
+adt_def ::= adt_alternative ...
+
+adt_alternative ::= "|" id [ ty ... ]
+
+struct_def ::= "struct" "{" field_dec ... "}"
+
+field_dec ::= id ty ";"
+
+interface_dec ::= ...
+
+imp_dec ::= ...
+
+fun_dec ::= fun_ty_ann [ fun_def ... ]
+
+fun_ty_ann ::=
+  | "fun" ty_vars instance_ty? id "(" [ ty ... ] ")" ":" ty
+  | "fun" ty_vars custom_operator_id "(" [ ty ... ] ")" ":" ty
+
+fun_def ::=
+  | instance_pat? id "(" [ arg_pat ... ] ")" ":=" exp
+
+ty ::=
+  | ty_args id array_specifier?
+
+id_or_qualified_id ::=
+  | id_or_qualified_id "." id
+  | id
