@@ -1,5 +1,5 @@
 {-# OPTIONS_GHC -w #-}
-module Main where
+module Parse where
 
 import Control.Monad.Except
 import Lex
@@ -615,7 +615,7 @@ happyReturn1 = \a tks -> (return) a
 happyError' :: () => [(Token)] -> Except String a
 happyError' = parseError
 
-parse tks = happySomeParser where
+parseIt tks = happySomeParser where
   happySomeParser = happyThen (happyParse action_0 tks) (\x -> case x of {HappyAbsSyn4 z -> happyReturn z; _other -> notHappyAtAll })
 
 happySeq = happyDontSeq
@@ -624,7 +624,7 @@ happySeq = happyDontSeq
 parseError :: [Token] -> a
 parseError _ = error "Parse error"
 
-main = getContents >>= print . parse . scan
+parse = parseIt . scan
 {-# LINE 1 "templates/GenericTemplate.hs" #-}
 -- Id: GenericTemplate.hs,v 1.26 2005/01/14 14:47:22 simonmar Exp 
 

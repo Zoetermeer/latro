@@ -1,6 +1,6 @@
 {
 
-module Main where
+module Parse where
 
 import Control.Monad.Except
 import Lex
@@ -41,7 +41,7 @@ import Syntax
   num { TokenNumLit $$ }
   id  { TokenId $$ }
 
-%name parse
+%name parseIt
 
 %%
 
@@ -89,6 +89,6 @@ QualifiedId : id  { Id $1 }
 parseError :: [Token] -> a
 parseError _ = error "Parse error"
 
-main = getContents >>= print . parse . scan
+parse = parseIt . scan
 
 }
