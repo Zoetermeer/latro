@@ -7,7 +7,6 @@ import Data.List
 import Data.Monoid
 import Parse
 import Syntax
-import Test.Hspec
 import Text.Printf (printf)
 
 data Module = Module Env
@@ -165,93 +164,3 @@ interp prog =
       Left msg -> Left msg
       Right ast ->
         evalState (runExceptT $ eval ast) mtEnv
-
-
-specs = do
-  describe "interp" $ do
-    it "rejects ill-typed programs" $ do
-      interp
-        "4 + False;"
-        `shouldBe`
-        Left "Expected Int but instead got: Bool"
-
-    it "returns module values" $ do
-      let prog = "m := module { }; \
-                 \ m;"
-      interp prog `shouldBe` Right (ValueModule $ Module mtEnv)
-
-    it "returns values defined in modules" $ do
-      let prog = "m := module { v := 42; }; m.v;"
-      interp prog `shouldBe` Right (ValueInt 42)
-
-    it "returns nested module values" $ do
-      let prog = "a := module { b := module { v := 42; }; }; a.b.v;"
-      interp prog `shouldBe` Right (ValueInt 42)
-
-    it "applies defined functions" $ do
-      let prog = "fun f() := { 42; }; f();"
-      interp prog `shouldBe` Right (ValueInt 42)
-
-    it "substitutes function args" $ do
-      let prog = "fun f(x) := { x; }; f(42);"
-      interp prog `shouldBe` Right (ValueInt 42)
-
-    it "correctly shadows bindings in function bodies" $ do
-      let prog = "m := module { }; fun f(m) := { m; }; f(42);"
-      interp prog `shouldBe` Right (ValueInt 42)
-
-    it "captures bindings from the env in function bodies" $ do
-      let prog = "m := module { }; fun f() := { m; }; f();"
-      interp prog `shouldBe` Right (ValueModule (Module mtEnv))
-
-    it "preserves lexical scope for local module defs" $ do
-      let prog = "fun f() := { m := module { }; }; m;"
-      interp prog `shouldBe` Left "Unbound identifier 'm'"
-
-    it "can apply functions on returned local modules" $ do
-      let prog = "fun f() := {\
-                 \  module { fun g() := { 42; }; }; \
-                 \};\
-                 \f().g();"
-      interp prog `shouldBe` Right (ValueInt 42)
-
-    it "reads modules with function defs" $ do
-      let prog = "m := module { \
-                 \   fun f() := { 42; }; \
-                 \ }; \
-                 \ m.f();"
-      interp prog `shouldBe` Right (ValueInt 42)
-
-    it "applies functions on nested modules" $ do
-      let prog = "m := module { \
-                 \   m1 := module { fun g() := { 43; }; };\
-                 \   fun f() := { 42; }; \
-                 \ }; \
-                 \ m.m1.g();"
-      interp prog `shouldBe` Right (ValueInt 43)
-
-    it "evaluates functions with compound bodies on nested modules" $ do
-      let prog = "m := module { \
-                 \   m1 := module { fun g(x, y) := { y + x; }; };\
-                 \   fun f() := { 42; }; \
-                 \ }; \
-                 \ m.m1.g(m.f(), 1);"
-      interp prog `shouldBe` Right (ValueInt 43)
-
-    it "adds module bindings into the env on import" $ do
-      let prog = "m := module { \
-                 \   m1 := module { fun g(x, y) := { y + x; }; };\
-                 \ }; \
-                 \import m.m1; \
-                 \g(1, 1);"
-      interp prog `shouldBe` Right (ValueInt 2)
-
-    it "evaluates higher-order functions" $ do
-      let prog = "fun f(g, x) := { g(10) + x; }; fun h(x) := { x + 1; }; f(h, 3);"
-      interp prog `shouldBe` Right (ValueInt 14)
-
-    it "detects circular module dependencies" $ do
-      let prog = "a := module { x := b.x; }; b := module { x := a.x; }; a.x;"
-      interp prog
-        `shouldBe`
-        Left "Circular dependency detected between 'a' and 'b'."

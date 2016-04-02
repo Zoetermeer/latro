@@ -49,6 +49,126 @@
     }
     "Module (Env [])"))
 
+(test-case "it returns values defined in modules"
+  (check-equal?
+    @interp{
+      m := module { v := 42; }; m.v;
+    }
+    "42"))
+
+(test-case "it returns nested module values"
+  (check-equal?
+    @interp{
+      a := module {
+        b := module {
+          v := 42;
+        };
+      };
+
+      a.b.v;
+    }
+    "42"))
+
+(test-case "it applies defined functions"
+  (check-equal?
+    @interp{
+      fun f() := { 42; };
+      f();
+    }
+    "42"))
+
+(test-case "it substitutes function args"
+  (check-equal?
+    @interp{
+      fun f(x) := { x; };
+      f(42);
+    }
+    "42"))
+
+(test-case "it correctly shadows bindings in function bodies"
+  (check-equal?
+    @interp{
+      m := module { };
+      fun f(m) := { m; };
+      f(42);
+    }
+    "42"))
+
+(test-case "it captures bindings from the env in function bodies"
+  (check-equal?
+    @interp{
+      m := module { };
+      fun f() := { m; };
+      f();
+    }
+    "Module (Env [])"))
+
+(test-case "it preserves lexical scope for local module defs"
+  (check-equal?
+    @interp{
+      fun f() := {
+        m := module {};
+      };
+      m;
+    }
+    "Error: Unbound identifier 'm'"))
+
+(test-case "it can apply functions on returned local modules"
+  (check-equal?
+    @interp{
+      fun f() := {
+        module {
+          fun g() := { 42; };
+        };
+      };
+      f().g();
+    }
+    "42"))
+
+(test-case "it resolves functions on nested modules"
+  (check-equal?
+    @interp{
+      m := module {
+        m' := module {
+          fun g() := { 43; };
+        };
+
+        fun f() := { 42; };
+      };
+
+      m.m'.g();
+    }
+    "43"))
+
+(test-case "it evaluates functions with compound bodies on nested modules"
+  (check-equal?
+    @interp{
+      m := module {
+        m1 := module {
+          fun g(x, y) := { y + x; };
+        };
+
+        fun f() := { 42; };
+      };
+
+      m.m1.g(m.f(), 1);
+    }
+    "43"))
+
+(test-case "it evaluates higher-order functions"
+  (check-equal?
+    @interp{
+      fun f(g, x) := {
+        g(10) + x;
+      };
+
+      fun h(x) := {
+        x + 1;
+      };
+
+      f(h, 3);
+    }
+    "14"))
 
 (test-case "it does not allow nested modules to escape the local env"
   (check-equal?
