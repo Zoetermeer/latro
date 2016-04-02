@@ -26,7 +26,15 @@ data Value =
   | ValueFun Closure
   | ValueUnit
   | Err String
-  deriving (Eq, Show)
+  deriving (Eq)
+
+instance Show Value where
+  show (ValueInt i) = show i
+  show (ValueBool b) = show b
+  show (ValueModule m) = show m
+  show (ValueFun clo) = show clo
+  show ValueUnit = "()"
+  show (Err msg) = "Error: " ++ msg
 
 
 instance Monoid Env where
@@ -240,13 +248,6 @@ specs = do
                  \ m.m1.g(m.f(), 1);"
       interp prog `shouldBe` Right (ValueInt 43)
 
-    it "does not allow nested modules to escape the local env" $ do
-      let prog = "m := module { \
-                 \   m1 := module { fun g(x, y) := { y + x; }; };\
-                 \ }; \
-                 \ m1.g(1, 1);"
-      interp prog `shouldBe` Left "Unbound identifier 'm1'"
-
     it "adds module bindings into the env on import" $ do
       let prog = "m := module { \
                  \   m1 := module { fun g(x, y) := { y + x; }; };\
@@ -256,8 +257,8 @@ specs = do
       interp prog `shouldBe` Right (ValueInt 2)
 
     it "evaluates higher-order functions" $ do
-      let prog = "fun f(g, x) := { g(x) + 1; }; fun h(x) := { x + 1; }; f(h, 3);"
-      interp prog `shouldBe` Right (ValueInt 5)
+      let prog = "fun f(g, x) := { g(10) + x; }; fun h(x) := { x + 1; }; f(h, 3);"
+      interp prog `shouldBe` Right (ValueInt 14)
 
     it "detects circular module dependencies" $ do
       let prog = "a := module { x := b.x; }; b := module { x := a.x; }; a.x;"
