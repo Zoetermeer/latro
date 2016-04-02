@@ -23,25 +23,16 @@ data Exp =
   | ExpDiv Exp Exp
   | ExpMul Exp Exp
   | ExpNot Exp
+  | ExpMemberAccess Exp RawId
   | ExpApp Exp [Exp]
   | ExpImport QualifiedId
   | ExpAssign RawId Exp
   | ExpTypeDec TypeDec
   | ExpModule [Exp]
-  | ExpStms [Stm] Exp
+  | ExpFun RawId [RawId] [Exp]
   | ExpNum String
   | ExpBool Bool
-  | ExpQualId QualifiedId
-  deriving (Eq, Show)
-
-data Stm =
-    StmImport QualifiedId
-  | StmAssign RawId Exp
-  | StmTypeDec TypeDec
-  deriving (Eq, Show)
-
-data ModuleLevelDec =
-    ModuleLevelDecType TypeDec
+  | ExpRef RawId
   deriving (Eq, Show)
 
 data TypeDec =

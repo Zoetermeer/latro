@@ -1,4 +1,10 @@
-comp_unit ::= exp
+comp_unit ::= exps
+
+terminated_exp ::= exp ";"
+exps ::=
+  | terminated_exp
+  | exps terminated_exp
+  | EPSILON
 
 exp ::=
   | "(" exp ")"
@@ -6,6 +12,9 @@ exp ::=
   | exp "-" exp
   | "!" exp
   | exp "(" arg_exps ")"
+  | "import" qualified_id
+  | id ":=" exp
+  | type_dec
   | "module" "{" module_level_dec ... "}"
   | stms exp
   | num_lit
@@ -17,27 +26,9 @@ bool_lit ::= "True" | "False"
 
 arg_exps ::= exp {"," exp}+
 
-stms ::=
-  | stm
-  | stms stm
-
-stm ::=
-  | "import" qualified_id ";"
-  | id ":=" exp ";"
-  | type_dec ";"
-
-module_dec ::=
-  | id ":=" module_exp
-
 module_exp ::=
   | id_or_qualified_id
-  | "module" "{" module_level_dec ... "}"
-
-module_level_dec ::=
-  | type_dec
-  | interface_dec
-  | imp_dec
-  | fun_dec
+  | "module" "{" exps "}"
 
 type_dec ::=
   | "type" id "=" type_def

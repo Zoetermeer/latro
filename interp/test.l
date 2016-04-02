@@ -14,6 +14,16 @@ m := module {
     ;
 
   type WithPaths = | Biz Prims.Int | Fiz SpecialInt Prims.String;
+
+  fun f() := {
+    m'.g();
+  };
+};
+
+m' := module {
+  fun g() := {
+    42;
+  };
 };
 
 m.v();

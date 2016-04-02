@@ -59,6 +59,7 @@ Exp : Exp '+' Exp { ExpAdd $1 $3 }
     | Exp '-' Exp { ExpSub $1 $3 }
     | Exp '/' Exp { ExpDiv $1 $3 }
     | Exp '*' Exp { ExpMul $1 $3 }
+    | Exp '.' id  { ExpMemberAccess $1 $3 }
     | Exp '(' ArgExps ')' { ExpApp $1 $3 }
     | '(' Exp ')' { $2 }
     | '!' Exp { ExpNot $2 }
@@ -66,14 +67,19 @@ Exp : Exp '+' Exp { ExpAdd $1 $3 }
     | id ':=' Exp { ExpAssign $1 $3 }
     | TypeDec { ExpTypeDec $1 }
     | module '{' Exps '}'  { ExpModule $3 }
+    | fun id '(' FunParams ')' ':=' '{' Exps '}' { ExpFun $2 $4 $8 }
     | num { ExpNum $1 }
     | True { ExpBool True }
     | False { ExpBool False }
-    | QualifiedId { ExpQualId $1 }
+    | id  { ExpRef $1 }
 
 ArgExps : Exp { [$1] }
         | ArgExps ',' Exp { $1 ++ [$3] }
         | {- empty -} { [] }
+
+FunParams : id { [$1] }
+          | FunParams ',' id { $1 ++ [$3] }
+          | {- empty -} { [] }
 
 TypeDec : type id '=' QualifiedId { TypeDecTy $2 $4 }
         | type id '=' AdtAlternatives { TypeDecAdt $2 $4 }
