@@ -247,6 +247,18 @@ specs = do
                  \ m1.g(1, 1);"
       interp prog `shouldBe` Left "Unbound identifier 'm1'"
 
+    it "adds module bindings into the env on import" $ do
+      let prog = "m := module { \
+                 \   m1 := module { fun g(x, y) := { y + x; }; };\
+                 \ }; \
+                 \import m.m1; \
+                 \g(1, 1);"
+      interp prog `shouldBe` Right (ValueInt 2)
+
+    it "evaluates higher-order functions" $ do
+      let prog = "fun f(g, x) := { g(x) + 1; }; fun h(x) := { x + 1; }; f(h, 3);"
+      interp prog `shouldBe` Right (ValueInt 5)
+
     it "detects circular module dependencies" $ do
       let prog = "a := module { x := b.x; }; b := module { x := a.x; }; a.x;"
       interp prog
