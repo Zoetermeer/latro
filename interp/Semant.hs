@@ -232,6 +232,14 @@ specs = do
                  \ m.m1.g();"
       interp prog `shouldBe` Right (ValueInt 43)
 
+    it "evaluates functions with compound bodies on nested modules" $ do
+      let prog = "m := module { \
+                 \   m1 := module { fun g(x, y) := { y + x; }; };\
+                 \   fun f() := { 42; }; \
+                 \ }; \
+                 \ m.m1.g(m.f(), 1);"
+      interp prog `shouldBe` Right (ValueInt 43)
+
     it "detects circular module dependencies" $ do
       let prog = "a := module { x := b.x; }; b := module { x := a.x; }; a.x;"
       interp prog
