@@ -240,6 +240,13 @@ specs = do
                  \ m.m1.g(m.f(), 1);"
       interp prog `shouldBe` Right (ValueInt 43)
 
+    it "does not allow nested modules to escape the local env" $ do
+      let prog = "m := module { \
+                 \   m1 := module { fun g(x, y) := { y + x; }; };\
+                 \ }; \
+                 \ m1.g(1, 1);"
+      interp prog `shouldBe` Left "Unbound identifier 'm1'"
+
     it "detects circular module dependencies" $ do
       let prog = "a := module { x := b.x; }; b := module { x := a.x; }; a.x;"
       interp prog
