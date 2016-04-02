@@ -18,12 +18,27 @@
   (check-equal? @interp{False;} "False")
   (check-equal? @interp{42;} "42"))
 
+(test-case "it evaluates arithmetic exps"
+  (check-equal? (interp "4 + 3;") "7")
+  (check-equal? (interp "4 + 3 * 2;") "10")
+  (check-equal? (interp "4 - 3 / 3;") "3"))
+
+(test-case "it returns module values"
+  (check-equal?
+    @interp{
+      m := module {}; m;
+    }
+    "Module (Env [])"))
+
+
 (test-case "it does not allow nested modules to escape the local env"
   (check-equal?
     @interp{
       m := module {
         m1 := module {
-          fun g(x, y) := { y + x; };
+          fun g(x, y) := {
+            y + x;
+          };
         };
       };
 

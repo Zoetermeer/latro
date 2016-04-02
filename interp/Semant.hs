@@ -169,16 +169,6 @@ interp prog =
 
 specs = do
   describe "interp" $ do
-    it "evaluates literals" $ do
-      interp "True;" `shouldBe` Right (ValueBool True)
-      interp "False;" `shouldBe` Right (ValueBool False)
-      interp "42;" `shouldBe` Right (ValueInt 42)
-
-    it "evaluates arithmetic exps" $ do
-      interp "4 + 3;" `shouldBe` Right (ValueInt 7)
-      interp "4 + 3 * 2;" `shouldBe` Right (ValueInt 10)
-      interp "4 - 3 / 3;" `shouldBe` Right (ValueInt 3)
-
     it "rejects ill-typed programs" $ do
       interp
         "4 + False;"
