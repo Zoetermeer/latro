@@ -8,10 +8,29 @@
 
 (compile)
 
-(define (interp . s)
+(define (call-interpreter opts program)
   (with-output-to-string
     (λ ()
-      (system (format "./interp \"~a\"" (apply string-append s))))))
+      (system
+        (format "./interp ~a \"~a\"" (string-join opts) program)))))
+
+(define (interp . s)
+  (call-interpreter '() (apply string-append s)))
+
+(define (strip-quotation-marks s)
+  (define cs (string->list s))
+  (list->string (drop (take cs (string-length s)) 1)))
+
+(define (parse-tree . s)
+  (read
+    (open-input-string
+      (strip-quotation-marks
+        (call-interpreter '("-p") (apply string-append s))))))
+
+(test-case "it parses literals"
+  (check-equal?
+    @parse-tree{42;}
+    '(CompUnit ((ExpNum 42)))))
 
 (test-case "it evaluates literals"
   (check-equal? @interp{True;} "True")

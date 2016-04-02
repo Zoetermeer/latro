@@ -1,5 +1,8 @@
+{-# LANGUAGE DeriveGeneric #-}
 module Syntax where
 
+import GHC.Generics
+import Language.Sexp
 import Text.Printf (printf)
 
 type RawId = String
@@ -7,7 +10,7 @@ type RawId = String
 data QualifiedId =
     Id RawId
   | Path QualifiedId RawId
-  deriving (Eq)
+  deriving (Eq, Generic)
 
 instance (Show QualifiedId) where
   show (Id raw) = raw
@@ -15,7 +18,7 @@ instance (Show QualifiedId) where
     printf "%s.%s" (show qid) raw
 
 data CompUnit = CompUnit [Exp]
-  deriving (Eq, Show)
+  deriving (Eq, Generic, Show)
 
 data Exp =
     ExpAdd Exp Exp
@@ -33,15 +36,22 @@ data Exp =
   | ExpNum String
   | ExpBool Bool
   | ExpRef RawId
-  deriving (Eq, Show)
+  deriving (Eq, Generic, Show)
 
 data TypeDec =
     TypeDecTy RawId Ty
   | TypeDecAdt RawId [AdtAlternative]
-  deriving (Eq, Show)
+  deriving (Eq, Generic, Show)
 
 data AdtAlternative =
     AdtAlternative RawId [Ty]
-  deriving (Eq, Show)
+  deriving (Eq, Generic, Show)
 
 type Ty = QualifiedId
+
+instance Sexpable QualifiedId
+instance Sexpable CompUnit
+instance Sexpable Exp
+instance Sexpable TypeDec
+instance Sexpable AdtAlternative
+

@@ -2,3 +2,5 @@
 **/*.hi
 /interp/lex
 /interp/parse
+/interp/interp
+/interp/main
