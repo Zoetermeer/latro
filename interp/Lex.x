@@ -19,6 +19,9 @@ tokens :-
   test { \s -> TokenTest }
   True { \s -> TokenTrue }
   False { \s -> TokenFalse }
+  Int { \s -> TokenInt }
+  Bool { \s -> TokenBool }
+  Unit { \s -> TokenUnit }
   ":=" { \s -> TokenAssign }
   [\[] { \s -> TokenLBracket }
   [\]] { \s -> TokenRBracket }
@@ -52,6 +55,9 @@ data Token =
   | TokenTest
   | TokenTrue
   | TokenFalse
+  | TokenInt
+  | TokenBool
+  | TokenUnit
   | TokenAssign
   | TokenLBracket
   | TokenRBracket

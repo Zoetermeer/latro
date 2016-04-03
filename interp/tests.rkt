@@ -18,6 +18,7 @@
   (call-interpreter '() (apply string-append s)))
 
 (define (strip-quotation-marks s)
+  (printf "Cleaning string ~a\n" s)
   (define cs (string->list s))
   (list->string (drop (take cs (string-length s)) 1)))
 
@@ -27,11 +28,44 @@
       (strip-quotation-marks
         (call-interpreter '("-p") (apply string-append s))))))
 
+;Parse tree tests
 (test-case "it parses literals"
   (check-equal?
     @parse-tree{42;}
     '(CompUnit ((ExpNum 42)))))
 
+(test-case "it parses arithmetic expressions"
+  (check-equal?
+    @parse-tree{1 + 2;}
+    '(CompUnit ((ExpAdd ((ExpNum 1) (ExpNum 2)))))))
+
+(test-case "it parses argument-less function decs"
+  (check-equal?
+    @parse-tree{
+      fun f() : Int;
+      f() := { 42; };
+    }
+    '(CompUnit
+       ((ExpFunDec
+          (FunDecFun
+            f
+            TyInt
+            ((FunDefFun f () ((ExpNum 42))))))))))
+
+(test-case "it parses function decs"
+  (check-equal?
+    @parse-tree{
+      fun Foo(Int) : Bool;
+      Foo(x) := { True; };
+    }
+    '(CompUnit
+       ((ExpFunDec
+          (FunDec
+            (ArrowTy)))))))
+
+
+(exit)
+;Interpreter tests
 (test-case "it evaluates literals"
   (check-equal? @interp{True;} "True")
   (check-equal? @interp{False;} "False")
@@ -72,7 +106,8 @@
 (test-case "it applies defined functions"
   (check-equal?
     @interp{
-      fun f() := { 42; };
+      fun f() : Int;
+      f() := { 42; };
       f();
     }
     "42"))

@@ -31,6 +31,7 @@ data Exp =
   | ExpImport QualifiedId
   | ExpAssign RawId Exp
   | ExpTypeDec TypeDec
+  | ExpFunDec FunDec
   | ExpModule [Exp]
   | ExpFun RawId [RawId] [Exp]
   | ExpNum String
@@ -47,11 +48,34 @@ data AdtAlternative =
     AdtAlternative RawId [Ty]
   deriving (Eq, Generic, Show)
 
-type Ty = QualifiedId
+data Ty =
+    TyInt
+  | TyBool
+  | TyUnit
+  | TyArrow [Ty] Ty
+  | TyInstArrow Ty [Ty] Ty
+  | TyRef QualifiedId
+  deriving (Eq, Generic, Show)
+
+data FunDec =
+    FunDecFun RawId Ty [FunDef]
+  | FunDecInstFun RawId Ty [FunDef]
+  deriving (Eq, Generic, Show)
+
+data FunDef =
+    FunDefFun RawId [PatExp] [Exp]
+  | FunDefInstFun PatExp RawId [PatExp] [Exp]
+  deriving (Eq, Generic, Show)
+
+data PatExp = PatExpVar RawId
+  deriving (Eq, Generic, Show)
 
 instance Sexpable QualifiedId
 instance Sexpable CompUnit
 instance Sexpable Exp
 instance Sexpable TypeDec
 instance Sexpable AdtAlternative
-
+instance Sexpable Ty
+instance Sexpable FunDec
+instance Sexpable FunDef
+instance Sexpable PatExp

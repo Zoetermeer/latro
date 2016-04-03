@@ -14,6 +14,7 @@ exp ::=
   | exp "(" arg_exps ")"
   | "import" qualified_id
   | id ":=" exp
+  | fun_dec
   | type_dec
   | "module" "{" module_level_dec ... "}"
   | stms exp
@@ -29,6 +30,14 @@ arg_exps ::= exp {"," exp}+
 module_exp ::=
   | id_or_qualified_id
   | "module" "{" exps "}"
+
+fun_dec ::=
+  | "fun" instance_ty? id "(" ty_list ")" ":" ty ";" fun_defs
+
+fun_defs ::= fun_def { ";" fun_def ... }
+
+fun_def ::=
+  | instance_pat? id "(" pat_exps ")" ":=" "{" exps "}"
 
 type_dec ::=
   | "type" id "=" type_def
@@ -50,17 +59,26 @@ interface_dec ::= ...
 
 imp_dec ::= ...
 
-fun_dec ::= fun_ty_ann [ fun_def ... ]
+instance_pat ::=
+  | "(" pat_exp ")" "."
 
-fun_ty_ann ::=
-  | "fun" ty_vars instance_ty? id "(" [ ty ... ] ")" ":" ty
-  | "fun" ty_vars custom_operator_id "(" [ ty ... ] ")" ":" ty
+pat_exps ::=
+  | pat_exp
+  | pat_exps "," pat_exp
+  | {- empty -}
 
-fun_def ::=
-  | instance_pat? id "(" [ arg_pat ... ] ")" ":=" exp
+//For starters, restrict this to the simplest
+//case (identifier binding)
+pat_exp ::=
+  | id
 
 ty ::=
   | ty_args id array_specifier?
+
+ty_list ::=
+  | ty
+  | ty_list "," ty
+  | {- empty -}
 
 id_or_qualified_id ::=
   | id_or_qualified_id "." id
