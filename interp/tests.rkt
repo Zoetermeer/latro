@@ -1,9 +1,17 @@
 #lang at-exp racket
 (require rackunit)
 
+(define (needs-recompile? file depends-on-file)
+  (> (file-or-directory-modify-seconds depends-on-file)
+     (file-or-directory-modify-seconds file)))
+
+
 (define (compile)
-  (system "alex Lex.x")
-  (system "happy Parse.y")
+  (when (needs-recompile? "Lex.hs" "Lex.x")
+    (system "alex Lex.x"))
+
+  (when (needs-recompile? "Parse.hs" "Parse.y")
+    (system "happy Parse.y"))
   (system "ghc -o interp Main.hs"))
 
 (compile)
@@ -125,9 +133,7 @@
 (test-case "it can apply functions on returned local modules"
   (check-equal?
     @interp{
-      fun f() : module {
-        g() : Int;
-      };
+      fun f() : module { g() : Int; };
       f() := {
         module {
           fun g() : Int;

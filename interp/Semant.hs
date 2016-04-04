@@ -73,6 +73,12 @@ type FailMessage = String
 type Eval a = ExceptT FailMessage (State Env) a
 
 
+-- This is a placeholder; to be replaced
+-- by real pattern matching
+patExpBindingId :: PatExp -> RawId
+patExpBindingId (PatExpVar rawId) = rawId
+
+
 type BinOp = Int -> Int -> Int
 
 evalBinArith :: BinOp -> Exp -> Exp -> Eval Value
@@ -113,10 +119,8 @@ evalE (ExpFunDec (FunDecFun id ty (funDef:_))) =
         do { throwError $ printf "Invalid definition for function '%s' in definition context for '%s'" fid id }
       else do
         env <- lift get
-        lift $ pushEnv
-        env' <- lift get
-        let clo = Closure env' [] bodyExps
-        lift $ popEnv env
+        let paramIds = map patExpBindingId argPatExps
+            clo = Closure env paramIds bodyExps
         lift $ addToEnv id $ ValueFun clo
         return ValueUnit
 

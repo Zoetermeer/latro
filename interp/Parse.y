@@ -133,6 +133,7 @@ PatExp : id { PatExpVar $1 }
 
 TyList : Ty { [$1] }
        | TyList ',' Ty { $1 ++ [$3] }
+       | {- empty -} { [] }
 
 Ty : Int { TyInt }
    | Bool { TyBool }
