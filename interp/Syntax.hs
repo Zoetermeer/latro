@@ -59,7 +59,7 @@ data Ty =
 
 data FunDec =
     FunDecFun RawId Ty [FunDef]
-  | FunDecInstFun RawId Ty [FunDef]
+  | FunDecInstFun RawId Ty Ty [FunDef]
   deriving (Eq, Generic, Show)
 
 data FunDef =

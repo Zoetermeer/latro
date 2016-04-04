@@ -51,31 +51,48 @@ import Syntax
 
 %%
 
-CompUnit : Exps { CompUnit $1 }
+CompUnit : OneOrMoreExps { CompUnit $1 }
 
-Exps : ExpT { [$1] }
-     | Exps ExpT { $1 ++ [$2] }
+OneOrMoreExps : ExpT { [$1] }
+              | OneOrMoreExps ExpT { $1 ++ [$2] }
+
+ZeroOrMoreExps : ExpT { [$1] }
+     | OneOrMoreExps ExpT { $1 ++ [$2] }
      | {- empty -} { [] }
 
 ExpT : Exp ';'  { $1 }
 
-Exp : Exp '+' Exp { ExpAdd $1 $3 }
-    | Exp '-' Exp { ExpSub $1 $3 }
-    | Exp '/' Exp { ExpDiv $1 $3 }
-    | Exp '*' Exp { ExpMul $1 $3 }
-    | Exp '.' id  { ExpMemberAccess $1 $3 }
-    | Exp '(' ArgExps ')' { ExpApp $1 $3 }
-    | '(' Exp ')' { $2 }
-    | '!' Exp { ExpNot $2 }
+AtomExp : '(' Exp ')' { $2 }
+        | num { ExpNum $1 }
+        | True { ExpBool True }
+        | False { ExpBool False }
+        | id  { ExpRef $1 }
+
+MemberAccessExp : MemberAccessExp '.' id  { ExpMemberAccess $1 $3 }
+                | AtomExp { $1 }
+
+AppExp : AppExp '(' ArgExps ')' { ExpApp $1 $3 }
+       | MemberAccessExp { $1 }
+
+MulExp : MulExp '*' AppExp { ExpMul $1 $3 }
+       | AppExp { $1 }
+
+DivExp : DivExp '/' MulExp { ExpDiv $1 $3 }
+       | MulExp { $1 }
+
+AddExp : AddExp '+' DivExp { ExpAdd $1 $3 }
+       | DivExp { $1 }
+
+SubExp : SubExp '-' AddExp { ExpSub $1 $3 }
+       | AddExp { $1 }
+
+Exp : '!' SubExp { ExpNot $2 }
+    | SubExp { $1 }
     | import QualifiedId { ExpImport $2 }
     | id ':=' Exp { ExpAssign $1 $3 }
     | TypeDec { ExpTypeDec $1 }
     | FunDec { ExpFunDec $1 }
-    | module '{' Exps '}'  { ExpModule $3 }
-    | num { ExpNum $1 }
-    | True { ExpBool True }
-    | False { ExpBool False }
-    | id  { ExpRef $1 }
+    | module '{' ZeroOrMoreExps '}'  { ExpModule $3 }
 
 ArgExps : Exp { [$1] }
         | ArgExps ',' Exp { $1 ++ [$3] }
@@ -97,14 +114,14 @@ Tys : Ty { [$1] }
     | Tys Ty { $1 ++ [$2] }
     | {- empty -} { [] }
 
-FunDec : fun '(' Ty ')' id '(' TyList ')' ':' Ty ';' FunDefs { FunDecInstFun $5 (TyInstArrow $3 $7 $10) $12 }
+FunDec : fun '(' Ty ')' id '(' TyList ')' ':' Ty ';' FunDefs { FunDecInstFun $5 $3 (TyArrow $7 $10) $12 }
        | fun id '(' TyList ')' ':' Ty ';' FunDefs { FunDecFun $2 (TyArrow $4 $7) $9 }
 
 FunDefs : FunDef  { [$1] }
         | FunDefs FunDef { $1 ++ [$2] }
 
-FunDef : InstancePat id '(' PatExpList ')' ':=' '{' Exps '}' { FunDefInstFun $1 $2 $4 $8 }
-       | id '(' PatExpList ')' ':=' '{' Exps '}' { FunDefFun $1 $3 $7 }
+FunDef : InstancePat id '(' PatExpList ')' ':=' '{' OneOrMoreExps '}' { FunDefInstFun $1 $2 $4 $8 }
+       | id '(' PatExpList ')' ':=' '{' OneOrMoreExps '}' { FunDefFun $1 $3 $7 }
 
 InstancePat : '(' PatExp ')' '.'  { $2 }
 
@@ -116,11 +133,11 @@ PatExp : id { PatExpVar $1 }
 
 TyList : Ty { [$1] }
        | TyList ',' Ty { $1 ++ [$3] }
-       | {- empty -} { [] }
 
 Ty : Int { TyInt }
    | Bool { TyBool }
    | Unit { TyUnit }
+   | fun '(' ')' ':' Ty { TyArrow [] $5 }
    | fun '(' TyList ')' ':' Ty { TyArrow $3 $6 }
    | module '{' '}' { TyModule }
    | interface '{' '}' { TyInterface }

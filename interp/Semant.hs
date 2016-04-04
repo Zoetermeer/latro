@@ -101,7 +101,7 @@ evalE (ExpModule moduleEs) = do
 evalE (ExpFunDec (FunDecFun id _ [])) = do
   throwError $ printf "No definition given for function declaration '%s'" id
 
-evalE (ExpFunDec (FunDecInstFun id _ [])) = do
+evalE (ExpFunDec (FunDecInstFun id _ _ [])) = do
   throwError $ printf "No definition given for instance function declaration '%s'" id
 
 evalE (ExpFunDec (FunDecFun id ty (funDef:_))) =
@@ -120,7 +120,7 @@ evalE (ExpFunDec (FunDecFun id ty (funDef:_))) =
         lift $ addToEnv id $ ValueFun clo
         return ValueUnit
 
-evalE (ExpFunDec (FunDecInstFun id ty funDefs)) =
+evalE (ExpFunDec (FunDecInstFun id instTy funTy funDefs)) =
   return ValueUnit
 
 -- evalE (ExpFun id paramIds es) = do

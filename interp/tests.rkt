@@ -42,7 +42,9 @@
 (test-case "it evaluates arithmetic exps"
   (check-equal? (interp "4 + 3;") "7")
   (check-equal? (interp "4 + 3 * 2;") "10")
-  (check-equal? (interp "4 - 3 / 3;") "3"))
+  (check-equal? (interp "4 - 3 / 3;") "3")
+  (check-equal? (interp "3 * 2 + 4;") "10")
+  (check-equal? (interp "(4 + 3) * 2;") "14"))
 
 (test-case "it returns module values"
   (check-equal?
