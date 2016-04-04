@@ -73,7 +73,14 @@ pat_exp ::=
   | id
 
 ty ::=
-  | ty_args id array_specifier?
+  | Ty "[" "]"
+  | "Int"
+  | "Bool"
+  | "Unit"
+  | "fun" "(" TyList ")" ":" Ty
+  | "module" "{" "}"
+  | "interface" "{" "}"
+  | qualified_id
 
 ty_list ::=
   | ty

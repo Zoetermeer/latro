@@ -1,8 +1,21 @@
 {
-module Lex (Token(..), scan) where
+module Lex
+  ( Token(..)
+  , AlexPosn(..)
+  , TokenClass(..)
+  , Alex(..)
+  , unlex
+  , runAlex'
+  , alexMonadScan'
+  , alexError'
+  ) where
+
+import Prelude hiding (lex)
+import Control.Monad (liftM)
+
 }
 
-%wrapper "basic"
+%wrapper "monadUserState"
 
 $digit = 0-9
 $alpha = [a-zA-Z]
@@ -10,42 +23,56 @@ $alpha = [a-zA-Z]
 tokens :-
   $white+ ;
   "//".*  ;
-  module { \s -> TokenModule }
-  import { \s -> TokenImport }
-  type { \s -> TokenType }
-  interface { \s -> TokenInterface }
-  fun { \s -> TokenFun }
-  imp { \s -> TokenImp }
-  test { \s -> TokenTest }
-  True { \s -> TokenTrue }
-  False { \s -> TokenFalse }
-  Int { \s -> TokenInt }
-  Bool { \s -> TokenBool }
-  Unit { \s -> TokenUnit }
-  ":=" { \s -> TokenAssign }
-  [\[] { \s -> TokenLBracket }
-  [\]] { \s -> TokenRBracket }
-  [\{] { \s -> TokenLBrace }
-  [\}] { \s -> TokenRBrace }
-  [\(] { \s -> TokenLParen }
-  [\)] { \s -> TokenRParen }
-  [\|] { \s -> TokenPipe }
-  [\+] { \s -> TokenPlus }
-  [\-] { \s -> TokenMinus }
-  [\*] { \s -> TokenStar }
-  [\/] { \s -> TokenFSlash }
-  [\!] { \s -> TokenExclamation }
-  [\;] { \s -> TokenSemi }
-  [\.] { \s -> TokenDot }
-  [\=] { \s -> TokenEq }
-  [\:] { \s -> TokenColon }
-  [\,] { \s -> TokenComma }
-  $digit+ { \s -> TokenNumLit s }
-  $alpha [$alpha $digit \_ \']* { \s -> TokenId s }
+  module { lex' TokenModule }
+  import { lex' TokenImport }
+  type { lex' TokenType }
+  interface { lex' TokenInterface }
+  fun { lex' TokenFun }
+  imp { lex' TokenImp }
+  test { lex' TokenTest }
+  True { lex' TokenTrue }
+  False { lex' TokenFalse }
+  Int { lex' TokenInt }
+  Bool { lex' TokenBool }
+  Unit { lex' TokenUnit }
+  ":=" { lex' TokenAssign }
+  [\[] { lex' TokenLBracket }
+  [\]] { lex' TokenRBracket }
+  [\{] { lex' TokenLBrace }
+  [\}] { lex' TokenRBrace }
+  [\(] { lex' TokenLParen }
+  [\)] { lex' TokenRParen }
+  [\|] { lex' TokenPipe }
+  [\+] { lex' TokenPlus }
+  [\-] { lex' TokenMinus }
+  [\*] { lex' TokenStar }
+  [\/] { lex' TokenFSlash }
+  [\!] { lex' TokenExclamation }
+  [\;] { lex' TokenSemi }
+  [\.] { lex' TokenDot }
+  [\=] { lex' TokenEq }
+  [\:] { lex' TokenColon }
+  [\,] { lex' TokenComma }
+  $digit+ { lex TokenNumLit }
+  $alpha [$alpha $digit \_ \']* { lex TokenId }
 
 {
 
-data Token =
+data AlexUserState = AlexUserState { filePath :: FilePath }
+
+alexInitUserState :: AlexUserState
+alexInitUserState = AlexUserState "<unknown>"
+
+getFilePath :: Alex FilePath
+getFilePath = liftM filePath alexGetUserState
+
+setFilePath :: FilePath -> Alex ()
+setFilePath = alexSetUserState . AlexUserState
+
+data Token = Token AlexPosn TokenClass
+  deriving (Show)
+
+data TokenClass =
     TokenModule
   | TokenImport
   | TokenType
@@ -78,9 +105,76 @@ data Token =
   | TokenComma
   | TokenNumLit String
   | TokenId String
+  | TokenEOF
   deriving (Show)
 
-scan :: String -> [Token]
-scan = alexScanTokens
+alexEOF :: Alex Token
+alexEOF = do
+  (p, _, _, _) <- alexGetInput
+  return $ Token p TokenEOF
+
+unlex :: TokenClass -> String
+unlex (TokenModule) = "module"
+unlex (TokenImport) = "import"
+unlex (TokenType) = "type"
+unlex (TokenInterface) = "interface"
+unlex (TokenFun) = "fun"
+unlex (TokenImp) = "imp"
+unlex (TokenTest) = "test"
+unlex (TokenTrue) = "True"
+unlex (TokenFalse) = "False"
+unlex (TokenInt) = "Int"
+unlex (TokenBool) = "Bool"
+unlex (TokenUnit) = "Unit"
+unlex (TokenAssign) = ":="
+unlex (TokenLBracket) = "["
+unlex (TokenRBracket) = "]"
+unlex (TokenLBrace) = "{"
+unlex (TokenRBrace) = "}"
+unlex (TokenLParen) = "("
+unlex (TokenRParen) = ")"
+unlex (TokenPipe) = "|"
+unlex (TokenMinus) = "-"
+unlex (TokenPlus) = "+"
+unlex (TokenStar) = "*"
+unlex (TokenFSlash) = "/"
+unlex (TokenExclamation) = "!"
+unlex (TokenSemi) = ";"
+unlex (TokenDot) = "."
+unlex (TokenEq) = "="
+unlex (TokenColon) = ":"
+unlex (TokenComma) = ","
+unlex (TokenNumLit s) = s
+unlex (TokenId s) = s
+unlex (TokenEOF) = "<EOF>"
+
+lex :: (String -> TokenClass) -> AlexAction Token
+lex f = \(p, _, _, s) i -> return $ Token p (f (take i s))
+
+lex' :: TokenClass -> AlexAction Token
+lex' = lex . const
+
+alexMonadScan' :: Alex Token
+alexMonadScan' = do
+  inp <- alexGetInput
+  sc <- alexGetStartCode
+  case alexScan inp sc of
+    AlexEOF -> alexEOF
+    AlexError (p, _, _, s) ->
+      alexError' p ("lexical error at character '" ++ take 1 s ++ "'")
+    AlexSkip inp' len -> do
+      alexSetInput inp'
+      alexMonadScan'
+    AlexToken inp' len action -> do
+      alexSetInput inp'
+      action (ignorePendingBytes inp) len
+
+alexError' :: AlexPosn -> String -> Alex a
+alexError' (AlexPn _ l c) msg = do
+  fp <- getFilePath
+  alexError (fp ++ ":" ++ show l ++ ":" ++ show c ++ ": " ++ msg)
+
+runAlex' :: Alex a -> FilePath -> String -> Either String a
+runAlex' a fp input = runAlex input (setFilePath fp >> a)
 
 }

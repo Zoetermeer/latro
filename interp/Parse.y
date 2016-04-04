@@ -9,44 +9,45 @@ import Syntax
 }
 
 %tokentype { Token }
-%monad { Except String } { (>>=) } { return }
-%error { parseError }
+%monad { Alex }
+%lexer { lexwrap } { Token _ TokenEOF }
+%error { happyError }
 
 %token
-  module { TokenModule }
-  import { TokenImport }
-  type { TokenType }
-  interface { TokenInterface }
-  fun { TokenFun }
-  imp { TokenImp }
-  test { TokenTest }
-  True { TokenTrue }
-  False { TokenFalse }
-  Int { TokenInt }
-  Bool { TokenBool }
-  Unit { TokenUnit }
-  ':=' { TokenAssign }
-  '[' { TokenLBracket }
-  ']' { TokenRBracket }
-  '{' { TokenLBrace }
-  '}' { TokenRBrace }
-  '(' { TokenLParen }
-  ')' { TokenRParen }
-  '|' { TokenPipe }
-  '+' { TokenPlus }
-  '-' { TokenMinus }
-  '*' { TokenStar }
-  '/' { TokenFSlash }
-  '!' { TokenExclamation }
-  ';' { TokenSemi }
-  '.' { TokenDot }
-  '=' { TokenEq }
-  ':' { TokenColon }
-  ',' { TokenComma }
-  num { TokenNumLit $$ }
-  id  { TokenId $$ }
+  module { Token _ TokenModule }
+  import { Token _ TokenImport }
+  type { Token _ TokenType }
+  interface { Token _ TokenInterface }
+  fun { Token _ TokenFun }
+  imp { Token _ TokenImp }
+  test { Token _ TokenTest }
+  True { Token _ TokenTrue }
+  False { Token _ TokenFalse }
+  Int { Token _ TokenInt }
+  Bool { Token _ TokenBool }
+  Unit { Token _ TokenUnit }
+  ':=' { Token _ TokenAssign }
+  '[' { Token _ TokenLBracket }
+  ']' { Token _ TokenRBracket }
+  '{' { Token _ TokenLBrace }
+  '}' { Token _ TokenRBrace }
+  '(' { Token _ TokenLParen }
+  ')' { Token _ TokenRParen }
+  '|' { Token _ TokenPipe }
+  '+' { Token _ TokenPlus }
+  '-' { Token _ TokenMinus }
+  '*' { Token _ TokenStar }
+  '/' { Token _ TokenFSlash }
+  '!' { Token _ TokenExclamation }
+  ';' { Token _ TokenSemi }
+  '.' { Token _ TokenDot }
+  '=' { Token _ TokenEq }
+  ':' { Token _ TokenColon }
+  ',' { Token _ TokenComma }
+  num { Token _ (TokenNumLit $$) }
+  id  { Token _ (TokenId $$) }
 
-%name parseIt
+%name parse
 
 %%
 
@@ -100,7 +101,7 @@ FunDec : fun '(' Ty ')' id '(' TyList ')' ':' Ty ';' FunDefs { FunDecInstFun $5 
        | fun id '(' TyList ')' ':' Ty ';' FunDefs { FunDecFun $2 (TyArrow $4 $7) $9 }
 
 FunDefs : FunDef  { [$1] }
-        | FunDefs ';' FunDef { $1 ++ [$3] }
+        | FunDefs FunDef { $1 ++ [$2] }
 
 FunDef : InstancePat id '(' PatExpList ')' ':=' '{' Exps '}' { FunDefInstFun $1 $2 $4 $8 }
        | id '(' PatExpList ')' ':=' '{' Exps '}' { FunDefFun $1 $3 $7 }
@@ -121,7 +122,8 @@ Ty : Int { TyInt }
    | Bool { TyBool }
    | Unit { TyUnit }
    | fun '(' TyList ')' ':' Ty { TyArrow $3 $6 }
-   | fun '(' Ty ')' '(' TyList ')' ':' Ty { TyInstArrow $3 $6 $9 }
+   | module '{' '}' { TyModule }
+   | interface '{' '}' { TyInterface }
    | QualifiedId { TyRef $1 }
 
 QualifiedId : id  { Id $1 }
@@ -129,9 +131,14 @@ QualifiedId : id  { Id $1 }
 
 {
 
-parseError :: [Token] -> a
-parseError _ = error "Parse error"
+lexwrap :: (Token -> Alex a) -> Alex a
+lexwrap = (alexMonadScan' >>=)
 
-parse = parseIt . scan
+happyError :: Token -> Alex a
+happyError (Token p t) =
+  alexError' p ("parse error at token '" ++ unlex t ++ "'")
+
+parseExp :: FilePath -> String -> Either String CompUnit
+parseExp = runAlex' parse
 
 }

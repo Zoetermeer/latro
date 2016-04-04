@@ -1,7 +1,20 @@
 {-# LANGUAGE CPP #-}
 {-# LINE 1 "Lex.x" #-}
 
-module Lex (Token(..), scan) where
+module Lex
+  ( Token(..)
+  , AlexPosn(..)
+  , TokenClass(..)
+  , Alex(..)
+  , unlex
+  , runAlex'
+  , alexMonadScan'
+  , alexError'
+  ) where
+
+import Prelude hiding (lex)
+import Control.Monad (liftM)
+
 
 #if __GLASGOW_HASKELL__ >= 603
 #include "ghcconfig.h"
@@ -57,6 +70,24 @@ type Byte = Word8
 -- The input type
 
 
+type AlexInput = (AlexPosn,     -- current position,
+                  Char,         -- previous char
+                  [Byte],       -- pending bytes on current char
+                  String)       -- current input string
+
+ignorePendingBytes :: AlexInput -> AlexInput
+ignorePendingBytes (p,c,ps,s) = (p,c,[],s)
+
+alexInputPrevChar :: AlexInput -> Char
+alexInputPrevChar (p,c,bs,s) = c
+
+alexGetByte :: AlexInput -> Maybe (Byte,AlexInput)
+alexGetByte (p,c,(b:bs),s) = Just (b,(p,c,bs,s))
+alexGetByte (p,c,[],[]) = Nothing
+alexGetByte (p,_,[],(c:s))  = let p' = alexMove p c 
+                                  (b:bs) = utf8Encode c
+                              in p' `seq`  Just (b, (p', c, bs, s))
+
 
 
 
@@ -75,10 +106,114 @@ type Byte = Word8
 -- assuming the usual eight character tab stops.
 
 
+data AlexPosn = AlexPn !Int !Int !Int
+        deriving (Eq,Show)
+
+alexStartPos :: AlexPosn
+alexStartPos = AlexPn 0 1 1
+
+alexMove :: AlexPosn -> Char -> AlexPosn
+alexMove (AlexPn a l c) '\t' = AlexPn (a+1)  l     (((c+7) `div` 8)*8+1)
+alexMove (AlexPn a l c) '\n' = AlexPn (a+1) (l+1)   1
+alexMove (AlexPn a l c) _    = AlexPn (a+1)  l     (c+1)
+
 
 -- -----------------------------------------------------------------------------
 -- Default monad
 
+
+data AlexState = AlexState {
+        alex_pos :: !AlexPosn,  -- position at current input location
+        alex_inp :: String,     -- the current input
+        alex_chr :: !Char,      -- the character before the input
+        alex_bytes :: [Byte],
+        alex_scd :: !Int        -- the current startcode
+
+      , alex_ust :: AlexUserState -- AlexUserState will be defined in the user program
+
+    }
+
+-- Compile with -funbox-strict-fields for best results!
+
+runAlex :: String -> Alex a -> Either String a
+runAlex input (Alex f) 
+   = case f (AlexState {alex_pos = alexStartPos,
+                        alex_inp = input,       
+                        alex_chr = '\n',
+                        alex_bytes = [],
+
+                        alex_ust = alexInitUserState,
+
+                        alex_scd = 0}) of Left msg -> Left msg
+                                          Right ( _, a ) -> Right a
+
+newtype Alex a = Alex { unAlex :: AlexState -> Either String (AlexState, a) }
+
+instance Monad Alex where
+  m >>= k  = Alex $ \s -> case unAlex m s of 
+                                Left msg -> Left msg
+                                Right (s',a) -> unAlex (k a) s'
+  return a = Alex $ \s -> Right (s,a)
+
+alexGetInput :: Alex AlexInput
+alexGetInput
+ = Alex $ \s@AlexState{alex_pos=pos,alex_chr=c,alex_bytes=bs,alex_inp=inp} -> 
+        Right (s, (pos,c,bs,inp))
+
+alexSetInput :: AlexInput -> Alex ()
+alexSetInput (pos,c,bs,inp)
+ = Alex $ \s -> case s{alex_pos=pos,alex_chr=c,alex_bytes=bs,alex_inp=inp} of
+                  s@(AlexState{}) -> Right (s, ())
+
+alexError :: String -> Alex a
+alexError message = Alex $ \s -> Left message
+
+alexGetStartCode :: Alex Int
+alexGetStartCode = Alex $ \s@AlexState{alex_scd=sc} -> Right (s, sc)
+
+alexSetStartCode :: Int -> Alex ()
+alexSetStartCode sc = Alex $ \s -> Right (s{alex_scd=sc}, ())
+
+
+alexGetUserState :: Alex AlexUserState
+alexGetUserState = Alex $ \s@AlexState{alex_ust=ust} -> Right (s,ust)
+
+alexSetUserState :: AlexUserState -> Alex ()
+alexSetUserState ss = Alex $ \s -> Right (s{alex_ust=ss}, ())
+
+
+alexMonadScan = do
+  inp <- alexGetInput
+  sc <- alexGetStartCode
+  case alexScan inp sc of
+    AlexEOF -> alexEOF
+    AlexError ((AlexPn _ line column),_,_,_) -> alexError $ "lexical error at line " ++ (show line) ++ ", column " ++ (show column)
+    AlexSkip  inp' len -> do
+        alexSetInput inp'
+        alexMonadScan
+    AlexToken inp' len action -> do
+        alexSetInput inp'
+        action (ignorePendingBytes inp) len
+
+-- -----------------------------------------------------------------------------
+-- Useful token actions
+
+type AlexAction result = AlexInput -> Int -> Alex result
+
+-- just ignore this token and scan another one
+-- skip :: AlexAction result
+skip input len = alexMonadScan
+
+-- ignore this token, but set the start code to a new value
+-- begin :: Int -> AlexAction result
+begin code input len = do alexSetStartCode code; alexMonadScan
+
+-- perform an action for this token, and set the start code to a new value
+andBegin :: AlexAction result -> Int -> AlexAction result
+(action `andBegin` code) input len = do alexSetStartCode code; action input len
+
+token :: (AlexInput -> Int -> token) -> AlexAction token
+token t input len = return (t input len)
 
 
 
@@ -91,27 +226,6 @@ type Byte = Word8
 -- -----------------------------------------------------------------------------
 -- Basic wrapper
 
-
-type AlexInput = (Char,[Byte],String)
-
-alexInputPrevChar :: AlexInput -> Char
-alexInputPrevChar (c,_,_) = c
-
--- alexScanTokens :: String -> [token]
-alexScanTokens str = go ('\n',[],str)
-  where go inp@(_,_bs,s) =
-          case alexScan inp 0 of
-                AlexEOF -> []
-                AlexError _ -> error "lexical error"
-                AlexSkip  inp' len     -> go inp'
-                AlexToken inp' len act -> act (take len s) : go inp'
-
-alexGetByte :: AlexInput -> Maybe (Byte,AlexInput)
-alexGetByte (c,(b:bs),s) = Just (b,(c,bs,s))
-alexGetByte (c,[],[])    = Nothing
-alexGetByte (_,[],(c:s)) = case utf8Encode c of
-                             (b:bs) -> Just (b, (c, bs, s))
-                             [] -> Nothing
 
 
 
@@ -156,10 +270,24 @@ alex_deflt :: Array Int Int
 alex_deflt = listArray (0,81) [-1,9,9,2,2,-1,-1,11,11,11,-1,11,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1]
 
 alex_accept = listArray (0::Int,81) [AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccSkip,AlexAccSkip,AlexAcc (alex_action_2),AlexAcc (alex_action_3),AlexAcc (alex_action_4),AlexAcc (alex_action_5),AlexAcc (alex_action_6),AlexAcc (alex_action_7),AlexAcc (alex_action_8),AlexAcc (alex_action_9),AlexAcc (alex_action_10),AlexAcc (alex_action_11),AlexAcc (alex_action_12),AlexAcc (alex_action_13),AlexAcc (alex_action_14),AlexAcc (alex_action_15),AlexAcc (alex_action_16),AlexAcc (alex_action_17),AlexAcc (alex_action_18),AlexAcc (alex_action_19),AlexAcc (alex_action_20),AlexAcc (alex_action_21),AlexAcc (alex_action_22),AlexAcc (alex_action_23),AlexAcc (alex_action_24),AlexAcc (alex_action_25),AlexAcc (alex_action_26),AlexAcc (alex_action_27),AlexAcc (alex_action_28),AlexAcc (alex_action_29),AlexAcc (alex_action_30),AlexAcc (alex_action_31),AlexAcc (alex_action_32),AlexAcc (alex_action_33),AlexAcc (alex_action_33),AlexAcc (alex_action_33),AlexAcc (alex_action_33),AlexAcc (alex_action_33),AlexAcc (alex_action_33),AlexAcc (alex_action_33),AlexAcc (alex_action_33),AlexAcc (alex_action_33),AlexAcc (alex_action_33),AlexAcc (alex_action_33),AlexAcc (alex_action_33),AlexAcc (alex_action_33),AlexAcc (alex_action_33),AlexAcc (alex_action_33),AlexAcc (alex_action_33),AlexAcc (alex_action_33),AlexAcc (alex_action_33),AlexAcc (alex_action_33),AlexAcc (alex_action_33),AlexAcc (alex_action_33),AlexAcc (alex_action_33),AlexAcc (alex_action_33),AlexAcc (alex_action_33),AlexAcc (alex_action_33),AlexAcc (alex_action_33),AlexAcc (alex_action_33),AlexAcc (alex_action_33),AlexAcc (alex_action_33),AlexAcc (alex_action_33),AlexAcc (alex_action_33),AlexAcc (alex_action_33),AlexAcc (alex_action_33),AlexAcc (alex_action_33),AlexAcc (alex_action_33),AlexAcc (alex_action_33),AlexAcc (alex_action_33),AlexAcc (alex_action_33),AlexAcc (alex_action_33)]
-{-# LINE 46 "Lex.x" #-}
+{-# LINE 59 "Lex.x" #-}
 
 
-data Token =
+data AlexUserState = AlexUserState { filePath :: FilePath }
+
+alexInitUserState :: AlexUserState
+alexInitUserState = AlexUserState "<unknown>"
+
+getFilePath :: Alex FilePath
+getFilePath = liftM filePath alexGetUserState
+
+setFilePath :: FilePath -> Alex ()
+setFilePath = alexSetUserState . AlexUserState
+
+data Token = Token AlexPosn TokenClass
+  deriving (Show)
+
+data TokenClass =
     TokenModule
   | TokenImport
   | TokenType
@@ -192,44 +320,111 @@ data Token =
   | TokenComma
   | TokenNumLit String
   | TokenId String
+  | TokenEOF
   deriving (Show)
 
-scan :: String -> [Token]
-scan = alexScanTokens
+alexEOF :: Alex Token
+alexEOF = do
+  (p, _, _, _) <- alexGetInput
+  return $ Token p TokenEOF
+
+unlex :: TokenClass -> String
+unlex (TokenModule) = "module"
+unlex (TokenImport) = "import"
+unlex (TokenType) = "type"
+unlex (TokenInterface) = "interface"
+unlex (TokenFun) = "fun"
+unlex (TokenImp) = "imp"
+unlex (TokenTest) = "test"
+unlex (TokenTrue) = "True"
+unlex (TokenFalse) = "False"
+unlex (TokenInt) = "Int"
+unlex (TokenBool) = "Bool"
+unlex (TokenUnit) = "Unit"
+unlex (TokenAssign) = ":="
+unlex (TokenLBracket) = "["
+unlex (TokenRBracket) = "]"
+unlex (TokenLBrace) = "{"
+unlex (TokenRBrace) = "}"
+unlex (TokenLParen) = "("
+unlex (TokenRParen) = ")"
+unlex (TokenPipe) = "|"
+unlex (TokenMinus) = "-"
+unlex (TokenPlus) = "+"
+unlex (TokenStar) = "*"
+unlex (TokenFSlash) = "/"
+unlex (TokenExclamation) = "!"
+unlex (TokenSemi) = ";"
+unlex (TokenDot) = "."
+unlex (TokenEq) = "="
+unlex (TokenColon) = ":"
+unlex (TokenComma) = ","
+unlex (TokenNumLit s) = s
+unlex (TokenId s) = s
+unlex (TokenEOF) = "<EOF>"
+
+lex :: (String -> TokenClass) -> AlexAction Token
+lex f = \(p, _, _, s) i -> return $ Token p (f (take i s))
+
+lex' :: TokenClass -> AlexAction Token
+lex' = lex . const
+
+alexMonadScan' :: Alex Token
+alexMonadScan' = do
+  inp <- alexGetInput
+  sc <- alexGetStartCode
+  case alexScan inp sc of
+    AlexEOF -> alexEOF
+    AlexError (p, _, _, s) ->
+      alexError' p ("lexical error at character '" ++ take 1 s ++ "'")
+    AlexSkip inp' len -> do
+      alexSetInput inp'
+      alexMonadScan'
+    AlexToken inp' len action -> do
+      alexSetInput inp'
+      action (ignorePendingBytes inp) len
+
+alexError' :: AlexPosn -> String -> Alex a
+alexError' (AlexPn _ l c) msg = do
+  fp <- getFilePath
+  alexError (fp ++ ":" ++ show l ++ ":" ++ show c ++ ": " ++ msg)
+
+runAlex' :: Alex a -> FilePath -> String -> Either String a
+runAlex' a fp input = runAlex input (setFilePath fp >> a)
 
 
-alex_action_2 =  \s -> TokenModule 
-alex_action_3 =  \s -> TokenImport 
-alex_action_4 =  \s -> TokenType 
-alex_action_5 =  \s -> TokenInterface 
-alex_action_6 =  \s -> TokenFun 
-alex_action_7 =  \s -> TokenImp 
-alex_action_8 =  \s -> TokenTest 
-alex_action_9 =  \s -> TokenTrue 
-alex_action_10 =  \s -> TokenFalse 
-alex_action_11 =  \s -> TokenInt 
-alex_action_12 =  \s -> TokenBool 
-alex_action_13 =  \s -> TokenUnit 
-alex_action_14 =  \s -> TokenAssign 
-alex_action_15 =  \s -> TokenLBracket 
-alex_action_16 =  \s -> TokenRBracket 
-alex_action_17 =  \s -> TokenLBrace 
-alex_action_18 =  \s -> TokenRBrace 
-alex_action_19 =  \s -> TokenLParen 
-alex_action_20 =  \s -> TokenRParen 
-alex_action_21 =  \s -> TokenPipe 
-alex_action_22 =  \s -> TokenPlus 
-alex_action_23 =  \s -> TokenMinus 
-alex_action_24 =  \s -> TokenStar 
-alex_action_25 =  \s -> TokenFSlash 
-alex_action_26 =  \s -> TokenExclamation 
-alex_action_27 =  \s -> TokenSemi 
-alex_action_28 =  \s -> TokenDot 
-alex_action_29 =  \s -> TokenEq 
-alex_action_30 =  \s -> TokenColon 
-alex_action_31 =  \s -> TokenComma 
-alex_action_32 =  \s -> TokenNumLit s 
-alex_action_33 =  \s -> TokenId s 
+alex_action_2 =  lex' TokenModule 
+alex_action_3 =  lex' TokenImport 
+alex_action_4 =  lex' TokenType 
+alex_action_5 =  lex' TokenInterface 
+alex_action_6 =  lex' TokenFun 
+alex_action_7 =  lex' TokenImp 
+alex_action_8 =  lex' TokenTest 
+alex_action_9 =  lex' TokenTrue 
+alex_action_10 =  lex' TokenFalse 
+alex_action_11 =  lex' TokenInt 
+alex_action_12 =  lex' TokenBool 
+alex_action_13 =  lex' TokenUnit 
+alex_action_14 =  lex' TokenAssign 
+alex_action_15 =  lex' TokenLBracket 
+alex_action_16 =  lex' TokenRBracket 
+alex_action_17 =  lex' TokenLBrace 
+alex_action_18 =  lex' TokenRBrace 
+alex_action_19 =  lex' TokenLParen 
+alex_action_20 =  lex' TokenRParen 
+alex_action_21 =  lex' TokenPipe 
+alex_action_22 =  lex' TokenPlus 
+alex_action_23 =  lex' TokenMinus 
+alex_action_24 =  lex' TokenStar 
+alex_action_25 =  lex' TokenFSlash 
+alex_action_26 =  lex' TokenExclamation 
+alex_action_27 =  lex' TokenSemi 
+alex_action_28 =  lex' TokenDot 
+alex_action_29 =  lex' TokenEq 
+alex_action_30 =  lex' TokenColon 
+alex_action_31 =  lex' TokenComma 
+alex_action_32 =  lex TokenNumLit 
+alex_action_33 =  lex TokenId 
 {-# LINE 1 "templates/GenericTemplate.hs" #-}
 -- -----------------------------------------------------------------------------
 -- ALEX TEMPLATE

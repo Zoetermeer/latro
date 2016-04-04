@@ -1,9 +1,9 @@
 namespace AccountsProgram {
   Database := module {
-    type Connection = struct { }
-    type Row = struct { }
+    type Connection = struct { };
+    type Row = struct { };
 
-    fun (Connection) Query(String) : Row[]
+    fun (Connection).Query(String) : Row[];
     (connection).Query(query) := {
 
     }

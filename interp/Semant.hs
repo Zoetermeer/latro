@@ -98,6 +98,40 @@ evalE (ExpModule moduleEs) = do
   lift $ popEnv env
   return $ ValueModule $ Module moduleEnv
 
+evalE (ExpFunDec (FunDecFun id _ [])) = do
+  throwError $ printf "No definition given for function declaration '%s'" id
+
+evalE (ExpFunDec (FunDecInstFun id _ [])) = do
+  throwError $ printf "No definition given for instance function declaration '%s'" id
+
+evalE (ExpFunDec (FunDecFun id ty (funDef:_))) =
+  case funDef of
+    FunDefInstFun _ _ _ _ -> do
+      throwError $ printf "Function '%s' is not an instance function" id
+    FunDefFun fid argPatExps bodyExps ->
+      if id /= fid then
+        do { throwError $ printf "Invalid definition for function '%s' in definition context for '%s'" fid id }
+      else do
+        env <- lift get
+        lift $ pushEnv
+        env' <- lift get
+        let clo = Closure env' [] bodyExps
+        lift $ popEnv env
+        lift $ addToEnv id $ ValueFun clo
+        return ValueUnit
+
+evalE (ExpFunDec (FunDecInstFun id ty funDefs)) =
+  return ValueUnit
+
+-- evalE (ExpFun id paramIds es) = do
+--   env <- lift get
+--   lift $ pushEnv
+--   env' <- lift get
+--   let clo = Closure env' paramIds  es
+--   lift $ popEnv env
+--   lift $ addToEnv id $ ValueFun clo
+--   return ValueUnit
+
 evalE (ExpAssign id e) = do
   v <- evalE e
   lift $ addToEnv id v
@@ -106,15 +140,6 @@ evalE (ExpAssign id e) = do
 evalE (ExpRef rawId) = do
   v <- lookupEnv (Id rawId)
   return v
-
-evalE (ExpFun id paramIds es) = do
-  env <- lift get
-  lift $ pushEnv
-  env' <- lift get
-  let clo = Closure env' paramIds  es
-  lift $ popEnv env
-  lift $ addToEnv id $ ValueFun clo
-  return ValueUnit
 
 evalE (ExpApp e argEs) = do
   (ValueFun (Closure fenv paramIds bodyEs)) <- evalE e
@@ -156,11 +181,6 @@ eval :: CompUnit -> Eval Value
 eval (CompUnit es) = evalEs es
 
 
-interp :: String -> Either FailMessage Value
-interp prog =
-  let eAst = runIdentity $ runExceptT $ parse prog
-  in
-    case eAst of
-      Left msg -> Left msg
-      Right ast ->
-        evalState (runExceptT $ eval ast) mtEnv
+interp :: CompUnit -> Either FailMessage Value
+interp compUnit =
+  evalState (runExceptT $ eval compUnit) mtEnv

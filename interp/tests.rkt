@@ -9,10 +9,15 @@
 (compile)
 
 (define (call-interpreter opts program)
+  (call-with-output-file
+    "./test.spar"
+    (λ (out)
+      (fprintf out "~a" program))
+    #:mode 'text
+    #:exists 'truncate/replace)
   (with-output-to-string
     (λ ()
-      (system
-        (format "./interp ~a \"~a\"" (string-join opts) program)))))
+      (system "./interp ./test.spar"))))
 
 (define (interp . s)
   (call-interpreter '() (apply string-append s)))
@@ -28,43 +33,6 @@
       (strip-quotation-marks
         (call-interpreter '("-p") (apply string-append s))))))
 
-;Parse tree tests
-(test-case "it parses literals"
-  (check-equal?
-    @parse-tree{42;}
-    '(CompUnit ((ExpNum 42)))))
-
-(test-case "it parses arithmetic expressions"
-  (check-equal?
-    @parse-tree{1 + 2;}
-    '(CompUnit ((ExpAdd ((ExpNum 1) (ExpNum 2)))))))
-
-(test-case "it parses argument-less function decs"
-  (check-equal?
-    @parse-tree{
-      fun f() : Int;
-      f() := { 42; };
-    }
-    '(CompUnit
-       ((ExpFunDec
-          (FunDecFun
-            f
-            TyInt
-            ((FunDefFun f () ((ExpNum 42))))))))))
-
-(test-case "it parses function decs"
-  (check-equal?
-    @parse-tree{
-      fun Foo(Int) : Bool;
-      Foo(x) := { True; };
-    }
-    '(CompUnit
-       ((ExpFunDec
-          (FunDec
-            (ArrowTy)))))))
-
-
-(exit)
 ;Interpreter tests
 (test-case "it evaluates literals"
   (check-equal? @interp{True;} "True")
@@ -115,7 +83,8 @@
 (test-case "it substitutes function args"
   (check-equal?
     @interp{
-      fun f(x) := { x; };
+      fun f(Int) : Int;
+      f(x) := { x; };
       f(42);
     }
     "42"))
@@ -124,7 +93,8 @@
   (check-equal?
     @interp{
       m := module { };
-      fun f(m) := { m; };
+      fun f(Int) : Int;
+      f(m) := { m; };
       f(42);
     }
     "42"))
@@ -133,7 +103,8 @@
   (check-equal?
     @interp{
       m := module { };
-      fun f() := { m; };
+      fun f() : module { };
+      f() := { m; };
       f();
     }
     "Module (Env [])"))
@@ -141,7 +112,8 @@
 (test-case "it preserves lexical scope for local module defs"
   (check-equal?
     @interp{
-      fun f() := {
+      fun f() : module { };
+      f() := {
         m := module {};
       };
       m;
@@ -151,9 +123,13 @@
 (test-case "it can apply functions on returned local modules"
   (check-equal?
     @interp{
-      fun f() := {
+      fun f() : module {
+        g() : Int;
+      };
+      f() := {
         module {
-          fun g() := { 42; };
+          fun g() : Int;
+          g() := { 42; };
         };
       };
       f().g();
@@ -165,10 +141,12 @@
     @interp{
       m := module {
         m' := module {
-          fun g() := { 43; };
+          fun g() : Int;
+          g() := { 43; };
         };
 
-        fun f() := { 42; };
+        fun f() : Int;
+        f() := { 42; };
       };
 
       m.m'.g();
@@ -180,10 +158,12 @@
     @interp{
       m := module {
         m1 := module {
-          fun g(x, y) := { y + x; };
+          fun g(Int, Int) : Int;
+          g(x, y) := { y + x; };
         };
 
-        fun f() := { 42; };
+        fun f() : Int;
+        f() := { 42; };
       };
 
       m.m1.g(m.f(), 1);
@@ -193,11 +173,13 @@
 (test-case "it evaluates higher-order functions"
   (check-equal?
     @interp{
-      fun f(g, x) := {
+      fun f(fun(Int) : Int, Int) : Int;
+      f(g, x) := {
         g(10) + x;
       };
 
-      fun h(x) := {
+      fun h(Int) : Int;
+      h(x) := {
         x + 1;
       };
 
@@ -210,7 +192,8 @@
     @interp{
       m := module {
         m1 := module {
-          fun g(x, y) := {
+          fun g(Int, Int) : Int;
+          g(x, y) := {
             y + x;
           };
         };

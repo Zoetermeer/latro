@@ -33,7 +33,6 @@ data Exp =
   | ExpTypeDec TypeDec
   | ExpFunDec FunDec
   | ExpModule [Exp]
-  | ExpFun RawId [RawId] [Exp]
   | ExpNum String
   | ExpBool Bool
   | ExpRef RawId
@@ -53,7 +52,8 @@ data Ty =
   | TyBool
   | TyUnit
   | TyArrow [Ty] Ty
-  | TyInstArrow Ty [Ty] Ty
+  | TyModule
+  | TyInterface
   | TyRef QualifiedId
   deriving (Eq, Generic, Show)
 
