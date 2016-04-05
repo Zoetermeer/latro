@@ -1,21 +1,22 @@
 module Semant where
 
+import AlphaConvert
+import Common
 import Control.Monad.Except
 import Control.Monad.State
 import Data.Functor.Identity (runIdentity)
 import Data.List
-import Data.Monoid
+import Data.Monoid ((<>), mempty)
 import Parse
 import Syntax
 import Text.Printf (printf)
 
-data Module = Module Env
+type VEnv = Env (QualifiedId UniqId) Value
+
+data Module = Module VEnv
   deriving (Eq, Show)
 
-data Closure = Closure Env [RawId] [Exp]
-  deriving (Eq, Show)
-
-data Env = Env [(QualifiedId, Value)]
+data Closure = Closure VEnv [UniqId] [Exp UniqId]
   deriving (Eq, Show)
 
 data Value =
@@ -36,21 +37,16 @@ instance Show Value where
   show (Err msg) = "Error: " ++ msg
 
 
-instance Monoid Env where
-  mempty = Env []
-  mappend (Env a) (Env b) = Env (a <> b)
-
-
-mtEnv :: Env
+mtEnv :: VEnv
 mtEnv = Env []
 
-addToEnv :: RawId -> Value -> State Env ()
+addToEnv :: UniqId -> Value -> State VEnv ()
 addToEnv id v = do
   (Env table) <- get
   put $ Env $ ((Id id, v):table)
 
 
-lookupEnv :: QualifiedId -> Eval Value
+lookupEnv :: QualifiedId UniqId -> Eval Value
 lookupEnv qid = do
   (Env table) <- get
   let ov = find (\(key, val) -> key == qid) table
@@ -58,37 +54,36 @@ lookupEnv qid = do
     Just (k, v) -> return v
     _ -> throwError $ printf "Unbound identifier '%s'" $ show qid
 
-pushEnv :: State Env Env
+pushEnv :: State VEnv VEnv
 pushEnv = do
   env <- get
   put (env <> mempty)
   env' <- get
   return env'
 
-popEnv :: Env -> State Env ()
+popEnv :: VEnv -> State VEnv ()
 popEnv env = do
   put env
 
-type FailMessage = String
-type Eval a = ExceptT FailMessage (State Env) a
+type Eval a = ExceptT FailMessage (State VEnv) a
 
 
 -- This is a placeholder; to be replaced
 -- by real pattern matching
-patExpBindingId :: PatExp -> RawId
-patExpBindingId (PatExpVar rawId) = rawId
+patExpBindingId :: PatExp UniqId -> UniqId
+patExpBindingId (PatExpVar id) = id
 
 
 type BinOp = Int -> Int -> Int
 
-evalBinArith :: BinOp -> Exp -> Exp -> Eval Value
+evalBinArith :: BinOp -> Exp UniqId -> Exp UniqId -> Eval Value
 evalBinArith f a b = do
   (ValueInt a') <- evalE a
   (ValueInt b') <- evalE b
   return $ ValueInt $ f a' b'
 
 
-evalE :: Exp -> Eval Value
+evalE :: Exp UniqId -> Eval Value
 evalE (ExpNum str) = return $ ValueInt $ read str
 evalE (ExpBool b) = return $ ValueBool b
 evalE (ExpAdd a b) = evalBinArith (+) a b
@@ -105,18 +100,18 @@ evalE (ExpModule moduleEs) = do
   return $ ValueModule $ Module moduleEnv
 
 evalE (ExpFunDec (FunDecFun id _ [])) = do
-  throwError $ printf "No definition given for function declaration '%s'" id
+  throwError $ printf "No definition given for function declaration '%s'" $ show id
 
 evalE (ExpFunDec (FunDecInstFun id _ _ [])) = do
-  throwError $ printf "No definition given for instance function declaration '%s'" id
+  throwError $ printf "No definition given for instance function declaration '%s'" $ show id
 
 evalE (ExpFunDec (FunDecFun id ty (funDef:_))) =
   case funDef of
     FunDefInstFun _ _ _ _ -> do
-      throwError $ printf "Function '%s' is not an instance function" id
+      throwError $ printf "Function '%s' is not an instance function" $ show id
     FunDefFun fid argPatExps bodyExps ->
       if id /= fid then
-        do { throwError $ printf "Invalid definition for function '%s' in definition context for '%s'" fid id }
+        do { throwError $ printf "Invalid definition for function '%s' in definition context for '%s'" (show fid) (show id) }
       else do
         env <- lift get
         let paramIds = map patExpBindingId argPatExps
@@ -161,7 +156,7 @@ evalE (ExpMemberAccess e id) = do
   lookupValueInLocalEnv v id
 
 
-lookupValueInLocalEnv :: Value -> RawId -> Eval Value
+lookupValueInLocalEnv :: Value -> UniqId -> Eval Value
 lookupValueInLocalEnv (ValueModule (Module mEnv)) id = do
   env <- get
   put mEnv
@@ -170,10 +165,10 @@ lookupValueInLocalEnv (ValueModule (Module mEnv)) id = do
   return v
 
 lookupValueInLocalEnv _ id = do
-  throwError $ printf "Invalid member access for '%s' on non-module value" id
+  throwError $ printf "Invalid member access for '%s' on non-module value" $ show id
 
 
-evalEs :: [Exp] -> Eval Value
+evalEs :: [Exp UniqId] -> Eval Value
 evalEs [] = return ValueUnit
 evalEs (e:[]) = evalE e
 evalEs es = do
@@ -181,10 +176,11 @@ evalEs es = do
   return $ last vs
 
 
-eval :: CompUnit -> Eval Value
+eval :: CompUnit UniqId -> Eval Value
 eval (CompUnit es) = evalEs es
 
 
-interp :: CompUnit -> Either FailMessage Value
-interp compUnit =
-  evalState (runExceptT $ eval compUnit) mtEnv
+interp :: CompUnit RawId -> Either FailMessage Value
+interp compUnit = do
+  alphaConverted <- alphaConvert compUnit
+  evalState (runExceptT $ eval alphaConverted) mtEnv

@@ -1,81 +1,68 @@
-{-# LANGUAGE DeriveGeneric #-}
 module Syntax where
 
-import GHC.Generics
-import Language.Sexp
 import Text.Printf (printf)
 
 type RawId = String
 
-data QualifiedId =
-    Id RawId
-  | Path QualifiedId RawId
-  deriving (Eq, Generic)
+data QualifiedId id =
+    Id id
+  | Path (QualifiedId id) id
+  deriving (Eq)
 
-instance (Show QualifiedId) where
-  show (Id raw) = raw
+instance Show id => Show (QualifiedId id) where
+  show (Id raw) = show raw
   show (Path qid raw) =
-    printf "%s.%s" (show qid) raw
+    printf "%s.%s" (show qid) $ show raw
 
-data CompUnit = CompUnit [Exp]
-  deriving (Eq, Generic, Show)
+data CompUnit id = CompUnit [Exp id]
+  deriving (Eq, Show)
 
-data Exp =
-    ExpAdd Exp Exp
-  | ExpSub Exp Exp
-  | ExpDiv Exp Exp
-  | ExpMul Exp Exp
-  | ExpNot Exp
-  | ExpMemberAccess Exp RawId
-  | ExpApp Exp [Exp]
-  | ExpImport QualifiedId
-  | ExpAssign RawId Exp
-  | ExpTypeDec TypeDec
-  | ExpFunDec FunDec
-  | ExpModule [Exp]
+data Exp id =
+    ExpAdd (Exp id) (Exp id)
+  | ExpSub (Exp id) (Exp id)
+  | ExpDiv (Exp id) (Exp id)
+  | ExpMul (Exp id) (Exp id)
+  | ExpNot (Exp id)
+  | ExpMemberAccess (Exp id) id
+  | ExpApp (Exp id) [Exp id]
+  | ExpImport (QualifiedId id)
+  | ExpAssign id (Exp id)
+  | ExpTypeDec (TypeDec id)
+  | ExpFunDec (FunDec id)
+  | ExpModule [Exp id]
   | ExpNum String
   | ExpBool Bool
-  | ExpRef RawId
-  deriving (Eq, Generic, Show)
+  | ExpRef id
+  deriving (Eq, Show)
 
-data TypeDec =
-    TypeDecTy RawId Ty
-  | TypeDecAdt RawId [AdtAlternative]
-  deriving (Eq, Generic, Show)
+data TypeDec id =
+    TypeDecTy id (Ty id)
+  | TypeDecAdt id [AdtAlternative id]
+  deriving (Eq, Show)
 
-data AdtAlternative =
-    AdtAlternative RawId [Ty]
-  deriving (Eq, Generic, Show)
+data AdtAlternative id =
+    AdtAlternative id [Ty id]
+  deriving (Eq, Show)
 
-data Ty =
+data Ty id =
     TyInt
   | TyBool
   | TyUnit
-  | TyArrow [Ty] Ty
+  | TyArrow [Ty id] (Ty id)
   | TyModule
   | TyInterface
-  | TyRef QualifiedId
-  deriving (Eq, Generic, Show)
+  | TyRef (QualifiedId id)
+  deriving (Eq, Show)
 
-data FunDec =
-    FunDecFun RawId Ty [FunDef]
-  | FunDecInstFun RawId Ty Ty [FunDef]
-  deriving (Eq, Generic, Show)
+data FunDec id =
+    FunDecFun id (Ty id) [FunDef id]
+  | FunDecInstFun id (Ty id) (Ty id) [FunDef id]
+  deriving (Eq, Show)
 
-data FunDef =
-    FunDefFun RawId [PatExp] [Exp]
-  | FunDefInstFun PatExp RawId [PatExp] [Exp]
-  deriving (Eq, Generic, Show)
+data FunDef id =
+    FunDefFun id [PatExp id] [Exp id]
+  | FunDefInstFun (PatExp id) id [PatExp id] [Exp id]
+  deriving (Eq, Show)
 
-data PatExp = PatExpVar RawId
-  deriving (Eq, Generic, Show)
-
-instance Sexpable QualifiedId
-instance Sexpable CompUnit
-instance Sexpable Exp
-instance Sexpable TypeDec
-instance Sexpable AdtAlternative
-instance Sexpable Ty
-instance Sexpable FunDec
-instance Sexpable FunDef
-instance Sexpable PatExp
+data PatExp id = PatExpVar id
+  deriving (Eq, Show)

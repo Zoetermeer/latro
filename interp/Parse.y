@@ -156,7 +156,7 @@ happyError :: Token -> Alex a
 happyError (Token p t) =
   alexError' p ("parse error at token '" ++ unlex t ++ "'")
 
-parseExp :: FilePath -> String -> Either String CompUnit
+parseExp :: FilePath -> String -> Either String (CompUnit RawId)
 parseExp = runAlex' parse
 
 }
