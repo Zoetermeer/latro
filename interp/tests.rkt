@@ -295,3 +295,26 @@
       f(4);
     }
     "10"))
+
+(test-case "it resolves closed-over variables"
+  (check-equal?
+    @interp{
+      m := module {
+        n := module {
+          v := 42;
+        };
+
+        fun f() : Int;
+        f() := { n.v; };
+      };
+
+      m.f();
+    }
+    "42"))
+
+(test-case "it evaluates accesses on inline modules"
+  (check-equal?
+    @interp{
+      module { v := 6; }.v;
+    }
+    "6"))

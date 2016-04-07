@@ -65,6 +65,7 @@ ZeroOrMoreExps : ExpT { [$1] }
 ExpT : Exp ';'  { $1 }
 
 AtomExp : '(' Exp ')' { $2 }
+        | module '{' ZeroOrMoreExps '}'  { ExpModule $3 }
         | num { ExpNum $1 }
         | True { ExpBool True }
         | False { ExpBool False }
@@ -94,7 +95,6 @@ Exp : '!' SubExp { ExpNot $2 }
     | id ':=' Exp { ExpAssign $1 $3 }
     | TypeDec { ExpTypeDec $1 }
     | FunDec { ExpFunDec $1 }
-    | module '{' ZeroOrMoreExps '}'  { ExpModule $3 }
     | if '(' Exp ')' '{' ZeroOrMoreExps '}' else '{' ZeroOrMoreExps '}' { ExpIfElse $3 $6 $10 }
 
 ArgExps : Exp { [$1] }
