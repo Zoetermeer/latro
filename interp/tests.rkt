@@ -78,6 +78,34 @@
     }
     "42"))
 
+(test-case "it takes the else branch on false"
+  (check-equal?
+    @interp{
+      if (False) {
+        42;
+      } else {
+        43;
+      };
+    }
+    "43"))
+
+(test-case "it evaluates non-literals in the test position"
+  (check-equal?
+    @interp{
+      fun f(Int) : Int;
+      f(x) := {
+        if (x) { True; } else { False; };
+      };
+
+      if (f(1)) {
+        42;
+      } else {
+        43;
+      };
+    }
+    "42"))
+
+
 (test-case "it evaluates nested if-else expressions"
   (check-equal?
     @interp{
