@@ -21,7 +21,7 @@ type VEnv = Env UniqId Value
 data Module = Module VEnv VEnv
   deriving (Eq, Show)
 
-data Closure = Closure VEnv [UniqId] [Exp UniqId]
+data Closure = Closure UniqId VEnv [UniqId] [Exp UniqId]
   deriving (Eq, Show)
 
 data Value =
@@ -45,7 +45,11 @@ instance Show Value where
 -- with a state: (variable environment, current module)
 -- The variable environment maps ID --o--> Value
 -- The "current module" is the module currently being evaluated,
--- at the top level it's an invented one called "global"
+-- at the top level it's an invented anonymous one.
+-- The top-level anonymous module gives the nice property
+-- that bindings at the top (not in any explicitly defined
+-- module) are closed over in submodules, but will
+-- not be accessible from other compilation units.
 -- Each new binding occurrence adds the id to the current
 -- module's list of exports
 type EvalState = (VEnv, Module)
@@ -169,7 +173,7 @@ evalE (ExpFunDec (FunDecFun id ty (funDef:_))) =
       else do
         (vEnv, _) <- get
         let paramIds = map patExpBindingId argPatExps
-            clo = Closure vEnv paramIds bodyExps
+            clo = Closure fid vEnv paramIds bodyExps
             vClo = ValueFun clo
         addVarBinding id vClo
         addModuleExport id vClo
@@ -189,10 +193,11 @@ evalE (ExpRef rawId) = do
   return v
 
 evalE (ExpApp e argEs) = do
-  (ValueFun (Closure fenv paramIds bodyEs)) <- evalE e
+  fv@(ValueFun (Closure fid fenv paramIds bodyEs)) <- evalE e
   argVs <- mapM evalE argEs
   (curEnv, curModule) <- get
   put (fenv, curModule)
+  addVarBinding fid fv
   let argVTbl = zip paramIds argVs
   mapM (\(paramId, paramV) -> addVarBinding paramId paramV) argVTbl
   retV <- evalEs bodyEs
@@ -203,6 +208,11 @@ evalE (ExpMemberAccess e id) = do
   (ValueModule (Module _ exportEnv)) <- evalE e
   lookupIn exportEnv id
 
+-- For now we allow 0 to evaluate
+-- to 'False' in the test position of a
+-- conditional, and any nonzero --> 'True'.
+-- Ultimately this should not be the case
+-- as we don't want to support implicit conversion
 evalE (ExpIfElse condE thenEs elseEs) = do
   condV <- evalE condE
   let es = case condV of

@@ -198,7 +198,7 @@
 
       m.m';
     }
-    "Module (Env []) (Env [(g,Closure (Env []) [] [ExpNum \"43\"])])"))
+    "Module (Env []) (Env [(g,Closure g (Env []) [] [ExpNum \"43\"])])"))
 
 (test-case "it resolves functions on nested modules"
   (check-equal?
