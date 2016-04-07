@@ -296,16 +296,18 @@
     }
     "10"))
 
-(test-case "it resolves closed-over variables"
+(test-case "it resolves member accesses on captured modules"
   (check-equal?
     @interp{
       m := module {
         n := module {
-          v := 42;
+          o := module {
+            v := 42;
+          };
         };
 
         fun f() : Int;
-        f() := { n.v; };
+        f() := { n.o.v; };
       };
 
       m.f();
