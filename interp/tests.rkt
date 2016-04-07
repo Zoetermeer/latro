@@ -59,12 +59,20 @@
     @interp{
       m := module {}; m;
     }
-    "Module (Env [])"))
+    "Module (Env []) (Env [])"))
+
+(test-case "it adds definitions to module exports"
+  (check-equal?
+    @interp{
+      m := module { v := 42; }; m;
+    }
+    "Module (Env []) (Env [(v,42)])"))
 
 (test-case "it returns values defined in modules"
   (check-equal?
     @interp{
-      m := module { v := 42; }; m.v;
+      m := module { v := 42; };
+      m.v;
     }
     "42"))
 
@@ -117,7 +125,7 @@
       f() := { m; };
       f();
     }
-    "Module (Env [])"))
+    "Module (Env []) (Env [])"))
 
 (test-case "it preserves lexical scope for local module defs"
   (check-equal?
@@ -133,7 +141,7 @@
 (test-case "it can apply functions on returned local modules"
   (check-equal?
     @interp{
-      fun f() : module { g() : Int; };
+      fun f() : module { };
       f() := {
         module {
           fun g() : Int;
@@ -143,6 +151,23 @@
       f().g();
     }
     "42"))
+
+(test-case "it returns nested module values"
+  (check-equal?
+    @interp{
+      m := module {
+        m' := module {
+          fun g() : Int;
+          g() := { 43; };
+        };
+
+        fun f() : Int;
+        f() := { 42; };
+      };
+
+      m.m';
+    }
+    "Module (Env []) (Env [(g,Closure (Env []) [] [ExpNum \"43\"])])"))
 
 (test-case "it resolves functions on nested modules"
   (check-equal?
@@ -210,3 +235,17 @@
       m1.g(1, 1);
     }
     "Error: Unbound identifier 'm1'"))
+
+(test-case "it does not capture id's in lexical scope for modules as exports"
+  (check-equal?
+    @interp{
+      m := module {
+        fun f() : Int;
+        f() := { 42; };
+
+        n := module { };
+      };
+
+      m.n.f();
+    }
+    "Error: Unbound identifier 'f'"))

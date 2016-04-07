@@ -115,10 +115,10 @@ action_3 _ = happyReduce_2
 
 action_4 _ = happyReduce_14
 
-action_5 (57) = happyShift action_41
 action_5 _ = happyReduce_16
 
 action_6 (48) = happyShift action_40
+action_6 (57) = happyShift action_41
 action_6 _ = happyReduce_18
 
 action_7 (53) = happyShift action_39
@@ -364,6 +364,7 @@ action_45 (60) = happyShift action_80
 action_45 _ = happyFail
 
 action_46 (48) = happyShift action_40
+action_46 (57) = happyShift action_41
 action_46 _ = happyReduce_17
 
 action_47 (53) = happyShift action_39
@@ -944,7 +945,7 @@ happyReduction_12 _  = notHappyAtAll
 happyReduce_13 = happySpecReduce_3  9 happyReduction_13
 happyReduction_13 (HappyTerminal (Token _ (TokenId happy_var_3)))
 	_
-	(HappyAbsSyn9  happy_var_1)
+	(HappyAbsSyn10  happy_var_1)
 	 =  HappyAbsSyn9
 		 (ExpMemberAccess happy_var_1 happy_var_3
 	)

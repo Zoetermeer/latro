@@ -11,9 +11,14 @@ import Parse
 import Syntax
 import Text.Printf (printf)
 
-type VEnv = Env (QualifiedId UniqId) Value
+type VEnv = Env UniqId Value
 
-data Module = Module VEnv
+-- A module value has two environments:
+-- A closure environment, and an export
+-- environment.  A name lookup on a module
+-- can't search the closure environment, so we
+-- separate them
+data Module = Module VEnv VEnv
   deriving (Eq, Show)
 
 data Closure = Closure VEnv [UniqId] [Exp UniqId]
@@ -36,23 +41,75 @@ instance Show Value where
   show ValueUnit = "()"
   show (Err msg) = "Error: " ++ msg
 
+-- An evaluator monad is a possibly-failing computation
+-- with a state: (variable environment, current module)
+-- The variable environment maps ID --o--> Value
+-- The "current module" is the module currently being evaluated,
+-- at the top level it's an invented one called "global"
+-- Each new binding occurrence adds the id to the current
+-- module's list of exports
+type EvalState = (VEnv, Module)
+type Eval a = ExceptT FailMessage (State EvalState) a
+
 
 mtEnv :: VEnv
 mtEnv = Env []
 
+
+lookupIn :: VEnv -> UniqId -> Eval Value
+lookupIn (Env table) id = do
+  let ov = find (\(key, val) -> key == id) table
+  case ov of
+    Just (k, v) -> return v
+    _ -> throwError $ printf "Unbound identifier '%s'" $ show id
+
+
+lookupQual :: QualifiedId UniqId -> Eval Value
+lookupQual (Id id) = do
+  (vEnv, _) <- get
+  lookupIn vEnv id
+
+lookupQual (Path qid id) = do
+  (ValueModule (Module _ exportEnv)) <- lookupQual qid
+  lookupIn exportEnv id
+
+
+lookupId :: UniqId -> Eval Value
+lookupId id = do
+  (vEnv, _) <- get
+  lookupIn vEnv id
+
+
+getVarEnv :: Eval VEnv
+getVarEnv = do
+  (env, _) <- get
+  return env
+
+
+addVarBinding :: UniqId -> Value -> Eval ()
+addVarBinding id v = do
+  (Env vTable, cm) <- get
+  put (Env ((id, v):vTable), cm)
+
+
+addModuleExport :: UniqId -> Value -> Eval ()
+addModuleExport id v = do
+  (Env vTable, (Module mVars (Env mExports))) <- get
+  put (Env vTable, (Module mVars (Env ((id, v):mExports))))
+
+
 addToEnv :: UniqId -> Value -> State VEnv ()
 addToEnv id v = do
   (Env table) <- get
-  put $ Env $ ((Id id, v):table)
+  put $ Env $ ((id, v):table)
 
 
-lookupEnv :: QualifiedId UniqId -> Eval Value
-lookupEnv qid = do
-  (Env table) <- get
-  let ov = find (\(key, val) -> key == qid) table
-  case ov of
-    Just (k, v) -> return v
-    _ -> throwError $ printf "Unbound identifier '%s'" $ show qid
+pushNewModuleContext :: Eval EvalState
+pushNewModuleContext = do
+  curState@(vEnv, _) <- get
+  put (vEnv, Module vEnv mtEnv)
+  return curState
+
 
 pushEnv :: State VEnv VEnv
 pushEnv = do
@@ -64,8 +121,6 @@ pushEnv = do
 popEnv :: VEnv -> State VEnv ()
 popEnv env = do
   put env
-
-type Eval a = ExceptT FailMessage (State VEnv) a
 
 
 -- This is a placeholder; to be replaced
@@ -92,12 +147,11 @@ evalE (ExpDiv a b) = evalBinArith quot a b
 evalE (ExpMul a b) = evalBinArith (*) a b
 
 evalE (ExpModule moduleEs) = do
-  env <- get
-  lift pushEnv
+  oldEnv <- pushNewModuleContext
   evalEs moduleEs
-  moduleEnv <- lift get
-  lift $ popEnv env
-  return $ ValueModule $ Module moduleEnv
+  (_, mod) <- get
+  put oldEnv
+  return $ ValueModule mod
 
 evalE (ExpFunDec (FunDecFun id _ [])) = do
   throwError $ printf "No definition given for function declaration '%s'" $ show id
@@ -113,59 +167,41 @@ evalE (ExpFunDec (FunDecFun id ty (funDef:_))) =
       if id /= fid then
         do { throwError $ printf "Invalid definition for function '%s' in definition context for '%s'" (show fid) (show id) }
       else do
-        env <- lift get
+        (vEnv, _) <- get
         let paramIds = map patExpBindingId argPatExps
-            clo = Closure env paramIds bodyExps
-        lift $ addToEnv id $ ValueFun clo
+            clo = Closure vEnv paramIds bodyExps
+            vClo = ValueFun clo
+        addVarBinding id vClo
+        addModuleExport id vClo
         return ValueUnit
 
 evalE (ExpFunDec (FunDecInstFun id instTy funTy funDefs)) =
   return ValueUnit
 
--- evalE (ExpFun id paramIds es) = do
---   env <- lift get
---   lift $ pushEnv
---   env' <- lift get
---   let clo = Closure env' paramIds  es
---   lift $ popEnv env
---   lift $ addToEnv id $ ValueFun clo
---   return ValueUnit
-
 evalE (ExpAssign id e) = do
   v <- evalE e
-  lift $ addToEnv id v
+  addVarBinding id v
+  addModuleExport id v
   return ValueUnit
 
 evalE (ExpRef rawId) = do
-  v <- lookupEnv (Id rawId)
+  v <- lookupId rawId
   return v
 
 evalE (ExpApp e argEs) = do
   (ValueFun (Closure fenv paramIds bodyEs)) <- evalE e
   argVs <- mapM evalE argEs
-  env <- get
-  put fenv
+  (curEnv, curModule) <- get
+  put (fenv, curModule)
   let argVTbl = zip paramIds argVs
-  lift $ mapM (\(paramId, paramV) -> addToEnv paramId paramV) argVTbl
+  mapM (\(paramId, paramV) -> addVarBinding paramId paramV) argVTbl
   retV <- evalEs bodyEs
-  put env
+  put (curEnv, curModule)
   return retV
 
 evalE (ExpMemberAccess e id) = do
-  v <- evalE e
-  lookupValueInLocalEnv v id
-
-
-lookupValueInLocalEnv :: Value -> UniqId -> Eval Value
-lookupValueInLocalEnv (ValueModule (Module mEnv)) id = do
-  env <- get
-  put mEnv
-  v <- lookupEnv $ Id id
-  put env
-  return v
-
-lookupValueInLocalEnv _ id = do
-  throwError $ printf "Invalid member access for '%s' on non-module value" $ show id
+  (ValueModule (Module _ exportEnv)) <- evalE e
+  lookupIn exportEnv id
 
 
 evalEs :: [Exp UniqId] -> Eval Value
@@ -183,4 +219,4 @@ eval (CompUnit es) = evalEs es
 interp :: CompUnit RawId -> Either FailMessage Value
 interp compUnit = do
   alphaConverted <- alphaConvert compUnit
-  evalState (runExceptT $ eval alphaConverted) mtEnv
+  evalState (runExceptT $ eval alphaConverted) (mtEnv, Module mtEnv mtEnv)

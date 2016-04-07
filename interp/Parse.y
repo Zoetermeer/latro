@@ -68,7 +68,7 @@ AtomExp : '(' Exp ')' { $2 }
         | False { ExpBool False }
         | id  { ExpRef $1 }
 
-MemberAccessExp : MemberAccessExp '.' id  { ExpMemberAccess $1 $3 }
+MemberAccessExp : AppExp '.' id { ExpMemberAccess $1 $3 }
                 | AtomExp { $1 }
 
 AppExp : AppExp '(' ArgExps ')' { ExpApp $1 $3 }
