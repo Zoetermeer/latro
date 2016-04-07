@@ -203,6 +203,17 @@ evalE (ExpMemberAccess e id) = do
   (ValueModule (Module _ exportEnv)) <- evalE e
   lookupIn exportEnv id
 
+evalE (ExpIfElse condE thenEs elseEs) = do
+  condV <- evalE condE
+  let es = case condV of
+            ValueBool True -> thenEs
+            ValueInt 0 -> elseEs
+            ValueInt _ -> thenEs
+            _ -> elseEs
+  evalEs es
+
+evalE e = throwError $ printf "I don't know how to evaluate '%s'" $ show e
+
 
 evalEs :: [Exp UniqId] -> Eval Value
 evalEs [] = return ValueUnit

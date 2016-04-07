@@ -165,6 +165,12 @@ convert (ExpModule bodyEs) = do
   bodyEs' <- mapM convert bodyEs
   return $ ExpModule bodyEs'
 
+convert (ExpIfElse condE thenEs elseEs) = do
+  condE' <- convert condE
+  thenEs' <- mapM convert thenEs
+  elseEs' <- mapM convert elseEs
+  return $ ExpIfElse condE' thenEs' elseEs'
+
 convert (ExpNum s) = return $ ExpNum s
 convert (ExpBool b) = return $ ExpBool b
 convert (ExpRef id) = do

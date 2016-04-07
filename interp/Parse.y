@@ -26,6 +26,8 @@ import Syntax
   Int { Token _ TokenInt }
   Bool { Token _ TokenBool }
   Unit { Token _ TokenUnit }
+  if { Token _ TokenIf }
+  else { Token _ TokenElse }
   ':=' { Token _ TokenAssign }
   '[' { Token _ TokenLBracket }
   ']' { Token _ TokenRBracket }
@@ -93,6 +95,7 @@ Exp : '!' SubExp { ExpNot $2 }
     | TypeDec { ExpTypeDec $1 }
     | FunDec { ExpFunDec $1 }
     | module '{' ZeroOrMoreExps '}'  { ExpModule $3 }
+    | if '(' Exp ')' '{' ZeroOrMoreExps '}' else '{' ZeroOrMoreExps '}' { ExpIfElse $3 $6 $10 }
 
 ArgExps : Exp { [$1] }
         | ArgExps ',' Exp { $1 ++ [$3] }

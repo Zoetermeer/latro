@@ -30,6 +30,7 @@ data Exp id =
   | ExpTypeDec (TypeDec id)
   | ExpFunDec (FunDec id)
   | ExpModule [Exp id]
+  | ExpIfElse (Exp id) [Exp id] [Exp id]
   | ExpNum String
   | ExpBool Bool
   | ExpRef id

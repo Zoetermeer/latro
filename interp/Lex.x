@@ -35,6 +35,8 @@ tokens :-
   Int { lex' TokenInt }
   Bool { lex' TokenBool }
   Unit { lex' TokenUnit }
+  if { lex' TokenIf }
+  else { lex' TokenElse }
   ":=" { lex' TokenAssign }
   [\[] { lex' TokenLBracket }
   [\]] { lex' TokenRBracket }
@@ -85,6 +87,8 @@ data TokenClass =
   | TokenInt
   | TokenBool
   | TokenUnit
+  | TokenIf
+  | TokenElse
   | TokenAssign
   | TokenLBracket
   | TokenRBracket
@@ -126,6 +130,8 @@ unlex (TokenFalse) = "False"
 unlex (TokenInt) = "Int"
 unlex (TokenBool) = "Bool"
 unlex (TokenUnit) = "Unit"
+unlex (TokenIf) = "if"
+unlex (TokenElse) = "else"
 unlex (TokenAssign) = ":="
 unlex (TokenLBracket) = "["
 unlex (TokenRBracket) = "]"

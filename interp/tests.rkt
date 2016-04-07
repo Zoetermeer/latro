@@ -47,12 +47,43 @@
   (check-equal? @interp{False;} "False")
   (check-equal? @interp{42;} "42"))
 
+(test-case "it returns an error for unbound identifiers"
+  (check-equal? @interp{x;} "Error: Unbound identifier 'x'"))
+
 (test-case "it evaluates arithmetic exps"
   (check-equal? (interp "4 + 3;") "7")
   (check-equal? (interp "4 + 3 * 2;") "10")
   (check-equal? (interp "4 - 3 / 3;") "3")
   (check-equal? (interp "3 * 2 + 4;") "10")
   (check-equal? (interp "(4 + 3) * 2;") "14"))
+
+(test-case "it evaluates arithmetic expressions involving application"
+  (check-equal?
+    @interp{
+      fun f(Int) : Int;
+      f(x) := { x; };
+
+      3 + f(4);
+    }
+    "7"))
+
+(test-case "it evaluates if-else expressions"
+  (check-equal?
+    @interp{
+      if (True) {
+        42;
+      } else {
+        43;
+      };
+    }
+    "42"))
+
+(test-case "it evaluates nested if-else expressions"
+  (check-equal?
+    @interp{
+      42 + (if (True) { 1; } else { 2; });
+    }
+    "43"))
 
 (test-case "it returns module values"
   (check-equal?
@@ -249,3 +280,18 @@
       m.n.f();
     }
     "Error: Unbound identifier 'f'"))
+
+(test-case "it evaluates recursive functions"
+  (check-equal?
+    @interp{
+      fun f(Int) : Int;
+      f(x) := {
+        if (x) {
+          x + f(x - 1);
+        } else {
+          x;
+        };
+      };
+      f(4);
+    }
+    "10"))
