@@ -66,6 +66,7 @@ ExpT : Exp ';'  { $1 }
 
 AtomExp : '(' Exp ')' { $2 }
         | module '{' ZeroOrMoreExps '}'  { ExpModule $3 }
+        | '(' ')' { ExpUnit }
         | num { ExpNum $1 }
         | True { ExpBool True }
         | False { ExpBool False }

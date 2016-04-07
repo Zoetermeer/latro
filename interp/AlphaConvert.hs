@@ -173,6 +173,7 @@ convert (ExpIfElse condE thenEs elseEs) = do
 
 convert (ExpNum s) = return $ ExpNum s
 convert (ExpBool b) = return $ ExpBool b
+convert ExpUnit = return ExpUnit
 convert (ExpRef id) = do
   id' <- lookup id
   return $ ExpRef id'

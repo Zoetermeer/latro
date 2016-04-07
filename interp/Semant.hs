@@ -214,13 +214,17 @@ evalE (ExpMemberAccess e id) = do
 -- Ultimately this should not be the case
 -- as we don't want to support implicit conversion
 evalE (ExpIfElse condE thenEs elseEs) = do
+  curEnv <- get
   condV <- evalE condE
+  put curEnv
   let es = case condV of
             ValueBool True -> thenEs
             ValueInt 0 -> elseEs
             ValueInt _ -> thenEs
             _ -> elseEs
-  evalEs es
+  v <- evalEs es
+  put curEnv
+  return v
 
 evalE e = throwError $ printf "I don't know how to evaluate '%s'" $ show e
 

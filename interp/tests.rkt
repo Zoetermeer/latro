@@ -89,6 +89,42 @@
     }
     "43"))
 
+(test-case "it does not allow bindings to escape from then/else scopes"
+  (check-equal?
+    @interp{
+      v := if (True) {
+        x := 42;
+        x;
+      } else { 0; };
+
+      x;
+    }
+    "Error: Unbound identifier 'x'"))
+
+(test-case "it does not allow bindings to escape the test exp of an if/else"
+  (check-equal?
+    @interp{
+      if (x := 42) {
+        x;
+      } else {
+        x;
+      };
+    }
+    "Error: Unbound identifier 'x'"))
+
+(test-case "it does not add bindings introduced in subexpressions to the module export env"
+  (check-equal?
+    @interp{
+      module {
+        if (True) {
+          x := 42;
+        } else {
+          ();
+        };
+      };
+    }
+    "Module (Env []) (Env [])"))
+
 (test-case "it evaluates non-literals in the test position"
   (check-equal?
     @interp{
@@ -196,6 +232,19 @@
       m;
     }
     "Error: Unbound identifier 'm'"))
+
+(test-case "it does not add locals in function bodies to the module export env"
+  (check-equal?
+    @interp{
+      module {
+        fun f() : Int;
+        f() := {
+          x := 42;
+          x;
+        };
+      };
+    }
+    "Module (Env []) (Env [(f,Closure f (Env []) [] [ExpAssign x (ExpNum \"42\"),ExpRef x])])"))
 
 (test-case "it can apply functions on returned local modules"
   (check-equal?

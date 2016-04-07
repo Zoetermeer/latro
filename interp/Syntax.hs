@@ -34,6 +34,7 @@ data Exp id =
   | ExpNum String
   | ExpBool Bool
   | ExpRef id
+  | ExpUnit
   deriving (Eq, Show)
 
 data TypeDec id =
