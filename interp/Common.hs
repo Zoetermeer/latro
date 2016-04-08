@@ -10,3 +10,8 @@ instance Monoid (Env a b) where
   mappend (Env a) (Env b) = Env (a <> b)
 
 type FailMessage = String
+
+class Show a => PrettyShow a where
+  showShort :: a -> String
+  showLong :: a -> String
+  showLong x = show x

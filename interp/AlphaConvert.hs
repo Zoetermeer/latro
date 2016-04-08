@@ -18,6 +18,17 @@ instance Eq UniqId where
   (UniqId c _) == (UniqId c' _) = c == c'
   a == b = b == a
 
+instance Ord UniqId where
+  (UserId raw) `compare` (UserId raw') = raw `compare` raw'
+  (UserId raw) `compare` (UniqId _ raw') = raw `compare` raw'
+  (UniqId c raw) `compare` (UniqId c' raw') =
+    let rawc = raw `compare` raw'
+    in
+      case rawc of
+        EQ -> c `compare` c'
+        _ -> rawc
+  (UniqId _ raw) `compare` (UserId raw') = raw `compare` raw'
+
 instance Show UniqId where
   show (UserId raw) = raw
   show (UniqId _ raw) = raw

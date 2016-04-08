@@ -123,7 +123,7 @@
         };
       };
     }
-    "Module (Env [],Env []) (Env [],Env [])"))
+    "<module (Closure [] []) (Exports [] [])>"))
 
 (test-case "it evaluates non-literals in the test position"
   (check-equal?
@@ -154,20 +154,72 @@
     @interp{
       m := module {}; m;
     }
-    "Module (Env [],Env []) (Env [],Env [])"))
+    "<module (Closure [] []) (Exports [] [])>"))
 
 (test-case "it adds definitions to module exports"
   (check-equal?
     @interp{
       m := module { v := 42; }; m;
     }
-    "Module (Env [],Env []) (Env [],Env [(v,42)])"))
+    "<module (Closure [] []) (Exports [] [v])>"))
+
+(test-case "it applies functions on modules with multiple decs"
+  (check-equal?
+    @interp{
+      m := module {
+        fun f() : Int;
+        f() := { 42; };
+
+        fun g() : Int;
+        g() := { 43; };
+      };
+
+      m.g();
+    }
+    "43"))
 
 (test-case "it returns values defined in modules"
   (check-equal?
     @interp{
       m := module { v := 42; };
       m.v;
+    }
+    "42"))
+
+(test-case "it can apply module-exported functions"
+  (check-equal?
+    @interp{
+      m := module {
+        fun f() : Int;
+        f() := { 42; };
+      };
+      m.f();
+    }
+    "42"))
+
+(test-case "it can apply module-exported functions occurring after a nested module dec"
+  (check-equal?
+    @interp{
+      m := module {
+        n := module { };
+
+        fun f() : Int;
+        f() := { 42; };
+      };
+      m.f();
+    }
+    "42"))
+
+(test-case "it can apply module-exported functions occurring before a nested module dec"
+  (check-equal?
+    @interp{
+      m := module {
+        fun f() : Int;
+        f() := { 42; };
+
+        n := module { };
+      };
+      m.f();
     }
     "42"))
 
@@ -220,7 +272,7 @@
       f() := { m; };
       f();
     }
-    "Module (Env [],Env []) (Env [],Env [])"))
+    "<module (Closure [] []) (Exports [] [])>"))
 
 (test-case "it preserves lexical scope for local module defs"
   (check-equal?
@@ -244,7 +296,7 @@
         };
       };
     }
-    "Module (Env [],Env []) (Env [],Env [(f,Closure f (Env [],Env []) [] [ExpAssign x (ExpNum \"42\"),ExpRef x])])"))
+    "<module (Closure [] []) (Exports [] [f])>"))
 
 (test-case "it can apply functions on returned local modules"
   (check-equal?
@@ -275,7 +327,7 @@
 
       m.m';
     }
-    "Module (Env [],Env []) (Env [],Env [(g,Closure g (Env [],Env []) [] [ExpNum \"43\"])])"))
+    "<module (Closure [] []) (Exports [] [g])>"))
 
 (test-case "it resolves functions on nested modules"
   (check-equal?
@@ -391,6 +443,45 @@
     }
     "42"))
 
+(test-case "it evaluates accesses on module-level scalars"
+  (check-equal?
+    @interp{
+      m := module {
+        v := 6;
+      };
+
+      m.v;
+    }
+    "6"))
+
+(test-case "it can access prior bindings in a module closure"
+  (check-equal?
+    @interp{
+      m := module { };
+      fun f() : Int;
+      f() := { 1; };
+
+      n := module {
+        v := 2;
+      };
+
+      n;
+    }
+    "<module (Closure [] [f,m]) (Exports [] [v])>"))
+
+(test-case "it evaluates accesses on nested-module-level scalars"
+  (check-equal?
+    @interp{
+      m := module {
+        n := module {
+          v := 6;
+        };
+      };
+
+      m.n.v;
+    }
+    "6"))
+
 (test-case "it evaluates accesses on inline modules"
   (check-equal?
     @interp{
@@ -398,32 +489,32 @@
     }
     "6"))
 
-(test-case "it returns the empty struct"
-  (check-equal?
-    @interp{
-      type t = struct { };
-      t { };
-    }
-    "Struct t []"))
-
-(test-case "it evaluates struct instances"
-  (check-equal?
-    @interp{
-      type Point = struct {
-        Int X;
-        Int Y;
-      };
-
-      p := Point { X = 3; Y = 4; };
-      p.Y;
-    }
-    "4"))
-
-(test-case "it returns an error on undefined-field accesses"
-  (check-equal?
-    @interp{
-      type t = struct { };
-      v := t { };
-      v.x;
-    }
-    "Error: Unbound identifier 'x'"))
+; (test-case "it returns the empty struct"
+;   (check-equal?
+;     @interp{
+;       type t = struct { };
+;       t { };
+;     }
+;     "Struct t []"))
+; 
+; (test-case "it evaluates struct instances"
+;   (check-equal?
+;     @interp{
+;       type Point = struct {
+;         Int X;
+;         Int Y;
+;       };
+; 
+;       p := Point { X = 3; Y = 4; };
+;       p.Y;
+;     }
+;     "4"))
+; 
+; (test-case "it returns an error on undefined-field accesses"
+;   (check-equal?
+;     @interp{
+;       type t = struct { };
+;       v := t { };
+;       v.x;
+;     }
+;     "Error: Unbound identifier 'x'"))
