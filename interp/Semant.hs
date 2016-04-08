@@ -8,7 +8,7 @@ import Control.Monad.Except
 import Control.Monad.State
 import Data.Either.Utils (maybeToEither)
 import Data.Functor.Identity (runIdentity)
-import Data.List hiding (lookup)
+import Data.List
 import qualified Data.Map as Map
 import Data.Monoid ((<>), mempty)
 import Parse
@@ -71,8 +71,16 @@ instance PrettyShow Closure where
   showShort (Closure id cloEnv _ _) =
     printf "<closure %s %s>" (show id) (showShort cloEnv)
 
-data Struct = Struct UniqId [(UniqId, Value)]
+data Struct = Struct (Ty UniqId) [(UniqId, Value)]
   deriving (Eq, Show)
+
+instance PrettyShow Struct where
+  showShort (Struct ty fields) =
+    printf "<struct %s { %s }>"
+           (show ty)
+           ((intersperse ','
+             . concat
+             . (map (\(id, v) -> printf "%s = %s" (show id) (show v)))) fields)
 
 data Value =
     ValueInt Int
@@ -91,6 +99,7 @@ instance Show Value where
   show (ValueStr s) = s
   show (ValueModule m) = showShort m
   show (ValueFun clo) = showShort clo
+  show (ValueStruct strct) = showShort strct
   show ValueUnit = "()"
   show (Err msg) = "Error: " ++ msg
 
@@ -135,8 +144,8 @@ mtInterpEnv =
     mod = Module mtClosureEnv mtExports
 
 
-lookup :: UniqId -> Map.Map UniqId v -> Eval v
-lookup id map =
+lookupId :: UniqId -> Map.Map UniqId v -> Eval v
+lookupId id map =
     hoistEither eithV
   where
     eithV = maybeToEither errMsg $ Map.lookup id map
@@ -148,10 +157,10 @@ lookupQualIn  :: QualifiedId UniqId
               -> (Exports -> Map.Map UniqId a)
               -> (InterpEnv -> Map.Map UniqId a)
               -> Eval a
-lookupQualIn (Id id) intEnv _ extractAEnv = lookup id $ extractAEnv intEnv
+lookupQualIn (Id id) intEnv _ extractAEnv = lookupId id $ extractAEnv intEnv
 lookupQualIn (Path qid id) intEnv extractExportEnv _ = do
   (ValueModule (Module _ exports)) <- lookupQualIn qid intEnv exportVars varEnv
-  lookup id $ extractExportEnv exports
+  lookupId id $ extractExportEnv exports
 
 lookupTyQualIn :: QualifiedId UniqId -> InterpEnv -> Eval (Ty UniqId)
 lookupTyQualIn id intEnv = lookupQualIn id intEnv exportTypes typeEnv
@@ -169,7 +178,7 @@ lookupTyQual id = get >>= lookupTyQualIn id
 
 
 lookupVarId :: UniqId -> Eval Value
-lookupVarId id = getVarEnv >>= lookup id
+lookupVarId id = getVarEnv >>= lookupId id
 
 
 getVarEnv :: Eval VEnv
@@ -185,15 +194,25 @@ putVarBinding id v = do
   modify (\intEnv -> intEnv { varEnv = Map.insert id v (varEnv intEnv) })
 
 
-addToEnv :: UniqId -> a -> Env UniqId a -> Env UniqId a
-addToEnv id v (Env table) = Env ((id, v):table)
+putTyBinding :: UniqId -> Ty UniqId -> Eval ()
+putTyBinding id ty = do
+  modify (\intEnv -> intEnv { typeEnv = Map.insert id ty (typeEnv intEnv) })
 
 
-putModuleExport :: UniqId -> Value -> Eval ()
-putModuleExport id v = do
+putModuleVarExport :: UniqId -> Value -> Eval ()
+putModuleVarExport id v = do
   modify (\intEnv ->
             let (Module cloEnv exports) = curModule intEnv
                 exports' = exports { exportVars = Map.insert id v (exportVars exports) }
+            in
+              intEnv { curModule = Module cloEnv exports' })
+
+
+putModuleTyExport :: UniqId -> Ty UniqId -> Eval ()
+putModuleTyExport id ty = do
+  modify (\intEnv ->
+            let (Module cloEnv exports) = curModule intEnv
+                exports' = exports { exportTypes = Map.insert id ty (exportTypes exports) }
             in
               intEnv { curModule = Module cloEnv exports' })
 
@@ -216,6 +235,15 @@ patExpBindingId :: PatExp UniqId -> UniqId
 patExpBindingId (PatExpVar id) = id
 
 
+evalTyExp :: Exp UniqId -> Eval (Ty UniqId)
+evalTyExp (ExpRef id) = getTyEnv >>= lookupId id
+evalTyExp (ExpMemberAccess e id) = do
+  (ValueModule (Module _ exports)) <- evalE e
+  lookupId id $ exportTypes exports
+
+evalTyExp e = throwError $ printf "Invalid type expression '%s'" $ show e
+
+
 type BinOp = Int -> Int -> Int
 
 evalBinArith :: BinOp -> Exp UniqId -> Exp UniqId -> Eval Value
@@ -233,7 +261,10 @@ evalE (ExpSub a b) = evalBinArith (-) a b
 evalE (ExpDiv a b) = evalBinArith quot a b
 evalE (ExpMul a b) = evalBinArith (*) a b
 
-evalE (ExpTypeDec _) = return ValueUnit
+evalE (ExpTypeDec (TypeDecTy id ty)) = do
+  putTyBinding id ty
+  putModuleTyExport id ty
+  return ValueUnit
 
 evalE (ExpModule moduleEs) = do
   oldEnv <- pushNewModuleContext
@@ -241,6 +272,11 @@ evalE (ExpModule moduleEs) = do
   newModule <- gets curModule
   restoreEnv oldEnv
   return $ ValueModule newModule
+
+evalE (ExpStruct tyExp fieldInits) = do
+  ty <- evalTyExp tyExp
+  fieldInitVs <- mapM (\(id, e) -> do { v <- evalE e; return (id, v) }) fieldInits
+  return $ ValueStruct $ Struct ty fieldInitVs
 
 evalE (ExpFunDec (FunDecFun id _ [])) = do
   throwError $ printf "No definition given for function declaration '%s'" $ show id
@@ -261,7 +297,7 @@ evalE (ExpFunDec (FunDecFun id ty (funDef:_))) =
             clo = Closure fid cloEnv paramIds bodyExps
             vClo = ValueFun clo
         putVarBinding id vClo
-        putModuleExport id vClo
+        putModuleVarExport id vClo
         return ValueUnit
 
 evalE (ExpFunDec (FunDecInstFun id instTy funTy funDefs)) =
@@ -270,13 +306,12 @@ evalE (ExpFunDec (FunDecInstFun id instTy funTy funDefs)) =
 evalE (ExpAssign id e) = do
   v <- evalE e
   putVarBinding id v
-  putModuleExport id v
+  putModuleVarExport id v
   return ValueUnit
 
 evalE (ExpRef rawId) = do
   v <- lookupVarId rawId
   return v
-
 
 evalE (ExpApp e argEs) = do
   fv@(ValueFun (Closure fid fenv paramIds bodyEs)) <- evalE e
@@ -294,8 +329,13 @@ evalE (ExpApp e argEs) = do
   return retV
 
 evalE (ExpMemberAccess e id) = do
-  (ValueModule (Module _ exports)) <- evalE e
-  lookup id $ exportVars exports
+  v <- evalE e
+  case v of
+    (ValueModule (Module _ exports)) -> lookupId id $ exportVars exports
+    (ValueStruct (Struct _ fields)) ->
+      hoistEither $ maybeToEither errMsg $ lookup id fields
+  where
+    errMsg = printf "Unbound identifier '%s'" $ show id
 
 -- For now we allow 0 to evaluate
 -- to 'False' in the test position of a

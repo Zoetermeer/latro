@@ -510,32 +510,32 @@
     }
     "6"))
 
-; (test-case "it returns the empty struct"
-;   (check-equal?
-;     @interp{
-;       type t = struct { };
-;       t { };
-;     }
-;     "Struct t []"))
-; 
-; (test-case "it evaluates struct instances"
-;   (check-equal?
-;     @interp{
-;       type Point = struct {
-;         Int X;
-;         Int Y;
-;       };
-; 
-;       p := Point { X = 3; Y = 4; };
-;       p.Y;
-;     }
-;     "4"))
-; 
-; (test-case "it returns an error on undefined-field accesses"
-;   (check-equal?
-;     @interp{
-;       type t = struct { };
-;       v := t { };
-;       v.x;
-;     }
-;     "Error: Unbound identifier 'x'"))
+(test-case "it returns the empty struct"
+  (check-equal?
+    @interp{
+      type t = struct { };
+      t { };
+    }
+    "<struct t []>"))
+
+(test-case "it evaluates struct instances"
+  (check-equal?
+    @interp{
+      type Point = struct {
+        Int X;
+        Int Y;
+      };
+
+      p := Point { X = 3; Y = 4; };
+      p.Y;
+    }
+    "4"))
+
+(test-case "it returns an error on undefined-field accesses"
+  (check-equal?
+    @interp{
+      type t = struct { };
+      v := t { };
+      v.x;
+    }
+    "Error: Unbound identifier 'x'"))
