@@ -51,13 +51,6 @@ instance PrettyShow Exports where
       varStr = showMap exportVars
 
 
-data InterpEnv = InterpEnv
-  { typeEnv :: TEnv
-  , varEnv  :: VEnv
-  , curModule :: Module
-  }
-  deriving (Eq, Show)
-
 -- A module value has two environments:
 -- A closure environment, and an export
 -- environment.  A name lookup on a module
@@ -73,6 +66,10 @@ instance PrettyShow Module where
 
 data Closure = Closure UniqId ClosureEnv [UniqId] [Exp UniqId]
   deriving (Eq, Show)
+
+instance PrettyShow Closure where
+  showShort (Closure id cloEnv _ _) =
+    printf "<closure %s %s>" (show id) (showShort cloEnv)
 
 data Struct = Struct UniqId [(UniqId, Value)]
   deriving (Eq, Show)
@@ -93,12 +90,12 @@ instance Show Value where
   show (ValueBool b) = show b
   show (ValueStr s) = s
   show (ValueModule m) = showShort m
-  show (ValueFun (Closure id _ _ _)) = printf "<closure %s>" $ show id
+  show (ValueFun clo) = showShort clo
   show ValueUnit = "()"
   show (Err msg) = "Error: " ++ msg
 
 -- An evaluator monad is a possibly-failing computation
--- with a state: (variable environment, current module)
+-- with a state: (type environment, variable environment, current module)
 -- The variable environment maps ID --o--> Value
 -- The "current module" is the module currently being evaluated,
 -- at the top level it's an invented anonymous one.
@@ -108,6 +105,13 @@ instance Show Value where
 -- not be accessible from other compilation units.
 -- Each new binding occurrence adds the id to the current
 -- module's list of exports
+data InterpEnv = InterpEnv
+  { typeEnv :: TEnv
+  , varEnv  :: VEnv
+  , curModule :: Module
+  }
+  deriving (Eq, Show)
+
 type Eval a = ExceptT FailMessage (State InterpEnv) a
 
 mtClosureEnv :: ClosureEnv

@@ -149,6 +149,27 @@
     }
     "43"))
 
+(test-case "it returns function values"
+  (check-equal?
+    @interp{
+      fun f() : Int;
+      f() := { 42; };
+
+      f;
+    }
+    "<closure f (Closure [] [])>"))
+
+(test-case "it returns function values with closures"
+  (check-equal?
+    @interp{
+      v := 1;
+      fun f() : Int;
+      f() := { v; };
+
+      f;
+    }
+    "<closure f (Closure [] [v])>"))
+
 (test-case "it returns module values"
   (check-equal?
     @interp{
