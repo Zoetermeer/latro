@@ -75,11 +75,12 @@ data Struct = Struct (Ty UniqId) [(UniqId, Value)]
   deriving (Eq, Show)
 
 instance PrettyShow Struct where
+  showShort (Struct ty []) =
+    printf "<struct %s { }>" $ showShort ty
   showShort (Struct ty fields) =
     printf "<struct %s { %s }>"
-           (show ty)
-           ((intersperse ','
-             . concat
+           (showShort ty)
+           ((intercalate ", "
              . (map (\(id, v) -> printf "%s = %s" (show id) (show v)))) fields)
 
 data Value =

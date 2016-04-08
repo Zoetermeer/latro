@@ -516,9 +516,21 @@
       type t = struct { };
       t { };
     }
-    "<struct t []>"))
+    "<struct <<{ }>> { }>"))
 
 (test-case "it evaluates struct instances"
+  (check-equal?
+    @interp{
+      type Point = struct {
+        Int X;
+        Int Y;
+      };
+
+      Point { X = 3; Y = 4; };
+    }
+    "<struct <<{ X <<Int>>, Y <<Int>> }>> { X = 3, Y = 4 }>"))
+
+(test-case "it evaluates struct field accesses"
   (check-equal?
     @interp{
       type Point = struct {

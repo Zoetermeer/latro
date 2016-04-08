@@ -1,5 +1,7 @@
 module Syntax where
 
+import Common (PrettyShow(..))
+import Data.List
 import Text.Printf (printf)
 
 type RawId = String
@@ -57,6 +59,22 @@ data Ty id =
   | TyStruct [(id, (Ty id))]
   | TyRef (QualifiedId id)
   deriving (Eq, Show)
+
+instance Show id => PrettyShow (Ty id) where
+  showShort TyInt = "<<Int>>"
+  showShort TyBool = "<<Bool>>"
+  showShort TyUnit = "<<Unit>>"
+  showShort (TyArrow paramTys retTy) =
+    printf "<<%s -> %s>>"
+           ((intercalate " -> " . map showShort) paramTys)
+           (showShort retTy)
+  showShort TyModule = "<<Module>>"
+  showShort TyInterface = "<<Interface>>"
+  showShort (TyStruct []) = "<<{ }>>"
+  showShort (TyStruct fields) =
+    printf "<<{ %s }>>"
+           ((intercalate ", " . map (\(id, ty) -> printf "%s %s" (show id) (showShort ty))) fields)
+  showShort (TyRef qid) = show qid
 
 data FunDec id =
     FunDecFun id (Ty id) [FunDef id]
