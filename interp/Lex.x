@@ -30,6 +30,7 @@ tokens :-
   fun { lex' TokenFun }
   imp { lex' TokenImp }
   test { lex' TokenTest }
+  struct { lex' TokenStruct }
   True { lex' TokenTrue }
   False { lex' TokenFalse }
   Int { lex' TokenInt }
@@ -82,6 +83,7 @@ data TokenClass =
   | TokenFun
   | TokenImp
   | TokenTest
+  | TokenStruct
   | TokenTrue
   | TokenFalse
   | TokenInt
@@ -125,6 +127,7 @@ unlex (TokenInterface) = "interface"
 unlex (TokenFun) = "fun"
 unlex (TokenImp) = "imp"
 unlex (TokenTest) = "test"
+unlex (TokenStruct) = "struct"
 unlex (TokenTrue) = "True"
 unlex (TokenFalse) = "False"
 unlex (TokenInt) = "Int"

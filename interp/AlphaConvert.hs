@@ -82,6 +82,10 @@ convertTy (TyArrow paramTys retTy) = do
 
 convertTy TyModule = return TyModule
 convertTy TyInterface = return TyInterface
+convertTy (TyStruct fields) = do
+  fields' <- mapM (\(id, ty) -> do { ty' <- convertTy ty; return (UserId id, ty') }) fields
+  return $ TyStruct fields'
+
 convertTy (TyRef qid) = do
   qid' <- convertQualId qid
   return $ TyRef qid'
@@ -164,6 +168,11 @@ convert (ExpFunDec (FunDecInstFun id instTy funTy fundefs)) = do
 convert (ExpModule bodyEs) = do
   bodyEs' <- mapM convert bodyEs
   return $ ExpModule bodyEs'
+
+convert (ExpStruct eDefiner fields) = do
+  eDefiner' <- convert eDefiner
+  fields' <- mapM (\(fieldId, fieldE) -> do { fieldE' <- convert fieldE; fieldId' <- fresh fieldId; return (fieldId', fieldE') }) fields
+  return $ ExpStruct eDefiner' fields'
 
 convert (ExpIfElse condE thenEs elseEs) = do
   condE' <- convert condE

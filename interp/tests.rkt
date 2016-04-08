@@ -123,7 +123,7 @@
         };
       };
     }
-    "Module (Env []) (Env [])"))
+    "Module (Env [],Env []) (Env [],Env [])"))
 
 (test-case "it evaluates non-literals in the test position"
   (check-equal?
@@ -154,14 +154,14 @@
     @interp{
       m := module {}; m;
     }
-    "Module (Env []) (Env [])"))
+    "Module (Env [],Env []) (Env [],Env [])"))
 
 (test-case "it adds definitions to module exports"
   (check-equal?
     @interp{
       m := module { v := 42; }; m;
     }
-    "Module (Env []) (Env [(v,42)])"))
+    "Module (Env [],Env []) (Env [],Env [(v,42)])"))
 
 (test-case "it returns values defined in modules"
   (check-equal?
@@ -220,7 +220,7 @@
       f() := { m; };
       f();
     }
-    "Module (Env []) (Env [])"))
+    "Module (Env [],Env []) (Env [],Env [])"))
 
 (test-case "it preserves lexical scope for local module defs"
   (check-equal?
@@ -244,7 +244,7 @@
         };
       };
     }
-    "Module (Env []) (Env [(f,Closure f (Env []) [] [ExpAssign x (ExpNum \"42\"),ExpRef x])])"))
+    "Module (Env [],Env []) (Env [],Env [(f,Closure f (Env [],Env []) [] [ExpAssign x (ExpNum \"42\"),ExpRef x])])"))
 
 (test-case "it can apply functions on returned local modules"
   (check-equal?
@@ -275,7 +275,7 @@
 
       m.m';
     }
-    "Module (Env []) (Env [(g,Closure g (Env []) [] [ExpNum \"43\"])])"))
+    "Module (Env [],Env []) (Env [],Env [(g,Closure g (Env [],Env []) [] [ExpNum \"43\"])])"))
 
 (test-case "it resolves functions on nested modules"
   (check-equal?
@@ -397,3 +397,33 @@
       module { v := 6; }.v;
     }
     "6"))
+
+(test-case "it returns the empty struct"
+  (check-equal?
+    @interp{
+      type t = struct { };
+      t { };
+    }
+    "Struct t []"))
+
+(test-case "it evaluates struct instances"
+  (check-equal?
+    @interp{
+      type Point = struct {
+        Int X;
+        Int Y;
+      };
+
+      p := Point { X = 3; Y = 4; };
+      p.Y;
+    }
+    "4"))
+
+(test-case "it returns an error on undefined-field accesses"
+  (check-equal?
+    @interp{
+      type t = struct { };
+      v := t { };
+      v.x;
+    }
+    "Error: Unbound identifier 'x'"))

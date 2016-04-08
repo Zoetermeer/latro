@@ -5,23 +5,30 @@ import Common
 import Control.Monad.Except
 import Control.Monad.State
 import Data.Functor.Identity (runIdentity)
-import Data.List
+import Data.List hiding (lookup)
 import Data.Monoid ((<>), mempty)
 import Parse
+import Prelude hiding (lookup)
 import Syntax
 import Text.Printf (printf)
 
 type VEnv = Env UniqId Value
+type TEnv = Env UniqId (Ty UniqId)
+
+type InterpEnv = (TEnv, VEnv)
 
 -- A module value has two environments:
 -- A closure environment, and an export
 -- environment.  A name lookup on a module
 -- can't search the closure environment, so we
 -- separate them
-data Module = Module VEnv VEnv
+data Module = Module InterpEnv InterpEnv
   deriving (Eq, Show)
 
-data Closure = Closure UniqId VEnv [UniqId] [Exp UniqId]
+data Closure = Closure UniqId InterpEnv [UniqId] [Exp UniqId]
+  deriving (Eq, Show)
+
+data Struct = Struct UniqId [(UniqId, Value)]
   deriving (Eq, Show)
 
 data Value =
@@ -29,6 +36,7 @@ data Value =
   | ValueBool Bool
   | ValueModule Module
   | ValueFun Closure
+  | ValueStruct Struct
   | ValueUnit
   | Err String
   deriving (Eq)
@@ -52,60 +60,84 @@ instance Show Value where
 -- not be accessible from other compilation units.
 -- Each new binding occurrence adds the id to the current
 -- module's list of exports
-type EvalState = (VEnv, Module)
+type EvalState = (InterpEnv, Module)
 type Eval a = ExceptT FailMessage (State EvalState) a
 
 
-mtEnv :: VEnv
-mtEnv = Env []
+mtEnv :: InterpEnv
+mtEnv = (Env [], Env [])
 
 
-lookupIn :: VEnv -> UniqId -> Eval Value
-lookupIn (Env table) id = do
+lookup :: UniqId -> Env UniqId a -> Eval a
+lookup id (Env table) = do
   let ov = find (\(key, val) -> key == id) table
   case ov of
     Just (k, v) -> return v
     _ -> throwError $ printf "Unbound identifier '%s'" $ show id
 
 
-lookupQual :: QualifiedId UniqId -> Eval Value
-lookupQual (Id id) = do
-  (vEnv, _) <- get
-  lookupIn vEnv id
-
-lookupQual (Path qid id) = do
-  (ValueModule (Module _ exportEnv)) <- lookupQual qid
-  lookupIn exportEnv id
+lookupTyQualIn :: QualifiedId UniqId -> InterpEnv -> Eval (Ty UniqId)
+lookupTyQualIn (Id id) (tEnv, _) = lookup id tEnv
+lookupTyQualIn (Path qid id) interpEnv = do
+  (ValueModule (Module _ (modTyEnv, _))) <- lookupVarQualIn qid interpEnv
+  lookup id modTyEnv
 
 
-lookupId :: UniqId -> Eval Value
-lookupId id = do
-  (vEnv, _) <- get
-  lookupIn vEnv id
+lookupVarQualIn :: QualifiedId UniqId -> InterpEnv -> Eval Value
+lookupVarQualIn (Id id) (_, vEnv)= lookup id vEnv
+lookupVarQualIn (Path qid id) interpEnv = do
+  (ValueModule (Module _ (_, modVEnv))) <- lookupVarQualIn qid interpEnv
+  lookup id modVEnv
+
+
+--
+-- lookupQual :: Eval (Env UniqId a) -> QualifiedId UniqId -> Eval a
+-- lookupQual env (Id id) = env >>= lookup id
+-- lookupQual env (Path qid id) = do
+--   (ValueModule (Module _ (_, mExportVs))) <- lookupQual env qid
+--   lookup id mExportVs
+
+
+lookupVarQual :: QualifiedId UniqId -> Eval Value
+lookupVarQual id = getInterpEnv >>= lookupVarQualIn id
+
+lookupTyQual :: QualifiedId UniqId -> Eval (Ty UniqId)
+lookupTyQual id = getInterpEnv >>= lookupTyQualIn id
+
+
+lookupVarId :: UniqId -> Eval Value
+lookupVarId id = getVarEnv >>= lookup id
 
 
 getVarEnv :: Eval VEnv
 getVarEnv = do
-  (env, _) <- get
-  return env
+  ((_, vEnv), _) <- get
+  return vEnv
+
+
+getTyEnv :: Eval TEnv
+getTyEnv = lift get >>= return . fst . fst
+
+
+getInterpEnv :: Eval InterpEnv
+getInterpEnv = lift get >>= return . fst
 
 
 addVarBinding :: UniqId -> Value -> Eval ()
 addVarBinding id v = do
-  (Env vTable, cm) <- get
-  put (Env ((id, v):vTable), cm)
+  ((tyEnv, Env vTable), cm) <- get
+  put ((tyEnv, Env ((id, v):vTable)), cm)
+
+
+
+addToEnv :: UniqId -> a -> Env UniqId a -> Env UniqId a
+addToEnv id v (Env table) = Env ((id, v):table)
 
 
 addModuleExport :: UniqId -> Value -> Eval ()
 addModuleExport id v = do
-  (Env vTable, (Module mVars (Env mExports))) <- get
-  put (Env vTable, (Module mVars (Env ((id, v):mExports))))
-
-
-addToEnv :: UniqId -> Value -> State VEnv ()
-addToEnv id v = do
-  (Env table) <- get
-  put $ Env $ ((id, v):table)
+  ((tyEnv, Env vTable), (Module mCloEnv (modTyExports, modVExports))) <- get
+  put ((tyEnv, Env vTable), (Module mCloEnv (modTyExports, addToEnv id v modVExports)))
 
 
 pushNewModuleContext :: Eval EvalState
@@ -150,6 +182,8 @@ evalE (ExpSub a b) = evalBinArith (-) a b
 evalE (ExpDiv a b) = evalBinArith quot a b
 evalE (ExpMul a b) = evalBinArith (*) a b
 
+evalE (ExpTypeDec _) = return ValueUnit
+
 evalE (ExpModule moduleEs) = do
   oldEnv <- pushNewModuleContext
   evalEs moduleEs
@@ -189,7 +223,7 @@ evalE (ExpAssign id e) = do
   return ValueUnit
 
 evalE (ExpRef rawId) = do
-  v <- lookupId rawId
+  v <- lookupVarId rawId
   return v
 
 evalE (ExpApp e argEs) = do
@@ -205,8 +239,8 @@ evalE (ExpApp e argEs) = do
   return retV
 
 evalE (ExpMemberAccess e id) = do
-  (ValueModule (Module _ exportEnv)) <- evalE e
-  lookupIn exportEnv id
+  (ValueModule (Module _ (_, modVExports))) <- evalE e
+  lookup id modVExports
 
 -- For now we allow 0 to evaluate
 -- to 'False' in the test position of a

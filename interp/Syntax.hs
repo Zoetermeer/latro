@@ -30,6 +30,7 @@ data Exp id =
   | ExpTypeDec (TypeDec id)
   | ExpFunDec (FunDec id)
   | ExpModule [Exp id]
+  | ExpStruct (Exp id) [(id, Exp id)]
   | ExpIfElse (Exp id) [Exp id] [Exp id]
   | ExpNum String
   | ExpBool Bool
@@ -53,6 +54,7 @@ data Ty id =
   | TyArrow [Ty id] (Ty id)
   | TyModule
   | TyInterface
+  | TyStruct [(id, (Ty id))]
   | TyRef (QualifiedId id)
   deriving (Eq, Show)
 

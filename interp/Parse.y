@@ -21,6 +21,7 @@ import Syntax
   fun { Token _ TokenFun }
   imp { Token _ TokenImp }
   test { Token _ TokenTest }
+  struct { Token _ TokenStruct }
   True { Token _ TokenTrue }
   False { Token _ TokenFalse }
   Int { Token _ TokenInt }
@@ -94,6 +95,7 @@ Exp : '!' SubExp { ExpNot $2 }
     | SubExp { $1 }
     | import QualifiedId { ExpImport $2 }
     | id ':=' Exp { ExpAssign $1 $3 }
+    | MemberAccessExp '{' StructFieldInitializers '}' { ExpStruct $1 $3 }
     | TypeDec { ExpTypeDec $1 }
     | FunDec { ExpFunDec $1 }
     | if '(' Exp ')' '{' ZeroOrMoreExps '}' else '{' ZeroOrMoreExps '}' { ExpIfElse $3 $6 $10 }
@@ -146,7 +148,20 @@ Ty : Int { TyInt }
    | fun '(' TyList ')' ':' Ty { TyArrow $3 $6 }
    | module '{' '}' { TyModule }
    | interface '{' '}' { TyInterface }
+   | struct '{' TyStructFields '}' { TyStruct $3 }
    | QualifiedId { TyRef $1 }
+
+TyStructField : Ty id ';' { ($2, $1) }
+
+TyStructFields : TyStructField { [$1] }
+               | TyStructFields TyStructField { $1 ++ [$2] }
+               | {- empty -} { [] }
+
+StructFieldInitializer : id '=' Exp ';' { ($1, $3) }
+
+StructFieldInitializers : StructFieldInitializer { [$1] }
+                        | StructFieldInitializers StructFieldInitializer { $1 ++ [$2] }
+                        | {- empty -} { [] }
 
 QualifiedId : id  { Id $1 }
             | QualifiedId '.' id  { Path $1 $3 }
