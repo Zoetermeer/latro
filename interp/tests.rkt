@@ -551,3 +551,25 @@
       v.x;
     }
     "Error: Unbound identifier 'x'"))
+
+(test-case "it evaluates nested struct field accesses"
+  (check-equal?
+    @interp{
+      type Point = struct {
+        Int X;
+        Int Y;
+      };
+
+      type Line = struct {
+        Point A;
+        Point B;
+      };
+
+      l := Line {
+        A = Point { X = 0; Y = 0; };
+        B = Point { X = 3; Y = 4; };
+      };
+
+      l.B.Y;
+    }
+    "4"))
