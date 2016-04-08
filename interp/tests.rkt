@@ -573,3 +573,42 @@
       l.B.Y;
     }
     "4"))
+
+(test-case "it evaluates module-exported struct types"
+  (check-equal?
+    @interp{
+      Geometry := module {
+        type Point = struct {
+          Int X;
+          Int Y;
+        };
+
+        type Line = struct {
+          Point A;
+          Point B;
+        };
+      };
+
+      l := Geometry.Line {
+        A = Geometry.Point { X = 0; Y = 0; };
+        B = Geometry.Point { X = 3; Y = 4; };
+      };
+
+      l.B.Y;
+    }
+    "4"))
+
+(test-case "it does not allow module-exported type bindings to escape"
+  (check-equal?
+    @interp{
+      Geometry := module {
+        type Point = struct {
+          Int X;
+          Int Y;
+        };
+      };
+
+      p := Point { X = 0; Y = 0; };
+      p;
+    }
+    "Error: Unbound identifier 'Point'"))
