@@ -667,4 +667,4 @@
 
       S { B = B(True); A = IBTuple(2, False); };
     }
-    "<struct <<{ A T, B T }>> { B = <T = B(True)>, A = <T = IBTuple(False, False)> }>"))
+    "<struct <<{ A T, B T }>> { B = <T = B(True)>, A = <T = IBTuple(2, False)> }>"))

@@ -275,7 +275,7 @@ freshId :: Eval UniqId
 freshId = do
   alphaEnv <- gets alphaEnv
   let (uniqId, alphaEnv') = fresh "a" alphaEnv
-  modify (\interpEnv -> interpEnv { alphaEnv })
+  modify (\interpEnv -> interpEnv { alphaEnv = alphaEnv' })
   return uniqId
 
 
