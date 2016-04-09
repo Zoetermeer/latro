@@ -651,3 +651,20 @@
       Just(42);
     }
     "Error: Unbound identifier 'Just'"))
+
+(test-case "it evaluates multi-arity ADT constructors"
+  (check-equal?
+    @interp{
+      type T =
+        | IBTuple Int Bool
+        | B Bool
+        ;
+
+      type S = struct {
+        T A;
+        T B;
+      };
+
+      S { B = B(True); A = IBTuple(2, False); };
+    }
+    "<struct <<{ A T, B T }>> { B = <T = B(True)>, A = <T = IBTuple(False, False)> }>"))
