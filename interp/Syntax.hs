@@ -34,6 +34,7 @@ data Exp id =
   | ExpModule [Exp id]
   | ExpStruct (Exp id) [(id, Exp id)]
   | ExpIfElse (Exp id) [Exp id] [Exp id]
+  | ExpMakeAdt (Ty id) Int [Exp id]
   | ExpNum String
   | ExpBool Bool
   | ExpRef id

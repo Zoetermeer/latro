@@ -1,7 +1,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 module Semant where
 
-import AlphaConvert
+import AlphaConvert hiding (lookup)
 import Common
 import Control.Error.Util (hoistEither)
 import Control.Monad.Except
@@ -10,6 +10,7 @@ import Data.Either.Utils (maybeToEither)
 import Data.Functor.Identity (runIdentity)
 import Data.List
 import qualified Data.Map as Map
+import Data.Maybe (fromJust)
 import Data.Monoid ((<>), mempty)
 import Parse
 import Prelude hiding (lookup)
@@ -69,7 +70,7 @@ data Closure = Closure UniqId ClosureEnv [UniqId] [Exp UniqId]
 
 instance PrettyShow Closure where
   showShort (Closure id cloEnv _ _) =
-    printf "<closure %s %s>" (show id) (showShort cloEnv)
+    printf "<fun %s %s>" (show id) (showShort cloEnv)
 
 data Struct = Struct (Ty UniqId) [(UniqId, Value)]
   deriving (Eq, Show)
@@ -85,6 +86,15 @@ instance PrettyShow Struct where
 
 data Adt = Adt (Ty UniqId) Int [Value]
   deriving (Eq, Show)
+
+instance PrettyShow Adt where
+  showShort (Adt (TyAdt id alts) i vs) =
+    let (AdtAlternative altName _ _) = fromJust $ find (\(AdtAlternative aid ai _) -> ai == i) alts
+    in
+      printf "<%s = %s(%s)>"
+             (show id)
+             (show altName)
+             ((intercalate ", " . map show) vs)
 
 data Value =
     ValueInt Int
@@ -105,6 +115,7 @@ instance Show Value where
   show (ValueModule m) = showShort m
   show (ValueFun clo) = showShort clo
   show (ValueStruct strct) = showShort strct
+  show (ValueAdt adt) = showShort adt
   show ValueUnit = "()"
   show (Err msg) = "Error: " ++ msg
 
@@ -123,6 +134,7 @@ data InterpEnv = InterpEnv
   { typeEnv :: TEnv
   , varEnv  :: VEnv
   , curModule :: Module
+  , alphaEnv :: AlphaEnv
   }
   deriving (Eq, Show)
 
@@ -138,12 +150,13 @@ mtExports = Exports { exportTypes = Map.empty
                     , exportVars =  Map.empty
                     }
 
-mtInterpEnv :: InterpEnv
-mtInterpEnv =
+mtInterpEnv :: AlphaEnv -> InterpEnv
+mtInterpEnv alphaEnv =
     InterpEnv
       { typeEnv = Map.empty
       , varEnv = Map.empty
       , curModule = mod
+      , alphaEnv = alphaEnv
       }
   where
     mod = Module mtClosureEnv mtExports
@@ -258,6 +271,27 @@ evalBinArith f a b = do
   return $ ValueInt $ f a' b'
 
 
+freshId :: Eval UniqId
+freshId = do
+  alphaEnv <- gets alphaEnv
+  let (uniqId, alphaEnv') = fresh "a" alphaEnv
+  modify (\interpEnv -> interpEnv { alphaEnv })
+  return uniqId
+
+
+evalAdtAlt :: Ty UniqId -> AdtAlternative UniqId -> Eval ()
+evalAdtAlt ty (AdtAlternative id i tys) = do
+  argIds <- mapM (\_ -> freshId) tys
+  let argRefs = map ExpRef argIds
+  cloTypeEnv <- gets typeEnv
+  let cloEnv = ClosureEnv { cloTypeEnv, cloVarEnv = Map.empty }
+      clo = Closure id cloEnv argIds [ExpMakeAdt ty i argRefs]
+
+  putVarBinding id $ ValueFun clo
+  putModuleVarExport id $ ValueFun clo
+  return ()
+
+
 evalE :: Exp UniqId -> Eval Value
 evalE (ExpNum str) = return $ ValueInt $ read str
 evalE (ExpBool b) = return $ ValueBool b
@@ -265,6 +299,10 @@ evalE (ExpAdd a b) = evalBinArith (+) a b
 evalE (ExpSub a b) = evalBinArith (-) a b
 evalE (ExpDiv a b) = evalBinArith quot a b
 evalE (ExpMul a b) = evalBinArith (*) a b
+
+evalE (ExpMakeAdt ty i ctorArgEs) = do
+  argVs <- mapM evalE ctorArgEs
+  return $ ValueAdt $ Adt ty i argVs
 
 evalE (ExpTypeDec (TypeDecTy id ty)) = do
   putTyBinding id ty
@@ -276,6 +314,9 @@ evalE (ExpTypeDec (TypeDecAdt id alts)) = do
       ty = TyAdt id alts'
   putTyBinding id ty
   putModuleTyExport id ty
+
+  mapM_ (evalAdtAlt ty) alts'
+
   return ValueUnit
 
 evalE (ExpModule moduleEs) = do
@@ -387,5 +428,5 @@ eval (CompUnit es) = evalEs es
 
 interp :: CompUnit RawId -> Either FailMessage Value
 interp compUnit = do
-  alphaConverted <- alphaConvert compUnit
-  evalState (runExceptT $ eval alphaConverted) mtInterpEnv
+  (alphaConverted, alphaEnv) <- alphaConvert compUnit
+  evalState (runExceptT $ eval alphaConverted) $ mtInterpEnv alphaEnv

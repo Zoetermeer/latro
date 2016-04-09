@@ -157,7 +157,7 @@
 
       f;
     }
-    "<closure f (Closure [] [])>"))
+    "<fun f (Closure [] [])>"))
 
 (test-case "it returns function values with closures"
   (check-equal?
@@ -168,7 +168,7 @@
 
       f;
     }
-    "<closure f (Closure [] [v])>"))
+    "<fun f (Closure [] [v])>"))
 
 (test-case "it returns module values"
   (check-equal?
@@ -624,4 +624,30 @@
       };
       Prims;
     }
-    "<module (Closure [] []) (Exports [IntOption] [])>"))
+    "<module (Closure [] []) (Exports [IntOption] [Just, None])>"))
+
+(test-case "it constructs ADT instances"
+  (check-equal?
+    @interp{
+      type IntOption =
+        | Just Int
+        | None
+        ;
+
+      Just(42);
+    }
+    "<IntOption = Just(42)>"))
+
+(test-case "it scopes ADT defs/ctors to module exports"
+  (check-equal?
+    @interp{
+      m := module {
+        type IntOption =
+          | Just Int
+          | None
+          ;
+      };
+
+      Just(42);
+    }
+    "Error: Unbound identifier 'Just'"))

@@ -1,4 +1,4 @@
-module AlphaConvert (UniqId(..), alphaConvert, showHum) where
+module AlphaConvert where
 
 import Common
 import Control.Monad.Except
@@ -46,12 +46,19 @@ data AlphaEnv = AlphaEnv Int [(RawId, UniqId)]
 type AlphaConverted a = ExceptT FailMessage (State AlphaEnv) a
 
 
-fresh :: RawId -> AlphaConverted UniqId
-fresh id = do
-  (AlphaEnv counter table) <- lift get
+fresh :: RawId -> AlphaEnv -> (UniqId, AlphaEnv)
+fresh id (AlphaEnv counter table) =
   let counter' = counter + 1
       uniqId = UniqId counter id
-  lift $ put $ AlphaEnv counter' ((id, uniqId):table)
+  in
+    (uniqId, AlphaEnv counter' ((id, uniqId):table))
+
+
+freshM :: RawId -> AlphaConverted UniqId
+freshM id = do
+  alphaEnv <- lift get
+  let (uniqId, alphaEnv') = fresh id alphaEnv
+  lift $ put alphaEnv'
   return uniqId
 
 
@@ -104,14 +111,14 @@ convertTy (TyRef qid) = do
 
 convertAdtAlternative :: AdtAlternative RawId -> AlphaConverted (AdtAlternative UniqId)
 convertAdtAlternative (AdtAlternative id i tys) = do
-  id' <- fresh id
+  id' <- freshM id
   tys' <- mapM convertTy tys
   return $ AdtAlternative id' i tys'
 
 
 convertPatExp :: PatExp RawId -> AlphaConverted (PatExp UniqId)
 convertPatExp (PatExpVar id) = do
-  id' <- fresh id
+  id' <- freshM id
   return $ PatExpVar id'
 
 
@@ -125,7 +132,7 @@ convertFunDef (FunDefFun id argPatEs bodyEs) = do
 convertFunDef (FunDefInstFun instPatE id argPatEs bodyEs) = do
   instPatE' <- convertPatExp instPatE
   argPatEs' <- mapM convertPatExp argPatEs
-  id' <- fresh id
+  id' <- freshM id
   bodyEs' <- mapM convert bodyEs
   return $ FunDefInstFun instPatE' id' argPatEs' bodyEs'
 
@@ -150,27 +157,27 @@ convert (ExpApp ratorE randEs) = do
 
 convert (ExpAssign id e) = do
   e' <- convert e
-  id' <- fresh id
+  id' <- freshM id
   return $ ExpAssign id' e'
 
 convert (ExpTypeDec (TypeDecTy id ty)) = do
-  id' <- fresh id
+  id' <- freshM id
   ty' <- convertTy ty
   return $ ExpTypeDec $ TypeDecTy id' ty'
 
 convert (ExpTypeDec (TypeDecAdt id alts)) = do
-  id' <- fresh id
+  id' <- freshM id
   alts' <- mapM convertAdtAlternative alts
   return $ ExpTypeDec $ TypeDecAdt id' alts'
 
 convert (ExpFunDec (FunDecFun id funTy fundefs)) = do
-  id' <- fresh id
+  id' <- freshM id
   funTy' <- convertTy funTy
   fundefs' <- mapM convertFunDef fundefs
   return $ ExpFunDec $ FunDecFun id' funTy' fundefs'
 
 convert (ExpFunDec (FunDecInstFun id instTy funTy fundefs)) = do
-  id' <- fresh id
+  id' <- freshM id
   instTy' <- convertTy instTy
   funTy' <- convertTy funTy
   fundefs' <- mapM convertFunDef fundefs
@@ -182,7 +189,7 @@ convert (ExpModule bodyEs) = do
 
 convert (ExpStruct eDefiner fields) = do
   eDefiner' <- convert eDefiner
-  fields' <- mapM (\(fieldId, fieldE) -> do { fieldE' <- convert fieldE; fieldId' <- fresh fieldId; return (fieldId', fieldE') }) fields
+  fields' <- mapM (\(fieldId, fieldE) -> do { fieldE' <- convert fieldE; fieldId' <- freshM fieldId; return (fieldId', fieldE') }) fields
   return $ ExpStruct eDefiner' fields'
 
 convert (ExpIfElse condE thenEs elseEs) = do
@@ -199,7 +206,8 @@ convert (ExpRef id) = do
   return $ ExpRef id'
 
 
-alphaConvert :: CompUnit RawId -> Either FailMessage (CompUnit UniqId)
+alphaConvert :: CompUnit RawId -> Either FailMessage (CompUnit UniqId, AlphaEnv)
 alphaConvert (CompUnit exps) = do
-  exps' <- evalState (runExceptT $ mapM convert exps) (AlphaEnv 1 [])
-  return $ CompUnit exps'
+  let (eithExps, alphaEnv) = runState (runExceptT $ mapM convert exps) (AlphaEnv 1 [])
+  exps' <- eithExps
+  return (CompUnit exps', alphaEnv)
