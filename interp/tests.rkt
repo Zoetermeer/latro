@@ -488,7 +488,7 @@
 
       n;
     }
-    "<module (Closure [] [f,m]) (Exports [] [v])>"))
+    "<module (Closure [] [f, m]) (Exports [] [v])>"))
 
 (test-case "it evaluates accesses on nested-module-level scalars"
   (check-equal?
@@ -612,3 +612,16 @@
       p;
     }
     "Error: Unbound identifier 'Point'"))
+
+(test-case "it evaluates algebraic data type definitions"
+  (check-equal?
+    @interp{
+      Prims := module {
+        type IntOption =
+          | Just Int
+          | None
+          ;
+      };
+      Prims;
+    }
+    "<module (Closure [] []) (Exports [IntOption] [])>"))

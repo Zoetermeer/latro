@@ -46,8 +46,15 @@ data TypeDec id =
   deriving (Eq, Show)
 
 data AdtAlternative id =
-    AdtAlternative id [Ty id]
+    AdtAlternative id Int [Ty id]
   deriving (Eq, Show)
+
+instance Show id => PrettyShow (AdtAlternative id) where
+  showShort (AdtAlternative id i tys) =
+    printf "%s@%i [%s]"
+           (show id)
+           i
+           ((intercalate ", " . map show) tys)
 
 data Ty id =
     TyInt
@@ -57,6 +64,7 @@ data Ty id =
   | TyModule
   | TyInterface
   | TyStruct [(id, (Ty id))]
+  | TyAdt id [AdtAlternative id]
   | TyRef (QualifiedId id)
   deriving (Eq, Show)
 
@@ -68,13 +76,22 @@ instance Show id => PrettyShow (Ty id) where
     printf "<<%s -> %s>>"
            ((intercalate " -> " . map showShort) paramTys)
            (showShort retTy)
+
   showShort TyModule = "<<Module>>"
   showShort TyInterface = "<<Interface>>"
   showShort (TyStruct []) = "<<{ }>>"
+
   showShort (TyStruct fields) =
     printf "<<{ %s }>>"
            ((intercalate ", " . map (\(id, ty) -> printf "%s %s" (show id) (showShort ty))) fields)
+
+  showShort (TyAdt id alts) =
+    printf "<<adt %s [%s]>>"
+           (show id)
+           ((intercalate ", " . map showShort) alts)
+
   showShort (TyRef qid) = show qid
+
 
 data FunDec id =
     FunDecFun id (Ty id) [FunDef id]

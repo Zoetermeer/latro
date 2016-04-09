@@ -103,10 +103,10 @@ convertTy (TyRef qid) = do
 
 
 convertAdtAlternative :: AdtAlternative RawId -> AlphaConverted (AdtAlternative UniqId)
-convertAdtAlternative (AdtAlternative id tys) = do
+convertAdtAlternative (AdtAlternative id i tys) = do
   id' <- fresh id
   tys' <- mapM convertTy tys
-  return $ AdtAlternative id' tys'
+  return $ AdtAlternative id' i tys'
 
 
 convertPatExp :: PatExp RawId -> AlphaConverted (PatExp UniqId)

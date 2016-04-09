@@ -1,5 +1,6 @@
 module Common where
 
+import Data.List
 import Data.Monoid
 
 data Env a b = Env [(a, b)]
@@ -15,3 +16,13 @@ class Show a => PrettyShow a where
   showShort :: a -> String
   showLong :: a -> String
   showLong x = show x
+
+
+mapInd :: (Int -> a -> b) -> Int -> [a] -> [b]
+mapInd _ _ [] = []
+mapInd f i (x:xs) =
+  (f i x):(mapInd f (i + 1) xs)
+
+mapi :: (Int -> a -> b) -> [a] -> [b]
+mapi _ [] = []
+mapi f xs = mapInd f 0 xs

@@ -21,7 +21,7 @@ type TEnv = Map.Map UniqId (Ty UniqId)
 
 showMap :: (Show k, Show v) => Map.Map k v -> String
 showMap m =
-  intersperse ',' $ concat $ map show $ Map.keys m
+  intercalate ", " $ map show $ Map.keys m
 
 data ClosureEnv = ClosureEnv
   { cloTypeEnv :: TEnv
@@ -83,6 +83,9 @@ instance PrettyShow Struct where
            ((intercalate ", "
              . (map (\(id, v) -> printf "%s = %s" (show id) (show v)))) fields)
 
+data Adt = Adt (Ty UniqId) Int [Value]
+  deriving (Eq, Show)
+
 data Value =
     ValueInt Int
   | ValueBool Bool
@@ -90,6 +93,7 @@ data Value =
   | ValueModule Module
   | ValueFun Closure
   | ValueStruct Struct
+  | ValueAdt Adt
   | ValueUnit
   | Err String
   deriving (Eq)
@@ -263,6 +267,13 @@ evalE (ExpDiv a b) = evalBinArith quot a b
 evalE (ExpMul a b) = evalBinArith (*) a b
 
 evalE (ExpTypeDec (TypeDecTy id ty)) = do
+  putTyBinding id ty
+  putModuleTyExport id ty
+  return ValueUnit
+
+evalE (ExpTypeDec (TypeDecAdt id alts)) = do
+  let alts' = mapi (\i (AdtAlternative aid _ tys) -> AdtAlternative aid i tys) alts
+      ty = TyAdt id alts'
   putTyBinding id ty
   putModuleTyExport id ty
   return ValueUnit

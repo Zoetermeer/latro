@@ -1441,7 +1441,7 @@ happyReduction_45 (HappyAbsSyn21  happy_var_3)
 	(HappyTerminal (Token _ (TokenId happy_var_2)))
 	_
 	 =  HappyAbsSyn20
-		 (AdtAlternative happy_var_2 happy_var_3
+		 (AdtAlternative happy_var_2 0 happy_var_3
 	)
 happyReduction_45 _ _ _  = notHappyAtAll 
 

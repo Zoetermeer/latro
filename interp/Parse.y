@@ -114,7 +114,7 @@ TypeDec : type id '=' Ty { TypeDecTy $2 $4 }
 AdtAlternatives : AdtAlternative  { [$1] }
                 | AdtAlternatives AdtAlternative  { $1 ++ [$2] }
 
-AdtAlternative : '|' id Tys { AdtAlternative $2 $3 }
+AdtAlternative : '|' id Tys { AdtAlternative $2 0 $3 }
 
 Tys : Ty { [$1] }
     | Tys Ty { $1 ++ [$2] }
