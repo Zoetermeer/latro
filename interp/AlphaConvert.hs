@@ -104,6 +104,10 @@ convertTy (TyStruct fields) = do
   fields' <- mapM (\(id, ty) -> do { ty' <- convertTy ty; return (UserId id, ty') }) fields
   return $ TyStruct fields'
 
+convertTy (TyTuple tys) = do
+  tys' <- mapM convertTy tys
+  return $ TyTuple tys'
+
 convertTy (TyRef qid) = do
   qid' <- convertQualId qid
   return $ TyRef qid'
@@ -197,6 +201,10 @@ convert (ExpIfElse condE thenEs elseEs) = do
   thenEs' <- mapM convert thenEs
   elseEs' <- mapM convert elseEs
   return $ ExpIfElse condE' thenEs' elseEs'
+
+convert (ExpTuple es) = do
+  es' <- mapM convert es
+  return $ ExpTuple es'
 
 convert (ExpNum s) = return $ ExpNum s
 convert (ExpBool b) = return $ ExpBool b

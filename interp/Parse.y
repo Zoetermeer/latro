@@ -65,9 +65,13 @@ ZeroOrMoreExps : ExpT { [$1] }
 
 ExpT : Exp ';'  { $1 }
 
+TupleRestExps : ',' Exp { [$2] }
+              | TupleRestExps ',' Exp { $1 ++ [$3] }
+
 AtomExp : '(' Exp ')' { $2 }
         | module '{' ZeroOrMoreExps '}'  { ExpModule $3 }
         | '(' ')' { ExpUnit }
+        | '(' Exp TupleRestExps ')' { ExpTuple ($2:$3) }
         | num { ExpNum $1 }
         | True { ExpBool True }
         | False { ExpBool False }
@@ -141,6 +145,11 @@ TyList : Ty { [$1] }
        | TyList ',' Ty { $1 ++ [$3] }
        | {- empty -} { [] }
 
+TyTupleRest : ',' Ty { [$2] }
+            | TyTupleRest ',' Ty { $1 ++ [$3] }
+
+TyTuple : '(' Ty TyTupleRest ')' { TyTuple ($2:$3) }
+
 Ty : Int { TyInt }
    | Bool { TyBool }
    | Unit { TyUnit }
@@ -149,6 +158,7 @@ Ty : Int { TyInt }
    | module '{' '}' { TyModule }
    | interface '{' '}' { TyInterface }
    | struct '{' TyStructFields '}' { TyStruct $3 }
+   | TyTuple { $1 }
    | QualifiedId { TyRef $1 }
 
 TyStructField : Ty id ';' { ($2, $1) }

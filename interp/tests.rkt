@@ -668,3 +668,27 @@
       S { B = B(True); A = IBTuple(2, False); };
     }
     "<struct <<{ A T, B T }>> { B = <T = B(True)>, A = <T = IBTuple(2, False)> }>"))
+
+(test-case "it evaluates tuple expressions"
+  (check-equal?
+    @interp{
+      (4, False);
+    }
+    "<tuple (4, False)>"))
+
+(test-case "it evaluates 3-tuples"
+  (check-equal?
+    @interp{
+      (3, True, 4);
+    }
+    "<tuple (3, True, 4)>"))
+
+(test-case "it applies functions with tuple arguments"
+  (check-equal?
+    @interp{
+      fun f((Int, Bool)) : (Int, Bool);
+      f(pair) := { pair; };
+
+      f((5, False));
+    }
+    "<tuple (5, False)>"))

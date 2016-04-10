@@ -35,6 +35,7 @@ data Exp id =
   | ExpStruct (Exp id) [(id, Exp id)]
   | ExpIfElse (Exp id) [Exp id] [Exp id]
   | ExpMakeAdt (Ty id) Int [Exp id]
+  | ExpTuple [Exp id]
   | ExpNum String
   | ExpBool Bool
   | ExpRef id
@@ -66,6 +67,7 @@ data Ty id =
   | TyInterface
   | TyStruct [(id, (Ty id))]
   | TyAdt id [AdtAlternative id]
+  | TyTuple [Ty id]
   | TyRef (QualifiedId id)
   deriving (Eq, Show)
 
@@ -90,6 +92,10 @@ instance Show id => PrettyShow (Ty id) where
     printf "<<adt %s [%s]>>"
            (show id)
            ((intercalate ", " . map showShort) alts)
+
+  showShort (TyTuple tys) =
+    printf "<<tuple (%s)>>"
+           ((intercalate " * " . map showShort) tys)
 
   showShort (TyRef qid) = show qid
 

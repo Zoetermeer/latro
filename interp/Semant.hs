@@ -104,6 +104,7 @@ data Value =
   | ValueFun Closure
   | ValueStruct Struct
   | ValueAdt Adt
+  | ValueTuple [Value]
   | ValueUnit
   | Err String
   deriving (Eq)
@@ -116,6 +117,9 @@ instance Show Value where
   show (ValueFun clo) = showShort clo
   show (ValueStruct strct) = showShort strct
   show (ValueAdt adt) = showShort adt
+  show (ValueTuple vs) =
+    printf "<tuple (%s)>"
+           ((intercalate ", " . map show) vs)
   show ValueUnit = "()"
   show (Err msg) = "Error: " ++ msg
 
@@ -299,6 +303,10 @@ evalE (ExpAdd a b) = evalBinArith (+) a b
 evalE (ExpSub a b) = evalBinArith (-) a b
 evalE (ExpDiv a b) = evalBinArith quot a b
 evalE (ExpMul a b) = evalBinArith (*) a b
+
+evalE (ExpTuple es) = do
+  vs <- mapM evalE es
+  return $ ValueTuple vs
 
 evalE (ExpMakeAdt ty i ctorArgEs) = do
   argVs <- mapM evalE ctorArgEs
