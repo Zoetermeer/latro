@@ -22,6 +22,7 @@ import Syntax
   imp { Token _ TokenImp }
   test { Token _ TokenTest }
   struct { Token _ TokenStruct }
+  def { Token _ TokenDef }
   True { Token _ TokenTrue }
   False { Token _ TokenFalse }
   Int { Token _ TokenInt }
@@ -29,7 +30,10 @@ import Syntax
   Unit { Token _ TokenUnit }
   if { Token _ TokenIf }
   else { Token _ TokenElse }
+  switch { Token _ TokenSwitch }
+  case { Token _ TokenCase }
   ':=' { Token _ TokenAssign }
+  '->' { Token _ TokenArrow }
   '[' { Token _ TokenLBracket }
   ']' { Token _ TokenRBracket }
   '{' { Token _ TokenLBrace }
@@ -47,6 +51,7 @@ import Syntax
   '=' { Token _ TokenEq }
   ':' { Token _ TokenColon }
   ',' { Token _ TokenComma }
+  '_' { Token _ TokenUnderscore }
   num { Token _ (TokenNumLit $$) }
   id  { Token _ (TokenId $$) }
 
@@ -67,6 +72,43 @@ ExpT : Exp ';'  { $1 }
 
 TupleRestExps : ',' Exp { [$2] }
               | TupleRestExps ',' Exp { $1 ++ [$3] }
+
+LiteralPatExp : num { PatExpNumLiteral $1 }
+              | True { PatExpBoolLiteral True }
+              | False { PatExpBoolLiteral False }
+
+TuplePatExpsRest : ',' PatExp { [$2] }
+                 | TuplePatExpsRest ',' PatExp { $1 ++ [$3] }
+
+TuplePatExp : '(' PatExp TuplePatExpsRest ')' { PatExpTuple ([$2] ++ $3) }
+
+AdtPatExp : id '(' ZeroOrMorePatExps ')' { PatExpAdt $1 $3 }
+
+ZeroOrMorePatExps : PatExp { [$1] }
+                  | ZeroOrMorePatExps PatExp { $1 ++ [$2] }
+                  | {- empty -} { [] }
+
+OneOrMorePatExps : PatExp { [$1] }
+                 | OneOrMorePatExps ',' PatExp { $1 ++ [$3] }
+                 | {- empty -} { [] }
+
+PatExp : LiteralPatExp { $1 }
+       | TuplePatExp { $1 }
+       | AdtPatExp { $1 }
+       | id { PatExpId $1 }
+       | '_' { PatExpWildcard }
+
+BindingPatExp : BindingTuplePatExp { $1 }
+              | BindingAdtPatExp { $1 }
+              | id { PatExpId $1 }
+              | '_' { PatExpWildcard }
+
+BindingTuplePatExpsRest : ',' BindingPatExp { [$2] }
+                        | BindingTuplePatExpsRest ',' BindingPatExp { $1 ++ [$3] }
+
+BindingTuplePatExp : '(' BindingPatExp BindingTuplePatExpsRest ')' { PatExpTuple ($2:$3) }
+
+BindingAdtPatExp : id '(' OneOrMorePatExps ')' { PatExpAdt $1 $3 }
 
 AtomExp : '(' Exp ')' { $2 }
         | module '{' ZeroOrMoreExps '}'  { ExpModule $3 }
@@ -98,11 +140,17 @@ SubExp : SubExp '-' AddExp { ExpSub $1 $3 }
 Exp : '!' SubExp { ExpNot $2 }
     | SubExp { $1 }
     | import QualifiedId { ExpImport $2 }
-    | id ':=' Exp { ExpAssign $1 $3 }
+    | def BindingPatExp ':=' Exp { ExpAssign $2 $4 }
     | MemberAccessExp '{' StructFieldInitializers '}' { ExpStruct $1 $3 }
     | TypeDec { ExpTypeDec $1 }
     | FunDec { ExpFunDec $1 }
     | if '(' Exp ')' '{' ZeroOrMoreExps '}' else '{' ZeroOrMoreExps '}' { ExpIfElse $3 $6 $10 }
+    | switch '(' Exp ')' '{' CaseClauses '}' { ExpSwitch $3 $6 }
+
+CaseClauses : CaseClause { [$1] }
+            | CaseClauses CaseClause { $1 ++ [$2] }
+
+CaseClause : case PatExp '->' OneOrMoreExps { CaseClause $2 $4 }
 
 ArgExps : Exp { [$1] }
         | ArgExps ',' Exp { $1 ++ [$3] }
@@ -138,8 +186,6 @@ InstancePat : '(' PatExp ')' '.'  { $2 }
 PatExpList : PatExp { [$1] }
            | PatExpList ',' PatExp { $1 ++ [$3] }
            | {- empty -} { [] }
-
-PatExp : id { PatExpVar $1 }
 
 TyList : Ty { [$1] }
        | TyList ',' Ty { $1 ++ [$3] }

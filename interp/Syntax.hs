@@ -19,6 +19,20 @@ instance Show id => Show (QualifiedId id) where
 data CompUnit id = CompUnit [Exp id]
   deriving (Eq, Show)
 
+data PatExp id =
+    PatExpNumLiteral String
+  | PatExpBoolLiteral Bool
+  | PatExpTuple [PatExp id]
+  | PatExpAdt id [PatExp id]
+  | PatExpId id
+  | PatExpAtom (Exp id)
+  | PatExpWildcard
+  deriving (Eq, Show)
+
+data CaseClause id =
+    CaseClause (PatExp id) [Exp id]
+  deriving (Eq, Show)
+
 data Exp id =
     ExpAdd (Exp id) (Exp id)
   | ExpSub (Exp id) (Exp id)
@@ -28,7 +42,7 @@ data Exp id =
   | ExpMemberAccess (Exp id) id
   | ExpApp (Exp id) [Exp id]
   | ExpImport (QualifiedId id)
-  | ExpAssign id (Exp id)
+  | ExpAssign (PatExp id) (Exp id)
   | ExpTypeDec (TypeDec id)
   | ExpFunDec (FunDec id)
   | ExpModule [Exp id]
@@ -36,6 +50,7 @@ data Exp id =
   | ExpIfElse (Exp id) [Exp id] [Exp id]
   | ExpMakeAdt (Ty id) Int [Exp id]
   | ExpTuple [Exp id]
+  | ExpSwitch (Exp id) [CaseClause id]
   | ExpNum String
   | ExpBool Bool
   | ExpRef id
@@ -108,7 +123,4 @@ data FunDec id =
 data FunDef id =
     FunDefFun id [PatExp id] [Exp id]
   | FunDefInstFun (PatExp id) id [PatExp id] [Exp id]
-  deriving (Eq, Show)
-
-data PatExp id = PatExpVar id
   deriving (Eq, Show)

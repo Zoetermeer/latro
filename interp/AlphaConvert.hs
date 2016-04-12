@@ -121,9 +121,21 @@ convertAdtAlternative (AdtAlternative id i tys) = do
 
 
 convertPatExp :: PatExp RawId -> AlphaConverted (PatExp UniqId)
-convertPatExp (PatExpVar id) = do
+convertPatExp PatExpWildcard = return $ PatExpWildcard
+convertPatExp (PatExpNumLiteral s) = return $ PatExpNumLiteral s
+convertPatExp (PatExpBoolLiteral b) = return $ PatExpBoolLiteral b
+convertPatExp (PatExpTuple es) = do
+  es' <- mapM convertPatExp es
+  return $ PatExpTuple es'
+
+convertPatExp (PatExpId id) = do
   id' <- freshM id
-  return $ PatExpVar id'
+  return $ PatExpId id'
+
+convertPatExp (PatExpAdt id es) = do
+  id' <- lookup id
+  es' <- mapM convertPatExp es
+  return $ PatExpAdt id' es'
 
 
 convertFunDef :: FunDef RawId -> AlphaConverted (FunDef UniqId)
@@ -139,6 +151,12 @@ convertFunDef (FunDefInstFun instPatE id argPatEs bodyEs) = do
   id' <- freshM id
   bodyEs' <- mapM convert bodyEs
   return $ FunDefInstFun instPatE' id' argPatEs' bodyEs'
+
+
+convertCaseClause (CaseClause patE es) = do
+  patE' <- convertPatExp patE
+  es' <- mapM convert es
+  return $ CaseClause patE' es'
 
 
 convert :: Exp RawId -> AlphaConverted (Exp UniqId)
@@ -159,10 +177,10 @@ convert (ExpApp ratorE randEs) = do
   randEs' <- mapM convert randEs
   return $ ExpApp ratorE' randEs'
 
-convert (ExpAssign id e) = do
+convert (ExpAssign patExp e) = do
   e' <- convert e
-  id' <- freshM id
-  return $ ExpAssign id' e'
+  patExp' <- convertPatExp patExp
+  return $ ExpAssign patExp' e'
 
 convert (ExpTypeDec (TypeDecTy id ty)) = do
   id' <- freshM id
@@ -201,6 +219,11 @@ convert (ExpIfElse condE thenEs elseEs) = do
   thenEs' <- mapM convert thenEs
   elseEs' <- mapM convert elseEs
   return $ ExpIfElse condE' thenEs' elseEs'
+
+convert (ExpSwitch e clauses) = do
+  e' <- convert e
+  clauses' <- mapM convertCaseClause clauses
+  return $ ExpSwitch e' clauses'
 
 convert (ExpTuple es) = do
   es' <- mapM convert es

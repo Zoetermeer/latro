@@ -92,8 +92,8 @@
 (test-case "it does not allow bindings to escape from then/else scopes"
   (check-equal?
     @interp{
-      v := if (True) {
-        x := 42;
+      def v := if (True) {
+        def x := 42;
         x;
       } else { 0; };
 
@@ -104,7 +104,7 @@
 (test-case "it does not allow bindings to escape the test exp of an if/else"
   (check-equal?
     @interp{
-      if (x := 42) {
+      if (def x := 42) {
         x;
       } else {
         x;
@@ -117,7 +117,7 @@
     @interp{
       module {
         if (True) {
-          x := 42;
+          def x := 42;
         } else {
           ();
         };
@@ -162,7 +162,7 @@
 (test-case "it returns function values with closures"
   (check-equal?
     @interp{
-      v := 1;
+      def v := 1;
       fun f() : Int;
       f() := { v; };
 
@@ -173,21 +173,21 @@
 (test-case "it returns module values"
   (check-equal?
     @interp{
-      m := module {}; m;
+      def m := module {}; m;
     }
     "<module (Closure [] []) (Exports [] [])>"))
 
 (test-case "it adds definitions to module exports"
   (check-equal?
     @interp{
-      m := module { v := 42; }; m;
+      def m := module { def v := 42; }; m;
     }
     "<module (Closure [] []) (Exports [] [v])>"))
 
 (test-case "it applies functions on modules with multiple decs"
   (check-equal?
     @interp{
-      m := module {
+      def m := module {
         fun f() : Int;
         f() := { 42; };
 
@@ -202,7 +202,7 @@
 (test-case "it returns values defined in modules"
   (check-equal?
     @interp{
-      m := module { v := 42; };
+      def m := module { def v := 42; };
       m.v;
     }
     "42"))
@@ -210,7 +210,7 @@
 (test-case "it can apply module-exported functions"
   (check-equal?
     @interp{
-      m := module {
+      def m := module {
         fun f() : Int;
         f() := { 42; };
       };
@@ -221,8 +221,8 @@
 (test-case "it can apply module-exported functions occurring after a nested module dec"
   (check-equal?
     @interp{
-      m := module {
-        n := module { };
+      def m := module {
+        def n := module { };
 
         fun f() : Int;
         f() := { 42; };
@@ -234,11 +234,11 @@
 (test-case "it can apply module-exported functions occurring before a nested module dec"
   (check-equal?
     @interp{
-      m := module {
+      def m := module {
         fun f() : Int;
         f() := { 42; };
 
-        n := module { };
+        def n := module { };
       };
       m.f();
     }
@@ -247,9 +247,9 @@
 (test-case "it returns nested module values"
   (check-equal?
     @interp{
-      a := module {
-        b := module {
-          v := 42;
+      def a := module {
+        def b := module {
+          def v := 42;
         };
       };
 
@@ -278,7 +278,7 @@
 (test-case "it correctly shadows bindings in function bodies"
   (check-equal?
     @interp{
-      m := module { };
+      def m := module { };
       fun f(Int) : Int;
       f(m) := { m; };
       f(42);
@@ -288,7 +288,7 @@
 (test-case "it captures bindings from the env in function bodies"
   (check-equal?
     @interp{
-      m := module { };
+      def m := module { };
       fun f() : module { };
       f() := { m; };
       f();
@@ -300,7 +300,7 @@
     @interp{
       fun f() : module { };
       f() := {
-        m := module {};
+        def m := module {};
       };
       m;
     }
@@ -312,7 +312,7 @@
       module {
         fun f() : Int;
         f() := {
-          x := 42;
+          def x := 42;
           x;
         };
       };
@@ -336,8 +336,8 @@
 (test-case "it returns nested module values"
   (check-equal?
     @interp{
-      m := module {
-        m' := module {
+      def m := module {
+        def m' := module {
           fun g() : Int;
           g() := { 43; };
         };
@@ -353,8 +353,8 @@
 (test-case "it resolves functions on nested modules"
   (check-equal?
     @interp{
-      m := module {
-        m' := module {
+      def m := module {
+        def m' := module {
           fun g() : Int;
           g() := { 43; };
         };
@@ -370,8 +370,8 @@
 (test-case "it evaluates functions with compound bodies on nested modules"
   (check-equal?
     @interp{
-      m := module {
-        m1 := module {
+      def m := module {
+        def m1 := module {
           fun g(Int, Int) : Int;
           g(x, y) := { y + x; };
         };
@@ -404,8 +404,8 @@
 (test-case "it does not allow nested modules to escape the local env"
   (check-equal?
     @interp{
-      m := module {
-        m1 := module {
+      def m := module {
+        def m1 := module {
           fun g(Int, Int) : Int;
           g(x, y) := {
             y + x;
@@ -420,11 +420,11 @@
 (test-case "it does not capture id's in lexical scope for modules as exports"
   (check-equal?
     @interp{
-      m := module {
+      def m := module {
         fun f() : Int;
         f() := { 42; };
 
-        n := module { };
+        def n := module { };
       };
 
       m.n.f();
@@ -449,10 +449,10 @@
 (test-case "it resolves member accesses on captured modules"
   (check-equal?
     @interp{
-      m := module {
-        n := module {
-          o := module {
-            v := 42;
+      def m := module {
+        def n := module {
+          def o := module {
+            def v := 42;
           };
         };
 
@@ -467,8 +467,8 @@
 (test-case "it evaluates accesses on module-level scalars"
   (check-equal?
     @interp{
-      m := module {
-        v := 6;
+      def m := module {
+        def v := 6;
       };
 
       m.v;
@@ -478,12 +478,12 @@
 (test-case "it can access prior bindings in a module closure"
   (check-equal?
     @interp{
-      m := module { };
+      def m := module { };
       fun f() : Int;
       f() := { 1; };
 
-      n := module {
-        v := 2;
+      def n := module {
+        def v := 2;
       };
 
       n;
@@ -493,9 +493,9 @@
 (test-case "it evaluates accesses on nested-module-level scalars"
   (check-equal?
     @interp{
-      m := module {
-        n := module {
-          v := 6;
+      def m := module {
+        def n := module {
+          def v := 6;
         };
       };
 
@@ -506,7 +506,7 @@
 (test-case "it evaluates accesses on inline modules"
   (check-equal?
     @interp{
-      module { v := 6; }.v;
+      module { def v := 6; }.v;
     }
     "6"))
 
@@ -538,7 +538,7 @@
         Int Y;
       };
 
-      p := Point { X = 3; Y = 4; };
+      def p := Point { X = 3; Y = 4; };
       p.Y;
     }
     "4"))
@@ -547,7 +547,7 @@
   (check-equal?
     @interp{
       type t = struct { };
-      v := t { };
+      def v := t { };
       v.x;
     }
     "Error: Unbound identifier 'x'"))
@@ -565,7 +565,7 @@
         Point B;
       };
 
-      l := Line {
+      def l := Line {
         A = Point { X = 0; Y = 0; };
         B = Point { X = 3; Y = 4; };
       };
@@ -577,7 +577,7 @@
 (test-case "it evaluates module-exported struct types"
   (check-equal?
     @interp{
-      Geometry := module {
+      def Geometry := module {
         type Point = struct {
           Int X;
           Int Y;
@@ -589,7 +589,7 @@
         };
       };
 
-      l := Geometry.Line {
+      def l := Geometry.Line {
         A = Geometry.Point { X = 0; Y = 0; };
         B = Geometry.Point { X = 3; Y = 4; };
       };
@@ -601,14 +601,14 @@
 (test-case "it does not allow module-exported type bindings to escape"
   (check-equal?
     @interp{
-      Geometry := module {
+      def Geometry := module {
         type Point = struct {
           Int X;
           Int Y;
         };
       };
 
-      p := Point { X = 0; Y = 0; };
+      def p := Point { X = 0; Y = 0; };
       p;
     }
     "Error: Unbound identifier 'Point'"))
@@ -616,7 +616,7 @@
 (test-case "it evaluates algebraic data type definitions"
   (check-equal?
     @interp{
-      Prims := module {
+      def Prims := module {
         type IntOption =
           | Just Int
           | None
@@ -641,7 +641,7 @@
 (test-case "it scopes ADT defs/ctors to module exports"
   (check-equal?
     @interp{
-      m := module {
+      def m := module {
         type IntOption =
           | Just Int
           | None
@@ -692,3 +692,94 @@
       f((5, False));
     }
     "<tuple (5, False)>"))
+
+(test-case "it evaluates tuple pattern bindings"
+  (check-equal?
+    @interp{
+      def (a, b) := (1, True);
+      b;
+    }
+    "True"))
+
+(test-case "it returns an error for match failures in pattern bindings"
+  (check-equal?
+    @interp{
+      def (a, b) := 42;
+      a;
+    }
+    "Error: Binding pattern match failure for value '42'"))
+
+(test-case "it evaluates wildcards in tuple patterns"
+  (check-equal?
+    @interp{
+      def (_, b) := (1, 43);
+      b;
+    }
+    "43"))
+
+(test-case "it throws away expressions bound to wildcards"
+  (check-equal?
+    @interp{
+      def _ := 42;
+      43;
+    }
+    "43"))
+
+(test-case "it evaluates switch expressions"
+  (check-equal?
+    @interp{
+      def v := (4, False);
+      switch (v) {
+        case (0, _) -> 1;
+        case (4, True) -> 2;
+        case (_, False) -> 3;
+        case _ -> 4;
+      };
+    }
+    "3"))
+
+(test-case "it evaluates patterns in argument-binding position"
+  (check-equal?
+    @interp{
+      fun IsZero(Int) : Bool;
+      IsZero(0) := { True; }
+      IsZero(_) := { False; };
+
+      (IsZero(1), IsZero(0));
+    }
+    "<tuple (False, True)>"))
+
+(test-case "it returns an error for non-exhaustive patterns in argument bindings"
+  (check-equal?
+    @interp{
+      fun IsZero(Int) : Bool;
+      IsZero(0) := { True; };
+
+      IsZero(1);
+    }
+    "Error: Non-exhaustive pattern in function 'IsZero'"))
+
+(test-case "it evaluates ADT patterns"
+  (check-equal?
+    @interp{
+      type IntOption =
+        | Some Int
+        | None
+        ;
+
+      def Some(x) := Some(10);
+      x;
+    }
+    "10"))
+
+(test-case "it returns an error for non-exhaustive patterns in ADT bindings"
+  (check-equal?
+    @interp{
+      type IntOption =
+        | Some Int
+        | None
+        ;
+
+        def None() := Some(10);
+      }
+      "Error: Non-exhaustive pattern binding for '<IntOption = Some(10)>'"))

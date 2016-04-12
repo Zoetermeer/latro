@@ -65,11 +65,11 @@ instance PrettyShow Module where
     printf "<module %s %s>" (showShort cloEnv) (showShort exports)
   showLong m = show m
 
-data Closure = Closure UniqId ClosureEnv [UniqId] [Exp UniqId]
+data Closure = Closure UniqId (Ty UniqId) ClosureEnv [UniqId] [Exp UniqId]
   deriving (Eq, Show)
 
 instance PrettyShow Closure where
-  showShort (Closure id cloEnv _ _) =
+  showShort (Closure id _ cloEnv _ _) =
     printf "<fun %s %s>" (show id) (showShort cloEnv)
 
 data Struct = Struct (Ty UniqId) [(UniqId, Value)]
@@ -251,10 +251,10 @@ restoreEnv :: InterpEnv -> Eval ()
 restoreEnv intEnv = put intEnv
 
 
--- This is a placeholder; to be replaced
--- by real pattern matching
+-- TODO: Placeholder for patterns in argument-binding
+-- position
 patExpBindingId :: PatExp UniqId -> UniqId
-patExpBindingId (PatExpVar id) = id
+patExpBindingId (PatExpId id) = id
 
 
 evalTyExp :: Exp UniqId -> Eval (Ty UniqId)
@@ -289,10 +289,72 @@ evalAdtAlt ty (AdtAlternative id i tys) = do
   let argRefs = map ExpRef argIds
   cloTypeEnv <- gets typeEnv
   let cloEnv = ClosureEnv { cloTypeEnv, cloVarEnv = Map.empty }
-      clo = Closure id cloEnv argIds [ExpMakeAdt ty i argRefs]
+      ctorTy = TyArrow tys ty
+      clo = Closure id ctorTy cloEnv argIds [ExpMakeAdt ty i argRefs]
 
   putVarBinding id $ ValueFun clo
   putModuleVarExport id $ ValueFun clo
+  return ()
+
+
+resolvePatExpAdtTag :: PatExp UniqId -> Value -> Value -> Either FailMessage ()
+resolvePatExpAdtTag (PatExpAdt id patEs) testV ctorV =
+  case testV of
+    ValueAdt (Adt ty tag vs) ->
+      case ctorV of
+        ValueFun (Closure _ (TyArrow paramTys retTy) _ paramIds _) ->
+          let (TyAdt _ alts) = ty
+          in
+            case find (\(AdtAlternative altId i _) -> id == altId) alts of
+              Just (AdtAlternative _ i tys) ->
+                if i == tag
+                then return ()
+                else Left $ printf "Non-exhaustive pattern binding for '%s'" $ show testV
+              _ -> Left $ printf "'%s' is not a valid constructor for type '%s'"
+                                 (show id)
+                                 (show ty)
+        _ ->
+          Left $ printf "'%s' is not a valid constructor." $ show id
+    _ ->
+      Left $ printf "'%s' is not a an ADT instance." $ show testV
+
+resolvePatExpAdtTag _ _ _ = Left "Invalid ADT binding pattern expression."
+
+
+evalPatExpBinder :: PatExp UniqId -> Value -> Eval ()
+evalPatExpBinder PatExpWildcard _ = return ()
+evalPatExpBinder (PatExpNumLiteral _) _ =
+  throwError "Invalid literal pattern in local binding"
+evalPatExpBinder (PatExpBoolLiteral _) _ =
+  throwError "Invalid literal pattern in local binding"
+
+evalPatExpBinder (PatExpTuple patEs) v@(ValueTuple vs) =
+  if length patEs /= length vs
+  then throwError $ printf "Binding pattern match failure for value '%s'" $ show v
+  else do
+    let evPairs = zip patEs vs
+    mapM_ (\(patE, v) -> evalPatExpBinder patE v) evPairs
+    return ()
+
+evalPatExpBinder (PatExpTuple _) v =
+  throwError $ printf "Binding pattern match failure for value '%s'" $ show v
+
+evalPatExpBinder patE@(PatExpAdt id patEs) testV@(ValueAdt (Adt ty tag vs)) = do
+  ctorV <- lookupVarId id
+  resolved <- hoistEither $ resolvePatExpAdtTag patE testV ctorV
+  let evPairs = zip patEs vs
+  mapM_ (\(patE, v) -> evalPatExpBinder patE v) evPairs
+  return ()
+
+evalPatExpBinder patE@(PatExpAdt _ _) v =
+  throwError $ printf "Value '%s' bound to pattern '%s' is not an ADT instance."
+                      (show v)
+                      (show patE)
+
+
+evalPatExpBinder (PatExpId id) v = do
+  putVarBinding id v
+  putModuleVarExport id v
   return ()
 
 
@@ -355,7 +417,7 @@ evalE (ExpFunDec (FunDecFun id ty (funDef:_))) =
       else do
         cloEnv <- gets (\intEnv -> ClosureEnv { cloTypeEnv = typeEnv intEnv, cloVarEnv = varEnv intEnv })
         let paramIds = map patExpBindingId argPatExps
-            clo = Closure fid cloEnv paramIds bodyExps
+            clo = Closure fid ty cloEnv paramIds bodyExps
             vClo = ValueFun clo
         putVarBinding id vClo
         putModuleVarExport id vClo
@@ -364,10 +426,9 @@ evalE (ExpFunDec (FunDecFun id ty (funDef:_))) =
 evalE (ExpFunDec (FunDecInstFun id instTy funTy funDefs)) =
   return ValueUnit
 
-evalE (ExpAssign id e) = do
+evalE (ExpAssign patE e) = do
   v <- evalE e
-  putVarBinding id v
-  putModuleVarExport id v
+  evalPatExpBinder patE v
   return ValueUnit
 
 evalE (ExpRef rawId) = do
@@ -375,7 +436,7 @@ evalE (ExpRef rawId) = do
   return v
 
 evalE (ExpApp e argEs) = do
-  fv@(ValueFun (Closure fid fenv paramIds bodyEs)) <- evalE e
+  fv@(ValueFun (Closure fid fTy fenv paramIds bodyEs)) <- evalE e
   argVs <- mapM evalE argEs
 
   preApplyInterpEnv <- get

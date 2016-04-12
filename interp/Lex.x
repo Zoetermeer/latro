@@ -31,6 +31,7 @@ tokens :-
   imp { lex' TokenImp }
   test { lex' TokenTest }
   struct { lex' TokenStruct }
+  def { lex' TokenDef }
   True { lex' TokenTrue }
   False { lex' TokenFalse }
   Int { lex' TokenInt }
@@ -38,7 +39,10 @@ tokens :-
   Unit { lex' TokenUnit }
   if { lex' TokenIf }
   else { lex' TokenElse }
+  switch { lex' TokenSwitch }
+  case { lex' TokenCase }
   ":=" { lex' TokenAssign }
+  "->" { lex' TokenArrow }
   [\[] { lex' TokenLBracket }
   [\]] { lex' TokenRBracket }
   [\{] { lex' TokenLBrace }
@@ -56,6 +60,7 @@ tokens :-
   [\=] { lex' TokenEq }
   [\:] { lex' TokenColon }
   [\,] { lex' TokenComma }
+  [\_] { lex' TokenUnderscore }
   $digit+ { lex TokenNumLit }
   $alpha [$alpha $digit \_ \']* { lex TokenId }
 
@@ -84,6 +89,7 @@ data TokenClass =
   | TokenImp
   | TokenTest
   | TokenStruct
+  | TokenDef
   | TokenTrue
   | TokenFalse
   | TokenInt
@@ -91,7 +97,10 @@ data TokenClass =
   | TokenUnit
   | TokenIf
   | TokenElse
+  | TokenSwitch
+  | TokenCase
   | TokenAssign
+  | TokenArrow
   | TokenLBracket
   | TokenRBracket
   | TokenLBrace
@@ -109,6 +118,7 @@ data TokenClass =
   | TokenEq
   | TokenColon
   | TokenComma
+  | TokenUnderscore
   | TokenNumLit String
   | TokenId String
   | TokenEOF
@@ -128,6 +138,7 @@ unlex (TokenFun) = "fun"
 unlex (TokenImp) = "imp"
 unlex (TokenTest) = "test"
 unlex (TokenStruct) = "struct"
+unlex (TokenDef) = "def"
 unlex (TokenTrue) = "True"
 unlex (TokenFalse) = "False"
 unlex (TokenInt) = "Int"
@@ -135,7 +146,10 @@ unlex (TokenBool) = "Bool"
 unlex (TokenUnit) = "Unit"
 unlex (TokenIf) = "if"
 unlex (TokenElse) = "else"
+unlex (TokenSwitch) = "switch"
+unlex (TokenCase) = "case"
 unlex (TokenAssign) = ":="
+unlex (TokenArrow) = "->"
 unlex (TokenLBracket) = "["
 unlex (TokenRBracket) = "]"
 unlex (TokenLBrace) = "{"
@@ -153,6 +167,7 @@ unlex (TokenDot) = "."
 unlex (TokenEq) = "="
 unlex (TokenColon) = ":"
 unlex (TokenComma) = ","
+unlex (TokenUnderscore) = "_"
 unlex (TokenNumLit s) = s
 unlex (TokenId s) = s
 unlex (TokenEOF) = "<EOF>"
