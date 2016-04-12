@@ -10,7 +10,7 @@ import Data.Either.Utils (maybeToEither)
 import Data.Functor.Identity (runIdentity)
 import Data.List
 import qualified Data.Map as Map
-import Data.Maybe (fromJust)
+import Data.Maybe (fromJust, isJust)
 import Data.Monoid ((<>), mempty)
 import Parse
 import Prelude hiding (lookup)
@@ -323,10 +323,23 @@ resolvePatExpAdtTag _ _ _ = Left "Invalid ADT binding pattern expression."
 
 evalPatExpBinder :: PatExp UniqId -> Value -> Eval ()
 evalPatExpBinder PatExpWildcard _ = return ()
-evalPatExpBinder (PatExpNumLiteral _) _ =
-  throwError "Invalid literal pattern in local binding"
-evalPatExpBinder (PatExpBoolLiteral _) _ =
-  throwError "Invalid literal pattern in local binding"
+evalPatExpBinder (PatExpNumLiteral n) v =
+    case v of
+      ValueInt i ->
+        if i == ni
+        then return ()
+        else throwError $ printf "Values '%i' and '%i' do not match." n i
+      _ -> throwError $ printf "Binding pattern match failure for value '%s'" $ show v
+  where
+    ni = read n
+
+evalPatExpBinder (PatExpBoolLiteral b) v =
+  case v of
+    ValueBool bv ->
+      if bv == b
+      then return ()
+      else throwError $ printf "Values '%s' and '%s' do not match." (show b) (show bv)
+    _ -> throwError $ printf "Binding pattern match failure for value '%s'" $ show v
 
 evalPatExpBinder (PatExpTuple patEs) v@(ValueTuple vs) =
   if length patEs /= length vs
@@ -480,7 +493,28 @@ evalE (ExpIfElse condE thenEs elseEs) = do
   restoreEnv curEnv
   return v
 
+evalE (ExpSwitch e clauses) = do
+  v <- evalE e
+  matchResults <- mapM (evalCaseClause v) clauses
+  let mv = find isJust matchResults
+  case mv of
+    Nothing -> throwError $ printf "Non-exhaustive pattern for '%s'" $ show v
+    Just retV -> return $ fromJust retV
+
 evalE e = throwError $ printf "I don't know how to evaluate '%s'" $ show e
+
+
+evalCaseClause :: Value -> CaseClause UniqId -> Eval (Maybe Value)
+evalCaseClause v (CaseClause patE bodyEs) = do
+  oldEnv <- get
+  result <- do { r <- evalPatExpBinder patE v; return $ Just () } `catchError` (\_ -> return Nothing)
+  case result of
+    Nothing -> do
+      restoreEnv oldEnv
+      return Nothing
+    Just _ -> do
+      retV <- evalEs bodyEs
+      return $ Just retV
 
 
 evalEs :: [Exp UniqId] -> Eval Value

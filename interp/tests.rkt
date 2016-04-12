@@ -749,6 +749,20 @@
     }
     "<tuple (False, True)>"))
 
+(test-case "it evaluates tuple patterns in argument bindings"
+  (check-equal?
+    @interp{
+      fun Fst((Int, Bool)) : Int;
+      Fst(a, _) := { a; };
+
+      fun Snd((Int, Bool)) : Bool;
+      Snd(_, b) := { b; };
+
+      def v := (42, False);
+      (Snd(v), Fst(v));
+    }
+    "<tuple (False, 42)>"))
+
 (test-case "it returns an error for non-exhaustive patterns in argument bindings"
   (check-equal?
     @interp{
