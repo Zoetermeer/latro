@@ -753,10 +753,10 @@
   (check-equal?
     @interp{
       fun Fst((Int, Bool)) : Int;
-      Fst(a, _) := { a; };
+      Fst((a, _)) := { a; };
 
       fun Snd((Int, Bool)) : Bool;
-      Snd(_, b) := { b; };
+      Snd((_, b)) := { b; };
 
       def v := (42, False);
       (Snd(v), Fst(v));
@@ -797,3 +797,17 @@
         def None() := Some(10);
       }
       "Error: Non-exhaustive pattern binding for '<IntOption = Some(10)>'"))
+
+(test-case "it evaluates ADT argument patterns"
+  (check-equal?
+    @interp{
+      type IntOption = | Some Int | None ;
+      fun IsSome(IntOption) : Bool;
+      IsSome(Some(_)) := { True; }
+      IsSome(_) := { False; };
+
+      def s := Some(42);
+      def Some(v) := s;
+      (IsSome(None), IsSome(s), v);
+    }
+    "<tuple (False, True, 42)>"))

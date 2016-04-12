@@ -422,10 +422,11 @@ evalE (ExpFunDec (FunDecInstFun id _ _ [])) = do
 
 
 -- Need to validate fundef identifiers here
-evalE (ExpFunDec (FunDecFun id ty funDefs)) = do
-  (FunDefFun _ argPatEs bodyEs, paramIds) <- desugarFunDefs id funDefs
+evalE (ExpFunDec (FunDecFun id ty (funDef:[]))) = do
+  let (FunDefFun _ argPatEs bodyEs) = funDef
   cloEnv <- gets (\intEnv -> ClosureEnv { cloTypeEnv = typeEnv intEnv, cloVarEnv = varEnv intEnv })
-  let clo = Closure id ty cloEnv paramIds bodyEs
+  let paramIds = map patExpBindingId argPatEs
+      clo = Closure id ty cloEnv paramIds bodyEs
       vClo = ValueFun clo
   putVarBinding id vClo
   putModuleVarExport id vClo
@@ -514,26 +515,6 @@ evalE (ExpSwitch e clauses) = do
     Just retV -> return $ fromJust retV
 
 evalE e = throwError $ printf "I don't know how to evaluate '%s'" $ show e
-
-
-
-funDefToCaseClause :: FunDef UniqId -> CaseClause UniqId
-funDefToCaseClause (FunDefFun _ argPatEs bodyEs) =
-  CaseClause (PatExpTuple argPatEs) bodyEs
-
-
-desugarFunDefs :: UniqId -> [FunDef UniqId] -> Eval (FunDef UniqId, [UniqId])
-desugarFunDefs fid funDefs =
-  let paramsLen = nub $ map (\(FunDefFun _ patEs _) -> length patEs) funDefs
-  in
-    case paramsLen of
-      [len] -> do
-        paramIds <- mapM (\_ -> freshId) $ replicate len ()
-        let argsTup = ExpTuple $ map ExpRef paramIds
-            cases = map funDefToCaseClause funDefs
-        return (FunDefFun fid (map PatExpId paramIds) [ExpSwitch argsTup cases], paramIds)
-      _ ->
-        throwError $ printf "Function definitions for '%s' must all have matching arity." $ show fid
 
 
 evalCaseClause :: Value -> CaseClause UniqId -> Eval (Maybe Value)

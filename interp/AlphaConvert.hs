@@ -3,7 +3,7 @@ module AlphaConvert where
 import Common
 import Control.Monad.Except
 import Control.Monad.State
-import Data.List (find)
+import Data.List (find, nub)
 import Prelude hiding (lookup)
 import Syntax
 import Text.Printf (printf)
@@ -159,6 +159,28 @@ convertCaseClause (CaseClause patE es) = do
   return $ CaseClause patE' es'
 
 
+funDefToCaseClause :: FunDef RawId -> AlphaConverted (CaseClause UniqId)
+funDefToCaseClause (FunDefFun _ argPatEs bodyEs) = do
+  let tupPat = PatExpTuple argPatEs
+  tupPat' <- convertPatExp tupPat
+  bodyEs' <- mapM convert bodyEs
+  return $ CaseClause tupPat' bodyEs'
+
+
+desugarFunDefs :: UniqId -> [FunDef RawId] -> AlphaConverted (FunDef UniqId, [UniqId])
+desugarFunDefs fid funDefs =
+  let paramsLen = nub $ map (\(FunDefFun _ patEs _) -> length patEs) funDefs
+  in
+    case paramsLen of
+      [len] -> do
+        paramIds <- mapM (\_ -> freshM "arg") $ replicate len ()
+        let argsTup = ExpTuple $ map ExpRef paramIds
+        cases <- mapM funDefToCaseClause funDefs
+        return (FunDefFun fid (map PatExpId paramIds) [ExpSwitch argsTup cases], paramIds)
+      _ ->
+        throwError $ printf "Function definitions for '%s' must all have matching arity." $ show fid
+
+
 convert :: Exp RawId -> AlphaConverted (Exp UniqId)
 convert (ExpAdd a b) = convertBin ExpAdd a b
 convert (ExpSub a b) = convertBin ExpSub a b
@@ -195,8 +217,8 @@ convert (ExpTypeDec (TypeDecAdt id alts)) = do
 convert (ExpFunDec (FunDecFun id funTy fundefs)) = do
   id' <- freshM id
   funTy' <- convertTy funTy
-  fundefs' <- mapM convertFunDef fundefs
-  return $ ExpFunDec $ FunDecFun id' funTy' fundefs'
+  (fundef', paramIds) <- desugarFunDefs id' fundefs
+  return $ ExpFunDec $ FunDecFun id' funTy' [fundef']
 
 convert (ExpFunDec (FunDecInstFun id instTy funTy fundefs)) = do
   id' <- freshM id
