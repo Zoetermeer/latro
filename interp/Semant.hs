@@ -278,7 +278,7 @@ evalBinArith f a b = do
 freshId :: Eval UniqId
 freshId = do
   alphaEnv <- gets alphaEnv
-  let (uniqId, alphaEnv') = fresh "a" alphaEnv
+  let (uniqId, alphaEnv') = fresh "arg" alphaEnv
   modify (\interpEnv -> interpEnv { alphaEnv = alphaEnv' })
   return uniqId
 
@@ -420,21 +420,33 @@ evalE (ExpFunDec (FunDecFun id _ [])) = do
 evalE (ExpFunDec (FunDecInstFun id _ _ [])) = do
   throwError $ printf "No definition given for instance function declaration '%s'" $ show id
 
-evalE (ExpFunDec (FunDecFun id ty (funDef:_))) =
-  case funDef of
-    FunDefInstFun _ _ _ _ -> do
-      throwError $ printf "Function '%s' is not an instance function" $ show id
-    FunDefFun fid argPatExps bodyExps ->
-      if id /= fid then
-        do { throwError $ printf "Invalid definition for function '%s' in definition context for '%s'" (show fid) (show id) }
-      else do
-        cloEnv <- gets (\intEnv -> ClosureEnv { cloTypeEnv = typeEnv intEnv, cloVarEnv = varEnv intEnv })
-        let paramIds = map patExpBindingId argPatExps
-            clo = Closure fid ty cloEnv paramIds bodyExps
-            vClo = ValueFun clo
-        putVarBinding id vClo
-        putModuleVarExport id vClo
-        return ValueUnit
+
+-- Need to validate fundef identifiers here
+evalE (ExpFunDec (FunDecFun id ty funDefs)) = do
+  (FunDefFun _ argPatEs bodyEs, paramIds) <- desugarFunDefs id funDefs
+  cloEnv <- gets (\intEnv -> ClosureEnv { cloTypeEnv = typeEnv intEnv, cloVarEnv = varEnv intEnv })
+  let clo = Closure id ty cloEnv paramIds bodyEs
+      vClo = ValueFun clo
+  putVarBinding id vClo
+  putModuleVarExport id vClo
+  return ValueUnit
+
+
+-- evalE (ExpFunDec (FunDecFun id ty (funDef:_))) =
+--   case funDef of
+--     FunDefInstFun _ _ _ _ -> do
+--       throwError $ printf "Function '%s' is not an instance function" $ show id
+--     FunDefFun fid argPatExps bodyExps ->
+--       if id /= fid then
+--         do { throwError $ printf "Invalid definition for function '%s' in definition context for '%s'" (show fid) (show id) }
+--       else do
+--         cloEnv <- gets (\\intEnv -> ClosureEnv { cloTypeEnv = typeEnv intEnv, cloVarEnv = varEnv intEnv })
+--         let paramIds = map patExpBindingId argPatExps
+--             clo = Closure fid ty cloEnv paramIds bodyExps
+--             vClo = ValueFun clo
+--         putVarBinding id vClo
+--         putModuleVarExport id vClo
+--         return ValueUnit
 
 evalE (ExpFunDec (FunDecInstFun id instTy funTy funDefs)) =
   return ValueUnit
@@ -502,6 +514,26 @@ evalE (ExpSwitch e clauses) = do
     Just retV -> return $ fromJust retV
 
 evalE e = throwError $ printf "I don't know how to evaluate '%s'" $ show e
+
+
+
+funDefToCaseClause :: FunDef UniqId -> CaseClause UniqId
+funDefToCaseClause (FunDefFun _ argPatEs bodyEs) =
+  CaseClause (PatExpTuple argPatEs) bodyEs
+
+
+desugarFunDefs :: UniqId -> [FunDef UniqId] -> Eval (FunDef UniqId, [UniqId])
+desugarFunDefs fid funDefs =
+  let paramsLen = nub $ map (\(FunDefFun _ patEs _) -> length patEs) funDefs
+  in
+    case paramsLen of
+      [len] -> do
+        paramIds <- mapM (\_ -> freshId) $ replicate len ()
+        let argsTup = ExpTuple $ map ExpRef paramIds
+            cases = map funDefToCaseClause funDefs
+        return (FunDefFun fid (map PatExpId paramIds) [ExpSwitch argsTup cases], paramIds)
+      _ ->
+        throwError $ printf "Function definitions for '%s' must all have matching arity." $ show fid
 
 
 evalCaseClause :: Value -> CaseClause UniqId -> Eval (Maybe Value)
