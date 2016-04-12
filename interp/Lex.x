@@ -36,6 +36,7 @@ tokens :-
   False { lex' TokenFalse }
   Int { lex' TokenInt }
   Bool { lex' TokenBool }
+  String { lex' TokenStringTy }
   Unit { lex' TokenUnit }
   if { lex' TokenIf }
   else { lex' TokenElse }
@@ -63,6 +64,7 @@ tokens :-
   [\_] { lex' TokenUnderscore }
   $digit+ { lex TokenNumLit }
   $alpha [$alpha $digit \_ \']* { lex TokenId }
+  [\"] [^\"]* [\"] { lex TokenString }
 
 {
 
@@ -94,6 +96,7 @@ data TokenClass =
   | TokenFalse
   | TokenInt
   | TokenBool
+  | TokenStringTy
   | TokenUnit
   | TokenIf
   | TokenElse
@@ -121,6 +124,7 @@ data TokenClass =
   | TokenUnderscore
   | TokenNumLit String
   | TokenId String
+  | TokenString String
   | TokenEOF
   deriving (Show)
 
@@ -143,6 +147,7 @@ unlex (TokenTrue) = "True"
 unlex (TokenFalse) = "False"
 unlex (TokenInt) = "Int"
 unlex (TokenBool) = "Bool"
+unlex (TokenStringTy) = "String"
 unlex (TokenUnit) = "Unit"
 unlex (TokenIf) = "if"
 unlex (TokenElse) = "else"
@@ -170,6 +175,7 @@ unlex (TokenComma) = ","
 unlex (TokenUnderscore) = "_"
 unlex (TokenNumLit s) = s
 unlex (TokenId s) = s
+unlex (TokenString s) = s
 unlex (TokenEOF) = "<EOF>"
 
 lex :: (String -> TokenClass) -> AlexAction Token
@@ -177,6 +183,10 @@ lex f = \(p, _, _, s) i -> return $ Token p (f (take i s))
 
 lex' :: TokenClass -> AlexAction Token
 lex' = lex . const
+
+stripQuotes :: String -> String
+stripQuotes ('\"':s) =
+  take ((length s) - 1) s
 
 alexMonadScan' :: Alex Token
 alexMonadScan' = do
@@ -191,7 +201,10 @@ alexMonadScan' = do
       alexMonadScan'
     AlexToken inp' len action -> do
       alexSetInput inp'
-      action (ignorePendingBytes inp) len
+      tok <- action (ignorePendingBytes inp) len
+      case tok of
+        Token p (TokenString s) -> return $ Token p $ TokenString $ stripQuotes s
+        _ -> return tok
 
 alexError' :: AlexPosn -> String -> Alex a
 alexError' (AlexPn _ l c) msg = do

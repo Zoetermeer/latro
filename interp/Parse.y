@@ -27,6 +27,7 @@ import Syntax
   False { Token _ TokenFalse }
   Int { Token _ TokenInt }
   Bool { Token _ TokenBool }
+  String { Token _ TokenStringTy }
   Unit { Token _ TokenUnit }
   if { Token _ TokenIf }
   else { Token _ TokenElse }
@@ -54,6 +55,7 @@ import Syntax
   '_' { Token _ TokenUnderscore }
   num { Token _ (TokenNumLit $$) }
   id  { Token _ (TokenId $$) }
+  string { Token _ (TokenString $$) }
 
 %name parse
 
@@ -117,6 +119,7 @@ AtomExp : '(' Exp ')' { $2 }
         | num { ExpNum $1 }
         | True { ExpBool True }
         | False { ExpBool False }
+        | string { ExpString $1 }
         | id  { ExpRef $1 }
 
 MemberAccessExp : AppExp '.' id { ExpMemberAccess $1 $3 }
@@ -198,6 +201,7 @@ TyTuple : '(' Ty TyTupleRest ')' { TyTuple ($2:$3) }
 
 Ty : Int { TyInt }
    | Bool { TyBool }
+   | String { TyString }
    | Unit { TyUnit }
    | fun '(' ')' ':' Ty { TyArrow [] $5 }
    | fun '(' TyList ')' ':' Ty { TyArrow $3 $6 }

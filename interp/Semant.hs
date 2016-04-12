@@ -321,9 +321,9 @@ resolvePatExpAdtTag (PatExpAdt id patEs) testV ctorV =
 resolvePatExpAdtTag _ _ _ = Left "Invalid ADT binding pattern expression."
 
 
-evalPatExpBinder :: PatExp UniqId -> Value -> Eval ()
-evalPatExpBinder PatExpWildcard _ = return ()
-evalPatExpBinder (PatExpNumLiteral n) v =
+evalPatExp :: PatExp UniqId -> Value -> Eval ()
+evalPatExp PatExpWildcard _ = return ()
+evalPatExp (PatExpNumLiteral n) v =
     case v of
       ValueInt i ->
         if i == ni
@@ -333,7 +333,7 @@ evalPatExpBinder (PatExpNumLiteral n) v =
   where
     ni = read n
 
-evalPatExpBinder (PatExpBoolLiteral b) v =
+evalPatExp (PatExpBoolLiteral b) v =
   case v of
     ValueBool bv ->
       if bv == b
@@ -341,31 +341,31 @@ evalPatExpBinder (PatExpBoolLiteral b) v =
       else throwError $ printf "Values '%s' and '%s' do not match." (show b) (show bv)
     _ -> throwError $ printf "Binding pattern match failure for value '%s'" $ show v
 
-evalPatExpBinder (PatExpTuple patEs) v@(ValueTuple vs) =
+evalPatExp (PatExpTuple patEs) v@(ValueTuple vs) =
   if length patEs /= length vs
   then throwError $ printf "Binding pattern match failure for value '%s'" $ show v
   else do
     let evPairs = zip patEs vs
-    mapM_ (\(patE, v) -> evalPatExpBinder patE v) evPairs
+    mapM_ (\(patE, v) -> evalPatExp patE v) evPairs
     return ()
 
-evalPatExpBinder (PatExpTuple _) v =
+evalPatExp (PatExpTuple _) v =
   throwError $ printf "Binding pattern match failure for value '%s'" $ show v
 
-evalPatExpBinder patE@(PatExpAdt id patEs) testV@(ValueAdt (Adt ty tag vs)) = do
+evalPatExp patE@(PatExpAdt id patEs) testV@(ValueAdt (Adt ty tag vs)) = do
   ctorV <- lookupVarId id
   resolved <- hoistEither $ resolvePatExpAdtTag patE testV ctorV
   let evPairs = zip patEs vs
-  mapM_ (\(patE, v) -> evalPatExpBinder patE v) evPairs
+  mapM_ (\(patE, v) -> evalPatExp patE v) evPairs
   return ()
 
-evalPatExpBinder patE@(PatExpAdt _ _) v =
+evalPatExp patE@(PatExpAdt _ _) v =
   throwError $ printf "Value '%s' bound to pattern '%s' is not an ADT instance."
                       (show v)
                       (show patE)
 
 
-evalPatExpBinder (PatExpId id) v = do
+evalPatExp (PatExpId id) v = do
   putVarBinding id v
   putModuleVarExport id v
   return ()
@@ -374,6 +374,7 @@ evalPatExpBinder (PatExpId id) v = do
 evalE :: Exp UniqId -> Eval Value
 evalE (ExpNum str) = return $ ValueInt $ read str
 evalE (ExpBool b) = return $ ValueBool b
+evalE (ExpString s) = return $ ValueStr s
 evalE (ExpAdd a b) = evalBinArith (+) a b
 evalE (ExpSub a b) = evalBinArith (-) a b
 evalE (ExpDiv a b) = evalBinArith quot a b
@@ -437,7 +438,7 @@ evalE (ExpFunDec (FunDecInstFun id instTy funTy funDefs)) =
 
 evalE (ExpAssign patE e) = do
   v <- evalE e
-  evalPatExpBinder patE v
+  evalPatExp patE v
   return ValueUnit
 
 evalE (ExpRef rawId) = do
@@ -503,7 +504,7 @@ evalE e = throwError $ printf "I don't know how to evaluate '%s'" $ show e
 evalCaseClause :: Value -> CaseClause UniqId -> Eval (Maybe Value)
 evalCaseClause v (CaseClause patE bodyEs) = do
   oldEnv <- get
-  result <- do { r <- evalPatExpBinder patE v; return $ Just () } `catchError` (\_ -> return Nothing)
+  result <- do { r <- evalPatExp patE v; return $ Just () } `catchError` (\_ -> return Nothing)
   case result of
     Nothing -> do
       restoreEnv oldEnv

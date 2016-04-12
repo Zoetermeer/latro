@@ -1,6 +1,4 @@
 Prims := module {
-  type Bool = | True | False
-
   type Char = Byte
   type String = Char[]
 
@@ -76,7 +74,7 @@ Prims := module {
   }
 }
 
-Hash := module {
+def Hash := module {
   /*
 
     Functions with patterns are desugared using the following rule:
@@ -96,18 +94,18 @@ Hash := module {
 
   type [K, V] Hash = struct {
 
-  }
+  };
 
-  fun [K, V] ([K, V] Hash) Find(K) : [V] Option
+  fun [K, V] ([K, V] Hash) Find(K) : [V] Option;
   (hash) Find(key) := {
-    None
-  }
+    None;
+  };
 
 
-  fun [K, V] ([K, V] Hash) Insert(K, V) : Unit
+  fun [K, V] ([K, V] Hash) Insert(K, V) : Unit;
   (hash).Insert(key, value) := {
 
-  }
+  };
 
 
   fun [K, V] ([K, V] Hash) Update(K, V, (fun (V) : V)) : Unit

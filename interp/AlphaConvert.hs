@@ -92,6 +92,7 @@ convertQualId (Path qid id) = do
 convertTy :: Ty RawId -> AlphaConverted (Ty UniqId)
 convertTy TyInt = return TyInt
 convertTy TyBool = return TyBool
+convertTy TyString = return TyString
 convertTy TyUnit = return TyUnit
 convertTy (TyArrow paramTys retTy) = do
   paramTys' <- mapM convertTy paramTys
@@ -272,6 +273,7 @@ convert (ExpTuple es) = do
 
 convert (ExpNum s) = return $ ExpNum s
 convert (ExpBool b) = return $ ExpBool b
+convert (ExpString s) = return $ ExpString s
 convert ExpUnit = return ExpUnit
 convert (ExpRef id) = do
   id' <- lookup id

@@ -45,7 +45,8 @@
 (test-case "it evaluates literals"
   (check-equal? @interp{True;} "True")
   (check-equal? @interp{False;} "False")
-  (check-equal? @interp{42;} "42"))
+  (check-equal? @interp{42;} "42")
+  (check-equal? @interp{"hello";} "hello"))
 
 (test-case "it returns an error for unbound identifiers"
   (check-equal? @interp{x;} "Error: Unbound identifier 'x'"))
@@ -776,15 +777,15 @@
 (test-case "it evaluates ADT patterns"
   (check-equal?
     @interp{
-      type IntOption =
-        | Some Int
+      type StringOption =
+        | Some String
         | None
         ;
 
-      def Some(x) := Some(10);
+      def Some(x) := Some("hello world");
       x;
     }
-    "10"))
+    "hello world"))
 
 (test-case "it returns an error for non-exhaustive patterns in ADT bindings"
   (check-equal?

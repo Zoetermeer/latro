@@ -53,6 +53,7 @@ data Exp id =
   | ExpSwitch (Exp id) [CaseClause id]
   | ExpNum String
   | ExpBool Bool
+  | ExpString String
   | ExpRef id
   | ExpUnit
   deriving (Eq, Show)
@@ -76,6 +77,7 @@ instance Show id => PrettyShow (AdtAlternative id) where
 data Ty id =
     TyInt
   | TyBool
+  | TyString
   | TyUnit
   | TyArrow [Ty id] (Ty id)
   | TyModule
@@ -89,6 +91,7 @@ data Ty id =
 instance Show id => PrettyShow (Ty id) where
   showShort TyInt = "<<Int>>"
   showShort TyBool = "<<Bool>>"
+  showShort TyString = "<<String>>"
   showShort TyUnit = "<<Unit>>"
   showShort (TyArrow paramTys retTy) =
     printf "<<%s -> %s>>"
