@@ -167,6 +167,25 @@ funDefToCaseClause (FunDefFun _ argPatEs bodyEs) = do
   return $ CaseClause tupPat' bodyEs'
 
 
+-- The rule is as follows (with this particular
+-- example for a 3-arity function):
+-- F1 (P11, P12, P13) --> BODY1
+-- F2 (P21, P22, P23) --> BODY2
+--
+-- ==>
+--
+-- F(ID1, ID2, ID3) {
+--   switch ((ID1, ID2, ID3)) {
+--     case (P11, P12, P13) -> BODY1'
+--     case (P21, P22, P23) -> BODY2'
+--   }
+-- }
+--
+-- where:
+--    * ID1, ID2, ID3 are all (fresh) unique identifiers
+--      not already occurring in the environment.
+--    * BODY1' = alphaConvert BODY1 (alphaEnv + ID1, ID2, ID3)
+--    * BODY2' = alphaConvert BODY2 (alphaEnv + ID1, ID2, ID3)
 desugarFunDefs :: UniqId -> [FunDef RawId] -> AlphaConverted (FunDef UniqId, [UniqId])
 desugarFunDefs fid funDefs =
   let paramsLen = nub $ map (\(FunDefFun _ patEs _) -> length patEs) funDefs

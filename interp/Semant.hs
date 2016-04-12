@@ -432,23 +432,6 @@ evalE (ExpFunDec (FunDecFun id ty (funDef:[]))) = do
   putModuleVarExport id vClo
   return ValueUnit
 
-
--- evalE (ExpFunDec (FunDecFun id ty (funDef:_))) =
---   case funDef of
---     FunDefInstFun _ _ _ _ -> do
---       throwError $ printf "Function '%s' is not an instance function" $ show id
---     FunDefFun fid argPatExps bodyExps ->
---       if id /= fid then
---         do { throwError $ printf "Invalid definition for function '%s' in definition context for '%s'" (show fid) (show id) }
---       else do
---         cloEnv <- gets (\\intEnv -> ClosureEnv { cloTypeEnv = typeEnv intEnv, cloVarEnv = varEnv intEnv })
---         let paramIds = map patExpBindingId argPatExps
---             clo = Closure fid ty cloEnv paramIds bodyExps
---             vClo = ValueFun clo
---         putVarBinding id vClo
---         putModuleVarExport id vClo
---         return ValueUnit
-
 evalE (ExpFunDec (FunDecInstFun id instTy funTy funDefs)) =
   return ValueUnit
 
