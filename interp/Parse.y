@@ -95,7 +95,8 @@ OneOrMorePatExps : PatExp { [$1] }
                  | OneOrMorePatExps ',' PatExp { $1 ++ [$3] }
                  | {- empty -} { [] }
 
-AtomPatExp : LiteralPatExp { $1 }
+AtomPatExp : '(' PatExp ')' { $2 }
+           | LiteralPatExp { $1 }
            | TuplePatExp { $1 }
            | AdtPatExp { $1 }
            | id { PatExpId $1 }

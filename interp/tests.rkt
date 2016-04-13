@@ -894,3 +894,31 @@
       (IsSome(None), IsSome(s), v);
     }
     "<tuple (False, True, 42)>"))
+
+(test-case "it has enough to encode common list operations"
+  (check-equal?
+    @interp{
+      def IntList := module {
+        type t = Int[];
+
+        fun IsEmpty(t) : Bool;
+        IsEmpty([]) := { True; }
+        IsEmpty(_) := { False; };
+
+        fun Concat(t, t) : t;
+        Concat(xs, []) := { xs; }
+        Concat([], ys) := { ys; }
+        Concat((x::xs), ys) := {
+          x :: Concat(xs, ys);
+        };
+      };
+
+      [
+        IntList.IsEmpty([1]),
+        IntList.IsEmpty([]),
+        IntList.Concat([], []),
+        IntList.Concat([1, 2], []),
+        IntList.Concat([1, 2], [3, 4, 5])
+      ];
+    }
+    "<list [False, True, <list []>, <list [1, 2]>, <list [1, 2, 3, 4, 5]>]>"))
