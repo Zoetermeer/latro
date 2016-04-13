@@ -109,6 +109,10 @@ convertTy (TyTuple tys) = do
   tys' <- mapM convertTy tys
   return $ TyTuple tys'
 
+convertTy (TyList ty) = do
+  ty' <- convertTy ty
+  return $ TyList ty'
+
 convertTy (TyRef qid) = do
   qid' <- convertQualId qid
   return $ TyRef qid'
@@ -270,6 +274,10 @@ convert (ExpSwitch e clauses) = do
 convert (ExpTuple es) = do
   es' <- mapM convert es
   return $ ExpTuple es'
+
+convert (ExpList es) = do
+  es' <- mapM convert es
+  return $ ExpList es'
 
 convert (ExpNum s) = return $ ExpNum s
 convert (ExpBool b) = return $ ExpBool b

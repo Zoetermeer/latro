@@ -112,10 +112,17 @@ BindingTuplePatExp : '(' BindingPatExp BindingTuplePatExpsRest ')' { PatExpTuple
 
 BindingAdtPatExp : id '(' OneOrMorePatExps ')' { PatExpAdt $1 $3 }
 
+CommaSeparatedExps : Exp { [$1] }
+                   | CommaSeparatedExps ',' Exp { $1 ++ [$3] }
+                   | {- empty -} { [] }
+
+ListExp : '[' CommaSeparatedExps ']' { ExpList $2 }
+
 AtomExp : '(' Exp ')' { $2 }
         | module '{' ZeroOrMoreExps '}'  { ExpModule $3 }
         | '(' ')' { ExpUnit }
         | '(' Exp TupleRestExps ')' { ExpTuple ($2:$3) }
+        | ListExp { $1 }
         | num { ExpNum $1 }
         | True { ExpBool True }
         | False { ExpBool False }

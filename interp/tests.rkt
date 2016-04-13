@@ -694,6 +694,21 @@
     }
     "<tuple (5, False)>"))
 
+(test-case "it evaluates list expressions"
+  (check-equal?
+    @interp{
+      [1, 2, 3];
+    }
+    "<list [1, 2, 3]>"))
+
+(test-case "it evaluates list bindings"
+  (check-equal?
+    @interp{
+      def ls := [1, 2, 3, 4];
+      ls;
+    }
+    "<list [1, 2, 3, 4]>"))
+
 (test-case "it evaluates tuple pattern bindings"
   (check-equal?
     @interp{
