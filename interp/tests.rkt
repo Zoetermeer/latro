@@ -728,6 +728,54 @@
     }
     "<list [1, 2, 3, 4, 5]>"))
 
+(test-case "it evaluates list patterns"
+  (check-equal?
+    @interp{
+      def [a, b, c] := [1, 2, 3];
+      a + b + c;
+    }
+    "6"))
+
+(test-case "it evaluates list patterns with pattern subexpressions"
+  (check-equal?
+    @interp{
+      def [_, b, 3] := [1, 2, 3];
+      b;
+    }
+    "2"))
+
+(test-case "it fails to bind to list patterns if lengths don't match"
+  (check-equal?
+    @interp{
+      def [a, b] := [];
+      a;
+    }
+    "Error: Binding pattern match failure for value '<list []>'"))
+
+(test-case "it evaluates list cons patterns"
+  (check-equal?
+    @interp{
+      def x::xs := [1, 2, 3, 4];
+      (x, xs);
+    }
+    "<tuple (1, <list [2, 3, 4]>)>"))
+
+(test-case "it evaluates cons patterns with list pat subexpressions"
+  (check-equal?
+    @interp{
+      def x::[] := [3];
+      x;
+    }
+    "3"))
+
+(test-case "it evaluates cons patterns in sublists"
+  (check-equal?
+    @interp{
+      def xs::[[3, 4], [x, _, z]] := [[1, 2], [3, 4], [5, 6, 7]];
+      (xs, x, z);
+    }
+    "<tuple (<list [1, 2]>, 5, 7)>"))
+
 (test-case "it evaluates tuple pattern bindings"
   (check-equal?
     @interp{

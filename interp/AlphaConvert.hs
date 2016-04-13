@@ -142,6 +142,15 @@ convertPatExp (PatExpAdt id es) = do
   es' <- mapM convertPatExp es
   return $ PatExpAdt id' es'
 
+convertPatExp (PatExpList es) = do
+  es' <- mapM convertPatExp es
+  return $ PatExpList es'
+
+convertPatExp (PatExpListCons eHd eTl) = do
+  eHd' <- convertPatExp eHd
+  eTl' <- convertPatExp eTl
+  return $ PatExpListCons eHd' eTl'
+
 
 convertFunDef :: FunDef RawId -> AlphaConverted (FunDef UniqId)
 convertFunDef (FunDefFun id argPatEs bodyEs) = do

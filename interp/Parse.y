@@ -88,30 +88,24 @@ TuplePatExp : '(' PatExp TuplePatExpsRest ')' { PatExpTuple ([$2] ++ $3) }
 AdtPatExp : id '(' ZeroOrMorePatExps ')' { PatExpAdt $1 $3 }
 
 ZeroOrMorePatExps : PatExp { [$1] }
-                  | ZeroOrMorePatExps PatExp { $1 ++ [$2] }
+                  | ZeroOrMorePatExps ',' PatExp { $1 ++ [$3] }
                   | {- empty -} { [] }
 
 OneOrMorePatExps : PatExp { [$1] }
                  | OneOrMorePatExps ',' PatExp { $1 ++ [$3] }
                  | {- empty -} { [] }
 
-PatExp : LiteralPatExp { $1 }
-       | TuplePatExp { $1 }
-       | AdtPatExp { $1 }
-       | id { PatExpId $1 }
-       | '_' { PatExpWildcard }
+AtomPatExp : LiteralPatExp { $1 }
+           | TuplePatExp { $1 }
+           | AdtPatExp { $1 }
+           | id { PatExpId $1 }
+           | '_' { PatExpWildcard }
 
-BindingPatExp : BindingTuplePatExp { $1 }
-              | BindingAdtPatExp { $1 }
-              | id { PatExpId $1 }
-              | '_' { PatExpWildcard }
+ListPatExp : AtomPatExp '::' ListPatExp { PatExpListCons $1 $3 }
+           | '[' ZeroOrMorePatExps ']' { PatExpList $2 }
+           | AtomPatExp { $1 }
 
-BindingTuplePatExpsRest : ',' BindingPatExp { [$2] }
-                        | BindingTuplePatExpsRest ',' BindingPatExp { $1 ++ [$3] }
-
-BindingTuplePatExp : '(' BindingPatExp BindingTuplePatExpsRest ')' { PatExpTuple ($2:$3) }
-
-BindingAdtPatExp : id '(' OneOrMorePatExps ')' { PatExpAdt $1 $3 }
+PatExp : ListPatExp { $1 }
 
 CommaSeparatedExps : Exp { [$1] }
                    | CommaSeparatedExps ',' Exp { $1 ++ [$3] }
@@ -154,7 +148,7 @@ ConsExp : SubExp '::' ConsExp { ExpCons $1 $3 }
 Exp : '!' ConsExp { ExpNot $2 }
     | ConsExp { $1 }
     | import QualifiedId { ExpImport $2 }
-    | def BindingPatExp ':=' Exp { ExpAssign $2 $4 }
+    | def PatExp ':=' Exp { ExpAssign $2 $4 }
     | MemberAccessExp '{' StructFieldInitializers '}' { ExpStruct $1 $3 }
     | TypeDec { ExpTypeDec $1 }
     | FunDec { ExpFunDec $1 }

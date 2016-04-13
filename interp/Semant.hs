@@ -368,6 +368,27 @@ evalPatExp patE@(PatExpAdt _ _) v =
                       (show v)
                       (show patE)
 
+evalPatExp (PatExpList es) v@(ValueList vs) =
+  if length es /= length vs
+  then throwError $ printf "Binding pattern match failure for value '%s'" $ show v
+  else do
+    let evPairs = zip es vs
+    mapM_ (\(patE, v) -> evalPatExp patE v) evPairs
+    return ()
+
+evalPatExp patE@(PatExpList _) v =
+  throwError $ printf "Value '%s' bound to pattern '%s' is not a list."
+                      (show v)
+                      (show patE)
+
+evalPatExp (PatExpListCons _ _) v@(ValueList []) =
+  throwError $ printf "Binding pattern match failure for value '%s'" $ show v
+
+evalPatExp (PatExpListCons eHd eTl) (ValueList (v:vs)) = do
+  evalPatExp eHd v
+  evalPatExp eTl $ ValueList vs
+  return ()
+
 
 evalPatExp (PatExpId id) v = do
   putVarBinding id v

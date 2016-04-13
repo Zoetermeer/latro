@@ -24,6 +24,8 @@ data PatExp id =
   | PatExpBoolLiteral Bool
   | PatExpTuple [PatExp id]
   | PatExpAdt id [PatExp id]
+  | PatExpList [PatExp id]
+  | PatExpListCons (PatExp id) (PatExp id)
   | PatExpId id
   | PatExpAtom (Exp id)
   | PatExpWildcard
