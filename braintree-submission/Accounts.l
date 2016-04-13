@@ -18,6 +18,9 @@ def Accounts := module {
     [String, Account] Hash Entries;
   };
 
+  def lst := [ 1, 2, 3, 4 ];
+  def arr := [| 1, 2, 3, 4 |];
+
 
   fun (Ledger) ApplyBalanceChange(String, Float, (fun (Float, Float) : Float)) : Unit;
   (ledger).ApplyBalanceChange(name, amount, f) := {
@@ -27,6 +30,15 @@ def Accounts := module {
       | _ -> ()
   };
 
+  fun (Ledger) ApplyBalanceChange(String, Float, (fun (Float, Float) : Float)) : Unit {
+    (ledger).ApplyBalanceChange(name, amount, f) := {
+      switch (ledger.Entries.Find(name)) {
+        case Some acct ->
+          acct.Balance = f(acct.Balance, amount);
+        case _ -> ()
+      };
+    }
+  };
 
   fun (Ledger) ExecuteCommand(Command) : Unit;
   (ledger).ExecuteCommand(Add(name, cardNumber, amount)) := {
