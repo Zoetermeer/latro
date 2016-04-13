@@ -44,6 +44,7 @@ tokens :-
   case { lex' TokenCase }
   ":=" { lex' TokenAssign }
   "->" { lex' TokenArrow }
+  "::" { lex' TokenCons }
   [\[] { lex' TokenLBracket }
   [\]] { lex' TokenRBracket }
   [\{] { lex' TokenLBrace }
@@ -104,6 +105,7 @@ data TokenClass =
   | TokenCase
   | TokenAssign
   | TokenArrow
+  | TokenCons
   | TokenLBracket
   | TokenRBracket
   | TokenLBrace
@@ -155,6 +157,7 @@ unlex (TokenSwitch) = "switch"
 unlex (TokenCase) = "case"
 unlex (TokenAssign) = ":="
 unlex (TokenArrow) = "->"
+unlex (TokenCons) = "::"
 unlex (TokenLBracket) = "["
 unlex (TokenRBracket) = "]"
 unlex (TokenLBrace) = "{"

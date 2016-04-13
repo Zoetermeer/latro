@@ -384,6 +384,14 @@ evalE (ExpSub a b) = evalBinArith (-) a b
 evalE (ExpDiv a b) = evalBinArith quot a b
 evalE (ExpMul a b) = evalBinArith (*) a b
 
+evalE (ExpCons a b) = do
+  vHd <- evalE a
+  vTl <- evalE b
+  case vTl of
+    ValueList vs -> return $ ValueList (vHd:vs)
+    _ ->
+      throwError $ printf "Invalid '::' application to value '%s'" $ show vTl
+
 evalE (ExpTuple es) = do
   vs <- mapM evalE es
   return $ ValueTuple vs

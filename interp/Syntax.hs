@@ -38,6 +38,7 @@ data Exp id =
   | ExpSub (Exp id) (Exp id)
   | ExpDiv (Exp id) (Exp id)
   | ExpMul (Exp id) (Exp id)
+  | ExpCons (Exp id) (Exp id)
   | ExpNot (Exp id)
   | ExpMemberAccess (Exp id) id
   | ExpApp (Exp id) [Exp id]

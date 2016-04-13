@@ -709,6 +709,25 @@
     }
     "<list [1, 2, 3, 4]>"))
 
+(test-case "it evaluates list cons operations"
+  (check-equal?
+    @interp{
+      1 :: [2, 3, 4];
+    }
+    "<list [1, 2, 3, 4]>"))
+
+(test-case "it makes cons right-associative"
+  (check-equal?
+    @interp{
+      fun f(Int, Int) : Int[];
+      f(x, y) := {
+        x :: y :: [3, 4, 5];
+      };
+
+      f(1, 2);
+    }
+    "<list [1, 2, 3, 4, 5]>"))
+
 (test-case "it evaluates tuple pattern bindings"
   (check-equal?
     @interp{

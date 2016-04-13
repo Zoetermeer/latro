@@ -35,6 +35,7 @@ import Syntax
   case { Token _ TokenCase }
   ':=' { Token _ TokenAssign }
   '->' { Token _ TokenArrow }
+  '::' { Token _ TokenCons }
   '[' { Token _ TokenLBracket }
   ']' { Token _ TokenRBracket }
   '{' { Token _ TokenLBrace }
@@ -147,8 +148,11 @@ AddExp : AddExp '+' DivExp { ExpAdd $1 $3 }
 SubExp : SubExp '-' AddExp { ExpSub $1 $3 }
        | AddExp { $1 }
 
-Exp : '!' SubExp { ExpNot $2 }
-    | SubExp { $1 }
+ConsExp : SubExp '::' ConsExp { ExpCons $1 $3 }
+        | SubExp { $1 }
+
+Exp : '!' ConsExp { ExpNot $2 }
+    | ConsExp { $1 }
     | import QualifiedId { ExpImport $2 }
     | def BindingPatExp ':=' Exp { ExpAssign $2 $4 }
     | MemberAccessExp '{' StructFieldInitializers '}' { ExpStruct $1 $3 }
@@ -217,6 +221,7 @@ Ty : Int { TyInt }
    | struct '{' TyStructFields '}' { TyStruct $3 }
    | TyTuple { $1 }
    | QualifiedId { TyRef $1 }
+   | Ty '[' ']' { TyList $1 }
 
 TyStructField : Ty id ';' { ($2, $1) }
 

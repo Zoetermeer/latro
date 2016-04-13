@@ -210,6 +210,7 @@ convert (ExpAdd a b) = convertBin ExpAdd a b
 convert (ExpSub a b) = convertBin ExpSub a b
 convert (ExpDiv a b) = convertBin ExpDiv a b
 convert (ExpMul a b) = convertBin ExpMul a b
+convert (ExpCons a b) = convertBin ExpCons a b
 convert (ExpNot e) = do
   e' <- convert e
   return $ ExpNot e'
