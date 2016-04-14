@@ -984,7 +984,7 @@
 
       def Lists = module {
         fun <a, b> Map(fun(a) : b, a[]) : b[];
-        Map(f, []) { []; }
+        Map(_, []) { []; }
         Map(f, x::xs) {
           f(x) :: Map(f, xs);
         };
