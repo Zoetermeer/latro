@@ -854,7 +854,7 @@
 
       IsZero(1);
     }
-    "Error: Non-exhaustive pattern in function 'IsZero'"))
+    "Error: Non-exhaustive pattern for '<tuple (1)>'"))
 
 (test-case "it evaluates ADT patterns"
   (check-equal?
@@ -937,7 +937,35 @@
         IntList.IsEmpty([]),
         IntList.Concat([], []),
         IntList.Concat([1, 2], []),
-        IntList.Concat([1, 2], [3, 4, 5])
+        IntList.Concat([1, 2], [3, 4, 5]),
+        IntList.Map(IsEven, [1, 2, 3, 4])
       ];
     }
-    "<list [False, True, <list []>, <list [1, 2]>, <list [1, 2, 3, 4, 5]>]>"))
+    "<list [False, True, <list []>, <list [1, 2]>, <list [1, 2, 3, 4, 5]>, <list [False, True, False, True]>]>"))
+
+(test-case "it evaluates recursive function defs that depend on pattern ordering"
+  (check-equal?
+    @interp{
+      fun GetTwoOrLess(Int) : Int;
+      GetTwoOrLess(0) := { 0; }
+      GetTwoOrLess(1) := { 1; }
+      GetTwoOrLess(2) := { 2; }
+      GetTwoOrLess(x) := { GetTwoOrLess(x - 1); };
+
+      (GetTwoOrLess(1), GetTwoOrLess(4));
+    }
+    "<tuple (1, 2)>"))
+
+(test-case "it evaluates anonymous lambda expressions"
+  (check-equal?
+    @interp{
+      fun(x, y) { x + y; };
+    }
+    "<fun _ (Closure [] [])>"))
+
+(test-case "it evaluates anonymous function application"
+  (check-equal?
+    @interp{
+      fun (x, y) { x + y; }(1, 2);
+    }
+    "3"))

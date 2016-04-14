@@ -55,6 +55,7 @@ data Exp id =
   | ExpTuple [Exp id]
   | ExpSwitch (Exp id) [CaseClause id]
   | ExpList [Exp id]
+  | ExpFun [id] [Exp id]
   | ExpNum String
   | ExpBool Bool
   | ExpString String

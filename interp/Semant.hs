@@ -251,6 +251,12 @@ pushNewModuleContext = do
   return curEnv
 
 
+getClosureEnv :: Eval ClosureEnv
+getClosureEnv = do
+  curEnv <- get
+  return $ ClosureEnv { cloTypeEnv = typeEnv curEnv, cloVarEnv = varEnv curEnv }
+
+
 restoreEnv :: InterpEnv -> Eval ()
 restoreEnv intEnv = put intEnv
 
@@ -496,6 +502,13 @@ evalE (ExpApp e argEs) = do
 
   restoreEnv preApplyInterpEnv
   return retV
+
+-- The type of the anonymous function is blatantly
+-- wrong here, but we punt on it as we can't reliably determine
+-- it until we have decent type inference.
+evalE (ExpFun paramIds bodyEs) = do
+  cloEnv <- getClosureEnv
+  return $ ValueFun $ Closure (UserId "_") TyInt cloEnv paramIds bodyEs
 
 evalE (ExpMemberAccess e id) = do
   v <- evalE e

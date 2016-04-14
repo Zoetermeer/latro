@@ -289,6 +289,11 @@ convert (ExpList es) = do
   es' <- mapM convert es
   return $ ExpList es'
 
+convert (ExpFun paramIds bodyEs) = do
+  paramIds' <- mapM (\id -> freshM id) paramIds
+  bodyEs' <- mapM convert bodyEs
+  return $ ExpFun paramIds' bodyEs'
+
 convert (ExpNum s) = return $ ExpNum s
 convert (ExpBool b) = return $ ExpBool b
 convert (ExpString s) = return $ ExpString s

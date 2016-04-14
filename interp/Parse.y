@@ -114,11 +114,16 @@ CommaSeparatedExps : Exp { [$1] }
 
 ListExp : '[' CommaSeparatedExps ']' { ExpList $2 }
 
+CommaSeparatedIds : id { [$1] }
+                  | CommaSeparatedIds ',' id { $1 ++ [$3] }
+                  | {- empty -} { [] }
+
 AtomExp : '(' Exp ')' { $2 }
         | module '{' ZeroOrMoreExps '}'  { ExpModule $3 }
         | '(' ')' { ExpUnit }
         | '(' Exp TupleRestExps ')' { ExpTuple ($2:$3) }
         | ListExp { $1 }
+        | fun '(' CommaSeparatedIds ')' '{' ZeroOrMoreExps '}' { ExpFun $3 $6 }
         | num { ExpNum $1 }
         | True { ExpBool True }
         | False { ExpBool False }
