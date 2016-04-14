@@ -920,15 +920,14 @@
         fun Concat(t, t) : t;
         Concat(xs, []) { xs; }
         Concat([], ys) { ys; }
-        Concat((x::xs), ys) {
+        Concat(x::xs, ys) {
           x :: Concat(xs, ys);
         };
 
         fun Map(fun(Int) : Bool, t) : BoolList;
         Map(f, []) { []; }
-        Map(f, (x::xs)) {
-          def b = f(x);
-          b :: Map(f, xs);
+        Map(f, x::xs) {
+          f(x) :: Map(f, xs);
         };
       };
 
