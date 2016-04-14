@@ -491,7 +491,7 @@ evalE (ExpApp e argEs) = do
 
   putVarBinding fid fv
   let argVTbl = zip paramIds argVs
-  mapM (\(paramId, paramV) -> putVarBinding paramId paramV) argVTbl
+  mapM_ (\(paramId, paramV) -> putVarBinding paramId paramV) argVTbl
   retV <- evalEs bodyEs
 
   restoreEnv preApplyInterpEnv
@@ -529,23 +529,23 @@ evalE (ExpIfElse condE thenEs elseEs) = do
 
 evalE (ExpSwitch e clauses) = do
   v <- evalE e
-  matchResults <- mapM (evalCaseClause v) clauses
-  let mv = find isJust matchResults
-  case mv of
+  matchResult <- evalCaseClauses v clauses
+  case matchResult of
     Nothing -> throwError $ printf "Non-exhaustive pattern for '%s'" $ show v
-    Just retV -> return $ fromJust retV
+    Just retV -> return retV
 
 evalE e = throwError $ printf "I don't know how to evaluate '%s'" $ show e
 
 
-evalCaseClause :: Value -> CaseClause UniqId -> Eval (Maybe Value)
-evalCaseClause v (CaseClause patE bodyEs) = do
+evalCaseClauses :: Value -> [CaseClause UniqId] -> Eval (Maybe Value)
+evalCaseClauses _ [] = return Nothing
+evalCaseClauses v ((CaseClause patE bodyEs):clauses) = do
   oldEnv <- get
   result <- do { r <- evalPatExp patE v; return $ Just () } `catchError` (\_ -> return Nothing)
   case result of
     Nothing -> do
       restoreEnv oldEnv
-      return Nothing
+      evalCaseClauses v clauses
     Just _ -> do
       retV <- evalEs bodyEs
       return $ Just retV

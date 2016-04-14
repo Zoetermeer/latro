@@ -41,7 +41,7 @@
       (strip-quotation-marks
         (call-interpreter '("-p") (apply string-append s))))))
 
-;Interpreter tests
+; Interpreter tests
 (test-case "it evaluates literals"
   (check-equal? @interp{True;} "True")
   (check-equal? @interp{False;} "False")
@@ -898,6 +898,18 @@
 (test-case "it has enough to encode common list operations"
   (check-equal?
     @interp{
+      fun IsEven(Int) : Bool;
+      IsEven(x) := {
+        switch (x) {
+          case 0 -> True;
+          case 1 -> False;
+          case 2 -> True;
+          case _ -> IsEven(x - 2);
+        };
+      };
+
+      type BoolList = Bool[];
+
       def IntList := module {
         type t = Int[];
 
@@ -910,6 +922,13 @@
         Concat([], ys) := { ys; }
         Concat((x::xs), ys) := {
           x :: Concat(xs, ys);
+        };
+
+        fun Map(fun(Int) : Bool, t) : BoolList;
+        Map(f, []) := { []; }
+        Map(f, (x::xs)) := {
+          def b := f(x);
+          b :: Map(f, xs);
         };
       };
 
