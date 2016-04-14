@@ -62,7 +62,7 @@
   (check-equal?
     @interp{
       fun f(Int) : Int;
-      f(x) := { x; };
+      f(x) { x; };
 
       3 + f(4);
     }
@@ -93,8 +93,8 @@
 (test-case "it does not allow bindings to escape from then/else scopes"
   (check-equal?
     @interp{
-      def v := if (True) {
-        def x := 42;
+      def v = if (True) {
+        def x = 42;
         x;
       } else { 0; };
 
@@ -105,7 +105,7 @@
 (test-case "it does not allow bindings to escape the test exp of an if/else"
   (check-equal?
     @interp{
-      if (def x := 42) {
+      if (def x = 42) {
         x;
       } else {
         x;
@@ -118,7 +118,7 @@
     @interp{
       module {
         if (True) {
-          def x := 42;
+          def x = 42;
         } else {
           ();
         };
@@ -130,7 +130,7 @@
   (check-equal?
     @interp{
       fun f(Int) : Int;
-      f(x) := {
+      f(x) {
         if (x) { True; } else { False; };
       };
 
@@ -154,7 +154,7 @@
   (check-equal?
     @interp{
       fun f() : Int;
-      f() := { 42; };
+      f() { 42; };
 
       f;
     }
@@ -163,9 +163,9 @@
 (test-case "it returns function values with closures"
   (check-equal?
     @interp{
-      def v := 1;
+      def v = 1;
       fun f() : Int;
-      f() := { v; };
+      f() { v; };
 
       f;
     }
@@ -174,26 +174,26 @@
 (test-case "it returns module values"
   (check-equal?
     @interp{
-      def m := module {}; m;
+      def m = module {}; m;
     }
     "<module (Closure [] []) (Exports [] [])>"))
 
 (test-case "it adds definitions to module exports"
   (check-equal?
     @interp{
-      def m := module { def v := 42; }; m;
+      def m = module { def v = 42; }; m;
     }
     "<module (Closure [] []) (Exports [] [v])>"))
 
 (test-case "it applies functions on modules with multiple decs"
   (check-equal?
     @interp{
-      def m := module {
+      def m = module {
         fun f() : Int;
-        f() := { 42; };
+        f() { 42; };
 
         fun g() : Int;
-        g() := { 43; };
+        g() { 43; };
       };
 
       m.g();
@@ -203,7 +203,7 @@
 (test-case "it returns values defined in modules"
   (check-equal?
     @interp{
-      def m := module { def v := 42; };
+      def m = module { def v = 42; };
       m.v;
     }
     "42"))
@@ -211,9 +211,9 @@
 (test-case "it can apply module-exported functions"
   (check-equal?
     @interp{
-      def m := module {
+      def m = module {
         fun f() : Int;
-        f() := { 42; };
+        f() { 42; };
       };
       m.f();
     }
@@ -222,11 +222,11 @@
 (test-case "it can apply module-exported functions occurring after a nested module dec"
   (check-equal?
     @interp{
-      def m := module {
-        def n := module { };
+      def m = module {
+        def n = module { };
 
         fun f() : Int;
-        f() := { 42; };
+        f() { 42; };
       };
       m.f();
     }
@@ -235,11 +235,11 @@
 (test-case "it can apply module-exported functions occurring before a nested module dec"
   (check-equal?
     @interp{
-      def m := module {
+      def m = module {
         fun f() : Int;
-        f() := { 42; };
+        f() { 42; };
 
-        def n := module { };
+        def n = module { };
       };
       m.f();
     }
@@ -248,9 +248,9 @@
 (test-case "it returns nested module values"
   (check-equal?
     @interp{
-      def a := module {
-        def b := module {
-          def v := 42;
+      def a = module {
+        def b = module {
+          def v = 42;
         };
       };
 
@@ -262,7 +262,7 @@
   (check-equal?
     @interp{
       fun f() : Int;
-      f() := { 42; };
+      f() { 42; };
       f();
     }
     "42"))
@@ -271,7 +271,7 @@
   (check-equal?
     @interp{
       fun f(Int) : Int;
-      f(x) := { x; };
+      f(x) { x; };
       f(42);
     }
     "42"))
@@ -279,9 +279,9 @@
 (test-case "it correctly shadows bindings in function bodies"
   (check-equal?
     @interp{
-      def m := module { };
+      def m = module { };
       fun f(Int) : Int;
-      f(m) := { m; };
+      f(m) { m; };
       f(42);
     }
     "42"))
@@ -289,9 +289,9 @@
 (test-case "it captures bindings from the env in function bodies"
   (check-equal?
     @interp{
-      def m := module { };
+      def m = module { };
       fun f() : module { };
-      f() := { m; };
+      f() { m; };
       f();
     }
     "<module (Closure [] []) (Exports [] [])>"))
@@ -300,8 +300,8 @@
   (check-equal?
     @interp{
       fun f() : module { };
-      f() := {
-        def m := module {};
+      f() {
+        def m = module {};
       };
       m;
     }
@@ -312,8 +312,8 @@
     @interp{
       module {
         fun f() : Int;
-        f() := {
-          def x := 42;
+        f() {
+          def x = 42;
           x;
         };
       };
@@ -324,10 +324,10 @@
   (check-equal?
     @interp{
       fun f() : module { };
-      f() := {
+      f() {
         module {
           fun g() : Int;
-          g() := { 42; };
+          g() { 42; };
         };
       };
       f().g();
@@ -337,14 +337,14 @@
 (test-case "it returns nested module values"
   (check-equal?
     @interp{
-      def m := module {
-        def m' := module {
+      def m = module {
+        def m' = module {
           fun g() : Int;
-          g() := { 43; };
+          g() { 43; };
         };
 
         fun f() : Int;
-        f() := { 42; };
+        f() { 42; };
       };
 
       m.m';
@@ -354,14 +354,14 @@
 (test-case "it resolves functions on nested modules"
   (check-equal?
     @interp{
-      def m := module {
-        def m' := module {
+      def m = module {
+        def m' = module {
           fun g() : Int;
-          g() := { 43; };
+          g() { 43; };
         };
 
         fun f() : Int;
-        f() := { 42; };
+        f() { 42; };
       };
 
       m.m'.g();
@@ -371,14 +371,14 @@
 (test-case "it evaluates functions with compound bodies on nested modules"
   (check-equal?
     @interp{
-      def m := module {
-        def m1 := module {
+      def m = module {
+        def m1 = module {
           fun g(Int, Int) : Int;
-          g(x, y) := { y + x; };
+          g(x, y) { y + x; };
         };
 
         fun f() : Int;
-        f() := { 42; };
+        f() { 42; };
       };
 
       m.m1.g(m.f(), 1);
@@ -389,12 +389,12 @@
   (check-equal?
     @interp{
       fun f(fun(Int) : Int, Int) : Int;
-      f(g, x) := {
+      f(g, x) {
         g(10) + x;
       };
 
       fun h(Int) : Int;
-      h(x) := {
+      h(x) {
         x + 1;
       };
 
@@ -405,10 +405,10 @@
 (test-case "it does not allow nested modules to escape the local env"
   (check-equal?
     @interp{
-      def m := module {
-        def m1 := module {
+      def m = module {
+        def m1 = module {
           fun g(Int, Int) : Int;
-          g(x, y) := {
+          g(x, y) {
             y + x;
           };
         };
@@ -421,11 +421,11 @@
 (test-case "it does not capture id's in lexical scope for modules as exports"
   (check-equal?
     @interp{
-      def m := module {
+      def m = module {
         fun f() : Int;
-        f() := { 42; };
+        f() { 42; };
 
-        def n := module { };
+        def n = module { };
       };
 
       m.n.f();
@@ -436,7 +436,7 @@
   (check-equal?
     @interp{
       fun f(Int) : Int;
-      f(x) := {
+      f(x) {
         if (x) {
           x + f(x - 1);
         } else {
@@ -450,15 +450,15 @@
 (test-case "it resolves member accesses on captured modules"
   (check-equal?
     @interp{
-      def m := module {
-        def n := module {
-          def o := module {
-            def v := 42;
+      def m = module {
+        def n = module {
+          def o = module {
+            def v = 42;
           };
         };
 
         fun f() : Int;
-        f() := { n.o.v; };
+        f() { n.o.v; };
       };
 
       m.f();
@@ -468,8 +468,8 @@
 (test-case "it evaluates accesses on module-level scalars"
   (check-equal?
     @interp{
-      def m := module {
-        def v := 6;
+      def m = module {
+        def v = 6;
       };
 
       m.v;
@@ -479,12 +479,12 @@
 (test-case "it can access prior bindings in a module closure"
   (check-equal?
     @interp{
-      def m := module { };
+      def m = module { };
       fun f() : Int;
-      f() := { 1; };
+      f() { 1; };
 
-      def n := module {
-        def v := 2;
+      def n = module {
+        def v = 2;
       };
 
       n;
@@ -494,9 +494,9 @@
 (test-case "it evaluates accesses on nested-module-level scalars"
   (check-equal?
     @interp{
-      def m := module {
-        def n := module {
-          def v := 6;
+      def m = module {
+        def n = module {
+          def v = 6;
         };
       };
 
@@ -507,7 +507,7 @@
 (test-case "it evaluates accesses on inline modules"
   (check-equal?
     @interp{
-      module { def v := 6; }.v;
+      module { def v = 6; }.v;
     }
     "6"))
 
@@ -539,7 +539,7 @@
         Int Y;
       };
 
-      def p := Point { X = 3; Y = 4; };
+      def p = Point { X = 3; Y = 4; };
       p.Y;
     }
     "4"))
@@ -548,7 +548,7 @@
   (check-equal?
     @interp{
       type t = struct { };
-      def v := t { };
+      def v = t { };
       v.x;
     }
     "Error: Unbound identifier 'x'"))
@@ -566,7 +566,7 @@
         Point B;
       };
 
-      def l := Line {
+      def l = Line {
         A = Point { X = 0; Y = 0; };
         B = Point { X = 3; Y = 4; };
       };
@@ -578,7 +578,7 @@
 (test-case "it evaluates module-exported struct types"
   (check-equal?
     @interp{
-      def Geometry := module {
+      def Geometry = module {
         type Point = struct {
           Int X;
           Int Y;
@@ -590,7 +590,7 @@
         };
       };
 
-      def l := Geometry.Line {
+      def l = Geometry.Line {
         A = Geometry.Point { X = 0; Y = 0; };
         B = Geometry.Point { X = 3; Y = 4; };
       };
@@ -602,14 +602,14 @@
 (test-case "it does not allow module-exported type bindings to escape"
   (check-equal?
     @interp{
-      def Geometry := module {
+      def Geometry = module {
         type Point = struct {
           Int X;
           Int Y;
         };
       };
 
-      def p := Point { X = 0; Y = 0; };
+      def p = Point { X = 0; Y = 0; };
       p;
     }
     "Error: Unbound identifier 'Point'"))
@@ -617,7 +617,7 @@
 (test-case "it evaluates algebraic data type definitions"
   (check-equal?
     @interp{
-      def Prims := module {
+      def Prims = module {
         type IntOption =
           | Just Int
           | None
@@ -642,7 +642,7 @@
 (test-case "it scopes ADT defs/ctors to module exports"
   (check-equal?
     @interp{
-      def m := module {
+      def m = module {
         type IntOption =
           | Just Int
           | None
@@ -688,7 +688,7 @@
   (check-equal?
     @interp{
       fun f((Int, Bool)) : (Int, Bool);
-      f(pair) := { pair; };
+      f(pair) { pair; };
 
       f((5, False));
     }
@@ -704,7 +704,7 @@
 (test-case "it evaluates list bindings"
   (check-equal?
     @interp{
-      def ls := [1, 2, 3, 4];
+      def ls = [1, 2, 3, 4];
       ls;
     }
     "<list [1, 2, 3, 4]>"))
@@ -720,7 +720,7 @@
   (check-equal?
     @interp{
       fun f(Int, Int) : Int[];
-      f(x, y) := {
+      f(x, y) {
         x :: y :: [3, 4, 5];
       };
 
@@ -731,7 +731,7 @@
 (test-case "it evaluates list patterns"
   (check-equal?
     @interp{
-      def [a, b, c] := [1, 2, 3];
+      def [a, b, c] = [1, 2, 3];
       a + b + c;
     }
     "6"))
@@ -739,7 +739,7 @@
 (test-case "it evaluates list patterns with pattern subexpressions"
   (check-equal?
     @interp{
-      def [_, b, 3] := [1, 2, 3];
+      def [_, b, 3] = [1, 2, 3];
       b;
     }
     "2"))
@@ -747,7 +747,7 @@
 (test-case "it fails to bind to list patterns if lengths don't match"
   (check-equal?
     @interp{
-      def [a, b] := [];
+      def [a, b] = [];
       a;
     }
     "Error: Binding pattern match failure for value '<list []>'"))
@@ -755,7 +755,7 @@
 (test-case "it evaluates list cons patterns"
   (check-equal?
     @interp{
-      def x::xs := [1, 2, 3, 4];
+      def x::xs = [1, 2, 3, 4];
       (x, xs);
     }
     "<tuple (1, <list [2, 3, 4]>)>"))
@@ -763,7 +763,7 @@
 (test-case "it evaluates cons patterns with list pat subexpressions"
   (check-equal?
     @interp{
-      def x::[] := [3];
+      def x::[] = [3];
       x;
     }
     "3"))
@@ -771,7 +771,7 @@
 (test-case "it evaluates cons patterns in sublists"
   (check-equal?
     @interp{
-      def xs::[[3, 4], [x, _, z]] := [[1, 2], [3, 4], [5, 6, 7]];
+      def xs::[[3, 4], [x, _, z]] = [[1, 2], [3, 4], [5, 6, 7]];
       (xs, x, z);
     }
     "<tuple (<list [1, 2]>, 5, 7)>"))
@@ -779,7 +779,7 @@
 (test-case "it evaluates tuple pattern bindings"
   (check-equal?
     @interp{
-      def (a, b) := (1, True);
+      def (a, b) = (1, True);
       b;
     }
     "True"))
@@ -787,7 +787,7 @@
 (test-case "it returns an error for match failures in pattern bindings"
   (check-equal?
     @interp{
-      def (a, b) := 42;
+      def (a, b) = 42;
       a;
     }
     "Error: Binding pattern match failure for value '42'"))
@@ -795,7 +795,7 @@
 (test-case "it evaluates wildcards in tuple patterns"
   (check-equal?
     @interp{
-      def (_, b) := (1, 43);
+      def (_, b) = (1, 43);
       b;
     }
     "43"))
@@ -803,7 +803,7 @@
 (test-case "it throws away expressions bound to wildcards"
   (check-equal?
     @interp{
-      def _ := 42;
+      def _ = 42;
       43;
     }
     "43"))
@@ -811,7 +811,7 @@
 (test-case "it evaluates switch expressions"
   (check-equal?
     @interp{
-      def v := (4, False);
+      def v = (4, False);
       switch (v) {
         case (0, _) -> 1;
         case (4, True) -> 2;
@@ -825,8 +825,8 @@
   (check-equal?
     @interp{
       fun IsZero(Int) : Bool;
-      IsZero(0) := { True; }
-      IsZero(_) := { False; };
+      IsZero(0) { True; }
+      IsZero(_) { False; };
 
       (IsZero(1), IsZero(0));
     }
@@ -836,12 +836,12 @@
   (check-equal?
     @interp{
       fun Fst((Int, Bool)) : Int;
-      Fst((a, _)) := { a; };
+      Fst((a, _)) { a; };
 
       fun Snd((Int, Bool)) : Bool;
-      Snd((_, b)) := { b; };
+      Snd((_, b)) { b; };
 
-      def v := (42, False);
+      def v = (42, False);
       (Snd(v), Fst(v));
     }
     "<tuple (False, 42)>"))
@@ -850,7 +850,7 @@
   (check-equal?
     @interp{
       fun IsZero(Int) : Bool;
-      IsZero(0) := { True; };
+      IsZero(0) { True; };
 
       IsZero(1);
     }
@@ -864,7 +864,7 @@
         | None
         ;
 
-      def Some(x) := Some("hello world");
+      def Some(x) = Some("hello world");
       x;
     }
     "hello world"))
@@ -877,7 +877,7 @@
         | None
         ;
 
-        def None() := Some(10);
+        def None() = Some(10);
       }
       "Error: Non-exhaustive pattern binding for '<IntOption = Some(10)>'"))
 
@@ -886,11 +886,11 @@
     @interp{
       type IntOption = | Some Int | None ;
       fun IsSome(IntOption) : Bool;
-      IsSome(Some(_)) := { True; }
-      IsSome(_) := { False; };
+      IsSome(Some(_)) { True; }
+      IsSome(_) { False; };
 
-      def s := Some(42);
-      def Some(v) := s;
+      def s = Some(42);
+      def Some(v) = s;
       (IsSome(None), IsSome(s), v);
     }
     "<tuple (False, True, 42)>"))
@@ -899,7 +899,7 @@
   (check-equal?
     @interp{
       fun IsEven(Int) : Bool;
-      IsEven(x) := {
+      IsEven(x) {
         switch (x) {
           case 0 -> True;
           case 1 -> False;
@@ -910,24 +910,24 @@
 
       type BoolList = Bool[];
 
-      def IntList := module {
+      def IntList = module {
         type t = Int[];
 
         fun IsEmpty(t) : Bool;
-        IsEmpty([]) := { True; }
-        IsEmpty(_) := { False; };
+        IsEmpty([]) { True; }
+        IsEmpty(_) { False; };
 
         fun Concat(t, t) : t;
-        Concat(xs, []) := { xs; }
-        Concat([], ys) := { ys; }
-        Concat((x::xs), ys) := {
+        Concat(xs, []) { xs; }
+        Concat([], ys) { ys; }
+        Concat((x::xs), ys) {
           x :: Concat(xs, ys);
         };
 
         fun Map(fun(Int) : Bool, t) : BoolList;
-        Map(f, []) := { []; }
-        Map(f, (x::xs)) := {
-          def b := f(x);
+        Map(f, []) { []; }
+        Map(f, (x::xs)) {
+          def b = f(x);
           b :: Map(f, xs);
         };
       };
@@ -947,10 +947,10 @@
   (check-equal?
     @interp{
       fun GetTwoOrLess(Int) : Int;
-      GetTwoOrLess(0) := { 0; }
-      GetTwoOrLess(1) := { 1; }
-      GetTwoOrLess(2) := { 2; }
-      GetTwoOrLess(x) := { GetTwoOrLess(x - 1); };
+      GetTwoOrLess(0) { 0; }
+      GetTwoOrLess(1) { 1; }
+      GetTwoOrLess(2) { 2; }
+      GetTwoOrLess(x) { GetTwoOrLess(x - 1); };
 
       (GetTwoOrLess(1), GetTwoOrLess(4));
     }

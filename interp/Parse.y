@@ -154,7 +154,7 @@ ConsExp : SubExp '::' ConsExp { ExpCons $1 $3 }
 Exp : '!' ConsExp { ExpNot $2 }
     | ConsExp { $1 }
     | import QualifiedId { ExpImport $2 }
-    | def PatExp ':=' Exp { ExpAssign $2 $4 }
+    | def PatExp '=' Exp { ExpAssign $2 $4 }
     | MemberAccessExp '{' StructFieldInitializers '}' { ExpStruct $1 $3 }
     | TypeDec { ExpTypeDec $1 }
     | FunDec { ExpFunDec $1 }
@@ -192,8 +192,8 @@ FunDec : fun '(' Ty ')' id '(' TyList ')' ':' Ty ';' FunDefs { FunDecInstFun $5 
 FunDefs : FunDef  { [$1] }
         | FunDefs FunDef { $1 ++ [$2] }
 
-FunDef : InstancePat id '(' PatExpList ')' ':=' '{' OneOrMoreExps '}' { FunDefInstFun $1 $2 $4 $8 }
-       | id '(' PatExpList ')' ':=' '{' OneOrMoreExps '}' { FunDefFun $1 $3 $7 }
+FunDef : InstancePat id '(' PatExpList ')' '{' OneOrMoreExps '}' { FunDefInstFun $1 $2 $4 $7 }
+       | id '(' PatExpList ')' '{' OneOrMoreExps '}' { FunDefFun $1 $3 $6 }
 
 InstancePat : '(' PatExp ')' '.'  { $2 }
 
