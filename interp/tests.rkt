@@ -968,3 +968,28 @@
       fun (x, y) { x + y; }(1, 2);
     }
     "3"))
+
+(test-case "it evaluates polymorphic functions"
+  (check-equal?
+    @interp{
+      fun IsEven(Int) : Bool;
+      IsEven(x) {
+        switch (x) {
+          case 0 -> True;
+          case 1 -> False;
+          case 2 -> True;
+          case _ -> IsEven(x - 2);
+        };
+      };
+
+      def Lists = module {
+        fun <a, b> Map(fun(a) : b, a[]) : b[];
+        Map(f, []) { []; }
+        Map(f, x::xs) {
+          f(x) :: Map(f, xs);
+        };
+      };
+
+      Lists.Map(fun(n) { IsEven(n); }, [1, 2, 3 4]);
+    }
+    "<list [False, True, False, True]>"))
