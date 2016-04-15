@@ -16,6 +16,11 @@ instance Show id => Show (QualifiedId id) where
   show (Path qid raw) =
     printf "%s.%s" (show qid) $ show raw
 
+instance PrettyShow id => PrettyShow (QualifiedId id) where
+  showShort (Id raw) = showShort raw
+  showShort (Path qid raw) =
+    printf "%s.%s" (showShort qid) $ showShort raw
+
 data CompUnit id = CompUnit [Exp id]
   deriving (Eq, Show)
 
@@ -72,10 +77,10 @@ data AdtAlternative id =
     AdtAlternative id Int [Ty id]
   deriving (Eq, Show)
 
-instance Show id => PrettyShow (AdtAlternative id) where
+instance PrettyShow id => PrettyShow (AdtAlternative id) where
   showShort (AdtAlternative id i tys) =
     printf "%s@%i [%s]"
-           (show id)
+           (showShort id)
            i
            ((intercalate ", " . map show) tys)
 
@@ -94,7 +99,7 @@ data Ty id =
   | TyRef (QualifiedId id)
   deriving (Eq, Show)
 
-instance Show id => PrettyShow (Ty id) where
+instance PrettyShow id => PrettyShow (Ty id) where
   showShort TyInt = "<<Int>>"
   showShort TyBool = "<<Bool>>"
   showShort TyString = "<<String>>"
@@ -110,11 +115,11 @@ instance Show id => PrettyShow (Ty id) where
 
   showShort (TyStruct fields) =
     printf "<<{ %s }>>"
-           ((intercalate ", " . map (\(id, ty) -> printf "%s %s" (show id) (showShort ty))) fields)
+           ((intercalate ", " . map (\(id, ty) -> printf "%s %s" (showShort id) (showShort ty))) fields)
 
   showShort (TyAdt id alts) =
     printf "<<adt %s [%s]>>"
-           (show id)
+           (showShort id)
            ((intercalate ", " . map showShort) alts)
 
   showShort (TyTuple tys) =
@@ -124,7 +129,7 @@ instance Show id => PrettyShow (Ty id) where
   showShort (TyList ty) =
     printf "<<%s list>>" $ showShort ty
 
-  showShort (TyRef qid) = show qid
+  showShort (TyRef qid) = showShort qid
 
 
 data FunDec id =

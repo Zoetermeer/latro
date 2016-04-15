@@ -11,6 +11,7 @@ import Text.Printf (printf)
 data UniqId =
     UserId RawId
   | UniqId Int RawId
+  deriving (Show)
 
 instance Eq UniqId where
   (UserId raw) == (UserId raw') = raw == raw'
@@ -29,14 +30,9 @@ instance Ord UniqId where
         _ -> rawc
   (UniqId _ raw) `compare` (UserId raw') = raw `compare` raw'
 
-instance Show UniqId where
-  show (UserId raw) = raw
-  show (UniqId _ raw) = raw
-
-
-showHum :: UniqId -> String
-showHum (UserId id) = id
-showHum (UniqId _ id) = id
+instance PrettyShow UniqId where
+  showShort (UserId raw) = raw
+  showShort (UniqId _ raw) = raw
 
 
 data AlphaEnv = AlphaEnv Int [(RawId, UniqId)]

@@ -20,9 +20,9 @@ import Text.Printf (printf)
 type VEnv = Map.Map UniqId Value
 type TEnv = Map.Map UniqId (Ty UniqId)
 
-showMap :: (Show k, Show v) => Map.Map k v -> String
+showMap :: (PrettyShow k, Show v) => Map.Map k v -> String
 showMap m =
-  intercalate ", " $ map show $ Map.keys m
+  intercalate ", " $ map showShort $ Map.keys m
 
 data ClosureEnv = ClosureEnv
   { cloTypeEnv :: TEnv
@@ -70,7 +70,7 @@ data Closure = Closure UniqId (Ty UniqId) ClosureEnv [UniqId] [Exp UniqId]
 
 instance PrettyShow Closure where
   showShort (Closure id _ cloEnv _ _) =
-    printf "<fun %s %s>" (show id) (showShort cloEnv)
+    printf "<fun %s %s>" (showShort id) (showShort cloEnv)
 
 data Struct = Struct (Ty UniqId) [(UniqId, Value)]
   deriving (Eq, Show)
@@ -82,7 +82,7 @@ instance PrettyShow Struct where
     printf "<struct %s { %s }>"
            (showShort ty)
            ((intercalate ", "
-             . (map (\(id, v) -> printf "%s = %s" (show id) (show v)))) fields)
+             . (map (\(id, v) -> printf "%s = %s" (showShort id) (show v)))) fields)
 
 data Adt = Adt (Ty UniqId) Int [Value]
   deriving (Eq, Show)
@@ -92,8 +92,8 @@ instance PrettyShow Adt where
     let (AdtAlternative altName _ _) = fromJust $ find (\(AdtAlternative aid ai _) -> ai == i) alts
     in
       printf "<%s = %s(%s)>"
-             (show id)
-             (show altName)
+             (showShort id)
+             (showShort altName)
              ((intercalate ", " . map show) vs)
 
 data Value =
@@ -175,7 +175,7 @@ lookupId id map =
     hoistEither eithV
   where
     eithV = maybeToEither errMsg $ Map.lookup id map
-    errMsg = printf "Unbound identifier '%s'" $ show id
+    errMsg = printf "Unbound identifier '%s'" $ showShort id
 
 
 lookupQualIn  :: QualifiedId UniqId
@@ -517,7 +517,7 @@ evalE (ExpMemberAccess e id) = do
     (ValueStruct (Struct _ fields)) ->
       hoistEither $ maybeToEither errMsg $ lookup id fields
   where
-    errMsg = printf "Unbound identifier '%s'" $ show id
+    errMsg = printf "Unbound identifier '%s'" $ showShort id
 
 -- For now we allow 0 to evaluate
 -- to 'False' in the test position of a
@@ -575,8 +575,11 @@ evalEs es = do
 eval :: CompUnit UniqId -> Eval Value
 eval (CompUnit es) = evalEs es
 
-
-interp :: CompUnit RawId -> Either FailMessage Value
-interp compUnit = do
-  (alphaConverted, alphaEnv) <- alphaConvert compUnit
+interp :: CompUnit UniqId -> AlphaEnv -> Either FailMessage Value
+interp alphaConverted alphaEnv = do
   evalState (runExceptT $ eval alphaConverted) $ mtInterpEnv alphaEnv
+-- 
+-- interp :: CompUnit RawId -> Either FailMessage Value
+-- interp compUnit = do
+--   (alphaConverted, alphaEnv) <- alphaConvert compUnit
+--   evalState (runExceptT $ eval alphaConverted) $ mtInterpEnv alphaEnv
