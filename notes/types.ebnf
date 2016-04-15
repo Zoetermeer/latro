@@ -1,0 +1,10 @@
+tycon ::=   Int | Bool | String | Unit
+          | List
+          | Tuple
+          | Struct [fieldname]
+          | Module [typename] [fieldname]
+          | TyFun [tyvar] ty
+
+ty ::=    App tycon [ty]
+        | Poly [tyvar] ty
+        | Var tyvar
