@@ -109,6 +109,10 @@ tc (S.ExpSub a b) = tcArith a b
 tc (S.ExpDiv a b) = tcArith a b
 tc (S.ExpMul a b) = tcArith a b
 
+tc (S.ExpNot e) = do
+  te <- tc e >>= unify tyBool
+  return tyBool
+
 tc (S.ExpFun _ _) = throwError ErrNotImplemented
 
 tc (S.ExpList []) = do

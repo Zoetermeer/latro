@@ -47,6 +47,17 @@
     @typecheck{[];}
     '(Poly (t) (App List ((Var t))))))
 
+(test-case "it checks 'not' expressions"
+  (check-equal?
+    @typecheck{!True;}
+    'Bool))
+
+(test-case "it fails to typecheck for non-bool types in a 'not' exp"
+  (check-equal?
+    @typecheck{!42;} '(Error "Expected 'Bool' but instead got: 'Int'"))
+  (check-equal?
+    @typecheck{!(1 + 2);} '(Error "Expected 'Bool' but instead got: 'Int'")))
+
 (test-case "it checks if-else expressions"
   (check-equal?
     @typecheck{if (True) { 42; } else { 43; };}
