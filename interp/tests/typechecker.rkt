@@ -62,6 +62,11 @@
     @typecheck{1::[False, True];}
     '(Error "Expected 'Bool' but instead got: 'Int'")))
 
+(test-case "it fails if the right-hand side of a cons is not a list"
+  (check-equal?
+    @typecheck{1::2;}
+    '(Error "Expected '(App List (Int))' but instead got: 'Int'")))
+
 (test-case "it checks 'not' expressions"
   (check-equal?
     @typecheck{!True;}

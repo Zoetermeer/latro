@@ -113,7 +113,9 @@ tc (S.ExpMul a b) = tcArith a b
 tc (S.ExpCons headE listE) = do
   tyListE <- tc listE
   tyHeadE <- tc headE
-  unify tyListE $ App List [tyHeadE]
+  case tyListE of
+    App List _ -> unify tyListE $ App List [tyHeadE]
+    _ -> unify (App List [tyHeadE]) tyListE
 
 tc (S.ExpNot e) = do
   te <- tc e >>= unify tyBool
