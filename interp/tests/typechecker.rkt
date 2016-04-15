@@ -46,3 +46,18 @@
   (check-equal?
     @typecheck{[];}
     '(Poly (t) (App List ((Var t))))))
+
+(test-case "it checks if-else expressions"
+  (check-equal?
+    @typecheck{if (True) { 42; } else { 43; };}
+    'Int))
+
+(test-case "it fails to typecheck if an if-else test is not a boolean"
+  (check-equal?
+    @typecheck{if (0) { 42; } else { 43; };}
+    '(Error "Expected 'Bool' but instead got: 'Int'")))
+
+(test-case "it fails to typecheck if an if-else's branch types do not unify"
+  (check-equal?
+    @typecheck{if (True) { 42; } else { "hello"; };}
+    '(Error "Expected 'Int' but instead got: 'String'")))

@@ -77,9 +77,10 @@ freshId = do
 
 
 unify :: Ty -> Ty -> Checked Ty
-unify (App Int []) (App Int []) = return tyInt
-unify (App Int []) b@(App tyb []) =
-  throwError $ ErrCantUnify tyInt b
+unify a@(App tyconA []) b@(App tyconB []) =
+  if tyconA == tyconB
+  then return a
+  else throwError $ ErrCantUnify a b
 
 
 unifyAll :: [Ty] -> Checked Ty
@@ -124,6 +125,14 @@ tc (S.ExpSwitch e clauses) = throwError ErrNotImplemented
 tc (S.ExpTuple es) = do
   tys <- mapM tc es
   return $ App Tuple tys
+
+tc (S.ExpMakeAdt synTy i es) = throwError ErrNotImplemented
+
+tc (S.ExpIfElse testE thenEs elseEs) = do
+  testTy <- tc testE >>= unify tyBool
+  thenTy <- tcEs thenEs
+  elseTy <- tcEs elseEs
+  unify thenTy elseTy
 
 
 tcEs :: [S.Exp UniqId] -> Checked Ty
