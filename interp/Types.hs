@@ -77,9 +77,10 @@ freshId = do
 
 
 unify :: Ty -> Ty -> Checked Ty
-unify a@(App tyconA []) b@(App tyconB []) =
+unify a@(App tyconA tyArgsA) b@(App tyconB tyArgsB) =
   if tyconA == tyconB
-  then return a
+  then do mapM_ (uncurry unify) $ zip tyArgsA tyArgsB
+          return a
   else throwError $ ErrCantUnify a b
 
 
@@ -108,6 +109,11 @@ tc (S.ExpAdd a b) = tcArith a b
 tc (S.ExpSub a b) = tcArith a b
 tc (S.ExpDiv a b) = tcArith a b
 tc (S.ExpMul a b) = tcArith a b
+
+tc (S.ExpCons headE listE) = do
+  tyListE <- tc listE
+  tyHeadE <- tc headE
+  unify tyListE $ App List [tyHeadE]
 
 tc (S.ExpNot e) = do
   te <- tc e >>= unify tyBool

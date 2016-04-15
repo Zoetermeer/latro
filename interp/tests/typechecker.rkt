@@ -47,6 +47,21 @@
     @typecheck{[];}
     '(Poly (t) (App List ((Var t))))))
 
+(test-case "it fails non-uniformly-typed list expressions"
+  (check-equal?
+    @typecheck{[1, False];}
+    '(Error "Expected 'Int' but instead got: 'Bool'")))
+
+(test-case "it checks cons expressions"
+  (check-equal?
+    @typecheck{1::[2, 3];}
+    '(App List (Int))))
+
+(test-case "it fails ill-typed conses"
+  (check-equal?
+    @typecheck{1::[False, True];}
+    '(Error "Expected 'Bool' but instead got: 'Int'")))
+
 (test-case "it checks 'not' expressions"
   (check-equal?
     @typecheck{!True;}
