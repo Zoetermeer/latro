@@ -8,3 +8,21 @@ tycon ::=   Int | Bool | String | Unit
 ty ::=    App tycon [ty]
         | Poly [tyvar] ty
         | Var tyvar
+
+
+Examples:
+
+---
+type <a> foo = struct { a X; a Y; };
+
+-->
+
+TyFun [a] (App (Struct [X, Y]) [Var a, Var a])
+
+
+---
+fun <a, b> MkTup(a, b) : (a, b);
+
+-->
+
+Poly [a, b] (App Arrow [Var a, Var b])

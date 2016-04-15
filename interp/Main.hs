@@ -1,6 +1,7 @@
 module Main where
 
 import AlphaConvert
+import Common
 import Control.Monad.Except (runExceptT)
 import Data.Functor.Identity (runIdentity)
 import Language.Sexp
@@ -9,6 +10,8 @@ import qualified Semant
 import System.Environment (getArgs)
 import Test.Hspec
 import Text.Printf (printf)
+import qualified Types as T
+import Types.Display
 
 data Command =
     Evaluate
@@ -36,8 +39,12 @@ run command filePath program =
       if command == DumpAlphaConverted
       then return $ show alphaConverted
       else do
-        result <- Semant.interp alphaConverted alphaEnv
-        return $ show result
+        (progType, alphaEnv') <- T.typeCheck alphaConverted alphaEnv
+        if command == DumpTypecheckResult
+        then return $ showShort progType
+        else do
+          result <- Semant.interp alphaConverted alphaEnv'
+          return $ show result
 
 main = do
   args <- getArgs

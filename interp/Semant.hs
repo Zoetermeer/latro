@@ -579,8 +579,3 @@ eval (CompUnit es) = evalEs es
 interp :: CompUnit UniqId -> AlphaEnv -> Either FailMessage Value
 interp alphaConverted alphaEnv = do
   evalState (runExceptT $ eval alphaConverted) $ mtInterpEnv alphaEnv
--- 
--- interp :: CompUnit RawId -> Either FailMessage Value
--- interp compUnit = do
---   (alphaConverted, alphaEnv) <- alphaConvert compUnit
---   evalState (runExceptT $ eval alphaConverted) $ mtInterpEnv alphaEnv

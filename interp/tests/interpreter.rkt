@@ -1,47 +1,6 @@
 #lang at-exp racket
 (require rackunit)
 
-(define (needs-recompile? file depends-on-file)
-  (> (file-or-directory-modify-seconds depends-on-file)
-     (file-or-directory-modify-seconds file)))
-
-
-(define (compile)
-  (when (needs-recompile? "Lex.hs" "Lex.x")
-    (system "alex Lex.x"))
-
-  (when (needs-recompile? "Parse.hs" "Parse.y")
-    (system "happy Parse.y"))
-  (system "ghc -o interp Main.hs"))
-
-(compile)
-
-(define (call-interpreter opts program)
-  (call-with-output-file
-    "./test.spar"
-    (λ (out)
-      (fprintf out "~a" program))
-    #:mode 'text
-    #:exists 'truncate/replace)
-  (with-output-to-string
-    (λ ()
-      (system "./interp ./test.spar"))))
-
-(define (interp . s)
-  (call-interpreter '() (apply string-append s)))
-
-(define (strip-quotation-marks s)
-  (printf "Cleaning string ~a\n" s)
-  (define cs (string->list s))
-  (list->string (drop (take cs (string-length s)) 1)))
-
-(define (parse-tree . s)
-  (read
-    (open-input-string
-      (strip-quotation-marks
-        (call-interpreter '("-p") (apply string-append s))))))
-
-; Interpreter tests
 (test-case "it evaluates literals"
   (check-equal? @interp{True;} "True")
   (check-equal? @interp{False;} "False")
