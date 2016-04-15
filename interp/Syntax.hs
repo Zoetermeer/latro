@@ -61,6 +61,10 @@ data TypeDec id =
   | TypeDecAdt id [AdtAlternative id]
   deriving (Eq, Show)
 
+getTypeDecId :: TypeDec id -> id
+getTypeDecId (TypeDecTy id _) = id
+getTypeDecId (TypeDecAdt id _) = id
+
 data AdtAlternative id =
     AdtAlternative id Int [Ty id]
   deriving (Eq, Show)

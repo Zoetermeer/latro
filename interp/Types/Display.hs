@@ -6,11 +6,23 @@ import Text.Printf (printf)
 import Types
 
 instance PrettyShow TCError where
-  showShort ErrNotImplemented = "Not implemented!"
+  showShort (ErrNotImplemented str) = printf "(Error \"%s Not implemented!\")" str
+
   showShort (ErrCantUnify tya tyb) =
     printf "(Error \"Expected '%s' but instead got: '%s'\")"
            (showShort tya)
            (showShort tyb)
+
+  showShort (ErrUndefinedMember id) =
+    printf "(Error \"Undefined member '%s'\")" $ showShort id
+
+  showShort (ErrUnboundIdentifier id) =
+    printf "(Error \"Unbound identifier '%s'\")" $ showShort id
+
+  showShort (ErrInvalidStructType tyCon) =
+    printf "(Error \"Type '%s' is not a valid struct type.\")"
+           (showShort tyCon)
+
 
 instance Show TCError where
   show e = showShort e
@@ -37,3 +49,5 @@ instance PrettyShow TyCon where
   showShort Unit = "Unit"
   showShort List = "List"
   showShort Tuple = "Tuple"
+  showShort (Struct fieldNames) =
+    printf "(Struct (%s))" ((intercalate " " . map showShort) fieldNames)

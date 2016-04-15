@@ -92,3 +92,43 @@
   (check-equal?
     @typecheck{if (True) { 42; } else { "hello"; };}
     '(Error "Expected 'Int' but instead got: 'String'")))
+
+(test-case "it checks structs"
+  (check-equal?
+    @typecheck{
+      type WeirdPoint = struct { Int X; Bool Y; };
+      WeirdPoint { X = 1; Y = False; };
+    }
+    '(App (Struct (X Y)) (Int Bool))))
+
+(test-case "it fails on undefined-member initializers"
+  (check-equal?
+    @typecheck{
+      type WeirdPoint = struct { Int X; Bool Y; };
+      WeirdPoint { X = 1; A = False; };
+    }
+    '(Error "Undefined member 'A'")))
+
+(test-case "it fails on type mismatches in field initializers"
+  (check-equal?
+    @typecheck{
+      type WeirdPoint = struct { Int X; Bool Y; };
+      WeirdPoint { X = 1; Y = 2; };
+    }
+    '(Error "Expected 'Bool' but instead got: 'Int'")))
+
+(test-case "it fails on attempts to struct-initialize non-struct types"
+  (check-equal?
+    @typecheck{
+      type Foo = Int;
+      Foo { X = 1; };
+    }
+    '(Error "Type 'Int' is not a valid struct type.")))
+
+(test-case "it checks struct-field accesses"
+  (check-equal?
+    @typecheck{
+      type Point = struct { Int X; Int Y; };
+      (Point { X = 1; Y = 2; }).Y;
+    }
+    'Int))
