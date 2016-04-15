@@ -30,6 +30,11 @@ data TyCon =
   | TyFun [TyVar] Ty
   deriving (Eq, Show)
 
+data TCError =
+    ErrCantUnify Ty Ty
+  | ErrNotImplemented
+  deriving (Eq)
+
 data TCEnv = TCEnv
   { typeEnv :: Map.Map UniqId TyCon
   , varEnv :: Map.Map UniqId Ty
@@ -45,11 +50,22 @@ mtEnv alphaEnv =
     , alphaEnv = alphaEnv
     }
 
-type Checked a = ExceptT FailMessage (State TCEnv) a
+type Checked a = ExceptT TCError (State TCEnv) a
 
 
 mtApp :: TyCon -> Ty
 mtApp tyCon = App tyCon []
+
+
+-- Shortcuts for primitive types
+tyInt :: Ty
+tyInt = mtApp Int
+
+tyBool :: Ty
+tyBool = mtApp Bool
+
+tyStr :: Ty
+tyStr = mtApp String
 
 
 freshId :: Checked UniqId
@@ -60,15 +76,39 @@ freshId = do
   return uniqId
 
 
-unifyAll :: [Ty] -> Checked Ty
-unifyAll [] = return $ mtApp Int
+unify :: Ty -> Ty -> Checked Ty
+unify (App Int []) (App Int []) = return tyInt
+unify (App Int []) b@(App tyb []) =
+  throwError $ ErrCantUnify tyInt b
 
+
+unifyAll :: [Ty] -> Checked Ty
+unifyAll [] = freshId >>= return . Var
+unifyAll [ty] = return ty
+unifyAll (ta:tb:tys) = do
+  ty' <- unify ta tb
+  unifyAll (ty':tys)
+
+
+tcArith :: S.Exp UniqId -> S.Exp UniqId -> Checked Ty
+tcArith a b = do
+  tc a >>= unify tyInt
+  tc b >>= unify tyInt
+  return tyInt
 
 tc :: S.Exp UniqId -> Checked Ty
 tc S.ExpUnit = return $ mtApp Unit
+tc (S.ExpRef id) = throwError ErrNotImplemented
 tc (S.ExpString _) = return $ mtApp String
 tc (S.ExpBool _) = return $ mtApp Bool
 tc (S.ExpNum _) = return $ mtApp Int
+
+tc (S.ExpAdd a b) = tcArith a b
+tc (S.ExpSub a b) = tcArith a b
+tc (S.ExpDiv a b) = tcArith a b
+tc (S.ExpMul a b) = tcArith a b
+
+tc (S.ExpFun _ _) = throwError ErrNotImplemented
 
 tc (S.ExpList []) = do
   newTyVar <- freshId
@@ -79,6 +119,12 @@ tc (S.ExpList es) = do
   elemTy <- unifyAll tys
   return $ App List [elemTy]
 
+tc (S.ExpSwitch e clauses) = throwError ErrNotImplemented
+
+tc (S.ExpTuple es) = do
+  tys <- mapM tc es
+  return $ App Tuple tys
+
 
 tcEs :: [S.Exp UniqId] -> Checked Ty
 tcEs [] = return $ mtApp Unit
@@ -87,7 +133,7 @@ tcEs es = do
   return $ last tys
 
 
-typeCheck :: S.CompUnit UniqId -> AlphaEnv -> Either FailMessage (Ty, AlphaEnv)
+typeCheck :: S.CompUnit UniqId -> AlphaEnv -> Either TCError (Ty, AlphaEnv)
 typeCheck (S.CompUnit es) aEnv = do
   (tyResult, tcEnv) <- return $ runState (runExceptT $ tcEs es) $ mtEnv aEnv
   ty <- tyResult

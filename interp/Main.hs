@@ -2,7 +2,7 @@ module Main where
 
 import AlphaConvert
 import Common
-import Control.Monad.Except (runExceptT)
+import Data.Bifunctor (first)
 import Data.Functor.Identity (runIdentity)
 import Language.Sexp
 import Parse (parseExp)
@@ -27,7 +27,8 @@ getCommand ["-t", path] = (DumpTypecheckResult, path)
 getCommand [path] = (Evaluate, path)
 getCommand _ = error "Usage: interp [-p|-t] FILEPATH"
 
-run :: Command -> String -> String -> Either String String
+
+run :: Command -> String -> String -> Either FailMessage String
 run command filePath program =
   let parseTreeResult = parseExp filePath program
   in do
@@ -39,7 +40,7 @@ run command filePath program =
       if command == DumpAlphaConverted
       then return $ show alphaConverted
       else do
-        (progType, alphaEnv') <- T.typeCheck alphaConverted alphaEnv
+        (progType, alphaEnv') <- first showShort $ T.typeCheck alphaConverted alphaEnv
         if command == DumpTypecheckResult
         then return $ showShort progType
         else do
@@ -51,5 +52,5 @@ main = do
   let (command, filePath) = getCommand args
   program <- readFile filePath
   case run command filePath program of
-    Left err -> printf "Error: %s" err
+    Left err -> printf "%s" err
     Right v -> printf "%s" v

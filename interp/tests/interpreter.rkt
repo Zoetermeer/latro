@@ -1,5 +1,6 @@
 #lang at-exp racket
-(require rackunit)
+(require "common.rkt"
+         rackunit)
 
 (test-case "it evaluates literals"
   (check-equal? @interp{True;} "True")
