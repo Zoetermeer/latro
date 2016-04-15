@@ -1,25 +1,13 @@
 module Syntax where
 
-import Common (PrettyShow(..))
 import Data.List
-import Text.Printf (printf)
 
 type RawId = String
 
 data QualifiedId id =
     Id id
   | Path (QualifiedId id) id
-  deriving (Eq)
-
-instance Show id => Show (QualifiedId id) where
-  show (Id raw) = show raw
-  show (Path qid raw) =
-    printf "%s.%s" (show qid) $ show raw
-
-instance PrettyShow id => PrettyShow (QualifiedId id) where
-  showShort (Id raw) = showShort raw
-  showShort (Path qid raw) =
-    printf "%s.%s" (showShort qid) $ showShort raw
+  deriving (Eq, Show)
 
 data CompUnit id = CompUnit [Exp id]
   deriving (Eq, Show)
@@ -77,13 +65,6 @@ data AdtAlternative id =
     AdtAlternative id Int [Ty id]
   deriving (Eq, Show)
 
-instance PrettyShow id => PrettyShow (AdtAlternative id) where
-  showShort (AdtAlternative id i tys) =
-    printf "%s@%i [%s]"
-           (showShort id)
-           i
-           ((intercalate ", " . map show) tys)
-
 data Ty id =
     TyInt
   | TyBool
@@ -98,39 +79,6 @@ data Ty id =
   | TyList (Ty id)
   | TyRef (QualifiedId id)
   deriving (Eq, Show)
-
-instance PrettyShow id => PrettyShow (Ty id) where
-  showShort TyInt = "<<Int>>"
-  showShort TyBool = "<<Bool>>"
-  showShort TyString = "<<String>>"
-  showShort TyUnit = "<<Unit>>"
-  showShort (TyArrow paramTys retTy) =
-    printf "<<%s -> %s>>"
-           ((intercalate " -> " . map showShort) paramTys)
-           (showShort retTy)
-
-  showShort TyModule = "<<Module>>"
-  showShort TyInterface = "<<Interface>>"
-  showShort (TyStruct []) = "<<{ }>>"
-
-  showShort (TyStruct fields) =
-    printf "<<{ %s }>>"
-           ((intercalate ", " . map (\(id, ty) -> printf "%s %s" (showShort id) (showShort ty))) fields)
-
-  showShort (TyAdt id alts) =
-    printf "<<adt %s [%s]>>"
-           (showShort id)
-           ((intercalate ", " . map showShort) alts)
-
-  showShort (TyTuple tys) =
-    printf "<<tuple (%s)>>"
-           ((intercalate " * " . map showShort) tys)
-
-  showShort (TyList ty) =
-    printf "<<%s list>>" $ showShort ty
-
-  showShort (TyRef qid) = showShort qid
-
 
 data FunDec id =
     FunDecFun id (Ty id) [FunDef id]

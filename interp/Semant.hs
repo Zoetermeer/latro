@@ -15,6 +15,7 @@ import Data.Monoid ((<>), mempty)
 import Parse
 import Prelude hiding (lookup)
 import Syntax
+import Syntax.Display
 import Text.Printf (printf)
 
 type VEnv = Map.Map UniqId Value
