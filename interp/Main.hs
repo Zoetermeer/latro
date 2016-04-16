@@ -2,11 +2,14 @@ module Main where
 
 import AlphaConvert
 import Common
-import Data.Bifunctor (first)
 import Data.Functor.Identity (runIdentity)
+import Errors
+import Errors.Display
 import Language.Sexp
 import Parse (parseExp)
-import qualified Semant
+import qualified Interp
+import Semant.Display
+import Sexpable
 import System.Environment (getArgs)
 import Test.Hspec
 import Text.Printf (printf)
@@ -25,32 +28,33 @@ getCommand ["-p", path] = (DumpParseTree, path)
 getCommand ["-a", path] = (DumpAlphaConverted, path)
 getCommand ["-t", path] = (DumpTypecheckResult, path)
 getCommand [path] = (Evaluate, path)
-getCommand _ = error "Usage: interp [-p|-t] FILEPATH"
+getCommand _ = error "Usage: interp [-a|-p|-t] FILEPATH"
 
 
-run :: Command -> String -> String -> Either FailMessage String
-run command filePath program =
-  let parseTreeResult = parseExp filePath program
-  in do
-    parseTree <- parseTreeResult
+run :: Command -> String -> String -> Either Err Sexpable.Sexp
+run command filePath program = do
+  -- let parseTreeResult = parseExp filePath program
+  -- in do
+    -- ast <- parseTreeResult
+    ast <- parseExp filePath program
     if command == DumpParseTree
-    then return $ show parseTree
+    then return (sexp ast)
     else do
-      (alphaConverted, alphaEnv) <- alphaConvert parseTree
+      (alphaConverted, alphaEnv) <- alphaConvert ast
       if command == DumpAlphaConverted
-      then return $ show alphaConverted
+      then return $ sexp alphaConverted
       else do
-        (progType, alphaEnv') <- first showShort $ T.typeCheck alphaConverted alphaEnv
+        (progType, alphaEnv') <- T.typeCheck alphaConverted alphaEnv
         if command == DumpTypecheckResult
-        then return $ showShort progType
+        then return $ sexp progType
         else do
-          result <- Semant.interp alphaConverted alphaEnv'
-          return $ show result
+          result <- Interp.interp alphaConverted alphaEnv'
+          return $ sexp result
 
 main = do
   args <- getArgs
   let (command, filePath) = getCommand args
   program <- readFile filePath
   case run command filePath program of
-    Left err -> printf "%s" err
-    Right v -> printf "%s" v
+    Left err -> printf "%s" $ showSexp err
+    Right sxp -> printf "%s" $ show sxp

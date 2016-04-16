@@ -3,8 +3,10 @@
 module Parse where
 
 import Control.Monad.Except
+import Data.Bifunctor (first)
+import Errors
 import Lex
-import Syntax
+import Semant
 
 }
 
@@ -186,8 +188,8 @@ Tys : Ty { [$1] }
     | Tys Ty { $1 ++ [$2] }
     | {- empty -} { [] }
 
-FunDec : fun '(' Ty ')' id '(' TyList ')' ':' Ty ';' FunDefs { FunDecInstFun $5 $3 (TyArrow $7 $10) $12 }
-       | fun id '(' TyList ')' ':' Ty ';' FunDefs { FunDecFun $2 (TyArrow $4 $7) $9 }
+FunDec : fun '(' Ty ')' id '(' TyList ')' ':' Ty ';' FunDefs { FunDecInstFun $5 $3 (SynTyArrow $7 $10) $12 }
+       | fun id '(' TyList ')' ':' Ty ';' FunDefs { FunDecFun $2 (SynTyArrow $4 $7) $9 }
 
 FunDefs : FunDef  { [$1] }
         | FunDefs FunDef { $1 ++ [$2] }
@@ -208,20 +210,20 @@ TyList : Ty { [$1] }
 TyTupleRest : ',' Ty { [$2] }
             | TyTupleRest ',' Ty { $1 ++ [$3] }
 
-TyTuple : '(' Ty TyTupleRest ')' { TyTuple ($2:$3) }
+TyTuple : '(' Ty TyTupleRest ')' { SynTyTuple ($2:$3) }
 
-Ty : Int { TyInt }
-   | Bool { TyBool }
-   | String { TyString }
-   | Unit { TyUnit }
-   | fun '(' ')' ':' Ty { TyArrow [] $5 }
-   | fun '(' TyList ')' ':' Ty { TyArrow $3 $6 }
-   | module '{' '}' { TyModule }
-   | interface '{' '}' { TyInterface }
-   | struct '{' TyStructFields '}' { TyStruct $3 }
+Ty : Int { SynTyInt }
+   | Bool { SynTyBool }
+   | String { SynTyString }
+   | Unit { SynTyUnit }
+   | fun '(' ')' ':' Ty { SynTyArrow [] $5 }
+   | fun '(' TyList ')' ':' Ty { SynTyArrow $3 $6 }
+   | module '{' '}' { SynTyModule }
+   | interface '{' '}' { SynTyInterface }
+   | struct '{' TyStructFields '}' { SynTyStruct $3 }
    | TyTuple { $1 }
-   | QualifiedId { TyRef $1 }
-   | Ty '[' ']' { TyList $1 }
+   | QualifiedId { SynTyRef $1 }
+   | Ty '[' ']' { SynTyList $1 }
 
 TyStructField : Ty id ';' { ($2, $1) }
 
@@ -247,7 +249,7 @@ happyError :: Token -> Alex a
 happyError (Token p t) =
   alexError' p ("parse error at token '" ++ unlex t ++ "'")
 
-parseExp :: FilePath -> String -> Either String (CompUnit RawId)
-parseExp = runAlex' parse
+parseExp :: FilePath -> String -> Either Err (CompUnit RawId)
+parseExp filePath input = first (\errMsg -> ErrSyntax errMsg) $ runAlex' parse filePath input
 
 }

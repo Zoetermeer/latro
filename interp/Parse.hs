@@ -2,8 +2,10 @@
 module Parse where
 
 import Control.Monad.Except
+import Data.Bifunctor (first)
+import Errors
 import Lex
-import Syntax
+import Semant
 import Control.Applicative(Applicative(..))
 
 -- parser produced by Happy Version 1.19.4
@@ -2654,7 +2656,7 @@ happyReduction_91 ((HappyAbsSyn39  happy_var_12) `HappyStk`
 	_ `HappyStk`
 	happyRest)
 	 = HappyAbsSyn38
-		 (FunDecInstFun happy_var_5 happy_var_3 (TyArrow happy_var_7 happy_var_10) happy_var_12
+		 (FunDecInstFun happy_var_5 happy_var_3 (SynTyArrow happy_var_7 happy_var_10) happy_var_12
 	) `HappyStk` happyRest
 
 happyReduce_92 = happyReduce 9 38 happyReduction_92
@@ -2669,7 +2671,7 @@ happyReduction_92 ((HappyAbsSyn39  happy_var_9) `HappyStk`
 	_ `HappyStk`
 	happyRest)
 	 = HappyAbsSyn38
-		 (FunDecFun happy_var_2 (TyArrow happy_var_4 happy_var_7) happy_var_9
+		 (FunDecFun happy_var_2 (SynTyArrow happy_var_4 happy_var_7) happy_var_9
 	) `HappyStk` happyRest
 
 happyReduce_93 = happySpecReduce_1  39 happyReduction_93
@@ -2790,31 +2792,31 @@ happyReduction_106 (_ `HappyStk`
 	_ `HappyStk`
 	happyRest)
 	 = HappyAbsSyn45
-		 (TyTuple (happy_var_2:happy_var_3)
+		 (SynTyTuple (happy_var_2:happy_var_3)
 	) `HappyStk` happyRest
 
 happyReduce_107 = happySpecReduce_1  46 happyReduction_107
 happyReduction_107 _
 	 =  HappyAbsSyn46
-		 (TyInt
+		 (SynTyInt
 	)
 
 happyReduce_108 = happySpecReduce_1  46 happyReduction_108
 happyReduction_108 _
 	 =  HappyAbsSyn46
-		 (TyBool
+		 (SynTyBool
 	)
 
 happyReduce_109 = happySpecReduce_1  46 happyReduction_109
 happyReduction_109 _
 	 =  HappyAbsSyn46
-		 (TyString
+		 (SynTyString
 	)
 
 happyReduce_110 = happySpecReduce_1  46 happyReduction_110
 happyReduction_110 _
 	 =  HappyAbsSyn46
-		 (TyUnit
+		 (SynTyUnit
 	)
 
 happyReduce_111 = happyReduce 5 46 happyReduction_111
@@ -2825,7 +2827,7 @@ happyReduction_111 ((HappyAbsSyn46  happy_var_5) `HappyStk`
 	_ `HappyStk`
 	happyRest)
 	 = HappyAbsSyn46
-		 (TyArrow [] happy_var_5
+		 (SynTyArrow [] happy_var_5
 	) `HappyStk` happyRest
 
 happyReduce_112 = happyReduce 6 46 happyReduction_112
@@ -2837,7 +2839,7 @@ happyReduction_112 ((HappyAbsSyn46  happy_var_6) `HappyStk`
 	_ `HappyStk`
 	happyRest)
 	 = HappyAbsSyn46
-		 (TyArrow happy_var_3 happy_var_6
+		 (SynTyArrow happy_var_3 happy_var_6
 	) `HappyStk` happyRest
 
 happyReduce_113 = happySpecReduce_3  46 happyReduction_113
@@ -2845,7 +2847,7 @@ happyReduction_113 _
 	_
 	_
 	 =  HappyAbsSyn46
-		 (TyModule
+		 (SynTyModule
 	)
 
 happyReduce_114 = happySpecReduce_3  46 happyReduction_114
@@ -2853,7 +2855,7 @@ happyReduction_114 _
 	_
 	_
 	 =  HappyAbsSyn46
-		 (TyInterface
+		 (SynTyInterface
 	)
 
 happyReduce_115 = happyReduce 4 46 happyReduction_115
@@ -2863,7 +2865,7 @@ happyReduction_115 (_ `HappyStk`
 	_ `HappyStk`
 	happyRest)
 	 = HappyAbsSyn46
-		 (TyStruct happy_var_3
+		 (SynTyStruct happy_var_3
 	) `HappyStk` happyRest
 
 happyReduce_116 = happySpecReduce_1  46 happyReduction_116
@@ -2876,7 +2878,7 @@ happyReduction_116 _  = notHappyAtAll
 happyReduce_117 = happySpecReduce_1  46 happyReduction_117
 happyReduction_117 (HappyAbsSyn51  happy_var_1)
 	 =  HappyAbsSyn46
-		 (TyRef happy_var_1
+		 (SynTyRef happy_var_1
 	)
 happyReduction_117 _  = notHappyAtAll 
 
@@ -2885,7 +2887,7 @@ happyReduction_118 _
 	_
 	(HappyAbsSyn46  happy_var_1)
 	 =  HappyAbsSyn46
-		 (TyList happy_var_1
+		 (SynTyList happy_var_1
 	)
 happyReduction_118 _ _ _  = notHappyAtAll 
 
@@ -3041,8 +3043,8 @@ happyError :: Token -> Alex a
 happyError (Token p t) =
   alexError' p ("parse error at token '" ++ unlex t ++ "'")
 
-parseExp :: FilePath -> String -> Either String (CompUnit RawId)
-parseExp = runAlex' parse
+parseExp :: FilePath -> String -> Either Err (CompUnit RawId)
+parseExp filePath input = first (\errMsg -> ErrSyntax errMsg) $ runAlex' parse filePath input
 {-# LINE 1 "templates/GenericTemplate.hs" #-}
 -- Id: GenericTemplate.hs,v 1.26 2005/01/14 14:47:22 simonmar Exp 
 

@@ -4,42 +4,17 @@ import Common
 import Control.Monad.Except
 import Control.Monad.State
 import Data.List (find, nub)
+import Errors
 import Prelude hiding (lookup)
-import Syntax
+import Semant
 import Text.Printf (printf)
-
-data UniqId =
-    UserId RawId
-  | UniqId Int RawId
-  deriving (Show)
-
-instance Eq UniqId where
-  (UserId raw) == (UserId raw') = raw == raw'
-  (UserId raw) == (UniqId _ raw') = raw == raw'
-  (UniqId c _) == (UniqId c' _) = c == c'
-  a == b = b == a
-
-instance Ord UniqId where
-  (UserId raw) `compare` (UserId raw') = raw `compare` raw'
-  (UserId raw) `compare` (UniqId _ raw') = raw `compare` raw'
-  (UniqId c raw) `compare` (UniqId c' raw') =
-    let rawc = raw `compare` raw'
-    in
-      case rawc of
-        EQ -> c `compare` c'
-        _ -> rawc
-  (UniqId _ raw) `compare` (UserId raw') = raw `compare` raw'
-
-instance PrettyShow UniqId where
-  showShort (UserId raw) = raw
-  showShort (UniqId _ raw) = raw
 
 
 data AlphaEnv = AlphaEnv Int [(RawId, UniqId)]
-  deriving (Eq, Show)
+  deriving (Eq)
 
 
-type AlphaConverted a = ExceptT FailMessage (State AlphaEnv) a
+type AlphaConverted a = ExceptT Err (State AlphaEnv) a
 
 
 fresh :: RawId -> AlphaEnv -> (UniqId, AlphaEnv)
@@ -65,7 +40,7 @@ lookup id = do
   case maybeUniqId of
     Just uniqId -> return $ snd uniqId
     Nothing ->
-      throwError $ printf "Unbound identifier '%s'" id
+      throwError $ ErrUnboundRawIdentifier id
 
 
 convertBin :: (Exp UniqId -> Exp UniqId -> Exp UniqId) -> Exp RawId -> Exp RawId -> AlphaConverted (Exp UniqId)
@@ -85,33 +60,33 @@ convertQualId (Path qid id) = do
   id' <- lookup id
   return $ Path qid' id'
 
-convertTy :: Ty RawId -> AlphaConverted (Ty UniqId)
-convertTy TyInt = return TyInt
-convertTy TyBool = return TyBool
-convertTy TyString = return TyString
-convertTy TyUnit = return TyUnit
-convertTy (TyArrow paramTys retTy) = do
+convertTy :: SynTy RawId -> AlphaConverted (SynTy UniqId)
+convertTy SynTyInt = return SynTyInt
+convertTy SynTyBool = return SynTyBool
+convertTy SynTyString = return SynTyString
+convertTy SynTyUnit = return SynTyUnit
+convertTy (SynTyArrow paramTys retTy) = do
   paramTys' <- mapM convertTy paramTys
   retTy' <- convertTy retTy
-  return $ TyArrow paramTys' retTy'
+  return $ SynTyArrow paramTys' retTy'
 
-convertTy TyModule = return TyModule
-convertTy TyInterface = return TyInterface
-convertTy (TyStruct fields) = do
+convertTy SynTyModule = return SynTyModule
+convertTy SynTyInterface = return SynTyInterface
+convertTy (SynTyStruct fields) = do
   fields' <- mapM (\(id, ty) -> do { ty' <- convertTy ty; return (UserId id, ty') }) fields
-  return $ TyStruct fields'
+  return $ SynTyStruct fields'
 
-convertTy (TyTuple tys) = do
+convertTy (SynTyTuple tys) = do
   tys' <- mapM convertTy tys
-  return $ TyTuple tys'
+  return $ SynTyTuple tys'
 
-convertTy (TyList ty) = do
+convertTy (SynTyList ty) = do
   ty' <- convertTy ty
-  return $ TyList ty'
+  return $ SynTyList ty'
 
-convertTy (TyRef qid) = do
+convertTy (SynTyRef qid) = do
   qid' <- convertQualId qid
-  return $ TyRef qid'
+  return $ SynTyRef qid'
 
 
 convertAdtAlternative :: AdtAlternative RawId -> AlphaConverted (AdtAlternative UniqId)
@@ -207,7 +182,7 @@ desugarFunDefs fid funDefs =
         cases <- mapM funDefToCaseClause funDefs
         return (FunDefFun fid (map PatExpId paramIds) [ExpSwitch argsTup cases], paramIds)
       _ ->
-        throwError $ printf "Function definitions for '%s' must all have matching arity." $ show fid
+        throwError $ ErrFunDefArityMismatch fid
 
 
 convert :: Exp RawId -> AlphaConverted (Exp UniqId)
@@ -299,7 +274,7 @@ convert (ExpRef id) = do
   return $ ExpRef id'
 
 
-alphaConvert :: CompUnit RawId -> Either FailMessage (CompUnit UniqId, AlphaEnv)
+alphaConvert :: CompUnit RawId -> Either Err (CompUnit UniqId, AlphaEnv)
 alphaConvert (CompUnit exps) = do
   let (eithExps, alphaEnv) = runState (runExceptT $ mapM convert exps) (AlphaEnv 1 [])
   exps' <- eithExps

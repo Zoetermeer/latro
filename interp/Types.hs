@@ -8,44 +8,16 @@ import Control.Monad.State
 import Data.Either.Utils (maybeToEither)
 import Data.List
 import qualified Data.Map as Map
-import qualified Syntax as S
+import Errors
+import Semant
 
-type TyVar = UniqId
-type FieldName = UniqId
-type TypeName = UniqId
-
-data Ty =
-    App TyCon [Ty]
-  | Poly [TyVar] Ty
-  | Var TyVar
-  deriving (Eq, Show)
-
-data TyCon =
-    Int
-  | Bool
-  | String
-  | Unit
-  | List
-  | Tuple
-  | Struct [FieldName]
-  | Module [TypeName] [FieldName]
-  | TyFun [TyVar] Ty
-  deriving (Eq, Show)
-
-data TCError =
-    ErrCantUnify Ty Ty
-  | ErrUndefinedMember UniqId
-  | ErrInvalidStructType TyCon
-  | ErrNotImplemented String
-  | ErrUnboundIdentifier UniqId
-  deriving (Eq)
 
 data TCEnv = TCEnv
   { typeEnv :: Map.Map UniqId TyCon
   , varEnv :: Map.Map UniqId Ty
   , alphaEnv :: AlphaEnv
   }
-  deriving (Eq, Show)
+  deriving (Eq)
 
 mtEnv :: AlphaEnv -> TCEnv
 mtEnv alphaEnv =
@@ -55,7 +27,7 @@ mtEnv alphaEnv =
     , alphaEnv = alphaEnv
     }
 
-type Checked a = ExceptT TCError (State TCEnv) a
+type Checked a = ExceptT Err (State TCEnv) a
 
 
 -- Convenience methods for manipulating the environment
@@ -65,21 +37,21 @@ putTyBinding id ty = do
 
 
 mtApp :: TyCon -> Ty
-mtApp tyCon = App tyCon []
+mtApp tyCon = TyApp tyCon []
 
 
 -- Shortcuts for primitive types
 tyInt :: Ty
-tyInt = mtApp Int
+tyInt = mtApp TyConInt
 
 tyBool :: Ty
-tyBool = mtApp Bool
+tyBool = mtApp TyConBool
 
 tyStr :: Ty
-tyStr = mtApp String
+tyStr = mtApp TyConString
 
 tyUnit :: Ty
-tyUnit = mtApp Unit
+tyUnit = mtApp TyConUnit
 
 
 freshId :: Checked UniqId
@@ -93,11 +65,11 @@ freshId = do
 lookupTy :: UniqId -> Checked TyCon
 lookupTy id = do
   tyConEnv <- gets typeEnv
-  hoistEither $ maybeToEither (ErrUnboundIdentifier id) $ Map.lookup id tyConEnv
+  hoistEither $ maybeToEither (ErrUnboundUniqIdentifier id) $ Map.lookup id tyConEnv
 
 
 unify :: Ty -> Ty -> Checked Ty
-unify a@(App tyconA tyArgsA) b@(App tyconB tyArgsB) =
+unify a@(TyApp tyconA tyArgsA) b@(TyApp tyconB tyArgsB) =
   if tyconA == tyconB
   then do mapM_ (uncurry unify) $ zip tyArgsA tyArgsB
           return a
@@ -105,34 +77,34 @@ unify a@(App tyconA tyArgsA) b@(App tyconB tyArgsB) =
 
 
 unifyAll :: [Ty] -> Checked Ty
-unifyAll [] = freshId >>= return . Var
+unifyAll [] = freshId >>= return . TyVar
 unifyAll [ty] = return ty
 unifyAll (ta:tb:tys) = do
   ty' <- unify ta tb
   unifyAll (ty':tys)
 
 
-tcArith :: S.Exp UniqId -> S.Exp UniqId -> Checked Ty
+tcArith :: Exp UniqId -> Exp UniqId -> Checked Ty
 tcArith a b = do
   tc a >>= unify tyInt
   tc b >>= unify tyInt
   return tyInt
 
 
-tcTy :: S.Ty UniqId -> Checked Ty
-tcTy S.TyInt = return tyInt
-tcTy S.TyBool = return tyBool
-tcTy S.TyString = return tyStr
-tcTy S.TyUnit = return tyUnit
+tcTy :: SynTy UniqId -> Checked Ty
+tcTy SynTyInt = return tyInt
+tcTy SynTyBool = return tyBool
+tcTy SynTyString = return tyStr
+tcTy SynTyUnit = return tyUnit
 
 
-tcTyDec :: S.TypeDec UniqId -> Checked TyCon
-tcTyDec (S.TypeDecTy id S.TyInt) = return Int
-tcTyDec (S.TypeDecTy id (S.TyStruct fields)) =
+tcTyDec :: TypeDec UniqId -> Checked TyCon
+tcTyDec (TypeDecTy id SynTyInt) = return TyConInt
+tcTyDec (TypeDecTy id (SynTyStruct fields)) =
   let (fieldNames, fieldSynTys) = unzip fields
   in do
     fieldTys <- mapM tcTy fieldSynTys
-    return $ TyFun [] $ App (Struct fieldNames) fieldTys
+    return $ TyConTyFun [] $ TyApp (TyConStruct fieldNames) fieldTys
 
 
 -- The language grammar only permits the expression
@@ -146,11 +118,11 @@ tcTyDec (S.TypeDecTy id (S.TyStruct fields)) =
 -- The question is (1) why anyone would want to do that, and (2)
 -- how (or if) we need to refer to the type of this object elsewhere.
 -- We are allowing a value to escape "further" than its corresponding type.
-tcTyconExp :: S.Exp UniqId -> Checked TyCon
-tcTyconExp (S.ExpRef id) = lookupTy id
+tcTyconExp :: Exp UniqId -> Checked TyCon
+tcTyconExp (ExpRef id) = lookupTy id
 
 
-tcStructFields :: [(UniqId, Ty)] -> [(UniqId, S.Exp UniqId)] -> Checked Ty
+tcStructFields :: [(UniqId, Ty)] -> [(UniqId, Exp UniqId)] -> Checked Ty
 tcStructFields _ [] = return tyUnit
 tcStructFields tyFields ((fieldId, fieldExp):fieldInitExps) =
   let maybeField = find (flip ((==) . fst) fieldId) tyFields
@@ -163,79 +135,79 @@ tcStructFields tyFields ((fieldId, fieldExp):fieldInitExps) =
         tcStructFields tyFields fieldInitExps
 
 
-tc :: S.Exp UniqId -> Checked Ty
-tc S.ExpUnit = return $ mtApp Unit
-tc (S.ExpRef id) = throwError $ ErrNotImplemented "tc"
-tc (S.ExpString _) = return $ mtApp String
-tc (S.ExpBool _) = return $ mtApp Bool
-tc (S.ExpNum _) = return $ mtApp Int
+tc :: Exp UniqId -> Checked Ty
+tc ExpUnit = return $ mtApp TyConUnit
+tc (ExpRef id) = throwError $ ErrNotImplemented "tc"
+tc (ExpString _) = return $ mtApp TyConString
+tc (ExpBool _) = return $ mtApp TyConBool
+tc (ExpNum _) = return $ mtApp TyConInt
 
-tc (S.ExpAdd a b) = tcArith a b
-tc (S.ExpSub a b) = tcArith a b
-tc (S.ExpDiv a b) = tcArith a b
-tc (S.ExpMul a b) = tcArith a b
+tc (ExpAdd a b) = tcArith a b
+tc (ExpSub a b) = tcArith a b
+tc (ExpDiv a b) = tcArith a b
+tc (ExpMul a b) = tcArith a b
 
-tc (S.ExpCons headE listE) = do
+tc (ExpCons headE listE) = do
   tyListE <- tc listE
   tyHeadE <- tc headE
   case tyListE of
-    App List _ -> unify tyListE $ App List [tyHeadE]
-    _ -> unify (App List [tyHeadE]) tyListE
+    TyApp TyConList _ -> unify tyListE $ TyApp TyConList [tyHeadE]
+    _ -> unify (TyApp TyConList [tyHeadE]) tyListE
 
-tc (S.ExpNot e) = do
+tc (ExpNot e) = do
   te <- tc e >>= unify tyBool
   return tyBool
 
-tc (S.ExpFun _ _) = throwError $ ErrNotImplemented "tc"
+tc (ExpFun _ _) = throwError $ ErrNotImplemented "tc"
 
-tc (S.ExpList []) = do
+tc (ExpList []) = do
   newTyVar <- freshId
-  return $ Poly [newTyVar] $ App List [Var newTyVar]
+  return $ TyPoly [newTyVar] $ TyApp TyConList [TyVar newTyVar]
 
-tc (S.ExpList es) = do
+tc (ExpList es) = do
   tys <- mapM tc es
   elemTy <- unifyAll tys
-  return $ App List [elemTy]
+  return $ TyApp TyConList [elemTy]
 
-tc (S.ExpSwitch e clauses) = throwError $ ErrNotImplemented "tc"
+tc (ExpSwitch e clauses) = throwError $ ErrNotImplemented "tc"
 
-tc (S.ExpTuple es) = do
+tc (ExpTuple es) = do
   tys <- mapM tc es
-  return $ App Tuple tys
+  return $ TyApp TyConTuple tys
 
-tc (S.ExpMakeAdt synTy i es) = throwError $ ErrNotImplemented "tc"
+tc (ExpMakeAdt synTy i es) = throwError $ ErrNotImplemented "tc"
 
-tc (S.ExpStruct strSynTyE fieldInitEs) = do
+tc (ExpStruct strSynTyE fieldInitEs) = do
   structTyCon <- tcTyconExp strSynTyE
   case structTyCon of
-    TyFun [] structTyConApp@(App (Struct fids) ftys) -> do
+    TyConTyFun [] structTyConApp@(TyApp (TyConStruct fids) ftys) -> do
       tcStructFields (zip fids ftys) fieldInitEs
       return structTyConApp
     _ -> throwError $ ErrInvalidStructType structTyCon
 
-tc (S.ExpIfElse testE thenEs elseEs) = do
+tc (ExpIfElse testE thenEs elseEs) = do
   testTy <- tc testE >>= unify tyBool
   thenTy <- tcEs thenEs
   elseTy <- tcEs elseEs
   unify thenTy elseTy
 
-tc (S.ExpTypeDec tyDec) =
-  let id = S.getTypeDecId tyDec
+tc (ExpTypeDec tyDec) =
+  let id = getTypeDecId tyDec
   in do
     tycon <- tcTyDec tyDec
     putTyBinding id tycon
     return tyUnit
 
 
-tcEs :: [S.Exp UniqId] -> Checked Ty
-tcEs [] = return $ mtApp Unit
+tcEs :: [Exp UniqId] -> Checked Ty
+tcEs [] = return $ mtApp TyConUnit
 tcEs es = do
   tys <- mapM tc es
   return $ last tys
 
 
-typeCheck :: S.CompUnit UniqId -> AlphaEnv -> Either TCError (Ty, AlphaEnv)
-typeCheck (S.CompUnit es) aEnv = do
+typeCheck :: CompUnit UniqId -> AlphaEnv -> Either Err (Ty, AlphaEnv)
+typeCheck (CompUnit es) aEnv = do
   (tyResult, tcEnv) <- return $ runState (runExceptT $ tcEs es) $ mtEnv aEnv
   ty <- tyResult
   return (ty, alphaEnv tcEnv)
