@@ -16,7 +16,6 @@ import Errors
 import Parse
 import Prelude hiding (lookup)
 import Semant
-import Syntax
 
 
 -- An evaluator monad is a possibly-failing computation

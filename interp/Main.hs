@@ -33,23 +33,20 @@ getCommand _ = error "Usage: interp [-a|-p|-t] FILEPATH"
 
 run :: Command -> String -> String -> Either Err Sexpable.Sexp
 run command filePath program = do
-  -- let parseTreeResult = parseExp filePath program
-  -- in do
-    -- ast <- parseTreeResult
-    ast <- parseExp filePath program
-    if command == DumpParseTree
-    then return (sexp ast)
+  ast <- parseExp filePath program
+  if command == DumpParseTree
+  then return (sexp ast)
+  else do
+    (alphaConverted, alphaEnv) <- alphaConvert ast
+    if command == DumpAlphaConverted
+    then return $ sexp alphaConverted
     else do
-      (alphaConverted, alphaEnv) <- alphaConvert ast
-      if command == DumpAlphaConverted
-      then return $ sexp alphaConverted
+      (progType, alphaEnv') <- T.typeCheck alphaConverted alphaEnv
+      if command == DumpTypecheckResult
+      then return $ sexp progType
       else do
-        (progType, alphaEnv') <- T.typeCheck alphaConverted alphaEnv
-        if command == DumpTypecheckResult
-        then return $ sexp progType
-        else do
-          result <- Interp.interp alphaConverted alphaEnv'
-          return $ sexp result
+        result <- Interp.interp alphaConverted alphaEnv'
+        return $ sexp result
 
 main = do
   args <- getArgs

@@ -6,7 +6,6 @@ import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import Semant
 import Sexpable
-import Syntax
 import Text.Printf (printf)
 
 
