@@ -1,6 +1,6 @@
 import Core
 
-def Accounts := module {
+def Accounts = module {
   type Command =
     | Add String String Int
     | Charge String Int
@@ -18,31 +18,29 @@ def Accounts := module {
     [String, Account] Hash Entries;
   };
 
-  def lst := [ 1, 2, 3, 4 ];
-  def arr := [| 1, 2, 3, 4 |];
-
+  def lst = [ 1, 2, 3, 4 ];
+  def arr = [| 1, 2, 3, 4 |];
 
   fun (Ledger) ApplyBalanceChange(String, Float, (fun (Float, Float) : Float)) : Unit;
-  (ledger).ApplyBalanceChange(name, amount, f) := {
+  (ledger).ApplyBalanceChange(name, amount, f) = {
     match (ledger.Entries.Find(name)) with
       | Some acct ->
         acct.Balance = f(acct.Balance, amount);
       | _ -> ()
   };
 
-  fun (Ledger) ApplyBalanceChange(String, Float, (fun (Float, Float) : Float)) : Unit {
-    (ledger).ApplyBalanceChange(name, amount, f) := {
-      switch (ledger.Entries.Find(name)) {
-        case Some acct ->
-          acct.Balance = f(acct.Balance, amount);
-        case _ -> ()
-      };
-    }
+  fun (Ledger) ApplyBalanceChange(String, Float, (fun (Float, Float) : Float)) : Unit;
+  (ledger).ApplyBalanceChange(name, amount, f) = {
+    switch (ledger.Entries.Find(name)) {
+      case Some acct ->
+        acct.Balance = f(acct.Balance, amount);
+      case _ -> ()
+    };
   };
 
   fun (Ledger) ExecuteCommand(Command) : Unit;
-  (ledger).ExecuteCommand(Add(name, cardNumber, amount)) := {
-    def acct := Account {
+  (ledger).ExecuteCommand(Add(name, cardNumber, amount)) = {
+    def acct = Account {
       Name = name,
       CardNumber = cardNumber,
       Balance = amount
@@ -51,11 +49,11 @@ def Accounts := module {
     ledger.Entries.Insert(name, acct);
   }
 
-  (ledger).ExecuteCommand(Charge(name, amount)) := {
+  (ledger).ExecuteCommand(Charge(name, amount)) = {
     ledger.ApplyBalanceCharge(name, amount, (-));
   }
 
-  (ledger).ExecuteCommand(Credit(name, amount)) := {
+  (ledger).ExecuteCommand(Credit(name, amount)) = {
     ledger.ApplyBalanceCharge(name, amount, (+));
   }
 
@@ -64,9 +62,8 @@ def Accounts := module {
 
   << Pure >>
   fun ParseCommand(String) : (Command, Bool);
-  ParseCommand(commandString) := {
-    parts := line.Split(" ");
-    switch (parts) {
+  ParseCommand(commandString) = {
+    switch (line.Split(" ")) {
       case ["Add", name, cardNumber, amount] -> (Add name cardNumber amount, False)
       case ["Charge", name, amount] -> (Charge name amount, False)
       case ["Credit", name, amount] -> (Credit name amount, False)
@@ -76,8 +73,8 @@ def Accounts := module {
 
 
   fun (Ledger) ProcessCommand(String) : Bool;
-  (ledger).ProcessCommand(line) := {
-    (command, shouldExit) := ParseCommand(line);
+  (ledger).ProcessCommand(line) = {
+    def (command, shouldExit) = ParseCommand(line);
     ledger.ExecuteCommand(command);
 
     shouldExit;

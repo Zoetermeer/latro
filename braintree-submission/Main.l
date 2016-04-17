@@ -1,12 +1,12 @@
 import Core
 
-def Main := module {
+def Main = module {
   : Entrypoint {
-    Main(_) := {
-      def ledger := Accounts.Ledger{ };
+    Main(_) = {
+      def ledger = Accounts.Ledger{ };
       while (True) {
-        def line := IO.ReadLine(IO.Stdin);
-        def done := ledger.ProcessCommand(line);
+        def line = IO.ReadLine(IO.Stdin);
+        def done = ledger.ProcessCommand(line);
 
         if (done) {
           break;
