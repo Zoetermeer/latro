@@ -128,6 +128,31 @@ Or:
     show(x::xs) { show(x) :: show(xs); };
   }
 
+The corresponding "implicit" implementation of ``Show`` for lists using
+instance functions would be:
+
+::
+
+  fun Show a => <a> (a[]).show() : String;
+  ([]).show() { "[]"; }
+  (x::xs).show() { x.show() :: xs.show(); };
+
+Perhaps it would make more sense to require the module-based implementation use
+instance functions also:
+
+::
+
+  def ShowList = Show a => <a> default module : <a[]> Show {
+    ([]).show() { "[]"; };
+    (x::xs).show() { show(x) :: show(xs); };
+  }
+
+*Maybe we should use the word "implicit" to mean an instance-function implementation of
+an interface (we do not explicitly mention the interface, but just implement the requisite
+functions), and "default" where in Scala or ML we would use the word "implicit".*
+
 
 Open questions
 ==============
+
+  * Can we define an instance function on a module type?
