@@ -1,3 +1,6 @@
+Types and interfaces
+====================
+
 There are *types* and *interfaces*.  An interface is analogous to a
 typeclass in Haskell.
 
@@ -57,6 +60,10 @@ For interface downcasting, the rules are the same for both:
   1) a polymorphic module with a single type parameter
   2) a data type with some set of fields and/or instance functions
 
+
+Example: the Show interface
+---------------------------
+
 An interesting example is the 'Show' interface.  Its definition is:
 
 ::
@@ -96,10 +103,11 @@ Could accept either implementation:
 
   True.show()
 
-Implicits for polymorphic types?
+An important question is how we deal with interfaces on polymorphic
+types (what does the Show implementation look like for Lists?).
 
-Syntax options for implicit/default modules
--------------------------------------------
+Syntax options for polymorphic implicit/default modules
+-------------------------------------------------------
 
 ::
 
@@ -117,3 +125,7 @@ Or:
     show([]) { "[]"; };
     show(x::xs) { show(x) :: show(xs); };
   }
+
+
+Open questions
+==============
