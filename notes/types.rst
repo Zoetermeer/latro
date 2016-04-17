@@ -1,3 +1,5 @@
+.. contents::
+
 Types and interfaces
 ====================
 
@@ -22,7 +24,7 @@ The value:
     g = ...
   }
 
-has type 'module { f : <type of f>, g : <type of g> }'.  A value
+has type ``module { f : <type of f>, g : <type of g> }``.  A value
 of module type can also satisfy the type requirement of a function
 accepting some interface that exports a subset of the module type's
 exports.  So:
@@ -43,11 +45,11 @@ And the expression:
 
   f(module { def g = 42; });
 
-Type-checks, and its type is 'Int'.  Both modules and data type instances
+Type-checks, and its type is ``Int``.  Both modules and data type instances
 can be 'downcast' to interface types if some subset of their exports
 match those defined by the interface type.
 
-Interface types are a bit more generic than either 'module' or 'data' types,
+Interface types are a bit more generic than either ``module`` or "data" types,
 since they cannot define types or have any structure other than a collection
 of exported value types.
 
@@ -61,10 +63,10 @@ For interface downcasting, the rules are the same for both:
   2) a data type with some set of fields and/or instance functions
 
 
-Example: the Show interface
+Example: the ``Show`` interface
 ---------------------------
 
-An interesting example is the 'Show' interface.  Its definition is:
+An interesting example is the ``Show`` interface.  Its definition is:
 
 ::
 
@@ -91,7 +93,7 @@ However we could also achieve the same effect with:
   (True).show() { "True"; };
   (False).show() { "False"; };
 
-Thus some function which expects a Show instance such as:
+Thus some function which expects a ``Show`` instance such as:
 
 ::
 
@@ -104,7 +106,7 @@ Could accept either implementation:
   True.show()
 
 An important question is how we deal with interfaces on polymorphic
-types (what does the Show implementation look like for Lists?).
+types (what does the Show implementation look like for ``List``?).
 
 Syntax options for polymorphic implicit/default modules
 -------------------------------------------------------
