@@ -147,6 +147,15 @@ instance functions also:
     (x::xs).show() { show(x) :: show(xs); };
   }
 
+But then that would probably require the interface definition to explicitly require
+instance functions also:
+
+::
+
+  interface <a> Show {
+    fun (a).show() : String;
+  }
+
 *Maybe we should use the word "implicit" to mean an instance-function implementation of
 an interface (we do not explicitly mention the interface, but just implement the requisite
 functions), and "default" where in Scala or ML we would use the word "implicit".*
