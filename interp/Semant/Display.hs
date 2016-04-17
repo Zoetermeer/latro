@@ -20,13 +20,6 @@ instance Sexpable id => Sexpable (QualifiedId id) where
     Symbol $ printf "%s.%s" (showSexp qid) (showSexp raw)
 
 
-instance Sexpable id => Sexpable (AdtAlternative id) where
-  sexp (AdtAlternative id i tys) =
-    List  [ Symbol $ printf "%s@%i" (showSexp id) i
-          , toSexpList tys
-          ]
-
-
 instance Sexpable id => Sexpable (SynTy id) where
   sexp SynTyInt = Symbol "Int"
   sexp SynTyBool = Symbol "Bool"
@@ -57,13 +50,144 @@ instance Sexpable UniqId where
   sexp (UniqId _ raw) = Symbol raw
 
 
--- TODO: Implement both of these!!!!
 instance Sexpable id => Sexpable (CompUnit id) where
-  sexp cu = Symbol "CompUnit"
+  sexp (CompUnit es) =
+    List  [ Symbol "CompUnit"
+          , toSexpList es
+          ]
+
+
+instance Sexpable id => Sexpable (AdtAlternative id) where
+  sexp (AdtAlternative id i sTys) =
+    List  [ Symbol "AdtAlternative"
+          , sexp id
+          , Symbol $ show i
+          , toSexpList sTys
+          ]
+
+
+instance Sexpable id => Sexpable (TypeDec id) where
+  sexp (TypeDecTy id sTy) =
+    List  [ Symbol "TypeDecTy", sexp id, sexp sTy ]
+  sexp (TypeDecAdt id alts) =
+    List  [ Symbol "TypeDecAdt", sexp id, toSexpList alts ]
+
+
+instance Sexpable id => Sexpable (PatExp id) where
+  sexp (PatExpNumLiteral str) =
+    List  [ Symbol "PatExpNumLiteral", Atom str ]
+  sexp (PatExpBoolLiteral b) =
+    List  [ Symbol "PatExpBoolLiteral", Symbol $ show b ]
+  sexp (PatExpTuple patEs) =
+    List  [ Symbol "PatExpTuple", toSexpList patEs ]
+  sexp (PatExpAdt id patEs) =
+    List  [ Symbol "PatExpAdt", sexp id, toSexpList patEs ]
+  sexp (PatExpList patEs) =
+    List  [ Symbol "PatExpList", toSexpList patEs ]
+  sexp (PatExpListCons a b) =
+    List  [ Symbol "PatExpListCons", sexp a, sexp b ]
+  sexp (PatExpId id) =
+    List  [ Symbol "PatExpId", sexp id ]
+  sexp (PatExpAtom e) =
+    List  [ Symbol "PatExpAtom", sexp e ]
+  sexp PatExpWildcard = Symbol "PatExpWildcard"
+
+
+instance Sexpable id => Sexpable (CaseClause id) where
+  sexp (CaseClause patE es) =
+    List  [ Symbol "CaseClause"
+          , sexp patE
+          , toSexpList es
+          ]
+
+
+instance Sexpable id => Sexpable (FunDef id) where
+  sexp (FunDefFun id argPatEs es) =
+    List  [ Symbol "FunDefFun"
+          , sexp id
+          , toSexpList argPatEs
+          , toSexpList es
+          ]
+  sexp (FunDefInstFun instPatE id argPatEs es) =
+    List  [ Symbol "FunDefInstFun"
+          , sexp instPatE
+          , sexp id
+          , toSexpList argPatEs
+          , toSexpList es
+          ]
+
+
+instance Sexpable id => Sexpable (FunDec id) where
+  sexp (FunDecFun id sTy funDefs) =
+    List  [ Symbol "FunDecFun"
+          , sexp id
+          , sexp sTy
+          , toSexpList funDefs
+          ]
+  sexp (FunDecInstFun id instTy arrowTy funDefs) =
+    List  [ Symbol "FunDecInstFun"
+          , sexp id
+          , sexp instTy
+          , sexp arrowTy
+          , toSexpList funDefs
+          ]
 
 
 instance Sexpable id => Sexpable (Exp id) where
-  sexp e = Symbol "foo"
+  sexp (ExpAdd a b) = List [ Symbol "ExpAdd", sexp a, sexp b ]
+  sexp (ExpSub a b) = List [ Symbol "ExpSub", sexp a, sexp b ]
+  sexp (ExpDiv a b) = List [ Symbol "ExpDiv", sexp a, sexp b ]
+  sexp (ExpMul a b) = List [ Symbol "ExpMul", sexp a, sexp b ]
+  sexp (ExpCons a b) = List [ Symbol "ExpCons", sexp a, sexp b ]
+  sexp (ExpNot e) = List [ Symbol "ExpNot", sexp e ]
+  sexp (ExpMemberAccess e id) =
+    List  [ Symbol "ExpMemberAccess"
+          , sexp e
+          , sexp id
+          ]
+  sexp (ExpApp rator rands) =
+    List  [ Symbol "ExpApp"
+          , sexp rator
+          , toSexpList rands
+          ]
+  sexp (ExpImport qid) = List [ Symbol "ExpImport", sexp qid ]
+  sexp (ExpAssign patE e) =
+    List  [ Symbol "ExpAssign"
+          , sexp patE
+          , sexp e
+          ]
+  sexp (ExpTypeDec tyDec) = List [ Symbol "ExpTypeDec", sexp tyDec ]
+  sexp (ExpFunDec funDec) = List [ Symbol "ExpFunDec", sexp funDec ]
+  sexp (ExpModule es) = List [ Symbol "ExpModule", toSexpList es ]
+  sexp (ExpStruct tyE fieldEs) =
+    List  [ Symbol "ExpStruct"
+          , List $ map (\(id, e) -> List [ sexp id, sexp e ]) fieldEs
+          ]
+  sexp (ExpIfElse e thenEs elseEs) =
+    List  [ Symbol "ExpIfElse"
+          , sexp e
+          , toSexpList thenEs
+          , toSexpList elseEs
+          ]
+  sexp (ExpMakeAdt sTy i es) =
+    List  [ Symbol "ExpMakeAdt"
+          , sexp sTy
+          , Atom $ show i
+          , toSexpList es
+          ]
+  sexp (ExpTuple es) = List [ Symbol "ExpTuple", toSexpList es ]
+  sexp (ExpSwitch e clauses) = List [ Symbol "ExpSwitch", sexp e, toSexpList clauses ]
+  sexp (ExpList es) = List [ Symbol "ExpList", toSexpList es ]
+  sexp (ExpFun paramIds es) =
+    List  [ Symbol "ExpFun"
+          , toSexpList paramIds
+          , toSexpList es
+          ]
+  sexp (ExpNum str) = List [ Symbol "ExpNum", Symbol str ]
+  sexp (ExpBool b) = List [ Symbol "ExpBool", Symbol $ show b ]
+  sexp (ExpString s) = List [ Symbol "ExpString", Atom s ]
+  sexp (ExpRef id) = List [ Symbol "ExpRef", sexp id ]
+  sexp ExpUnit = Symbol "ExpUnit"
 
 
 sexpOfMap :: Sexpable k => Map.Map k v -> Sexp

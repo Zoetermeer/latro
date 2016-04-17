@@ -3,7 +3,9 @@ module Errors.Display where
 import Errors
 import Semant
 import Semant.Display
+import Types.Display
 import Sexpable
+import Text.Printf (printf)
 
 
 instance Sexpable Err where
@@ -49,3 +51,19 @@ instance Sexpable Err where
 
   sexp (ErrCantEvaluate e) =
     List  [ Symbol "CantEvaluate", sexp e ]
+
+  sexp (ErrCantUnify a b) =
+    List  [ Symbol "CantUnify"
+          , List [ Symbol "Expected", sexp a ]
+          , List [ Symbol "Got", sexp b ]
+          ]
+
+  sexp (ErrUndefinedMember id) =
+    List  [ Symbol "UndefinedMember"
+          , sexp id
+          ]
+
+  sexp (ErrInvalidStructType tyCon) =
+    List  [ Symbol "InvalidStructType"
+          , sexp tyCon
+          ]

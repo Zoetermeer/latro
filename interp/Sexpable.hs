@@ -15,8 +15,8 @@ instance Show Sexp where
   show (List vs) =
     printf "(%s)" ((intercalate " " . map show) vs)
 
-  show (Symbol v) = show v
-  show (Atom v) = printf "\"%s\"" $ show v
+  show (Symbol v) = v
+  show (Atom v) = show v
 
 
 showSexp :: Sexpable a => a -> String

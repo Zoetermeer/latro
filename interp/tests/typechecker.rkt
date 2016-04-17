@@ -25,17 +25,17 @@
 (test-case "it fails to typecheck using non-numerics in arithmetic"
   (check-equal?
     @typecheck{1 + True;}
-    '(Error "Expected 'Int' but instead got: 'Bool'")))
+    '(CantUnify (Expected Int) (Got Bool))))
 
 (test-case "it fails to typecheck using non-numerics on the LHS of arithmetic exps"
   (check-equal?
     @typecheck{False + 42;}
-    '(Error "Expected 'Int' but instead got: 'Bool'")))
+    '(CantUnify (Expected Int) (Got Bool))))
 
 (test-case "it fails to typecheck if no numerics are given in arithmetic"
   (check-equal?
     @typecheck{False + True;}
-    '(Error "Expected 'Int' but instead got: 'Bool'")))
+    '(CantUnify (Expected Int) (Got Bool))))
 
 (test-case "it typechecks list expressions"
   (check-equal?
@@ -50,7 +50,7 @@
 (test-case "it fails non-uniformly-typed list expressions"
   (check-equal?
     @typecheck{[1, False];}
-    '(Error "Expected 'Int' but instead got: 'Bool'")))
+    '(CantUnify (Expected Int) (Got Bool))))
 
 (test-case "it checks cons expressions"
   (check-equal?
@@ -60,12 +60,12 @@
 (test-case "it fails ill-typed conses"
   (check-equal?
     @typecheck{1::[False, True];}
-    '(Error "Expected 'Bool' but instead got: 'Int'")))
+    '(CantUnify (Expected Bool) (Got Int))))
 
 (test-case "it fails if the right-hand side of a cons is not a list"
   (check-equal?
     @typecheck{1::2;}
-    '(Error "Expected '(App List (Int))' but instead got: 'Int'")))
+    '(CantUnify (Expected (App List (Int))) (Got Int))))
 
 (test-case "it checks 'not' expressions"
   (check-equal?
@@ -74,9 +74,9 @@
 
 (test-case "it fails to typecheck for non-bool types in a 'not' exp"
   (check-equal?
-    @typecheck{!42;} '(Error "Expected 'Bool' but instead got: 'Int'"))
+    @typecheck{!42;} '(CantUnify (Expected Bool) (Got Int)))
   (check-equal?
-    @typecheck{!(1 + 2);} '(Error "Expected 'Bool' but instead got: 'Int'")))
+    @typecheck{!(1 + 2);} '(CantUnify (Expected Bool) (Got Int))))
 
 (test-case "it checks if-else expressions"
   (check-equal?
@@ -86,12 +86,12 @@
 (test-case "it fails to typecheck if an if-else test is not a boolean"
   (check-equal?
     @typecheck{if (0) { 42; } else { 43; };}
-    '(Error "Expected 'Bool' but instead got: 'Int'")))
+    '(CantUnify (Expected Bool) (Got Int))))
 
 (test-case "it fails to typecheck if an if-else's branch types do not unify"
   (check-equal?
     @typecheck{if (True) { 42; } else { "hello"; };}
-    '(Error "Expected 'Int' but instead got: 'String'")))
+    '(CantUnify (Expected Int) (Got String))))
 
 (test-case "it checks structs"
   (check-equal?
@@ -107,7 +107,7 @@
       type WeirdPoint = struct { Int X; Bool Y; };
       WeirdPoint { X = 1; A = False; };
     }
-    '(Error "Undefined member 'A'")))
+    '(UndefinedMember A)))
 
 (test-case "it fails on type mismatches in field initializers"
   (check-equal?
@@ -115,7 +115,7 @@
       type WeirdPoint = struct { Int X; Bool Y; };
       WeirdPoint { X = 1; Y = 2; };
     }
-    '(Error "Expected 'Bool' but instead got: 'Int'")))
+    '(CantUnify (Expected Bool) (Got Int))))
 
 (test-case "it fails on attempts to struct-initialize non-struct types"
   (check-equal?
@@ -123,7 +123,7 @@
       type Foo = Int;
       Foo { X = 1; };
     }
-    '(Error "Type 'Int' is not a valid struct type.")))
+    '(InvalidStructType Int)))
 
 (test-case "it checks struct-field accesses"
   (check-equal?
