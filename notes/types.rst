@@ -70,9 +70,13 @@ An interesting example is the ``Show`` interface.  Its definition is:
 
 ::
 
-  interface <a> Show {
+  interface Show<a> {
     fun show(a) : String;
-  }
+  };
+
+
+  ToString<a> => fun (a)(default Show<a>) : String;
+  (v).ToString(S) { S.show(v); };
 
 An implementation for user-defined booleans might be:
 
@@ -80,10 +84,11 @@ An implementation for user-defined booleans might be:
 
   type Bool = | True | False ;
 
-  def ShowBool = implicit module : <Bool> Show {
-    show(True) = { "True"; };
-    show(False) = { "False"; };
-  }
+  ShowBool => default (Show<Bool>);
+  def ShowBool = module : Show<Bool> {
+    show(True) { "True"; };
+    show(False) { "False"; };
+  };
 
 However we could also achieve the same effect with:
 
@@ -93,17 +98,11 @@ However we could also achieve the same effect with:
   (True).show() { "True"; };
   (False).show() { "False"; };
 
-Thus some function which expects a ``Show`` instance such as:
 
 ::
 
-  (fun(v) { v.show(); })
-
-Could accept either implementation:
-
-::
-
-  True.show()
+  True.ToString();
+  False.ToString();
 
 An important question is how we deal with interfaces on polymorphic
 types (what does the Show implementation look like for ``List``?).
@@ -113,8 +112,7 @@ Syntax options for polymorphic implicit/default modules
 
 ::
 
-  def ShowList = <a> implicit module : <a[]> Show
-      where a : Show {
+  def ShowList = Show a => <a> default (<a[]> Show) {
     show([]) { "[]"; };
     show(x::xs) { show(x) :: show(xs); };
   }
@@ -123,10 +121,42 @@ Or:
 
 ::
 
-  def ShowList = Show a => <a> default module : <a[]> Show {
-    show([]) { "[]"; };
-    show(x::xs) { show(x) :: show(xs); };
-  }
+  ShowList => default (default Show<a>) : Show<a[]>;
+  ShowList = module(AShow) {
+    show => fun(a[]) : String;
+    show([]) = { "[]"; }
+    show(x::xs) { AShow.show(x) :: show(xs); };
+  };
+
+How do we express multiple constraints in the option 3 syntax?
+Here's a solution for 2-tuples:
+
+::
+
+  module ShowTup<a, b>(default Show<a>, default Show<b>) : default (Show (a, b));
+  ShowTup = module(ShowA, ShowB) {
+    fun show((a, b)) : String;
+    show((x, y)) = { (ShowA.show(a), ShowB.show(b)); };
+  };
+
+Modules like ``ShowList`` and ``ShowTup`` require default modules
+for ``Show`` implementations on their component types.  How do we explicitly
+supply an alternate module?
+
+::
+
+  def AlternateShowList = module {
+    [].show() { "it's empty"; };
+    (_::_).show() { "it's not empty"; };
+  };
+
+  fun <a> UserDefinedToString(a[]) : String;
+  UserDefinedToString(vs) {
+    v.show(AlternateShowList);
+  };
+
+We might want to allow substitution of a default module with an alternate
+one in a dynamic scope:
 
 The corresponding "implicit" implementation of ``Show`` for lists using
 instance functions would be:
@@ -160,6 +190,18 @@ instance functions also:
 an interface (we do not explicitly mention the interface, but just implement the requisite
 functions), and "default" where in Scala or ML we would use the word "implicit".*
 
+::
+
+  def AlternateShowList = module {
+    [].show() { "it's empty"; };
+    (_::_).show() { "it's not empty"; };
+  };
+
+  fun <a> UserDefinedToString(a[]) : String;
+  UserDefinedToString(vs) {
+    using <a[]> Show = AlternateShowList;
+    v.show();
+  };
 
 Open questions
 ==============

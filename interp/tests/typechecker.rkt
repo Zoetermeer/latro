@@ -132,3 +132,87 @@
       (Point { X = 1; Y = 2; }).Y;
     }
     'Int))
+
+(test-case "it checks scalar-type interface implementations"
+  (check-equal?
+    @typecheck{
+      interface Show<a> {
+        show<a> => (a) : String;
+      };
+
+      ToString<a> => fun (a)(default Show<a>) : String;
+      (v).ToString(S) { S.show(v); };
+
+      ShowBool => default Show<Bool>;
+      ShowBool = module {
+        show => (Bool) : String;
+        show(True) { "True"; }
+        show(False) { "False"; };
+      };
+
+      ToString(False);
+    }
+    'String))
+
+(test-case "it checks polymorphic-type interface implementations"
+  (check-equal?
+    @typecheck{
+      interface Show<a> {
+        show<a> => (a) : String;
+      };
+
+      ToString<a> => fun (a)(default Show<a>) : String;
+      (v).ToString(S) { S.show(v); };
+
+      ShowBool => default Show<Bool>;
+      ShowBool = module {
+        show => (Bool) : String;
+        show(True) { "True"; }
+        show(False) { "False"; };
+      };
+
+      ShowList => default (default Show<a>) : Show<a[]>;
+      ShowList = module (AShow) {
+        show => fun(a[]) : String;
+        show([]) = { "[]"; }
+        show(x::xs) { AShow.show(x) :: show(xs); };
+      };
+
+      [False, True].ToString();
+    }
+    'String))
+
+(test-case "it checks alternate-use interface implementations on polymorphic-types"
+  (check-equal?
+    @typecheck{
+      interface Show<a> {
+        show => (a) : String;
+      };
+
+      ToString<a> => fun (a)(default Show<a>) : String;
+      (v).ToString(S) { S.show(v); };
+
+      ShowBool => default Show<Bool>;
+      ShowBool = module {
+        show => (Bool) : String;
+        show(True) { "True"; }
+        show(False) { "False"; };
+      };
+
+      ShowList => default (default Show<a>) : Show<a[]>;
+      ShowList = module (AShow) {
+        show => fun(a[]) : String;
+        show([]) = { "[]"; }
+        show(x::xs) { AShow.show(x) :: show(xs); };
+      };
+
+      OtherShowList => module (default Show<a>) : Show<a[]>;
+      OtherShowList = module (AShow) {
+        show => fun(a[]) : String;
+        show([]) = { "it's empty"; }
+        show(x::xs) { "it's not empty"; };
+      };
+
+      [False, True].ToString(OtherShowList);
+    }
+    'String))
