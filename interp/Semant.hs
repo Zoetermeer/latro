@@ -45,8 +45,9 @@ data Exp id =
   | ExpImport (QualifiedId id)
   | ExpAssign (PatExp id) (Exp id)
   | ExpTypeDec (TypeDec id)
-  | ExpFunDec (FunDec id)
-  | ExpModule [Exp id]
+  | ExpAnnDec id [id] (SynTy id) [AnnDef id]
+  | ExpInterfaceDec id [id] [TyAnn id]
+  | ExpModule [id] [Exp id]
   | ExpStruct (Exp id) [(id, Exp id)]
   | ExpIfElse (Exp id) [Exp id] [Exp id]
   | ExpMakeAdt (SynTy id) Int [Exp id]
@@ -60,6 +61,24 @@ data Exp id =
   | ExpRef id
   | ExpUnit
   deriving (Eq, Show)
+
+data TyAnn id = TyAnn id [id] (SynTy id)
+  deriving (Eq, Show)
+
+
+data AnnDef id =
+    AnnDefModule id (Exp id)
+  | AnnDefFun (FunDef id)
+  | AnnDefExp (Exp id)
+  deriving (Eq, Show)
+
+isAnnDefFun :: AnnDef id -> Bool
+isAnnDefFun (AnnDefFun _) = True
+isAnnDefFun _ = False
+
+isAnnDefModule :: AnnDef id -> Bool
+isAnnDefModule (AnnDefModule _ _) = True
+isAnnDefModule _ = False
 
 
 data TypeDec id =
@@ -84,13 +103,14 @@ data SynTy id =
   | SynTyString
   | SynTyUnit
   | SynTyArrow [SynTy id] (SynTy id)
-  | SynTyModule
+  | SynTyModule [SynTy id] (Maybe (SynTy id))
   | SynTyInterface
+  | SynTyDefault (QualifiedId id) [SynTy id]
   | SynTyStruct [(id, (SynTy id))]
   | SynTyAdt id [AdtAlternative id]
   | SynTyTuple [SynTy id]
   | SynTyList (SynTy id)
-  | SynTyRef (QualifiedId id)
+  | SynTyRef (QualifiedId id) [SynTy id]
   deriving (Eq, Show)
 
 
@@ -152,7 +172,7 @@ data Exports = Exports
 -- environment.  A name lookup on a module
 -- can't search the closure environment, so we
 -- separate them
-data Module = Module ClosureEnv Exports
+data Module = Module ClosureEnv [UniqId] Exports
   deriving (Eq)
 
 

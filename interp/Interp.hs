@@ -58,7 +58,7 @@ mtInterpEnv alphaEnv =
       , alphaEnv = alphaEnv
       }
   where
-    mod = Module mtClosureEnv mtExports
+    mod = Module mtClosureEnv [] mtExports
 
 
 lookupId :: UniqId -> Map.Map UniqId v -> Eval v
@@ -76,7 +76,7 @@ lookupQualIn  :: QualifiedId UniqId
               -> Eval a
 lookupQualIn (Id id) intEnv _ extractAEnv = lookupId id $ extractAEnv intEnv
 lookupQualIn (Path qid id) intEnv extractExportEnv _ = do
-  (ValueModule (Module _ exports)) <- lookupQualIn qid intEnv exportVars varEnv
+  (ValueModule (Module _ _ exports)) <- lookupQualIn qid intEnv exportVars varEnv
   lookupId id $ extractExportEnv exports
 
 lookupTyQualIn :: QualifiedId UniqId -> InterpEnv -> Eval (SynTy UniqId)
@@ -119,26 +119,26 @@ putTyBinding id ty = do
 putModuleVarExport :: UniqId -> Value -> Eval ()
 putModuleVarExport id v = do
   modify (\intEnv ->
-            let (Module cloEnv exports) = curModule intEnv
+            let (Module cloEnv paramIds exports) = curModule intEnv
                 exports' = exports { exportVars = Map.insert id v (exportVars exports) }
             in
-              intEnv { curModule = Module cloEnv exports' })
+              intEnv { curModule = Module cloEnv paramIds exports' })
 
 
 putModuleTyExport :: UniqId -> SynTy UniqId -> Eval ()
 putModuleTyExport id ty = do
   modify (\intEnv ->
-            let (Module cloEnv exports) = curModule intEnv
+            let (Module cloEnv paramIds exports) = curModule intEnv
                 exports' = exports { exportTypes = Map.insert id ty (exportTypes exports) }
             in
-              intEnv { curModule = Module cloEnv exports' })
+              intEnv { curModule = Module cloEnv paramIds exports' })
 
 
 pushNewModuleContext :: Eval InterpEnv
 pushNewModuleContext = do
   curEnv <- get
   let modCloEnv = ClosureEnv { cloTypeEnv = typeEnv curEnv, cloVarEnv = varEnv curEnv }
-  modify (\intEnv -> intEnv { curModule = Module modCloEnv mtExports })
+  modify (\intEnv -> intEnv { curModule = Module modCloEnv [] mtExports })
   return curEnv
 
 
@@ -161,7 +161,7 @@ patExpBindingId (PatExpId id) = id
 evalTyExp :: Exp UniqId -> Eval (SynTy UniqId)
 evalTyExp (ExpRef id) = getTyEnv >>= lookupId id
 evalTyExp (ExpMemberAccess e id) = do
-  (ValueModule (Module _ exports)) <- evalE e
+  (ValueModule (Module _ _ exports)) <- evalE e
   lookupId id $ exportTypes exports
 
 evalTyExp e = throwError $ ErrInvalidTypeExp e
@@ -332,38 +332,38 @@ evalE (ExpTypeDec (TypeDecAdt id alts)) = do
 
   return ValueUnit
 
-evalE (ExpModule moduleEs) = do
+evalE (ExpModule paramIds moduleEs) = do
   oldEnv <- pushNewModuleContext
   mapM_ evalE moduleEs
-  newModule <- gets curModule
+  (Module cloEnv oldParamIds exports) <- gets curModule
   restoreEnv oldEnv
-  return $ ValueModule newModule
+  return $ ValueModule $ Module cloEnv (oldParamIds ++ paramIds) exports
 
 evalE (ExpStruct tyExp fieldInits) = do
   ty <- evalTyExp tyExp
   fieldInitVs <- mapM (\(id, e) -> do { v <- evalE e; return (id, v) }) fieldInits
   return $ ValueStruct $ Struct ty fieldInitVs
 
-evalE (ExpFunDec (FunDecFun id _ [])) = do
-  throwError $ ErrNoFunDefGivenFor id
-
-evalE (ExpFunDec (FunDecInstFun id _ _ [])) = do
-  throwError $ ErrNoInstFunDefGivenFor id
-
-
--- Need to validate fundef identifiers here
-evalE (ExpFunDec (FunDecFun id ty (funDef:[]))) = do
-  let (FunDefFun _ argPatEs bodyEs) = funDef
-  cloEnv <- gets (\intEnv -> ClosureEnv { cloTypeEnv = typeEnv intEnv, cloVarEnv = varEnv intEnv })
-  let paramIds = map patExpBindingId argPatEs
-      clo = Closure id ty cloEnv paramIds bodyEs
-      vClo = ValueFun clo
-  putVarBinding id vClo
-  putModuleVarExport id vClo
-  return ValueUnit
-
-evalE (ExpFunDec (FunDecInstFun id instTy funTy funDefs)) =
-  return ValueUnit
+-- evalE (ExpFunDec (FunDecFun id _ [])) = do
+--   throwError $ ErrNoFunDefGivenFor id
+-- 
+-- evalE (ExpFunDec (FunDecInstFun id _ _ [])) = do
+--   throwError $ ErrNoInstFunDefGivenFor id
+-- 
+-- 
+-- -- Need to validate fundef identifiers here
+-- evalE (ExpFunDec (FunDecFun id ty (funDef:[]))) = do
+--   let (FunDefFun _ argPatEs bodyEs) = funDef
+--   cloEnv <- gets (\\intEnv -> ClosureEnv { cloTypeEnv = typeEnv intEnv, cloVarEnv = varEnv intEnv })
+--   let paramIds = map patExpBindingId argPatEs
+--       clo = Closure id ty cloEnv paramIds bodyEs
+--       vClo = ValueFun clo
+--   putVarBinding id vClo
+--   putModuleVarExport id vClo
+--   return ValueUnit
+-- 
+-- evalE (ExpFunDec (FunDecInstFun id instTy funTy funDefs)) =
+--   return ValueUnit
 
 evalE (ExpAssign patE e) = do
   v <- evalE e
@@ -399,7 +399,7 @@ evalE (ExpFun paramIds bodyEs) = do
 evalE (ExpMemberAccess e id) = do
   v <- evalE e
   case v of
-    (ValueModule (Module _ exports)) -> lookupId id $ exportVars exports
+    (ValueModule (Module _ _ exports)) -> lookupId id $ exportVars exports
     (ValueStruct (Struct _ fields)) ->
       hoistEither $ maybeToEither err $ lookup id fields
   where

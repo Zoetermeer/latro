@@ -9,6 +9,9 @@ import Text.Printf (printf)
 
 
 instance Sexpable Err where
+  sexp (ErrSyntax msg) =
+    List  [ Symbol "Syntax", Atom msg ]
+
   sexp (ErrNonExhaustivePattern v) =
     List  [ Symbol "NonExhaustivePattern"
           , sexp v
@@ -66,4 +69,24 @@ instance Sexpable Err where
   sexp (ErrInvalidStructType tyCon) =
     List  [ Symbol "InvalidStructType"
           , sexp tyCon
+          ]
+
+  sexp (ErrTooManyModuleDefs id) =
+    List  [ Symbol "TooManyModuleDefs"
+          , sexp id
+          ]
+
+  sexp (ErrNoModuleDefInModuleDec id) =
+    List  [ Symbol "NoModuleDefInModuleDec"
+          , sexp id
+          ]
+
+  sexp (ErrNonFunDefsInFunDec id) =
+    List  [ Symbol "NonFunDefsInFunDec"
+          , sexp id
+          ]
+
+  sexp (ErrMultipleDefsInSimpleAnnDec id) =
+    List  [ Symbol "MultipleDefsInSimpleAnnDec"
+          , sexp id
           ]

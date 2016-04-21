@@ -137,15 +137,15 @@
   (check-equal?
     @typecheck{
       interface Show<a> {
-        show<a> => (a) : String;
+        show => fun(a) : String;
       };
 
-      ToString<a> => fun (a)(default Show<a>) : String;
-      (v).ToString(S) { S.show(v); };
+      ToString<a> => fun(default Show<a>) : String;
+      ToString(v, S) { S.show(v); };
 
-      ShowBool => default Show<Bool>;
+      ShowBool => module : default Show<Bool>;
       ShowBool = module {
-        show => (Bool) : String;
+        show => fun(Bool) : String;
         show(True) { "True"; }
         show(False) { "False"; };
       };
@@ -158,61 +158,61 @@
   (check-equal?
     @typecheck{
       interface Show<a> {
-        show<a> => (a) : String;
+        show => fun(a) : String;
       };
 
-      ToString<a> => fun (a)(default Show<a>) : String;
-      (v).ToString(S) { S.show(v); };
+      ToString<a> => fun (a, default Show<a>) : String;
+      ToString(v, S) { S.show(v); };
 
-      ShowBool => default Show<Bool>;
+      ShowBool => module : default Show<Bool>;
       ShowBool = module {
-        show => (Bool) : String;
+        show => fun(Bool) : String;
         show(True) { "True"; }
         show(False) { "False"; };
       };
 
-      ShowList => default (default Show<a>) : Show<a[]>;
+      ShowList<a> => module (default Show<a>) : default Show<a[]>;
       ShowList = module (AShow) {
         show => fun(a[]) : String;
-        show([]) = { "[]"; }
+        show([]) { "[]"; }
         show(x::xs) { AShow.show(x) :: show(xs); };
       };
 
-      [False, True].ToString();
+      ToString([False, True]);
     }
     'String))
 
-(test-case "it checks alternate-use interface implementations on polymorphic-types"
+(test-case "it checks alternate-use interface implementations on polymorphic types"
   (check-equal?
     @typecheck{
       interface Show<a> {
-        show => (a) : String;
+        show => fun(a) : String;
       };
 
-      ToString<a> => fun (a)(default Show<a>) : String;
-      (v).ToString(S) { S.show(v); };
+      ToString<a> => fun(a, default Show<a>) : String;
+      ToString(v, S) { S.show(v); };
 
-      ShowBool => default Show<Bool>;
+      ShowBool => module : default Show<Bool>;
       ShowBool = module {
-        show => (Bool) : String;
+        show => fun(Bool) : String;
         show(True) { "True"; }
         show(False) { "False"; };
       };
 
-      ShowList => default (default Show<a>) : Show<a[]>;
+      ShowList<a> => module (default Show<a>) : default Show<a[]>;
       ShowList = module (AShow) {
         show => fun(a[]) : String;
-        show([]) = { "[]"; }
+        show([]) { "[]"; }
         show(x::xs) { AShow.show(x) :: show(xs); };
       };
 
-      OtherShowList => module (default Show<a>) : Show<a[]>;
+      OtherShowList<a> => module (default Show<a>) : Show<a[]>;
       OtherShowList = module (AShow) {
         show => fun(a[]) : String;
-        show([]) = { "it's empty"; }
+        show([]) { "it's empty"; }
         show(x::xs) { "it's not empty"; };
       };
 
-      [False, True].ToString(OtherShowList);
+      ToString([False, True], OtherShowList);
     }
     'String))

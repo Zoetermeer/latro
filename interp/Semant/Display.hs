@@ -9,6 +9,11 @@ import Sexpable
 import Text.Printf (printf)
 
 
+instance Sexpable v => Sexpable (Maybe v) where
+  sexp (Just v) = sexp v
+  sexp Nothing = List []
+
+
 -- To satisfy (Sexpable RawId)
 instance Sexpable RawId where
   sexp s = Symbol s
@@ -28,8 +33,17 @@ instance Sexpable id => Sexpable (SynTy id) where
   sexp (SynTyArrow paramTys retTy) =
     List $ ((intersperse (Symbol "->" )) . map sexp) (paramTys ++ [retTy])
 
-  sexp SynTyModule = Symbol "Module"
+  sexp (SynTyModule paramTys maybeImplTy)  =
+    List  [ Symbol "Module"
+          , toSexpList paramTys
+          , sexp maybeImplTy
+          ]
   sexp SynTyInterface = Symbol "Interface"
+  sexp (SynTyDefault qid synTyArgs) =
+    List  [ Symbol "Default"
+          , sexp qid
+          , toSexpList synTyArgs
+          ]
   sexp (SynTyStruct fields) =
     List  [ Symbol "Struct"
           , List $ map (\(id, ty) -> List [ Symbol "Field", sexp id, sexp ty ]) fields
@@ -41,13 +55,22 @@ instance Sexpable id => Sexpable (SynTy id) where
           , toSexpList alts
           ]
 
-  sexp (SynTyRef qid) =
+  sexp (SynTyTuple synTys) =
+    List  [ Symbol "Tuple" , toSexpList synTys ]
+
+  sexp (SynTyList synTy) =
+    List  [ Symbol "List", sexp synTy ]
+
+  sexp (SynTyRef qid []) =
     List [ Symbol "Ref", sexp qid ]
+
+  sexp (SynTyRef qid tyParamIds) =
+    List [ Symbol "Ref", sexp qid, toSexpList tyParamIds ]
 
 
 instance Sexpable UniqId where
   sexp (UserId raw) = Symbol raw
-  sexp (UniqId _ raw) = Symbol raw
+  sexp (UniqId i raw) = Symbol $ printf "%s@%i" raw i
 
 
 instance Sexpable id => Sexpable (CompUnit id) where
@@ -133,6 +156,11 @@ instance Sexpable id => Sexpable (FunDec id) where
           ]
 
 
+instance Sexpable id => Sexpable (AnnDef id) where
+  sexp (AnnDefModule id e) = List [ Symbol "AnnDefModule", sexp e ]
+  sexp (AnnDefFun funDef) = List [ Symbol "AnnDefFun", sexp funDef ]
+
+
 instance Sexpable id => Sexpable (Exp id) where
   sexp (ExpAdd a b) = List [ Symbol "ExpAdd", sexp a, sexp b ]
   sexp (ExpSub a b) = List [ Symbol "ExpSub", sexp a, sexp b ]
@@ -157,8 +185,20 @@ instance Sexpable id => Sexpable (Exp id) where
           , sexp e
           ]
   sexp (ExpTypeDec tyDec) = List [ Symbol "ExpTypeDec", sexp tyDec ]
-  sexp (ExpFunDec funDec) = List [ Symbol "ExpFunDec", sexp funDec ]
-  sexp (ExpModule es) = List [ Symbol "ExpModule", toSexpList es ]
+  sexp (ExpAnnDec id tyParamIds ty annDefs) =
+    List  [ Symbol "ExpAnnDec"
+          , sexp id
+          , toSexpList tyParamIds
+          , sexp ty
+          , toSexpList annDefs
+          ]
+  sexp (ExpInterfaceDec id tyParamIds tyAnns) =
+    List  [ Symbol "ExpInterfaceDec"
+          , sexp id
+          , toSexpList tyParamIds
+          , toSexpList tyAnns
+          ]
+  sexp (ExpModule paramIds es) = List [ Symbol "ExpModule", toSexpList paramIds, toSexpList es ]
   sexp (ExpStruct tyE fieldEs) =
     List  [ Symbol "ExpStruct"
           , List $ map (\(id, e) -> List [ sexp id, sexp e ]) fieldEs
@@ -190,6 +230,15 @@ instance Sexpable id => Sexpable (Exp id) where
   sexp ExpUnit = Symbol "ExpUnit"
 
 
+instance Sexpable id => Sexpable (TyAnn id) where
+  sexp (TyAnn id tyParamIds synTy) =
+    List  [ Symbol "TyAnn"
+          , sexp id
+          , toSexpList tyParamIds
+          , sexp synTy
+          ]
+
+
 sexpOfMap :: Sexpable k => Map.Map k v -> Sexp
 sexpOfMap m = List $ map sexp $ Map.keys m
 
@@ -211,9 +260,10 @@ instance Sexpable Exports where
 
 
 instance Sexpable Module where
-  sexp (Module cloEnv exports) =
+  sexp (Module cloEnv paramIds exports) =
     List  [ Symbol "Module"
           , sexp cloEnv
+          , toSexpList paramIds
           , sexp exports
           ]
 

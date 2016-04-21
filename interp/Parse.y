@@ -20,6 +20,7 @@ import Semant
   import { Token _ TokenImport }
   type { Token _ TokenType }
   interface { Token _ TokenInterface }
+  default { Token _ TokenDefault }
   fun { Token _ TokenFun }
   imp { Token _ TokenImp }
   test { Token _ TokenTest }
@@ -37,6 +38,7 @@ import Semant
   case { Token _ TokenCase }
   ':=' { Token _ TokenAssign }
   '->' { Token _ TokenArrow }
+  '=>' { Token _ TokenRocket }
   '::' { Token _ TokenCons }
   '[' { Token _ TokenLBracket }
   ']' { Token _ TokenRBracket }
@@ -44,6 +46,8 @@ import Semant
   '}' { Token _ TokenRBrace }
   '(' { Token _ TokenLParen }
   ')' { Token _ TokenRParen }
+  '<' { Token _ TokenLt }
+  '>' { Token _ TokenGt }
   '|' { Token _ TokenPipe }
   '+' { Token _ TokenPlus }
   '-' { Token _ TokenMinus }
@@ -64,14 +68,21 @@ import Semant
 
 %%
 
-CompUnit : OneOrMoreExps { CompUnit $1 }
+CompUnit : OneOrMoreModuleLevelExps { CompUnit $1 }
 
 OneOrMoreExps : ExpT { [$1] }
               | OneOrMoreExps ExpT { $1 ++ [$2] }
 
 ZeroOrMoreExps : ExpT { [$1] }
-     | OneOrMoreExps ExpT { $1 ++ [$2] }
-     | {- empty -} { [] }
+               | OneOrMoreExps ExpT { $1 ++ [$2] }
+               | {- empty -} { [] }
+
+ZeroOrMoreModuleLevelExps : ModuleLevelExp { [$1] }
+                          | ZeroOrMoreModuleLevelExps ModuleLevelExp { $1 ++ [$2] }
+                          | {- empty -} { [] }
+
+OneOrMoreModuleLevelExps : ModuleLevelExp { [$1] }
+                         | OneOrMoreModuleLevelExps ModuleLevelExp { $1 ++ [$2] }
 
 ExpT : Exp ';'  { $1 }
 
@@ -120,8 +131,14 @@ CommaSeparatedIds : id { [$1] }
                   | CommaSeparatedIds ',' id { $1 ++ [$3] }
                   | {- empty -} { [] }
 
+ModuleParamList : '(' ')' { [] }
+                | '(' CommaSeparatedIds ')' { $2 }
+                | {- empty -} { [] }
+
+ModuleExp : module ModuleParamList '{' ZeroOrMoreModuleLevelExps'}'  { ExpModule $2 $4 }
+
 AtomExp : '(' Exp ')' { $2 }
-        | module '{' ZeroOrMoreExps '}'  { ExpModule $3 }
+        | ModuleExp { $1 }
         | '(' ')' { ExpUnit }
         | '(' Exp TupleRestExps ')' { ExpTuple ($2:$3) }
         | ListExp { $1 }
@@ -159,9 +176,31 @@ Exp : '!' ConsExp { ExpNot $2 }
     | def PatExp '=' Exp { ExpAssign $2 $4 }
     | MemberAccessExp '{' StructFieldInitializers '}' { ExpStruct $1 $3 }
     | TypeDec { ExpTypeDec $1 }
-    | FunDec { ExpFunDec $1 }
     | if '(' Exp ')' '{' ZeroOrMoreExps '}' else '{' ZeroOrMoreExps '}' { ExpIfElse $3 $6 $10 }
     | switch '(' Exp ')' '{' CaseClauses '}' { ExpSwitch $3 $6 }
+
+AnnDefExp : id '=' ModuleExp { AnnDefModule $1 $3 }
+          | FunDef { AnnDefFun $1 }
+
+AnnDefs : AnnDefExp { [$1] }
+        | AnnDefs AnnDefExp { $1 ++ [$2] }
+
+TyParams : '<' CommaSeparatedIds '>' { $2 }
+         | {- empty -} { [] }
+
+AnnDecExp : id TyParams '=>' Ty ';' AnnDefs ';' { ExpAnnDec $1 $2 $4 $6 }
+
+TyAnn : id TyParams '=>' Ty ';' { TyAnn $1 $2 $4 }
+
+
+TyAnns : TyAnn { [$1] }
+       | TyAnns TyAnn { $1 ++ [$2] }
+
+InterfaceDecExp: interface id TyParams '{' TyAnns '}' { ExpInterfaceDec $2 $3 $5 }
+
+ModuleLevelExp : AnnDecExp { $1 }
+               | InterfaceDecExp ';' { $1 }
+               | ExpT { $1 }
 
 CaseClauses : CaseClause { [$1] }
             | CaseClauses CaseClause { $1 ++ [$2] }
@@ -188,8 +227,8 @@ Tys : Ty { [$1] }
     | Tys Ty { $1 ++ [$2] }
     | {- empty -} { [] }
 
-FunDec : fun '(' Ty ')' id '(' TyList ')' ':' Ty ';' FunDefs { FunDecInstFun $5 $3 (SynTyArrow $7 $10) $12 }
-       | fun id '(' TyList ')' ':' Ty ';' FunDefs { FunDecFun $2 (SynTyArrow $4 $7) $9 }
+FunDec : fun '(' Ty ')' id '(' CommaSeparatedTys ')' ':' Ty ';' FunDefs { FunDecInstFun $5 $3 (SynTyArrow $7 $10) $12 }
+       | fun id '(' CommaSeparatedTys ')' ':' Ty ';' FunDefs { FunDecFun $2 (SynTyArrow $4 $7) $9 }
 
 FunDefs : FunDef  { [$1] }
         | FunDefs FunDef { $1 ++ [$2] }
@@ -203,26 +242,35 @@ PatExpList : PatExp { [$1] }
            | PatExpList ',' PatExp { $1 ++ [$3] }
            | {- empty -} { [] }
 
-TyList : Ty { [$1] }
-       | TyList ',' Ty { $1 ++ [$3] }
-       | {- empty -} { [] }
+CommaSeparatedTys : Ty { [$1] }
+                  | CommaSeparatedTys ',' Ty { $1 ++ [$3] }
+                  | {- empty -} { [] }
 
 TyTupleRest : ',' Ty { [$2] }
             | TyTupleRest ',' Ty { $1 ++ [$3] }
 
 TyTuple : '(' Ty TyTupleRest ')' { SynTyTuple ($2:$3) }
 
+OptionalImpClause : ':' Ty { Just $2 }
+                  | {- empty -} { Nothing }
+
+TyArgs : '<' CommaSeparatedTys '>' { $2 }
+       | {- empty -} { [] }
+
 Ty : Int { SynTyInt }
    | Bool { SynTyBool }
    | String { SynTyString }
    | Unit { SynTyUnit }
    | fun '(' ')' ':' Ty { SynTyArrow [] $5 }
-   | fun '(' TyList ')' ':' Ty { SynTyArrow $3 $6 }
-   | module '{' '}' { SynTyModule }
+   | fun '(' CommaSeparatedTys ')' ':' Ty { SynTyArrow $3 $6 }
+   | module OptionalImpClause { SynTyModule [] $2 }
+   | module '(' CommaSeparatedTys ')' OptionalImpClause { SynTyModule $3 $5 }
    | interface '{' '}' { SynTyInterface }
+   | default QualifiedId TyArgs { SynTyDefault $2 $3 }
    | struct '{' TyStructFields '}' { SynTyStruct $3 }
    | TyTuple { $1 }
-   | QualifiedId { SynTyRef $1 }
+   | QualifiedId { SynTyRef $1 [] }
+   | QualifiedId '<' CommaSeparatedTys '>' { SynTyRef $1 $3 }
    | Ty '[' ']' { SynTyList $1 }
 
 TyStructField : Ty id ';' { ($2, $1) }

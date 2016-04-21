@@ -3,7 +3,7 @@ module AlphaConvert where
 import Common
 import Control.Monad.Except
 import Control.Monad.State
-import Data.List (find, nub)
+import Data.List (all, find, nub)
 import Errors
 import Prelude hiding (lookup)
 import Semant
@@ -60,6 +60,13 @@ convertQualId (Path qid id) = do
   id' <- lookup id
   return $ Path qid' id'
 
+convertTyAnn :: TyAnn RawId -> AlphaConverted (TyAnn UniqId)
+convertTyAnn (TyAnn id tyParamIds ty) = do
+  id' <- freshM id
+  tyParamIds' <- mapM freshM tyParamIds
+  ty' <- convertTy ty
+  return $ TyAnn id' tyParamIds' ty'
+
 convertTy :: SynTy RawId -> AlphaConverted (SynTy UniqId)
 convertTy SynTyInt = return SynTyInt
 convertTy SynTyBool = return SynTyBool
@@ -70,8 +77,22 @@ convertTy (SynTyArrow paramTys retTy) = do
   retTy' <- convertTy retTy
   return $ SynTyArrow paramTys' retTy'
 
-convertTy SynTyModule = return SynTyModule
+convertTy (SynTyModule paramTys maybeImplTy) = do
+  paramTys' <- mapM convertTy paramTys
+  case maybeImplTy of
+    Just ty -> do
+      implTy' <- convertTy ty
+      return $ SynTyModule paramTys' $ Just implTy'
+    _ ->
+      return $ SynTyModule paramTys' Nothing
+
 convertTy SynTyInterface = return SynTyInterface
+
+convertTy (SynTyDefault qid tyArgs) = do
+  qid' <- convertQualId qid
+  tyArgs' <- mapM convertTy tyArgs
+  return $ SynTyDefault qid' tyArgs'
+
 convertTy (SynTyStruct fields) = do
   fields' <- mapM (\(id, ty) -> do { ty' <- convertTy ty; return (UserId id, ty') }) fields
   return $ SynTyStruct fields'
@@ -84,9 +105,10 @@ convertTy (SynTyList ty) = do
   ty' <- convertTy ty
   return $ SynTyList ty'
 
-convertTy (SynTyRef qid) = do
+convertTy (SynTyRef qid tyArgs) = do
+  tyArgs' <- mapM convertTy tyArgs
   qid' <- convertQualId qid
-  return $ SynTyRef qid'
+  return $ SynTyRef qid' tyArgs'
 
 
 convertAdtAlternative :: AdtAlternative RawId -> AlphaConverted (AdtAlternative UniqId)
@@ -185,6 +207,40 @@ desugarFunDefs fid funDefs =
         throwError $ ErrFunDefArityMismatch fid
 
 
+convertAnnDec :: Exp RawId -> AlphaConverted (Exp UniqId)
+convertAnnDec (ExpAnnDec id tyParamIds ty annDefs) = do
+  id' <- freshM id
+  tyParamIds' <- mapM freshM tyParamIds
+  ty' <- convertTy ty
+  case ty' of
+    (SynTyModule _ _) ->
+      if length annDefs /= 1
+      then throwError $ ErrTooManyModuleDefs id'
+      else
+        if not $ all isAnnDefModule annDefs
+        then throwError $ ErrNoModuleDefInModuleDec id'
+        else
+          let (AnnDefModule defId defE) = head annDefs
+          in do
+            defId' <- lookup defId
+            defE' <- convert defE
+            return $ ExpAnnDec id' tyParamIds' ty' [AnnDefModule defId' defE']
+    (SynTyArrow _ _) ->
+      if not $ all isAnnDefFun annDefs
+      then throwError $ ErrNonFunDefsInFunDec id'
+      else
+        let funDefs = map (\(AnnDefFun funDef) -> funDef) annDefs
+        in do funDef' <- (liftM fst) $ desugarFunDefs id' funDefs
+              return $ ExpAnnDec id' tyParamIds' ty' [AnnDefFun funDef']
+    _ ->
+      if length annDefs /= 1
+      then throwError $ ErrMultipleDefsInSimpleAnnDec id'
+      else
+        let (AnnDefExp e) = head annDefs
+        in do e' <- convert e
+              return $ ExpAnnDec id' tyParamIds' ty' [AnnDefExp e']
+
+
 convert :: Exp RawId -> AlphaConverted (Exp UniqId)
 convert (ExpAdd a b) = convertBin ExpAdd a b
 convert (ExpSub a b) = convertBin ExpSub a b
@@ -219,22 +275,18 @@ convert (ExpTypeDec (TypeDecAdt id alts)) = do
   alts' <- mapM convertAdtAlternative alts
   return $ ExpTypeDec $ TypeDecAdt id' alts'
 
-convert (ExpFunDec (FunDecFun id funTy fundefs)) = do
-  id' <- freshM id
-  funTy' <- convertTy funTy
-  (fundef', paramIds) <- desugarFunDefs id' fundefs
-  return $ ExpFunDec $ FunDecFun id' funTy' [fundef']
+convert expAnnDec@(ExpAnnDec _ _ _ _) = convertAnnDec expAnnDec
 
-convert (ExpFunDec (FunDecInstFun id instTy funTy fundefs)) = do
+convert (ExpInterfaceDec id tyParamIds memberTyAnns) = do
   id' <- freshM id
-  instTy' <- convertTy instTy
-  funTy' <- convertTy funTy
-  fundefs' <- mapM convertFunDef fundefs
-  return $ ExpFunDec $ FunDecInstFun id' instTy' funTy' fundefs'
+  tyParamIds' <- mapM freshM tyParamIds
+  memberTyAnns' <- mapM convertTyAnn memberTyAnns
+  return $ ExpInterfaceDec id' tyParamIds' memberTyAnns'
 
-convert (ExpModule bodyEs) = do
+convert (ExpModule paramIds bodyEs) = do
+  paramIds' <- mapM freshM paramIds
   bodyEs' <- mapM convert bodyEs
-  return $ ExpModule bodyEs'
+  return $ ExpModule paramIds' bodyEs'
 
 convert (ExpStruct eDefiner fields) = do
   eDefiner' <- convert eDefiner

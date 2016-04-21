@@ -27,6 +27,7 @@ tokens :-
   import { lex' TokenImport }
   type { lex' TokenType }
   interface { lex' TokenInterface }
+  default { lex' TokenDefault }
   fun { lex' TokenFun }
   imp { lex' TokenImp }
   test { lex' TokenTest }
@@ -44,6 +45,7 @@ tokens :-
   case { lex' TokenCase }
   ":=" { lex' TokenAssign }
   "->" { lex' TokenArrow }
+  "=>" { lex' TokenRocket }
   "::" { lex' TokenCons }
   [\[] { lex' TokenLBracket }
   [\]] { lex' TokenRBracket }
@@ -51,6 +53,8 @@ tokens :-
   [\}] { lex' TokenRBrace }
   [\(] { lex' TokenLParen }
   [\)] { lex' TokenRParen }
+  [\<] { lex' TokenLt }
+  [\>] { lex' TokenGt }
   [\|] { lex' TokenPipe }
   [\+] { lex' TokenPlus }
   [\-] { lex' TokenMinus }
@@ -88,6 +92,7 @@ data TokenClass =
   | TokenImport
   | TokenType
   | TokenInterface
+  | TokenDefault
   | TokenFun
   | TokenImp
   | TokenTest
@@ -105,6 +110,7 @@ data TokenClass =
   | TokenCase
   | TokenAssign
   | TokenArrow
+  | TokenRocket
   | TokenCons
   | TokenLBracket
   | TokenRBracket
@@ -112,6 +118,8 @@ data TokenClass =
   | TokenRBrace
   | TokenLParen
   | TokenRParen
+  | TokenLt
+  | TokenGt
   | TokenPipe
   | TokenPlus
   | TokenMinus
@@ -140,6 +148,7 @@ unlex (TokenModule) = "module"
 unlex (TokenImport) = "import"
 unlex (TokenType) = "type"
 unlex (TokenInterface) = "interface"
+unlex (TokenDefault) = "default"
 unlex (TokenFun) = "fun"
 unlex (TokenImp) = "imp"
 unlex (TokenTest) = "test"
@@ -157,6 +166,7 @@ unlex (TokenSwitch) = "switch"
 unlex (TokenCase) = "case"
 unlex (TokenAssign) = ":="
 unlex (TokenArrow) = "->"
+unlex (TokenRocket) = "=>"
 unlex (TokenCons) = "::"
 unlex (TokenLBracket) = "["
 unlex (TokenRBracket) = "]"
@@ -164,6 +174,8 @@ unlex (TokenLBrace) = "{"
 unlex (TokenRBrace) = "}"
 unlex (TokenLParen) = "("
 unlex (TokenRParen) = ")"
+unlex (TokenLt) = "<"
+unlex (TokenGt) = ">"
 unlex (TokenPipe) = "|"
 unlex (TokenMinus) = "-"
 unlex (TokenPlus) = "+"

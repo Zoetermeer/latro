@@ -25,4 +25,8 @@ data Err =
   | ErrCantUnify Ty Ty
   | ErrUndefinedMember UniqId
   | ErrInvalidStructType TyCon
+  | ErrTooManyModuleDefs UniqId
+  | ErrNoModuleDefInModuleDec UniqId
+  | ErrNonFunDefsInFunDec UniqId
+  | ErrMultipleDefsInSimpleAnnDec UniqId
   | ErrNotImplemented String
