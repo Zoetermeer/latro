@@ -29,4 +29,5 @@ data Err =
   | ErrNoModuleDefInModuleDec UniqId
   | ErrNonFunDefsInFunDec UniqId
   | ErrMultipleDefsInSimpleAnnDec UniqId
+  | ErrInterpFailure String
   | ErrNotImplemented String

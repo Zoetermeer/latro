@@ -10,11 +10,13 @@ import Data.List
 import qualified Data.Map as Map
 import Errors
 import Semant
+import Text.Printf (printf)
 
 
 data TCEnv = TCEnv
   { typeEnv :: Map.Map UniqId TyCon
   , varEnv :: Map.Map UniqId Ty
+  , curModule :: TyCon
   , alphaEnv :: AlphaEnv
   }
   deriving (Eq)
@@ -24,16 +26,47 @@ mtEnv alphaEnv =
   TCEnv
     { typeEnv = Map.empty
     , varEnv = Map.empty
+    , curModule = TyConModule [] []
     , alphaEnv = alphaEnv
     }
 
 type Checked a = ExceptT Err (State TCEnv) a
 
 
+pushNewModuleContext :: [TyVarId] -> Checked TCEnv
+pushNewModuleContext tyParamIds = do
+  oldEnv <- get
+  modify (\tcEnv -> tcEnv { curModule = TyConModule tyParamIds [] })
+  return oldEnv
+
+
+restoreEnv :: TCEnv -> Checked ()
+restoreEnv tcEnv = put tcEnv
+
+
 -- Convenience methods for manipulating the environment
+addModuleTyBinding :: TyCon -> UniqId -> TyCon -> TyCon
+addModuleTyBinding (TyConModule tyParamIds bindings) id tyCon =
+  TyConModule tyParamIds ((ModuleBindingTyCon id tyCon) : bindings)
+
+
+addModuleVarBinding :: TyCon -> UniqId -> Ty -> TyCon
+addModuleVarBinding (TyConModule tyParamIds bindings) id ty =
+  TyConModule tyParamIds ((ModuleBindingTy id ty) : bindings)
+
+
 putTyBinding :: UniqId -> TyCon -> Checked ()
 putTyBinding id ty = do
-  modify (\tcEnv -> tcEnv { typeEnv = Map.insert id ty (typeEnv tcEnv) })
+  modify (\tcEnv -> tcEnv { typeEnv = Map.insert id ty (typeEnv tcEnv)
+                          , curModule = addModuleTyBinding (curModule tcEnv) id ty
+                          })
+
+
+putVarBinding :: UniqId -> Ty -> Checked ()
+putVarBinding id ty = do
+  modify (\tcEnv -> tcEnv { varEnv = Map.insert id ty (varEnv tcEnv)
+                          , curModule = addModuleVarBinding (curModule tcEnv) id ty
+                          })
 
 
 mtApp :: TyCon -> Ty
@@ -65,7 +98,15 @@ freshId = do
 lookupTy :: UniqId -> Checked TyCon
 lookupTy id = do
   tyConEnv <- gets typeEnv
-  hoistEither $ maybeToEither (ErrUnboundUniqIdentifier id) $ Map.lookup id tyConEnv
+  hoistEither $ maybeToEither (ErrUnboundUniqIdentifier id)
+              $ Map.lookup id tyConEnv
+
+
+lookupVar :: UniqId -> Checked Ty
+lookupVar id = do
+  varEnv <- gets varEnv
+  hoistEither $ maybeToEither (ErrUnboundUniqIdentifier id)
+              $ Map.lookup id varEnv
 
 
 unify :: Ty -> Ty -> Checked Ty
@@ -137,7 +178,7 @@ tcStructFields tyFields ((fieldId, fieldExp):fieldInitExps) =
 
 tc :: Exp UniqId -> Checked Ty
 tc ExpUnit = return $ mtApp TyConUnit
-tc (ExpRef id) = throwError $ ErrNotImplemented "tc"
+tc (ExpRef id) = lookupVar id
 tc (ExpString _) = return $ mtApp TyConString
 tc (ExpBool _) = return $ mtApp TyConBool
 tc (ExpNum _) = return $ mtApp TyConInt
@@ -157,6 +198,36 @@ tc (ExpCons headE listE) = do
 tc (ExpNot e) = do
   te <- tc e >>= unify tyBool
   return tyBool
+
+tc (ExpMemberAccess e id) = do
+  eTy <- tc e
+  case eTy of
+    TyApp (TyConModule tyParamIds bindings) [] ->
+      let match = find (\binding -> case binding of
+                                      (ModuleBindingTy name _) -> name == id
+                                      _ -> False
+                       )
+                       bindings
+      in do
+        (ModuleBindingTy _ ty) <- hoistEither $ maybeToEither (ErrUnboundUniqIdentifier id)
+                                              match
+        return ty
+    _ -> throwError $ ErrNotImplemented "Failed member access"
+
+tc (ExpModule paramIds es) = do
+  oldEnv <- pushNewModuleContext paramIds
+  mapM_ tc es
+  moduleTy <- gets curModule
+  restoreEnv oldEnv
+  let tyApp = TyApp moduleTy $ map TyVar paramIds
+  case paramIds of
+    [] -> return tyApp
+    _ -> return $ TyPoly paramIds tyApp
+
+tc (ExpAssign (PatExpId id) e) = do
+  ty <- tc e
+  putVarBinding id ty
+  return tyUnit
 
 tc (ExpFun _ _) = throwError $ ErrNotImplemented "tc"
 
@@ -197,6 +268,8 @@ tc (ExpTypeDec tyDec) =
     tycon <- tcTyDec tyDec
     putTyBinding id tycon
     return tyUnit
+
+tc e = throwError $ ErrInterpFailure $ printf "In function tc: %s" $ show e
 
 
 tcEs :: [Exp UniqId] -> Checked Ty

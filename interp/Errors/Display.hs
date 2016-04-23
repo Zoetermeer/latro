@@ -55,6 +55,11 @@ instance Sexpable Err where
   sexp (ErrCantEvaluate e) =
     List  [ Symbol "CantEvaluate", sexp e ]
 
+  sexp (ErrUnboundUniqIdentifier id) =
+    List  [ Symbol "UnboundIdentifier"
+          , sexp id
+          ]
+
   sexp (ErrCantUnify a b) =
     List  [ Symbol "CantUnify"
           , List [ Symbol "Expected", sexp a ]
@@ -89,4 +94,15 @@ instance Sexpable Err where
   sexp (ErrMultipleDefsInSimpleAnnDec id) =
     List  [ Symbol "MultipleDefsInSimpleAnnDec"
           , sexp id
+          ]
+
+  sexp (ErrInterpFailure s) =
+    List  [ Symbol "InterpFailure"
+          , Atom "Non-exhaustive pattern"
+          , Atom s
+          ]
+
+  sexp (ErrNotImplemented s) =
+    List  [ Symbol "NotImplemented"
+          , Atom s
           ]

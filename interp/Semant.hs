@@ -104,7 +104,7 @@ data SynTy id =
   | SynTyUnit
   | SynTyArrow [SynTy id] (SynTy id)
   | SynTyModule [SynTy id] (Maybe (SynTy id))
-  | SynTyInterface
+  | SynTyInterface [id]
   | SynTyDefault (QualifiedId id) [SynTy id]
   | SynTyStruct [(id, (SynTy id))]
   | SynTyAdt id [AdtAlternative id]
@@ -205,12 +205,16 @@ data Value =
 
 type TyVarId = UniqId
 type FieldName = UniqId
-type TypeName = UniqId
 
 data Ty =
     TyApp TyCon [Ty]
   | TyPoly [TyVarId] Ty
   | TyVar TyVarId
+  deriving (Eq)
+
+data ModuleBinding =
+    ModuleBindingTyCon FieldName TyCon
+  | ModuleBindingTy FieldName Ty
   deriving (Eq)
 
 data TyCon =
@@ -221,7 +225,8 @@ data TyCon =
   | TyConList
   | TyConTuple
   | TyConStruct [FieldName]
-  | TyConModule [TypeName] [FieldName]
+  | TyConModule [TyVarId] [ModuleBinding]
+  | TyConInterface [ModuleBinding]
   | TyConTyFun [TyVarId] Ty
   deriving (Eq)
 

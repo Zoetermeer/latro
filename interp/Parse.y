@@ -265,7 +265,7 @@ Ty : Int { SynTyInt }
    | fun '(' CommaSeparatedTys ')' ':' Ty { SynTyArrow $3 $6 }
    | module OptionalImpClause { SynTyModule [] $2 }
    | module '(' CommaSeparatedTys ')' OptionalImpClause { SynTyModule $3 $5 }
-   | interface '{' '}' { SynTyInterface }
+   | interface '{' '}' { SynTyInterface [] }
    | default QualifiedId TyArgs { SynTyDefault $2 $3 }
    | struct '{' TyStructFields '}' { SynTyStruct $3 }
    | TyTuple { $1 }

@@ -38,7 +38,8 @@ instance Sexpable id => Sexpable (SynTy id) where
           , toSexpList paramTys
           , sexp maybeImplTy
           ]
-  sexp SynTyInterface = Symbol "Interface"
+  sexp (SynTyInterface []) = Symbol "Interface"
+  sexp (SynTyInterface ids) = List [ Symbol "Interface", toSexpList ids ]
   sexp (SynTyDefault qid synTyArgs) =
     List  [ Symbol "Default"
           , sexp qid
@@ -70,7 +71,7 @@ instance Sexpable id => Sexpable (SynTy id) where
 
 instance Sexpable UniqId where
   sexp (UserId raw) = Symbol raw
-  sexp (UniqId i raw) = Symbol $ printf "%s@%i" raw i
+  sexp (UniqId _ raw) = Symbol raw
 
 
 instance Sexpable id => Sexpable (CompUnit id) where

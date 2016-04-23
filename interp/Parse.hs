@@ -3265,7 +3265,7 @@ happyReduction_141 _
 	_
 	_
 	 =  HappyAbsSyn60
-		 (SynTyInterface
+		 (SynTyInterface []
 	)
 
 happyReduce_142 = happySpecReduce_3  60 happyReduction_142

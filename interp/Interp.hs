@@ -152,8 +152,6 @@ restoreEnv :: InterpEnv -> Eval ()
 restoreEnv intEnv = put intEnv
 
 
--- TODO: Placeholder for patterns in argument-binding
--- position
 patExpBindingId :: PatExp UniqId -> UniqId
 patExpBindingId (PatExpId id) = id
 
@@ -343,27 +341,6 @@ evalE (ExpStruct tyExp fieldInits) = do
   ty <- evalTyExp tyExp
   fieldInitVs <- mapM (\(id, e) -> do { v <- evalE e; return (id, v) }) fieldInits
   return $ ValueStruct $ Struct ty fieldInitVs
-
--- evalE (ExpFunDec (FunDecFun id _ [])) = do
---   throwError $ ErrNoFunDefGivenFor id
--- 
--- evalE (ExpFunDec (FunDecInstFun id _ _ [])) = do
---   throwError $ ErrNoInstFunDefGivenFor id
--- 
--- 
--- -- Need to validate fundef identifiers here
--- evalE (ExpFunDec (FunDecFun id ty (funDef:[]))) = do
---   let (FunDefFun _ argPatEs bodyEs) = funDef
---   cloEnv <- gets (\\intEnv -> ClosureEnv { cloTypeEnv = typeEnv intEnv, cloVarEnv = varEnv intEnv })
---   let paramIds = map patExpBindingId argPatEs
---       clo = Closure id ty cloEnv paramIds bodyEs
---       vClo = ValueFun clo
---   putVarBinding id vClo
---   putModuleVarExport id vClo
---   return ValueUnit
--- 
--- evalE (ExpFunDec (FunDecInstFun id instTy funTy funDefs)) =
---   return ValueUnit
 
 evalE (ExpAssign patE e) = do
   v <- evalE e

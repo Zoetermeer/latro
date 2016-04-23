@@ -86,7 +86,9 @@ convertTy (SynTyModule paramTys maybeImplTy) = do
     _ ->
       return $ SynTyModule paramTys' Nothing
 
-convertTy SynTyInterface = return SynTyInterface
+convertTy (SynTyInterface paramIds) = do
+  paramIds' <- mapM freshM paramIds
+  return $ SynTyInterface paramIds'
 
 convertTy (SynTyDefault qid tyArgs) = do
   qid' <- convertQualId qid
