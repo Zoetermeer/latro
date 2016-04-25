@@ -158,10 +158,10 @@ tcTyDec (TypeDecTy id (SynTyStruct fields)) =
 -- is that we can access some type defined on an inline module, for example.
 -- module { type t = ...; }.t { ... };
 --
--- Which is odd, but is permitted (at least at the syntactic level).
--- The question is (1) why anyone would want to do that, and (2)
--- how (or if) we need to refer to the type of this object elsewhere.
--- We are allowing a value to escape "further" than its corresponding type.
+-- Allowing this means the language supports first-class modules.
+-- Support should be deferred until we really decide we
+-- want that feature.  Until then inline module expressions
+-- should be prevented at the syntactic level.
 tcTyconExp :: Exp UniqId -> Checked TyCon
 tcTyconExp (ExpRef id) = lookupTy id
 
