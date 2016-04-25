@@ -179,6 +179,62 @@
     }
     '(CantUnify (Expected (App Tuple (Any Any))) (Got Int))))
 
+(test-case "it checks simple list patterns"
+  (check-equal?
+    @typecheck{
+      def [x] = [42];
+      x;
+    }
+    'Int))
+
+(test-case "it checks tuple sub-patterns in list patterns"
+  (check-equal?
+    @typecheck{
+      def [(1, x), (2, y)] = [(1, False), (2, True)];
+      (x, y);
+    }
+    '(App Tuple (Bool Bool))))
+
+(test-case "it checks nested list patterns"
+  (check-equal?
+    @typecheck{
+      def [[1, 2], [3, 4, 5], x] = [[1, 2], [3, 4, 5], [7]];
+      x;
+    }
+    '(App List (Int))))
+
+(test-case "it checks list patterns against the empty list"
+  (check-equal?
+    @typecheck{
+      def [x] = [];
+      x;
+    }
+    'Any))
+
+(test-case "it returns an error for ill-typed list patterns"
+  (check-equal?
+    @typecheck{
+      def [True, 1, x] = [1, 2, 3];
+      x;
+    }
+    '(CantUnify (Expected Bool) (Got Int))))
+
+(test-case "it fails regardless of subexpression order in list pats"
+  (check-equal?
+    @typecheck{
+      def [x, 1] = [True, False];
+      x;
+    }
+    '(CantUnify (Expected Int) (Got Bool))))
+
+(test-case "it fails if the right-hand side of a list-pat binding is ill-typed"
+  (check-equal?
+    @typecheck{
+      def [x, y] = [1, "hello"];
+      y;
+    }
+    '(CantUnify (Expected Int) (Got String))))
+
 ; (test-case "it checks scalar-type interface implementations"
 ;   (check-equal?
 ;     @typecheck{

@@ -209,7 +209,7 @@ data Ty =
     TyApp TyCon [Ty]
   | TyPoly [TyVarId] Ty
   | TyVar TyVarId
-  | TyAny
+  | TyAny -- Only occurs in types of pattern expressions
   deriving (Eq)
 
 data ModuleBinding =

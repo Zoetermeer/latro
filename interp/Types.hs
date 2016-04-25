@@ -117,6 +117,7 @@ unify a@(TyApp tyconA tyArgsA) b@(TyApp tyconB tyArgsB) =
   else throwError $ ErrCantUnify a b
 
 unify TyAny b = return b
+unify a TyAny = return a
 
 
 unifyAll :: [Ty] -> Checked Ty
@@ -188,7 +189,8 @@ tcPatExp (PatExpTuple es) = do
 tcPatExp (PatExpAdt _ _) = throwError $ ErrNotImplemented "tcPatExp for ADT's"
 tcPatExp (PatExpList es) = do
   eTys <- mapM tcPatExp es
-  unifyAll eTys
+  patElemTy <- unifyAll eTys
+  return $ TyApp TyConList [patElemTy]
 
 tcPatExp (PatExpListCons eHd eTl) = do
   hdTy <- tcPatExp eHd
