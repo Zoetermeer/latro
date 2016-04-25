@@ -144,6 +144,41 @@
     }
     'Int))
 
+(test-case "it checks expressions with module-binding components"
+  (check-equal?
+    @typecheck{
+      def M = module {
+        def v = 42;
+      };
+
+      1 + M.v;
+    }
+    'Int))
+
+(test-case "it checks tuple patterns"
+  (check-equal?
+    @typecheck{
+      def (x, y) = (1, False);
+      y;
+    }
+    'Bool))
+
+(test-case "it checks compound tuple patterns"
+  (check-equal?
+    @typecheck{
+      def ((x, y), z) = ((1, True), (3, 4));
+      z;
+    }
+    '(App Tuple (Int Int))))
+
+(test-case "it reports an error if inner tuple patterns are ill-typed"
+  (check-equal?
+    @typecheck{
+      def ((a, b), (c, d)) = ((1, 2), 3);
+      b;
+    }
+    '(CantUnify (Expected (App Tuple (Any Any))) (Got Int))))
+
 ; (test-case "it checks scalar-type interface implementations"
 ;   (check-equal?
 ;     @typecheck{

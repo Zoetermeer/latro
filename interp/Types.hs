@@ -116,6 +116,8 @@ unify a@(TyApp tyconA tyArgsA) b@(TyApp tyconB tyArgsB) =
           return a
   else throwError $ ErrCantUnify a b
 
+unify TyAny b = return b
+
 
 unifyAll :: [Ty] -> Checked Ty
 unifyAll [] = freshId >>= return . TyVar
@@ -176,6 +178,47 @@ tcStructFields tyFields ((fieldId, fieldExp):fieldInitExps) =
         tcStructFields tyFields fieldInitExps
 
 
+tcPatExp :: PatExp UniqId -> Checked Ty
+tcPatExp (PatExpNumLiteral _) = return tyInt
+tcPatExp (PatExpBoolLiteral _) = return tyBool
+tcPatExp (PatExpTuple es) = do
+  eTys <- mapM tcPatExp es
+  return $ TyApp TyConTuple eTys
+
+tcPatExp (PatExpAdt _ _) = throwError $ ErrNotImplemented "tcPatExp for ADT's"
+tcPatExp (PatExpList es) = do
+  eTys <- mapM tcPatExp es
+  unifyAll eTys
+
+tcPatExp (PatExpListCons eHd eTl) = do
+  hdTy <- tcPatExp eHd
+  tlTy <- tcPatExp eTl
+  case tlTy of
+    TyApp TyConList [elemTy] ->
+      unify elemTy hdTy
+    _ -> unify (TyApp TyConList [hdTy]) tlTy
+
+tcPatExp (PatExpId id) = return TyAny
+tcPatExp PatExpWildcard = return TyAny
+
+
+addBindingsForPat :: PatExp UniqId -> Ty -> Checked ()
+addBindingsForPat (PatExpTuple patEs) (TyApp TyConTuple tyArgs) =
+  let componentEsTys = zip patEs tyArgs
+  in do mapM_ (uncurry addBindingsForPat) componentEsTys
+
+addBindingsForPat (PatExpAdt _ _) _ = throwError $ ErrNotImplemented "addBindingsForPat for ADT's"
+
+addBindingsForPat (PatExpList elemEs) (TyApp TyConList [tyArg]) =
+  let addBindingsForPatWithTy = (flip addBindingsForPat) tyArg
+  in do mapM_ addBindingsForPatWithTy elemEs
+
+addBindingsForPat (PatExpListCons hdE tlE) _ = throwError $ ErrNotImplemented "addBindingsForPat for list cons"
+
+addBindingsForPat (PatExpId id) ty = putVarBinding id ty
+addBindingsForPat _ _ = return ()
+
+
 tc :: Exp UniqId -> Checked Ty
 tc ExpUnit = return $ mtApp TyConUnit
 tc (ExpRef id) = lookupVar id
@@ -224,9 +267,11 @@ tc (ExpModule paramIds es) = do
     [] -> return tyApp
     _ -> return $ TyPoly paramIds tyApp
 
-tc (ExpAssign (PatExpId id) e) = do
-  ty <- tc e
-  putVarBinding id ty
+tc (ExpAssign patE rhe) = do
+  rheTy <- tc rhe
+  patTy <- tcPatExp patE
+  unify patTy rheTy
+  addBindingsForPat patE rheTy
   return tyUnit
 
 tc (ExpFun _ _) = throwError $ ErrNotImplemented "tc"

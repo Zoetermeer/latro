@@ -23,7 +23,6 @@ data PatExp id =
   | PatExpList [PatExp id]
   | PatExpListCons (PatExp id) (PatExp id)
   | PatExpId id
-  | PatExpAtom (Exp id)
   | PatExpWildcard
   deriving (Eq, Show)
 
@@ -210,6 +209,7 @@ data Ty =
     TyApp TyCon [Ty]
   | TyPoly [TyVarId] Ty
   | TyVar TyVarId
+  | TyAny
   deriving (Eq)
 
 data ModuleBinding =

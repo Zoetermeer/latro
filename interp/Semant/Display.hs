@@ -112,8 +112,6 @@ instance Sexpable id => Sexpable (PatExp id) where
     List  [ Symbol "PatExpListCons", sexp a, sexp b ]
   sexp (PatExpId id) =
     List  [ Symbol "PatExpId", sexp id ]
-  sexp (PatExpAtom e) =
-    List  [ Symbol "PatExpAtom", sexp e ]
   sexp PatExpWildcard = Symbol "PatExpWildcard"
 
 
