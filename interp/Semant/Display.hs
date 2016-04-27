@@ -238,8 +238,8 @@ instance Sexpable id => Sexpable (TyAnn id) where
           ]
 
 
-sexpOfMap :: Sexpable k => Map.Map k v -> Sexp
-sexpOfMap m = List $ map sexp $ Map.keys m
+sexpOfMap :: (Sexpable k, Sexpable v) => Map.Map k v -> Sexp
+sexpOfMap m = List $ map (\(k, v) -> List [ sexp k, sexp v]) $ Map.toList m
 
 
 instance Sexpable ClosureEnv where

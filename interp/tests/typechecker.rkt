@@ -235,6 +235,35 @@
     }
     '(CantUnify (Expected Int) (Got String))))
 
+(test-case "it infers function types"
+  (check-equal?
+    @typecheck{
+      def f = fun() { 42; };
+      f();
+    }
+    'Int))
+
+(test-case "it infers the identity function"
+  (check-equal?
+    @typecheck{
+      def f = fun(x) { x; };
+      f(False);
+    }
+    'Bool))
+
+(test-case "it infers nested function types"
+  (check-equal?
+    @typecheck{
+      def randomzap = fun(x) {
+        def f = fun(y) {
+          if (False) { y; } else { x; };
+        };
+        f;
+      };
+      (randomzap(42), randomzap(False));
+    }
+    '(App Tuple (Int Bool))))
+
 ; (test-case "it checks scalar-type interface implementations"
 ;   (check-equal?
 ;     @typecheck{

@@ -1,5 +1,6 @@
 module Errors where
 
+import qualified Data.Map as Map
 import Semant
 
 
@@ -29,5 +30,7 @@ data Err =
   | ErrNoModuleDefInModuleDec UniqId
   | ErrNonFunDefsInFunDec UniqId
   | ErrMultipleDefsInSimpleAnnDec UniqId
+  | ErrCircularType Ty
+  | ErrInferenceFail (Map.Map UniqId Ty) Ty Ty
   | ErrInterpFailure String
   | ErrNotImplemented String

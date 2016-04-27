@@ -26,6 +26,7 @@ instance Sexpable Ty where
           ]
 
   sexp (TyVar tyVar) = List [ Symbol "Var", sexp tyVar ]
+  sexp (TyMeta id) = List [ Symbol "Meta", sexp id ]
   sexp TyAny = Symbol "Any"
 
 
@@ -36,5 +37,6 @@ instance Sexpable TyCon where
   sexp TyConUnit = Symbol "Unit"
   sexp TyConList = Symbol "List"
   sexp TyConTuple = Symbol "Tuple"
+  sexp TyConArrow = Symbol "Arrow"
   sexp (TyConStruct fieldNames) =
     List [ Symbol "Struct", toSexpList fieldNames ]

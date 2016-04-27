@@ -209,13 +209,14 @@ data Ty =
     TyApp TyCon [Ty]
   | TyPoly [TyVarId] Ty
   | TyVar TyVarId
+  | TyMeta TyVarId
   | TyAny -- Only occurs in types of pattern expressions
-  deriving (Eq)
+  deriving (Eq, Show)
 
 data ModuleBinding =
     ModuleBindingTyCon FieldName TyCon
   | ModuleBindingTy FieldName Ty
-  deriving (Eq)
+  deriving (Eq, Show)
 
 data TyCon =
     TyConInt
@@ -224,9 +225,10 @@ data TyCon =
   | TyConUnit
   | TyConList
   | TyConTuple
+  | TyConArrow
   | TyConStruct [FieldName]
   | TyConModule [TyVarId] [ModuleBinding]
   | TyConInterface [ModuleBinding]
   | TyConTyFun [TyVarId] Ty
-  deriving (Eq)
+  deriving (Eq, Show)
 

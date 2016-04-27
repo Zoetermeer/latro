@@ -96,6 +96,13 @@ instance Sexpable Err where
           , sexp id
           ]
 
+  sexp (ErrInferenceFail metaEnv fty retTy) =
+    List  [ Symbol "InferenceFail"
+          , List [ Symbol "Meta Env", sexpOfMap metaEnv ]
+          , List [ Symbol "FunctionType", sexp fty ]
+          , List [ Symbol "ReturnType", sexp retTy ]
+          ]
+
   sexp (ErrInterpFailure s) =
     List  [ Symbol "InterpFailure"
           , Atom "Non-exhaustive pattern"
