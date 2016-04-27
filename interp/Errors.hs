@@ -34,3 +34,4 @@ data Err =
   | ErrInferenceFail (Map.Map UniqId Ty) Ty Ty
   | ErrInterpFailure String
   | ErrNotImplemented String
+  deriving (Show)

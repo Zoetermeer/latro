@@ -246,10 +246,27 @@
 (test-case "it infers the identity function"
   (check-equal?
     @typecheck{
-      def f = fun(x) { x; };
-      f(False);
+      def id = fun(x) { x; };
+      id(False);
     }
     'Bool))
+
+(test-case "it allows polymorphic behavior for different callsites"
+  (check-equal?
+    @typecheck{
+      def id = fun(x) { x; };
+      (id(42), id(False), id("hello"));
+    }
+    '(App Tuple (Int Bool String))))
+
+(test-case "it infers types for expressions with polymorphic applications"
+  (check-equal?
+    @typecheck{
+      def id = fun(x) { x; };
+
+      id(42) + id(43);
+    }
+    'Int))
 
 (test-case "it infers nested function types"
   (check-equal?

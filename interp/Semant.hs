@@ -156,14 +156,14 @@ data ClosureEnv = ClosureEnv
   { cloTypeEnv :: TEnv
   , cloVarEnv :: VEnv
   }
-  deriving (Eq)
+  deriving (Eq, Show)
 
 
 data Exports = Exports
   { exportTypes :: TEnv
   , exportVars :: VEnv
   }
-  deriving (Eq)
+  deriving (Eq, Show)
 
 
 -- A module value has two environments:
@@ -172,19 +172,19 @@ data Exports = Exports
 -- can't search the closure environment, so we
 -- separate them
 data Module = Module ClosureEnv [UniqId] Exports
-  deriving (Eq)
+  deriving (Eq, Show)
 
 
 data Closure = Closure UniqId (SynTy UniqId) ClosureEnv [UniqId] [Exp UniqId]
-  deriving (Eq)
+  deriving (Eq, Show)
 
 
 data Struct = Struct (SynTy UniqId) [(UniqId, Value)]
-  deriving (Eq)
+  deriving (Eq, Show)
 
 
 data Adt = Adt (SynTy UniqId) Int [Value]
-  deriving (Eq)
+  deriving (Eq, Show)
 
 
 data Value =
@@ -199,7 +199,7 @@ data Value =
   | ValueList [Value]
   | ValueUnit
   | Err String
-  deriving (Eq)
+  deriving (Eq, Show)
 
 
 type TyVarId = UniqId

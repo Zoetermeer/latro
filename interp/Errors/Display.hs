@@ -60,6 +60,11 @@ instance Sexpable Err where
           , sexp id
           ]
 
+  sexp (ErrUnboundRawIdentifier id) =
+    List  [ Symbol "UnboundIdentifier"
+          , sexp id
+          ]
+
   sexp (ErrCantUnify a b) =
     List  [ Symbol "CantUnify"
           , List [ Symbol "Expected", sexp a ]
@@ -113,3 +118,5 @@ instance Sexpable Err where
     List  [ Symbol "NotImplemented"
           , Atom s
           ]
+
+  sexp err = List  [ Symbol "Error", Atom $ show err ]
