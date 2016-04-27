@@ -277,7 +277,7 @@
         };
         f;
       };
-      (randomzap(42), randomzap(False));
+      (randomzap(42)(), randomzap(False)());
     }
     '(App Tuple (Int Bool))))
 
