@@ -133,7 +133,11 @@ envLookupOrFail getTable id = do
 
 
 lookupMeta :: UniqId -> Checked (Maybe Ty)
-lookupMeta id = envLookup metaEnv id
+lookupMeta id = do
+  result <- envLookup metaEnv id
+  case result of
+    Just ty -> do { ty' <- subst ty; return $ Just ty' }
+    _ -> return result
 
 
 isFreeMeta :: Ty -> Checked Bool
@@ -194,6 +198,43 @@ generalize ty = do
   mapM_ (\(metaId, paramId) -> putMetaBinding metaId $ TyVar paramId)
         metasAndTyParamIds
   return $ TyPoly tyParamIds ty
+
+
+instantiate :: Ty -> Checked Ty
+instantiate (TyPoly tyParamIds ty) = do
+  mapM_ (\paramId -> do { meta <- freshMeta; putPolyBinding paramId meta })
+        tyParamIds
+  subst ty
+
+instantiate ty = return ty
+
+
+subst :: Ty -> Checked Ty
+subst meta@(TyMeta id) = do
+  maybeTy <- lookupMeta id
+  case maybeTy of
+    Just ty -> subst ty
+    _ -> return meta
+
+subst (TyApp tycon tyArgs) = do
+  tyArgs' <- mapM subst tyArgs
+  return $ TyApp tycon tyArgs'
+
+subst var@(TyVar id) = do
+  maybeTy <- lookupPoly id
+  case maybeTy of
+    Just ty -> return ty
+    _ -> return var
+
+subst (TyPoly tyParamIds ty) = do
+  ty' <- subst ty
+  freshParamIds <- mapM (\_ -> freshId) tyParamIds
+  let freshParamVars = map TyVar freshParamIds
+  mapM_ (uncurry putPolyBinding) $ zip tyParamIds freshParamVars
+  ty'' <- subst ty'
+  return $ TyPoly freshParamIds ty''
+
+subst ty = return ty
 
 
 unify :: Ty -> Ty -> Checked Ty
@@ -338,35 +379,6 @@ addBindingsForPat (PatExpId id) ty = putVarBinding id ty
 addBindingsForPat _ _ = return ()
 
 
-subst :: Ty -> Checked Ty
-subst meta@(TyMeta id) = do
-  maybeTy <- lookupMeta id
-  case maybeTy of
-    Just ty -> subst ty
-    _ -> return meta
-
-subst (TyApp tycon tyArgs) = do
-  tyArgs' <- mapM subst tyArgs
-  return $ TyApp tycon tyArgs'
-
-subst var@(TyVar id) = do
-  maybeTy <- lookupPoly id
-  case maybeTy of
-    Just ty -> return ty
-    _ -> return var
-
-subst ty = return ty
-
-
-instantiate :: Ty -> Checked Ty
-instantiate (TyPoly tyParamIds ty) = do
-  mapM_ (\paramId -> do { meta <- freshMeta; putPolyBinding paramId meta })
-        tyParamIds
-  subst ty
-
-instantiate ty = return ty
-
-
 tc :: Exp UniqId -> Checked Ty
 tc ExpUnit = return $ mtApp TyConUnit
 tc (ExpRef id) = do
@@ -385,9 +397,12 @@ tc (ExpMul a b) = tcArith a b
 tc (ExpCons headE listE) = do
   tyListE <- tc listE
   tyHeadE <- tc headE
-  case tyListE of
-    TyApp TyConList _ -> unify tyListE $ TyApp TyConList [tyHeadE]
-    _ -> unify (TyApp TyConList [tyHeadE]) tyListE
+  tyListE' <- instantiate tyListE
+  case tyListE' of
+    TyApp TyConList _ -> do
+      listTy <- unify tyListE' $ TyApp TyConList [tyHeadE]
+      subst listTy
+    _ -> unify (TyApp TyConList [tyHeadE]) tyListE'
 
 tc (ExpNot e) = do
   te <- tc e >>= unify tyBool
@@ -443,8 +458,8 @@ tc (ExpTuple es) = do
 tc (ExpSwitch e clauses) = throwError $ ErrNotImplemented "tc for ExpSwitch"
 
 tc (ExpList []) = do
-  newTyVar <- freshId
-  return $ TyPoly [newTyVar] $ TyApp TyConList [TyVar newTyVar]
+  tyParamId <- freshId
+  return $ TyPoly [tyParamId] $ TyApp TyConList [TyVar tyParamId]
 
 tc (ExpList es) = do
   tys <- mapM tc es

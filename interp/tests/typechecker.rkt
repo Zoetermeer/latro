@@ -203,6 +203,20 @@
     }
     '(App List (Int))))
 
+(test-case "it unifies concrete types with the empty list"
+  (check-equal?
+    @typecheck{
+      42 :: [];
+    }
+    '(App List (Int))))
+
+(test-case "it unifies concrete types with empty lists in tuples"
+  (check-equal?
+    @typecheck{
+      (42 :: [], False :: []);
+    }
+    '(App Tuple ((App List (Int)) (App List (Bool))))))
+
 (test-case "it checks list patterns against the empty list"
   (check-equal?
     @typecheck{
@@ -280,6 +294,22 @@
       (randomzap(42)(), randomzap(False)());
     }
     '(App Tuple (Int Bool))))
+
+(test-case "it infers list types in implicitly polymorphic functions"
+  (check-equal?
+    @typecheck{
+      def toList = fun(x) { x::[]; };
+      toList(42);
+    }
+    '(App List (Int))))
+
+(test-case "it makes the empty list polymorphic in tuple expressions"
+  (check-equal?
+    @typecheck{
+      def toList = fun(x) { x::[]; };
+      (toList(42), toList("foo"));
+    }
+    '(App Tuple ((App List (Int)) (App List (String))))))
 
 ; (test-case "it checks scalar-type interface implementations"
 ;   (check-equal?
