@@ -27,7 +27,6 @@ instance Sexpable Ty where
 
   sexp (TyVar tyVar) = List [ Symbol "Var", sexp tyVar ]
   sexp (TyMeta id) = List [ Symbol "Meta", sexp id ]
-  sexp TyAny = Symbol "Any"
 
 
 instance Sexpable TyCon where

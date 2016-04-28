@@ -210,7 +210,6 @@ data Ty =
   | TyPoly [TyVarId] Ty
   | TyVar TyVarId
   | TyMeta TyVarId
-  | TyAny -- Only occurs in types of pattern expressions
   deriving (Eq, Show)
 
 data ModuleBinding =

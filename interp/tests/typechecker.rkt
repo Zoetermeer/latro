@@ -177,7 +177,10 @@
       def ((a, b), (c, d)) = ((1, 2), 3);
       b;
     }
-    '(CantUnify (Expected (App Tuple (Any Any))) (Got Int))))
+    '(CantUnify
+       (Expected
+         (App Tuple ((Meta meta@7) (Meta meta@8))))
+       (Got Int))))
 
 (test-case "it checks simple list patterns"
   (check-equal?
@@ -210,6 +213,14 @@
     }
     '(App List (Int))))
 
+(test-case "it checks cons patterns"
+  (check-equal?
+    @typecheck{
+      def x::[] = [1];
+      x;
+    }
+    'Int))
+
 (test-case "it unifies concrete types with empty lists in tuples"
   (check-equal?
     @typecheck{
@@ -217,13 +228,32 @@
     }
     '(App Tuple ((App List (Int)) (App List (Bool))))))
 
+(test-case "it checks list patterns with concrete types against the empty list"
+  (check-equal?
+    @typecheck{
+      def ([1, 2, 3], x) = ([], False);
+      x;
+    }
+    'Bool))
+
+
 (test-case "it checks list patterns against the empty list"
   (check-equal?
     @typecheck{
       def [x] = [];
       x;
     }
-    'Any))
+    '(Poly (t) (Var t))))
+
+(test-case "it checks list patterns against applications returning empty lists"
+  (check-equal?
+    @typecheck{
+      def mt = fun() { []; };
+      def [x] = mt();
+
+      x;
+    }
+    '(Poly (t) (Var t))))
 
 (test-case "it returns an error for ill-typed list patterns"
   (check-equal?
@@ -302,6 +332,14 @@
       toList(42);
     }
     '(App List (Int))))
+
+(test-case "it preserves polymorphism for the empty list for function results"
+  (check-equal?
+    @typecheck{
+      def toList = fun(x) { []; };
+      toList(42);
+    }
+    '(Poly (t) (App List ((Var t))))))
 
 (test-case "it makes the empty list polymorphic in tuple expressions"
   (check-equal?

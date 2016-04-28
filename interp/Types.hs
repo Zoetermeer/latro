@@ -8,7 +8,7 @@ import Control.Monad.State
 import Data.Either.Utils (maybeToEither)
 import Data.List
 import qualified Data.Map as Map
-import Data.Maybe (isNothing)
+import Data.Maybe (fromMaybe, isNothing)
 import Errors
 import Semant
 import Text.Printf (printf)
@@ -193,11 +193,14 @@ freeMetas _ = return []
 generalize :: Ty -> Checked Ty
 generalize ty = do
   frees <- freeMetas ty
-  tyParamIds <- mapM (\_ -> freshId) frees
-  let metasAndTyParamIds = zip frees tyParamIds
-  mapM_ (\(metaId, paramId) -> putMetaBinding metaId $ TyVar paramId)
-        metasAndTyParamIds
-  return $ TyPoly tyParamIds ty
+  case frees of
+    [] -> return ty
+    _ -> do tyParamIds <- mapM (\_ -> freshId) frees
+            let metasAndTyParamIds = zip frees tyParamIds
+            mapM_ (\(metaId, paramId) -> putMetaBinding metaId $ TyVar paramId)
+                  metasAndTyParamIds
+            ty' <- subst ty
+            return $ TyPoly tyParamIds ty'
 
 
 instantiate :: Ty -> Checked Ty
@@ -234,8 +237,6 @@ subst (TyPoly tyParamIds ty) = do
   ty'' <- subst ty'
   return $ TyPoly freshParamIds ty''
 
-subst ty = return ty
-
 
 unify :: Ty -> Ty -> Checked Ty
 unify a@(TyApp tyconA tyArgsA) b@(TyApp tyconB tyArgsB) =
@@ -245,6 +246,13 @@ unify a@(TyApp tyconA tyArgsA) b@(TyApp tyconB tyArgsB) =
   else throwError $ ErrCantUnify a b
 
 unify (TyPoly [] ty) tyb = unify ty tyb
+
+unify (TyPoly aParamIds aty) (TyPoly bParamIds bty) =
+  let paramIds = zip bParamIds aParamIds
+  in do mapM_ (\(bParamId, aParamId) -> putPolyBinding bParamId $ TyVar aParamId)
+              paramIds
+        bty' <- subst bty
+        unify aty bty'
 
 unify meta@(TyMeta metaId) ty = do
   metaTy <- lookupMeta metaId
@@ -270,17 +278,19 @@ unify meta@(TyMeta metaId) ty = do
             putMetaBinding metaId ty
             return ty
 
+unify ta@(TyVar a) tb@(TyVar b) =
+  if a == b
+  then do ty <- lookupPoly a
+          return $ fromMaybe ta ty
+  else throwError $ ErrCantUnify ta tb
+
 unify ty meta@(TyMeta _) = unify meta ty
 
-unify TyAny b = return b
-unify a TyAny = return a
-
-unify ta tb = throwError $ ErrInterpFailure
-                         $ printf "Non-exhaustive pattern in unify for: %s  %s" (show ta) (show tb)
+unify ta tb = throwError $ ErrCantUnify ta tb
 
 
 unifyAll :: [Ty] -> Checked Ty
-unifyAll [] = freshId >>= return . TyVar
+unifyAll [] = freshMeta
 unifyAll [ty] = return ty
 unifyAll (ta:tb:tys) = do
   ty' <- unify ta tb
@@ -358,8 +368,8 @@ tcPatExp (PatExpListCons eHd eTl) = do
     TyApp TyConList [elemTy] -> unify elemTy hdTy
     _ -> unify (TyApp TyConList [hdTy]) tlTy
 
-tcPatExp (PatExpId id) = return TyAny
-tcPatExp PatExpWildcard = return TyAny
+tcPatExp (PatExpId id) = freshMeta
+tcPatExp PatExpWildcard = freshMeta
 
 
 addBindingsForPat :: PatExp UniqId -> Ty -> Checked ()
@@ -373,7 +383,9 @@ addBindingsForPat (PatExpList elemEs) (TyApp TyConList [tyArg]) =
   let addBindingsForPatWithTy = (flip addBindingsForPat) tyArg
   in do mapM_ addBindingsForPatWithTy elemEs
 
-addBindingsForPat (PatExpListCons hdE tlE) _ = throwError $ ErrNotImplemented "addBindingsForPat for list cons"
+addBindingsForPat (PatExpListCons hdE tlE) ty@(TyApp TyConList [tyArg]) = do
+  addBindingsForPat hdE tyArg
+  addBindingsForPat tlE ty
 
 addBindingsForPat (PatExpId id) ty = putVarBinding id ty
 addBindingsForPat _ _ = return ()
@@ -457,10 +469,6 @@ tc (ExpTuple es) = do
 
 tc (ExpSwitch e clauses) = throwError $ ErrNotImplemented "tc for ExpSwitch"
 
-tc (ExpList []) = do
-  tyParamId <- freshId
-  return $ TyPoly [tyParamId] $ TyApp TyConList [TyVar tyParamId]
-
 tc (ExpList es) = do
   tys <- mapM tc es
   elemTy <- unifyAll tys
@@ -471,12 +479,10 @@ tc (ExpFun paramIds bodyEs) = do
   bodyTyMeta <- freshMeta
   let paramsAndTys = zip paramIds paramMetas
       fty = TyApp TyConArrow $ paramMetas ++ [bodyTyMeta]
-  -- oldEnv <- get
   mapM_ (uncurry putVarBinding) paramsAndTys
   bodyTy <- tcEs bodyEs
   unify bodyTyMeta bodyTy
   fty' <- generalize fty
-  -- put oldEnv
   return fty'
 
 tc (ExpMakeAdt synTy i es) = throwError $ ErrNotImplemented "tc for MakeAdt"
@@ -514,6 +520,6 @@ tcEs es = do
 
 typeCheck :: CompUnit UniqId -> AlphaEnv -> Either Err (Ty, AlphaEnv)
 typeCheck (CompUnit es) aEnv = do
-  (tyResult, tcEnv) <- return $ runState (runExceptT $ tcEs es) $ mtEnv aEnv
+  (tyResult, tcEnv) <- return $ runState (runExceptT $ do { ty <- tcEs es; generalize ty }) $ mtEnv aEnv
   ty <- tyResult
   return (ty, alphaEnv tcEnv)
