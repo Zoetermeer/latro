@@ -264,10 +264,11 @@ convert (ExpApp ratorE randEs) = do
 
 -- Function bindings must be done early
 -- for recursive applications
-convert (ExpAssign patExp e@(ExpFun _ _)) = do
+convert (ExpAssign patExp (ExpFun paramIds bodyEs)) = do
   patExp' <- convertPatExp patExp
-  e' <- convert e
-  return $ ExpAssign patExp' e'
+  paramIds' <- mapM freshM paramIds
+  bodyEs' <- mapM convert bodyEs
+  return $ ExpAssign patExp' $ ExpFun paramIds' bodyEs'
 
 convert (ExpAssign patExp e) = do
   e' <- convert e

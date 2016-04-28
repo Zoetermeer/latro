@@ -393,11 +393,42 @@
       def len = fun(xs) {
         switch (xs) {
           case [] -> 0;
-          case x::xs -> 1 + len(xs);
+          case a::as -> 1 + len(as);
         };
       };
 
       len([42]);
+    }
+    'Int))
+
+(test-case "it fails if switch clauses return different types"
+  (check-equal?
+    @typecheck{
+      switch (42) {
+        case 0 -> "hello";
+        case 2 -> 43;
+        case _ -> 44;
+      };
+    }
+    '(CantUnify (Expected String) (Got Int))))
+
+(test-case "it fails if switch clauses don't unify with the test expression"
+  (check-equal?
+    @typecheck{
+      switch (42) {
+        case 0 -> "hello";
+        case False -> "world";
+      };
+    }
+    '(CantUnify (Expected Int) (Got Bool))))
+
+(test-case "it allows id shadowing in switch pattern bindings"
+  (check-equal?
+    @typecheck{
+      def x = [1, 2];
+      switch (x) {
+        case x::xs -> x;
+      };
     }
     'Int))
 

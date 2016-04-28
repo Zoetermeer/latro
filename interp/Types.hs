@@ -499,7 +499,15 @@ tc (ExpTuple es) = do
   tys <- mapM tc es
   return $ TyApp TyConTuple tys
 
-tc (ExpSwitch e clauses) = throwError $ ErrNotImplemented "tc for ExpSwitch"
+tc (ExpSwitch e clauses) = do
+  tyE <- tc e
+  cTys <- mapM (\(CaseClause patE ces) ->
+                  do pty <- tcPatExp patE
+                     pty' <- unify tyE pty
+                     addBindingsForPat patE pty'
+                     tcEs ces)
+               clauses
+  unifyAll cTys
 
 tc (ExpList es) = do
   tys <- mapM tc es
