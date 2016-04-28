@@ -439,7 +439,8 @@ tc (ExpApp ratorE randEs) = do
   fty <- tc ratorE
   argTys <- mapM tc randEs
   retTyMeta@(TyMeta retTyMetaId) <- freshMeta
-  fty' <- unify fty $ TyApp TyConArrow $ argTys ++ [retTyMeta]
+  -- fty' <- unify fty $ TyApp TyConArrow $ argTys ++ [retTyMeta]
+  fty' <- unify (TyApp TyConArrow $ argTys ++ [retTyMeta]) fty
   maybeRetTy <- lookupMeta retTyMetaId
   case maybeRetTy of
     Just ty -> return ty
@@ -455,6 +456,37 @@ tc (ExpModule paramIds es) = do
   case paramIds of
     [] -> return tyApp
     _ -> return $ TyPoly paramIds tyApp
+
+-- If the right-hand side is a function,
+-- we must bind the name before typechecking
+-- the right-hand side (otherwise recursive
+-- applications will fail)
+-- We do this by binding the name in the
+-- var environment to the type:
+--
+-- App(Arrow, [meta1, ..., metaN])
+--
+-- Where meta1 ... meta(N-1) are metavariables
+-- for parameters, and metaN is a metavariable
+-- representing the return type.
+-- We also prohibit pattern-match bindings
+-- for functions here (require simple identifier patterns)
+tc (ExpAssign patE (ExpFun paramIds bodyEs)) =
+  case patE of
+    PatExpId id -> do
+      paramMetas <- mapM (\_ -> freshMeta) paramIds
+      bodyTyMeta <- freshMeta
+      let paramsAndTys = zip paramIds paramMetas
+          fty = TyApp TyConArrow $ paramMetas ++ [bodyTyMeta]
+      mapM_ (uncurry putVarBinding) paramsAndTys
+      putVarBinding id fty
+      bodyTy <- tcEs bodyEs
+      unify bodyTyMeta bodyTy
+      fty' <- generalize fty
+      putVarBinding id fty'
+      return tyUnit
+    _ ->
+      throwError ErrInvalidFunPattern
 
 tc (ExpAssign patE rhe) = do
   rheTy <- tc rhe

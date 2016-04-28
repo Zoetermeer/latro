@@ -262,6 +262,13 @@ convert (ExpApp ratorE randEs) = do
   randEs' <- mapM convert randEs
   return $ ExpApp ratorE' randEs'
 
+-- Function bindings must be done early
+-- for recursive applications
+convert (ExpAssign patExp e@(ExpFun _ _)) = do
+  patExp' <- convertPatExp patExp
+  e' <- convert e
+  return $ ExpAssign patExp' e'
+
 convert (ExpAssign patExp e) = do
   e' <- convert e
   patExp' <- convertPatExp patExp

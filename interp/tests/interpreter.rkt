@@ -73,6 +73,22 @@
     }
     "Error: Unbound identifier 'x'"))
 
+(test-case "it does not allow argument bindings to escape"
+  (check-equal?
+    @typecheck{
+      def f = fun(x, runForever) {
+        if (runForever) {
+          f(x, runForever);
+        } else {
+          x;
+        };
+      };
+
+      runForever(3, False);
+    }
+    "Error: Unbound identifier 'runForever'"))
+
+
 (test-case "it does not add bindings introduced in subexpressions to the module export env"
   (check-equal?
     @interp{

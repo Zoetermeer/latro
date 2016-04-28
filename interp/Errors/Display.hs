@@ -29,6 +29,11 @@ instance Sexpable Err where
   sexp (ErrNotAnAdt v) =
     List  [ Symbol "NotAnAdt", sexp v ]
 
+  sexp ErrInvalidFunPattern =
+    List  [ Symbol "InvalidFunPattern"
+          , Atom "Pattern bindings are not allowed for function values."
+          ]
+
   sexp ErrInvalidAdtPattern = Symbol "InvalidAdtPattern"
 
   sexp (ErrInvalidTypeExp e) =
@@ -56,12 +61,12 @@ instance Sexpable Err where
     List  [ Symbol "CantEvaluate", sexp e ]
 
   sexp (ErrUnboundUniqIdentifier id) =
-    List  [ Symbol "UnboundIdentifier"
+    List  [ Symbol "UnboundUniqIdentifier"
           , sexp id
           ]
 
   sexp (ErrUnboundRawIdentifier id) =
-    List  [ Symbol "UnboundIdentifier"
+    List  [ Symbol "UnboundRawIdentifier"
           , sexp id
           ]
 

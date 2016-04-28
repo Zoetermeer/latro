@@ -333,6 +333,21 @@
     }
     '(App List (Int))))
 
+(test-case "it can infer empty list element types based on other occurrences"
+  (check-equal?
+    @typecheck{
+      def make = fun(makeTwo, x) {
+        if (makeTwo) {
+          [x, x];
+        } else {
+          [];
+        };
+      };
+
+      make(False, 1);
+    }
+    '(App List (Int))))
+
 (test-case "it preserves polymorphism for the empty list for function results"
   (check-equal?
     @typecheck{
@@ -348,6 +363,43 @@
       (toList(42), toList("foo"));
     }
     '(App Tuple ((App List (Int)) (App List (String))))))
+
+(test-case "it checks recursive functions"
+  (check-equal?
+    @typecheck{
+      def inf = fun(x) { 1 + inf(x); };
+      inf(3);
+    }
+    'Int))
+
+(test-case "it checks recursive functions with conditions"
+  (check-equal?
+    @typecheck{
+      def f = fun(x, runForever) {
+        if (runForever) {
+          f(x, runForever);
+        } else {
+          x;
+        };
+      };
+
+      f(3, False);
+    }
+    'Int))
+
+(test-case "it checks switch expressions"
+  (check-equal?
+    @typecheck{
+      def len = fun(xs) {
+        switch (xs) {
+          case [] -> 0;
+          case x::xs -> 1 + len(xs);
+        };
+      };
+
+      len([42]);
+    }
+    'Int))
 
 ; (test-case "it checks scalar-type interface implementations"
 ;   (check-equal?

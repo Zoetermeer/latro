@@ -10,6 +10,7 @@ data Err =
   | ErrInvalidConstructor UniqId (SynTy UniqId)
   | ErrNotAConstructor UniqId
   | ErrNotAnAdt Value
+  | ErrInvalidFunPattern
   | ErrInvalidAdtPattern
   | ErrInvalidTypeExp (Exp UniqId)
   | ErrNumLitPatMatchFail Int Int
