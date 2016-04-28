@@ -155,6 +155,17 @@
     }
     'Int))
 
+(test-case "it infers qualified-reference function application"
+  (check-equal?
+    @typecheck{
+      def M = module {
+        def f = fun(x) { x; };
+      };
+
+      M.f("hello world");
+    }
+    'String))
+
 (test-case "it checks tuple patterns"
   (check-equal?
     @typecheck{

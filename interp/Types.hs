@@ -432,7 +432,7 @@ tc (ExpMemberAccess e id) = do
       in do
         (ModuleBindingTy _ ty) <- hoistEither $ maybeToEither (ErrUnboundUniqIdentifier id)
                                               match
-        return ty
+        instantiate ty
     _ -> throwError $ ErrNotImplemented "Failed member access"
 
 tc (ExpApp ratorE randEs) = do
@@ -447,6 +447,8 @@ tc (ExpApp ratorE randEs) = do
     _ -> do metaEnv <- gets metaEnv
             throwError $ ErrInferenceFail metaEnv fty' retTyMeta
 
+-- module { m1 ... mn } --> App(Module, [tc(m1), ..., tc(mn)]
+-- module <t1, ..., tn> { ... } --> Poly([t1, ..., tn], App(Module ...))
 tc (ExpModule paramIds es) = do
   oldEnv <- pushNewModuleContext paramIds
   mapM_ tc es
