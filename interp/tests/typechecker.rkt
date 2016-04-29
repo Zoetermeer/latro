@@ -492,7 +492,6 @@
     }
     'Int))
 
-
 (test-case "it checks non-polymorphic annotated function definitions"
   (check-equal?
     @typecheck{
@@ -548,6 +547,38 @@
       len(3);
     }
     '(CantUnify (Expected Int) (Got (Poly (t) (App List ((Var t))))))))
+
+(test-case "it fails on if return values are of different type params"
+  (check-equal?
+    @typecheck{
+      def f = fun(x, y) { if (True) { x; } else { y; }; };
+      f(1, 3);
+    }
+    '(CantUnify (Expected (Var t)) (Got (Var t)))))
+
+(test-case "it checks ADT constructors"
+  (check-equal?
+    @typecheck{
+      type Foo =
+        | A Int
+        | B String
+        ;
+
+      A(42);
+    }
+    '(App (Unique (Adt (A B) ((App Tuple (Int)) (App Tuple (String))))) Foo)))
+
+(test-case "it checks recursive ADT's"
+  (check-equal?
+    @typecheck{
+      type Foo =
+        | A Int String
+        | B Bool Foo
+        ;
+
+      B(False, A(42, "hello"));
+    }
+    '(App (Unique (Adt (A B) ((App Tuple (Int String)) (App Tuple (Bool (Name Foo))))) Foo))))
 
 ; (test-case "it checks scalar-type interface implementations"
 ;   (check-equal?
