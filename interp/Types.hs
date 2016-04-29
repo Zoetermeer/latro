@@ -9,10 +9,15 @@ import Data.Either.Utils (maybeToEither)
 import Data.List
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe, isNothing)
+import qualified Data.Set as Set
 import Debug.Trace (trace)
 import Errors
 import Semant
 import Text.Printf (printf)
+
+
+traceIt :: Show a => a -> a
+traceIt v = trace (show v) v
 
 
 data TCEnv = TCEnv
@@ -191,6 +196,30 @@ freeMetas ty@(TyMeta id) = do
   else return []
 freeMetas _ = return []
 
+
+trimUnusedPolyParams :: Ty -> Checked Ty
+trimUnusedPolyParams (TyPoly [] ty) = return ty
+trimUnusedPolyParams (TyPoly tyParamIds ty) =
+    return $ TyPoly tyParamIds' ty
+  where
+    allTyConVarIds tyCon =
+      case tyCon of
+        TyConTyVar id -> [id]
+        TyConTyFun _ ty -> allTyVarIds ty
+        _ -> []
+    allTyVarIds ty =
+      case ty of
+        TyApp tyCon tys -> allTyConVarIds tyCon ++ concat (map allTyVarIds tys)
+        TyPoly _ ty -> allTyVarIds ty
+        TyVar id -> [id]
+        TyMeta id -> []
+    paramIdSet = Set.fromList tyParamIds
+    usedParamIdSet = Set.fromList $ allTyVarIds ty
+    tyParamIds' = Set.toList $ Set.intersection paramIdSet usedParamIdSet
+
+trimUnusedPolyParams ty = return ty
+
+
 generalize :: Ty -> Checked Ty
 generalize ty = do
   frees <- freeMetas ty
@@ -201,7 +230,7 @@ generalize ty = do
             mapM_ (\(metaId, paramId) -> putMetaBinding metaId $ TyVar paramId)
                   metasAndTyParamIds
             ty' <- subst ty
-            return $ TyPoly tyParamIds ty'
+            trimUnusedPolyParams $ TyPoly tyParamIds ty'
 
 
 instantiate :: Ty -> Checked Ty
@@ -549,7 +578,8 @@ tc (ExpSwitch e clauses) = do
                      addBindingsForPat patE pty''
                      tcEs ces)
                clauses
-  unifyAll cTys
+  clauseResultTy <- unifyAll cTys
+  subst clauseResultTy
 
 tc (ExpList es) = do
   tys <- mapM tc es

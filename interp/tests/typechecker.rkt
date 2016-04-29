@@ -190,7 +190,7 @@
     }
     '(CantUnify
        (Expected
-         (App Tuple ((Meta meta@7) (Meta meta@8))))
+         (Poly (t t) (App Tuple ((Var t) (Var t)))))
        (Got Int))))
 
 (test-case "it checks simple list patterns"
@@ -323,6 +323,21 @@
     }
     'Int))
 
+(test-case "it infers type relationships when generalizing"
+  (check-equal?
+    @typecheck{
+      def randomzap = fun(x) {
+        def f = fun(y) {
+          if (False) { y; } else { x; };
+        };
+
+        f;
+      };
+
+      randomzap;
+    }
+    '(Poly (t) (App Arrow ((Var t) (App Arrow ((Var t) (Var t))))))))
+
 (test-case "it infers nested function types"
   (check-equal?
     @typecheck{
@@ -443,7 +458,7 @@
     }
     'Int))
 
-(test-case "it bounds identifiers introduced in cons patterns in switches"
+(test-case "it binds identifiers introduced in cons patterns in switches"
   (check-equal?
     @typecheck{
       switch ([2]) {
@@ -453,7 +468,7 @@
     }
     '(App List (Int))))
 
-(test-case "it bounds identifiers introduced in nested cons patterns (in tuple pats)"
+(test-case "it binds identifiers introduced in nested cons patterns (in tuple pats)"
   (check-equal?
     @typecheck{
       switch (([1])) {
