@@ -18,20 +18,22 @@ data Err =
   | ErrListPatMatchFail Value
   | ErrPatMatchFailOn Value
   | ErrInvalidConsTo Value
+  | ErrNonFunDefsInFunDec UniqId
   | ErrNoFunDefGivenFor UniqId
   | ErrNoInstFunDefGivenFor UniqId
+  | ErrFunDefIdMismatch UniqId UniqId
+  | ErrFunDefArityMismatch UniqId
   | ErrCantEvaluate (Exp UniqId)
   | ErrUnboundRawIdentifier RawId
   | ErrUnboundUniqIdentifier UniqId
-  | ErrFunDefArityMismatch UniqId
   | ErrCantUnify Ty Ty
   | ErrUndefinedMember UniqId
   | ErrInvalidStructType TyCon
   | ErrTooManyModuleDefs UniqId
   | ErrNoModuleDefInModuleDec UniqId
-  | ErrNonFunDefsInFunDec UniqId
   | ErrMultipleDefsInSimpleAnnDec UniqId
   | ErrCircularType Ty
+  | ErrTyRefIsATyCon UniqId TyCon
   | ErrInferenceFail (Map.Map UniqId Ty) Ty Ty
   | ErrInterpFailure String
   | ErrNotImplemented String

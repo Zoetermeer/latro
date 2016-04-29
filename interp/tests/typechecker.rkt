@@ -443,6 +443,73 @@
     }
     'Int))
 
+(test-case "it bounds identifiers introduced in cons patterns in switches"
+  (check-equal?
+    @typecheck{
+      switch ([2]) {
+        case [] -> [1];
+        case x::xs -> xs;
+      };
+    }
+    '(App List (Int))))
+
+
+(test-case "it checks non-polymorphic annotated function definitions"
+  (check-equal?
+    @typecheck{
+      weird => fun(Int, Int) : Int;
+      weird(0, 0) { 100; }
+      weird(x, y) { x + y; };
+
+      weird(1, 2);
+    }
+    'Int))
+
+;The error message is backwards here, which is an
+;artifact of the way unification is done with
+;metavariables (if we try to unify `a with `meta b,
+;we fall into a case where we flip the arguments
+;to unify to get the same behavior as unify(`meta b, `a).).
+(test-case "it fails if annotations don't match inferred types (monomorphic)"
+  (check-equal?
+    @typecheck{
+      add => fun(Int, Int) : Int;
+      add(x, y) { False; };
+    }
+    '(CantUnify (Expected Bool) (Got Int))))
+
+(test-case "it checks annotated function definitions"
+  (check-equal?
+    @typecheck{
+      f<a> => fun(a) : a;
+      f(x) { x; };
+
+      f(42);
+    }
+    'Int))
+
+(test-case "it checks annotated functions with recursive application"
+  (check-equal?
+    @typecheck{
+      len<a> => fun(a[]) : Int;
+      len([]) { 0; }
+      len(x::xs) { 1 + len(xs); };
+
+      len([1, 2]);
+    }
+    'Int))
+
+(test-case "it fails in ill-typed application of annotated functions"
+  (check-equal?
+    @typecheck{
+      len<a> => fun(a[]) : Int;
+      len([]) { 0; }
+      len(x::xs) { 1 + len(xs); };
+
+      len(3);
+    }
+    '(CantUnify (Expected (Poly (t) (App List ((Var t))))) (Got Int))))
+
 ; (test-case "it checks scalar-type interface implementations"
 ;   (check-equal?
 ;     @typecheck{

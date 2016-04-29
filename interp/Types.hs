@@ -9,6 +9,7 @@ import Data.Either.Utils (maybeToEither)
 import Data.List
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe, isNothing)
+import Debug.Trace (trace)
 import Errors
 import Semant
 import Text.Printf (printf)
@@ -304,11 +305,31 @@ tcArith a b = do
   return tyInt
 
 
+-- A "syntax-level type" is just an
+-- AST representing a type
 tcTy :: SynTy UniqId -> Checked Ty
 tcTy SynTyInt = return tyInt
 tcTy SynTyBool = return tyBool
 tcTy SynTyString = return tyStr
 tcTy SynTyUnit = return tyUnit
+tcTy (SynTyArrow paramTys retTy) = do
+  paramTys' <- mapM tcTy paramTys
+  retTy' <- tcTy retTy
+  return $ TyApp TyConArrow $ paramTys' ++ [retTy']
+
+tcTy (SynTyTuple tyArgs) = do
+  tyArgs' <- mapM tcTy tyArgs
+  return $ TyApp TyConTuple tyArgs'
+
+tcTy (SynTyList tyArg) = do
+  tyArg' <- tcTy tyArg
+  return $ TyApp TyConList [tyArg']
+
+tcTy (SynTyRef (Id id) []) = do
+  tyCon <- lookupTy id
+  case tyCon of
+    TyConTyVar id' -> return $ TyVar id'
+    _ -> throwError $ ErrTyRefIsATyCon id tyCon
 
 
 tcTyDec :: TypeDec UniqId -> Checked TyCon
@@ -537,18 +558,46 @@ tc (ExpStruct strSynTyE fieldInitEs) = do
       return structTyConApp
     _ -> throwError $ ErrInvalidStructType structTyCon
 
-tc (ExpIfElse testE thenEs elseEs) = do
-  testTy <- tc testE >>= unify tyBool
-  thenTy <- tcEs thenEs
-  elseTy <- tcEs elseEs
-  unify thenTy elseTy
-
 tc (ExpTypeDec tyDec) =
   let id = getTypeDecId tyDec
   in do
     tycon <- tcTyDec tyDec
     putTyBinding id tycon
     return tyUnit
+
+-- Note that `annDefs` here will never contain
+-- more than one element, because function definitions
+-- are desugared during alpha-conversion.
+-- We are guaranteed to have a function definition of the form:
+--
+-- id(id1, ..., idN) { e1; ...; eN; }
+--
+-- Alpha-conversion guarantees that all definitions
+-- have matching arity, but doesn't check arity
+-- against the type annotation.
+tc (ExpAnnDec decId tyParamIds synTy [AnnDefFun (FunDefFun defId paramPats bodyEs)]) = do
+  if decId == defId
+  then
+    let paramIds = map (\(PatExpId id) -> id) paramPats
+        asnE = ExpAssign (PatExpId defId) $ ExpFun paramIds bodyEs
+    in do mapM_ (\tyParamId -> putTyBinding tyParamId $ TyConTyVar tyParamId) tyParamIds
+          tc asnE
+          givenTy <- tcTy synTy
+          inferredTy <- lookupVar defId
+          funTy <- unify givenTy inferredTy
+          let funTy' = case tyParamIds of
+                          [] -> funTy
+                          _ -> TyPoly tyParamIds funTy
+          putVarBinding defId funTy'
+          return tyUnit
+  else
+    throwError $ ErrFunDefIdMismatch decId defId
+
+tc (ExpIfElse testE thenEs elseEs) = do
+  testTy <- tc testE >>= unify tyBool
+  thenTy <- tcEs thenEs
+  elseTy <- tcEs elseEs
+  unify thenTy elseTy
 
 tc e = throwError $ ErrInterpFailure $ printf "In function tc: %s" $ show e
 

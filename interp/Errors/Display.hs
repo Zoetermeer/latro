@@ -101,9 +101,27 @@ instance Sexpable Err where
           , sexp id
           ]
 
+  sexp (ErrFunDefIdMismatch exp act) =
+    List  [ Symbol "FunDefIdMismatch"
+          , List [ Symbol "Expected", sexp exp ]
+          , List [ Symbol "Got", sexp act ]
+          ]
+
+  sexp (ErrFunDefArityMismatch id) =
+    List  [ Symbol "FunDefArityMismatch"
+          , sexp id
+          , Atom "One or more definitions have different arity."
+          ]
+
   sexp (ErrMultipleDefsInSimpleAnnDec id) =
     List  [ Symbol "MultipleDefsInSimpleAnnDec"
           , sexp id
+          ]
+
+  sexp (ErrTyRefIsATyCon id tyCon) =
+    List  [ Symbol "TyRefIsATyCon"
+          , sexp tyCon
+          , Atom $ printf "'%s' is a type constructor, not a type." $ showSexp id
           ]
 
   sexp (ErrInferenceFail metaEnv fty retTy) =
