@@ -15,18 +15,16 @@ def Accounts = module {
   };
 
   type Ledger = struct {
-    [String, Account] Hash Entries;
+    Hash<String, Account> Entries;
   };
 
-  def lst = [ 1, 2, 3, 4 ];
-  def arr = [| 1, 2, 3, 4 |];
-
-  fun (Ledger) ApplyBalanceChange(String, Float, (fun (Float, Float) : Float)) : Unit;
-  (ledger).ApplyBalanceChange(name, amount, f) = {
-    match (ledger.Entries.Find(name)) with
-      | Some acct ->
+  ApplyBalanceCharge => fun(Ledger)(String, Float, fun (Float, Float) : Float) : Unit;
+  (ledger).ApplyBalanceChange(name, amount, f) {
+    switch (ledger.Entries.Find(name)) {
+      case Some acct ->
         acct.Balance = f(acct.Balance, amount);
-      | _ -> ()
+      case _ -> ()
+    };
   };
 
   fun (Ledger) ApplyBalanceChange(String, Float, (fun (Float, Float) : Float)) : Unit;
