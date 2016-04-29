@@ -1,6 +1,7 @@
 **/*.o
 **/*.hi
 **/*.*#
+/interp/alpha.rkt*
 /interp/lex
 /interp/parse
 /interp/interp

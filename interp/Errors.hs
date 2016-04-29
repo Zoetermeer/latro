@@ -17,6 +17,7 @@ data Err =
   | ErrBoolLitPatMatchFail Bool Bool
   | ErrListPatMatchFail Value
   | ErrPatMatchFailOn Value
+  | ErrPatMatchBindingFail (PatExp UniqId) Ty
   | ErrInvalidConsTo Value
   | ErrNonFunDefsInFunDec UniqId
   | ErrNoFunDefGivenFor UniqId

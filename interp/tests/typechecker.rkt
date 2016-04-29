@@ -453,6 +453,30 @@
     }
     '(App List (Int))))
 
+(test-case "it bounds identifiers introduced in nested cons patterns (in tuple pats)"
+  (check-equal?
+    @typecheck{
+      switch (([1])) {
+        case ([]) -> [];
+        case (x::xs) -> xs;
+      };
+    }
+    '(App List (Int))))
+
+(test-case "it checks switches in function bodies"
+  (check-equal?
+    @typecheck{
+      def len = fun(ls) {
+        switch (ls) {
+          case [] -> 0;
+          case x::xs -> 1 + len(xs);
+        };
+      };
+
+      len([1]);
+    }
+    'Int))
+
 
 (test-case "it checks non-polymorphic annotated function definitions"
   (check-equal?
@@ -508,7 +532,7 @@
 
       len(3);
     }
-    '(CantUnify (Expected (Poly (t) (App List ((Var t))))) (Got Int))))
+    '(CantUnify (Expected Int) (Got (Poly (t) (App List ((Var t))))))))
 
 ; (test-case "it checks scalar-type interface implementations"
 ;   (check-equal?

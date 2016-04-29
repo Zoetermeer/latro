@@ -239,12 +239,23 @@ subst (TyPoly tyParamIds ty) = do
   return $ TyPoly freshParamIds ty''
 
 
+-- Helper for type mismatches (we don't want
+-- to expose types with free metavariables to the
+-- user, so we generalize before reporting a
+-- type error)
+unifyFail :: Ty -> Ty -> Checked Ty
+unifyFail a b = do
+  a' <- generalize a
+  b' <- generalize b
+  throwError $ ErrCantUnify a' b'
+
+
 unify :: Ty -> Ty -> Checked Ty
 unify a@(TyApp tyconA tyArgsA) b@(TyApp tyconB tyArgsB) =
   if tyconA == tyconB
   then do mapM_ (uncurry unify) $ zip tyArgsA tyArgsB
           return a
-  else throwError $ ErrCantUnify a b
+  else unifyFail a b
 
 unify (TyPoly [] ty) tyb = unify ty tyb
 
@@ -287,7 +298,7 @@ unify ta@(TyVar a) tb@(TyVar b) =
 
 unify ty meta@(TyMeta _) = unify meta ty
 
-unify ta tb = throwError $ ErrCantUnify ta tb
+unify ta tb = unifyFail ta tb
 
 
 unifyAll :: [Ty] -> Checked Ty
@@ -404,12 +415,19 @@ addBindingsForPat (PatExpList elemEs) (TyApp TyConList [tyArg]) =
   let addBindingsForPatWithTy = (flip addBindingsForPat) tyArg
   in do mapM_ addBindingsForPatWithTy elemEs
 
+addBindingsForPat (PatExpList []) (TyMeta _) = return ()
+
 addBindingsForPat (PatExpListCons hdE tlE) ty@(TyApp TyConList [tyArg]) = do
   addBindingsForPat hdE tyArg
   addBindingsForPat tlE ty
 
 addBindingsForPat (PatExpId id) ty = putVarBinding id ty
-addBindingsForPat _ _ = return ()
+addBindingsForPat PatExpWildcard _ = return ()
+addBindingsForPat (PatExpNumLiteral _) _ = return ()
+addBindingsForPat (PatExpBoolLiteral _) _ = return ()
+
+addBindingsForPat patE ty =
+  throwError $ ErrPatMatchBindingFail patE ty
 
 
 tc :: Exp UniqId -> Checked Ty
@@ -527,7 +545,8 @@ tc (ExpSwitch e clauses) = do
   cTys <- mapM (\(CaseClause patE ces) ->
                   do pty <- tcPatExp patE
                      pty' <- unify tyE pty
-                     addBindingsForPat patE pty'
+                     pty'' <- subst pty'
+                     addBindingsForPat patE pty''
                      tcEs ces)
                clauses
   unifyAll cTys

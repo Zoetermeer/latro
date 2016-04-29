@@ -48,6 +48,12 @@ instance Sexpable Err where
   sexp (ErrPatMatchFailOn v) =
     List  [ Symbol "PatMatchFailOn", sexp v ]
 
+  sexp (ErrPatMatchBindingFail patE ty) =
+    List  [ Symbol "PatMatchBindingFail"
+          , sexp patE
+          , sexp ty
+          ]
+
   sexp (ErrInvalidConsTo v) =
     List  [ Symbol "InvalidConsTo", sexp v ]
 
