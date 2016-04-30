@@ -1,3 +1,6 @@
+//This is a transliteration of Pat Brown's
+//Haskell Rope implementation:
+//https://github.com/ptrckbrwn/rope
 def Rope = module {
   type Rope =
     | Leaf String
@@ -13,10 +16,10 @@ def Rope = module {
 
 
   delete => fun(Rope, Int, Int) : Rope;
-  delete(Leaf string, i, j) {
-    def (s1, tmp) = splitAt(i, string);
-    def (_, s2)   = splitAt(j - i, tmp);
-    def weight    = length(String.append(s1, s2));
+  delete(Leaf(string), i, j) {
+    def (s1, tmp) = string.splitAt(i);
+    def (_, s2)   = tmp.splitAt(j - i);
+    def weight    = String.append(s1, s2).length();
 
     Node(weight, Leaf(s1), Leaf(s2));
   }
@@ -46,10 +49,10 @@ def Rope = module {
 
   insert => fun(Rope, Int, String) : Rope
   insert(Leaf(oldString), n, newString) {
-    def (s1, s3) = splitAt(n, oldString);
-    def s2 = newString;
-    def w1 = length(String.concat([s1, s2, s3]));
-    def w2 = length(String.append(s1, s2));
+    def (s1, s3) = oldString.splitAt(n);
+    def s2       = newString;
+    def w1       = length(String.concat([s1, s2, s3]));
+    def w2       = length(String.append(s1, s2));
 
     Node(w1, Node(w2, Leaf(s1), Leaf(s2)), Leaf(s3));
   }
@@ -73,8 +76,8 @@ def Rope = module {
 
   substring => fun(Rope, Int, Int) : String;
   substring(Leaf(string), i, j) {
-    def (_, tmp) = splitAt(i, string);
-    def (s, _) = splitAt(j - i, tmp);
+    def (_, tmp) = string.splitAt(i);
+    def (s, _) = tmp.splitAt(j - i);
 
     s;
   }
