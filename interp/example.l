@@ -1,9 +1,9 @@
 import Prims;
 import SomethingElse;
 
-ReboundPrims := Prims;
+def ReboundPrims = Prims;
 
-m := module {
+def m = module {
   type SpecialInt = Int;
   type SpecialBool = Bool;
 
@@ -15,13 +15,13 @@ m := module {
 
   type WithPaths = | Biz Prims.Int | Fiz SpecialInt Prims.String;
 
-  fun f() := {
+  def f = fun() {
     m'.g();
   };
 };
 
-m' := module {
-  fun g() := {
+def m' = module {
+  def g = fun() {
     42;
   };
 };
