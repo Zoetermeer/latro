@@ -204,12 +204,14 @@ data Value =
 
 type TyVarId = UniqId
 type FieldName = UniqId
+type CtorName = UniqId
 
 data Ty =
     TyApp TyCon [Ty]
   | TyPoly [TyVarId] Ty
   | TyVar TyVarId
   | TyMeta TyVarId
+  | TyRef (QualifiedId UniqId) -- Only for recursive type definitions
   deriving (Eq, Show)
 
 data ModuleBinding =
@@ -226,9 +228,11 @@ data TyCon =
   | TyConTuple
   | TyConArrow
   | TyConStruct [FieldName]
+  | TyConAdt [CtorName]
   | TyConModule [TyVarId] [ModuleBinding]
   | TyConInterface [ModuleBinding]
   | TyConTyFun [TyVarId] Ty
+  | TyConUnique TyCon UniqId
   | TyConTyVar TyVarId -- In the body of a tyfun/poly
   deriving (Eq, Show)
 

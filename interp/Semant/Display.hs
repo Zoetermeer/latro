@@ -72,6 +72,7 @@ instance Sexpable id => Sexpable (SynTy id) where
 instance Sexpable UniqId where
   sexp (UserId raw) = Symbol raw
   sexp (UniqId _ raw) = Symbol raw
+  -- sexp (UniqId i raw) = Symbol $ printf "%s@%i" raw i
 
 
 instance Sexpable id => Sexpable (CompUnit id) where
