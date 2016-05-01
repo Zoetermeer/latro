@@ -564,6 +564,7 @@
     }
     'Int))
 
+
 (test-case "it checks ADT constructors"
   (check-equal?
     @typecheck{
@@ -607,7 +608,7 @@
        ())))
 
 (test-case "it fails to unify different ADT types"
-  (check-equal?
+  (check-match
     @typecheck{
       type A = | A Int;
       type B = | B Int;
@@ -615,7 +616,7 @@
       def f = fun(x, y) { if (True) { x; } else { y; }; };
       f(A(1), B(2));
     }
-    '(CantUnify)))
+    `(CantUnify (Expected (App (Unique A ,_) ,_)) (Got (App (Unique B ,_) ,_)))))
 
 ; (test-case "it checks scalar-type interface implementations"
 ;   (check-equal?
