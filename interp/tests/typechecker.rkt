@@ -552,9 +552,17 @@
   (check-equal?
     @typecheck{
       def f = fun(x, y) { if (True) { x; } else { y; }; };
+      f(1, False);
+    }
+    '(CantUnify (Expected Int) (Got Bool))))
+
+(test-case "it unifies different type params if an application matches their types"
+  (check-equal?
+    @typecheck{
+      def f = fun(x, y) { if (True) { x; } else { y; }; };
       f(1, 3);
     }
-    '(CantUnify (Expected (Var t)) (Got (Var t)))))
+    'Int))
 
 (test-case "it checks ADT constructors"
   (check-equal?
@@ -566,7 +574,16 @@
 
       A(42);
     }
-    '(App (Unique (Adt (A B) ((App Tuple (Int)) (App Tuple (String))))) Foo)))
+    '(App
+       (Unique
+         Foo
+         (TyFun
+           ()
+           (App
+             (Adt (A B))
+             ((App Tuple (Int))
+              (App Tuple (String))))))
+       ())))
 
 (test-case "it checks recursive ADT's"
   (check-equal?
@@ -578,7 +595,16 @@
 
       B(False, A(42, "hello"));
     }
-    '(App (Unique (Adt (A B) ((App Tuple (Int String)) (App Tuple (Bool (Name Foo))))) Foo))))
+    '(App
+       (Unique
+         Foo
+         (TyFun
+           ()
+           (App
+             (Adt (A B))
+             ((App Tuple (Int String))
+              (App Tuple (Bool (Ref Foo)))))))
+       ())))
 
 ; (test-case "it checks scalar-type interface implementations"
 ;   (check-equal?

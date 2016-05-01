@@ -232,7 +232,7 @@ data TyCon =
   | TyConModule [TyVarId] [ModuleBinding]
   | TyConInterface [ModuleBinding]
   | TyConTyFun [TyVarId] Ty
-  | TyConUnique TyCon UniqId
+  | TyConUnique UniqId TyCon
   | TyConTyVar TyVarId -- In the body of a tyfun/poly
   deriving (Eq, Show)
 

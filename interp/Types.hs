@@ -326,6 +326,10 @@ unify ta@(TyVar a) tb@(TyVar b) =
   else throwError $ ErrCantUnify ta tb
 
 unify ty meta@(TyMeta _) = unify meta ty
+unify tyRef@(TyRef _) ty = unify ty tyRef
+unify ty (TyRef (Id id)) = do
+  tyb <- lookupTy id
+  unify ty $ TyApp tyb []
 
 unify ta tb = unifyFail ta tb
 
@@ -369,7 +373,14 @@ tcTy (SynTyRef (Id id) []) = do
   tyCon <- lookupTy id
   case tyCon of
     TyConTyVar id' -> return $ TyVar id'
+    TyConTyFun [] ty -> return ty
     _ -> throwError $ ErrTyRefIsATyCon id tyCon
+
+
+tcAdtAlt :: AdtAlternative UniqId -> Checked (UniqId, Ty)
+tcAdtAlt (AdtAlternative id _ synTys) = do
+  argTys <- mapM tcTy synTys
+  return (id, TyApp TyConTuple argTys)
 
 
 tcTyDec :: TypeDec UniqId -> Checked TyCon
@@ -379,6 +390,19 @@ tcTyDec (TypeDecTy id (SynTyStruct fields)) =
   in do
     fieldTys <- mapM tcTy fieldSynTys
     return $ TyConTyFun [] $ TyApp (TyConStruct fieldNames) fieldTys
+
+tcTyDec (TypeDecAdt id alts) = do
+  -- Bind a 'name' type for recursive definitions
+  putTyBinding id $ TyConTyFun [] $ TyRef $ Id id
+  altNamesTys <- mapM tcAdtAlt alts
+  let (names, tys) = unzip altNamesTys
+      adtTyCon = TyConUnique id $ TyConTyFun [] $ TyApp (TyConAdt names) tys
+  -- Add a function binding for each constructor
+  mapM_ (\(ctorName, (TyApp TyConTuple argTys)) ->
+            let ctor = TyApp TyConArrow (argTys ++ [TyApp adtTyCon []])
+            in do putVarBinding ctorName ctor)
+        altNamesTys
+  return adtTyCon
 
 
 -- The language grammar only permits the expression
