@@ -10,7 +10,7 @@ import Data.List
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe, isNothing)
 import qualified Data.Set as Set
-import Debug.Trace (trace)
+import Debug.Trace (trace, traceM, traceShowM)
 import Errors
 import Semant
 import Text.Printf (printf)
@@ -42,6 +42,20 @@ mtEnv alphaEnv =
     }
 
 type Checked a = ExceptT Err (State TCEnv) a
+
+
+-- Debugging
+traceMetaEnv :: Checked ()
+traceMetaEnv = do
+  traceM "META ENV:  "
+  metaEnv <- gets metaEnv
+  traceShowM metaEnv
+
+traceVarEnv :: Checked ()
+traceVarEnv = do
+  traceM "VAR ENV:  "
+  varEnv <- gets varEnv
+  traceShowM varEnv
 
 
 pushNewModuleContext :: [TyVarId] -> Checked TCEnv
@@ -224,7 +238,7 @@ generalize :: Ty -> Checked Ty
 generalize ty = do
   frees <- freeMetas ty
   case frees of
-    [] -> return ty
+    [] -> subst ty
     _ -> do tyParamIds <- mapM (\_ -> freshId) frees
             let metasAndTyParamIds = zip frees tyParamIds
             mapM_ (\(metaId, paramId) -> putMetaBinding metaId $ TyVar paramId)
@@ -531,13 +545,10 @@ tc (ExpApp ratorE randEs) = do
   fty <- tc ratorE
   argTys <- mapM tc randEs
   retTyMeta@(TyMeta retTyMetaId) <- freshMeta
-  -- fty' <- unify fty $ TyApp TyConArrow $ argTys ++ [retTyMeta]
-  fty' <- unify (TyApp TyConArrow $ argTys ++ [retTyMeta]) fty
-  maybeRetTy <- lookupMeta retTyMetaId
-  case maybeRetTy of
-    Just ty -> return ty
-    _ -> do metaEnv <- gets metaEnv
-            throwError $ ErrInferenceFail metaEnv fty' retTyMeta
+  (TyApp TyConArrow argTys) <- unify fty $ TyApp TyConArrow $ argTys ++ [retTyMeta]
+  case reverse argTys of
+    [] -> return tyUnit
+    retTy:_ -> return retTy
 
 -- module { m1 ... mn } --> App(Module, [tc(m1), ..., tc(mn)]
 -- module <t1, ..., tn> { ... } --> Poly([t1, ..., tn], App(Module ...))
@@ -597,7 +608,8 @@ tc (ExpSwitch e clauses) = do
   tyE <- tc e
   cTys <- mapM (\(CaseClause patE ces) ->
                   do pty <- tcPatExp patE
-                     pty' <- unify tyE pty
+                     p <- subst pty
+                     pty' <- unify tyE p
                      pty'' <- subst pty'
                      addBindingsForPat patE pty''
                      tcEs ces)
