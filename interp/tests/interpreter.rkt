@@ -9,7 +9,7 @@
   (check-equal? @interp{"hello";} "hello"))
 
 (test-case "it returns an error for unbound identifiers"
-  (check-equal? @interp{x;} "Error: Unbound identifier 'x'"))
+  (check-equal? @interp{x;} '(UnboundRawIdentifier x)))
 
 (test-case "it evaluates arithmetic exps"
   (check-equal? (interp "4 + 3;") "7")
@@ -21,7 +21,7 @@
 (test-case "it evaluates arithmetic expressions involving application"
   (check-equal?
     @interp{
-      fun f(Int) : Int;
+      f => fun(Int) : Int;
       f(x) { x; };
 
       3 + f(4);
@@ -60,7 +60,7 @@
 
       x;
     }
-    "Error: Unbound identifier 'x'"))
+    '(UnboundRawIdentifier x)))
 
 (test-case "it does not allow bindings to escape the test exp of an if/else"
   (check-equal?
@@ -71,7 +71,7 @@
         x;
       };
     }
-    "Error: Unbound identifier 'x'"))
+    '(UnboundRawIdentifier x)))
 
 (test-case "it does not allow argument bindings to escape"
   (check-equal?
@@ -86,7 +86,7 @@
 
       runForever(3, False);
     }
-    "Error: Unbound identifier 'runForever'"))
+    '(UnboundRawIdentifier runForever)))
 
 
 (test-case "it does not add bindings introduced in subexpressions to the module export env"
@@ -874,7 +874,7 @@
 (test-case "it has enough to encode common list operations"
   (check-equal?
     @interp{
-      fun IsEven(Int) : Bool;
+      IsEven => fun(Int) : Bool;
       IsEven(x) {
         switch (x) {
           case 0 -> True;
@@ -889,18 +889,18 @@
       def IntList = module {
         type t = Int[];
 
-        fun IsEmpty(t) : Bool;
+        IsEmpty => fun(t) : Bool;
         IsEmpty([]) { True; }
         IsEmpty(_) { False; };
 
-        fun Concat(t, t) : t;
+        Concat => fun(t[], t[]) : t[];
         Concat(xs, []) { xs; }
         Concat([], ys) { ys; }
         Concat(x::xs, ys) {
           x :: Concat(xs, ys);
         };
 
-        fun Map(fun(Int) : Bool, t) : BoolList;
+        Map => fun(fun(Int) : Bool, t) : BoolList;
         Map(f, []) { []; }
         Map(f, x::xs) {
           f(x) :: Map(f, xs);
@@ -921,7 +921,7 @@
 (test-case "it evaluates recursive function defs that depend on pattern ordering"
   (check-equal?
     @interp{
-      fun GetTwoOrLess(Int) : Int;
+      GetTwoOrLess => fun(Int) : Int;
       GetTwoOrLess(0) { 0; }
       GetTwoOrLess(1) { 1; }
       GetTwoOrLess(2) { 2; }
@@ -936,7 +936,7 @@
     @interp{
       fun(x, y) { x + y; };
     }
-    "<fun _ (Closure [] [])>"))
+    '(Fun _ (Closure [] []))))
 
 (test-case "it evaluates anonymous function application"
   (check-equal?
@@ -948,7 +948,7 @@
 (test-case "it evaluates polymorphic functions"
   (check-equal?
     @interp{
-      fun IsEven(Int) : Bool;
+      IsEven => fun(Int) : Bool;
       IsEven(x) {
         switch (x) {
           case 0 -> True;
@@ -959,14 +959,14 @@
       };
 
       def Lists = module {
-        fun <a, b> Map(fun(a) : b, a[]) : b[];
+        Map<a, b> => fun(fun(a) : b, a[]) : b[];
         Map(_, []) { []; }
         Map(f, x::xs) {
           f(x) :: Map(f, xs);
         };
       };
 
-      Lists.Map(fun(n) { IsEven(n); }, [1, 2, 3 4]);
+      Lists.Map(fun(n) { IsEven(n); }, [1, 2, 3, 4]);
     }
     "<list [False, True, False, True]>"))
 

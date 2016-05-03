@@ -40,16 +40,6 @@
       (λ ()
         (system (format "./interp ~a ./test.spar" (string-join opts)))))))
 
-(define (interp . s)
-  (call-interpreter '() (apply string-append s)))
-
-; (define (strip-quotation-marks s)
-;   (case s
-;     [("") s]
-;     [else
-;       (define cs (string->list s))
-;       (list->string (drop (take cs (string-length s)) 1))]))
-;
 (define (strip-quotation-marks s) s)
 
 (define (call-and-read opts . s)
@@ -67,3 +57,6 @@
 
 (define (typecheck . s)
   (call-and-read '("-t") (apply string-append s)))
+
+(define (interp . s)
+  (call-and-read '() (apply string-append s)))
