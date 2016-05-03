@@ -43,9 +43,9 @@
     '(App List (Int))))
 
 (test-case "it makes empty-list expressions polymorphic"
-  (check-equal?
+  (check-match
     @typecheck{[];}
-    '(Poly (t) (App List ((Var t))))))
+    `(Poly (,t) (App List ((Var ,t))))))
 
 (test-case "it fails non-uniformly-typed list expressions"
   (check-equal?
@@ -102,12 +102,12 @@
     '(App (Struct (X Y)) (Int Bool))))
 
 (test-case "it fails on undefined-member initializers"
-  (check-equal?
+  (check-match
     @typecheck{
       type WeirdPoint = struct { Int X; Bool Y; };
       WeirdPoint { X = 1; A = False; };
     }
-    '(UndefinedMember A)))
+    `(UndefinedMember (Id A ,_))))
 
 (test-case "it fails on type mismatches in field initializers"
   (check-equal?
@@ -183,14 +183,14 @@
     '(App Tuple (Int Int))))
 
 (test-case "it reports an error if inner tuple patterns are ill-typed"
-  (check-equal?
+  (check-match
     @typecheck{
       def ((a, b), (c, d)) = ((1, 2), 3);
       b;
     }
-    '(CantUnify
+    `(CantUnify
        (Expected
-         (Poly (t t) (App Tuple ((Var t) (Var t)))))
+         (Poly (,t1 ,t2) (App Tuple ((Var ,t1) (Var ,t2)))))
        (Got Int))))
 
 (test-case "it checks simple list patterns"
@@ -249,22 +249,22 @@
 
 
 (test-case "it checks list patterns against the empty list"
-  (check-equal?
+  (check-match
     @typecheck{
       def [x] = [];
       x;
     }
-    '(Poly (t) (Var t))))
+    `(Poly (,t) (Var ,t))))
 
 (test-case "it checks list patterns against applications returning empty lists"
-  (check-equal?
+  (check-match
     @typecheck{
       def mt = fun() { []; };
       def [x] = mt();
 
       x;
     }
-    '(Poly (t) (Var t))))
+    `(Poly (,t) (Var ,t))))
 
 (test-case "it returns an error for ill-typed list patterns"
   (check-equal?
@@ -324,7 +324,7 @@
     'Int))
 
 (test-case "it infers type relationships when generalizing"
-  (check-equal?
+  (check-match
     @typecheck{
       def randomzap = fun(x) {
         def f = fun(y) {
@@ -336,7 +336,7 @@
 
       randomzap;
     }
-    '(Poly (t) (App Arrow ((Var t) (App Arrow ((Var t) (Var t))))))))
+    `(Poly (,t) (App Arrow ((Var ,t) (App Arrow ((Var ,t) (Var ,t))))))))
 
 (test-case "it infers nested function types"
   (check-equal?
@@ -375,12 +375,12 @@
     '(App List (Int))))
 
 (test-case "it preserves polymorphism for the empty list for function results"
-  (check-equal?
+  (check-match
     @typecheck{
       def toList = fun(x) { []; };
       toList(42);
     }
-    '(Poly (t) (App List ((Var t))))))
+    `(Poly (,t) (App List ((Var ,t))))))
 
 (test-case "it makes the empty list polymorphic in tuple expressions"
   (check-equal?
@@ -533,7 +533,7 @@
     'Int))
 
 (test-case "it fails in ill-typed application of annotated functions"
-  (check-equal?
+  (check-match
     @typecheck{
       len<a> => fun(a[]) : Int;
       len([]) { 0; }
@@ -541,7 +541,7 @@
 
       len(3);
     }
-    '(CantUnify (Expected (Poly (t) (App List ((Var t))))) (Got Int))))
+    `(CantUnify (Expected (Poly (,t) (App List ((Var ,t))))) (Got Int))))
 
 (test-case "it fails on if return values are of different type params"
   (check-equal?
@@ -561,7 +561,7 @@
 
 
 (test-case "it checks ADT constructors"
-  (check-equal?
+  (check-match
     @typecheck{
       type Foo =
         | A Int
@@ -570,13 +570,13 @@
 
       A(42);
     }
-    '(App
+    `(App
        (Unique
-         Foo
+         (Id Foo ,_)
          (TyFun
            ()
            (App
-             (Adt (A B))
+             (Adt ((Id A ,_) (Id B ,_)))
              ((App Tuple (Int))
               (App Tuple (String))))))
        ())))
@@ -594,7 +594,7 @@
     '(CantUnify (Expected String) (Got Bool))))
 
 (test-case "it checks recursive ADT's"
-  (check-equal?
+  (check-match
     @typecheck{
       type Foo =
         | A Int String
@@ -603,15 +603,15 @@
 
       B(False, A(42, "hello"));
     }
-    '(App
+    `(App
        (Unique
-         Foo
+         (Id Foo ,foo-ind)
          (TyFun
            ()
            (App
-             (Adt (A B))
+             (Adt ((Id A ,_) (Id B ,_)))
              ((App Tuple (Int String))
-              (App Tuple (Bool (App (TyFun () (Ref Foo)) ())))))))
+              (App Tuple (Bool (App (TyFun () (Ref (Id Foo ,foo-ind))) ())))))))
        ())))
 
 (test-case "it fails to unify different ADT types"
@@ -623,7 +623,7 @@
       def f = fun(x, y) { if (True) { x; } else { y; }; };
       f(A(1), B(2));
     }
-    `(CantUnify (Expected (App (Unique A ,_) ,_)) (Got (App (Unique B ,_) ,_)))))
+    `(CantUnify (Expected (App (Unique (Id A ,_) ,_) ,_)) (Got (App (Unique (Id B ,_) ,_) ,_)))))
 
 (test-case "it checks annotated functions involving ADT types"
   (check-match
@@ -635,10 +635,10 @@
 
       f(Bar(1, False));
     }
-    `(App (Unique A ,_) ,_)))
+    `(App (Unique (Id A ,_) ,_) ,_)))
 
 (test-case "it checks parameterized ADT types"
-  (check-equal?
+  (check-match
     @typecheck{
       type Option<a> =
         | Some a
@@ -647,19 +647,19 @@
 
       Some(42);
     }
-    '(App
+    `(App
        (Unique
-         Option
+         ,Option
          (TyFun
-           (a)
+           (,a)
            (App
-             (Adt (Some None))
-             ((App Tuple ((Var a)))
+             (Adt (,Some ,None))
+             ((App Tuple ((Var ,a)))
               (App Tuple ())))))
        (Int))))
 
 (test-case "it checks parameterized ADT types with multiple parameters"
-  (check-equal?
+  (check-match
     @typecheck{
       type Either<l, r> =
         | Left l
@@ -668,28 +668,28 @@
 
       (Right("hello"), Left(42), Right(True));
     }
-    '(Poly (t t t)
+    `(Poly (,t1 ,t2 ,t3)
        (App
          Tuple
          ((App
             (Unique
-              Either
-              (TyFun (l r) (App (Adt (Left Right)) ((App Tuple ((Var l))) (App Tuple ((Var r)))))))
-            ((Var t) String))
+              ,Either
+              (TyFun (,l ,r) (App (Adt (,Left ,Right)) ((App Tuple ((Var ,l))) (App Tuple ((Var ,r)))))))
+            ((Var ,t1) String))
           (App
             (Unique
-              Either
-              (TyFun (l r) (App (Adt (Left Right)) ((App Tuple ((Var l))) (App Tuple ((Var r)))))))
-            (Int (Var t)))
+              ,Either
+              (TyFun (,l ,r) (App (Adt (,Left ,Right)) ((App Tuple ((Var ,l))) (App Tuple ((Var ,r)))))))
+            (Int (Var ,t2)))
           (App
             (Unique
-              Either
-              (TyFun (l r) (App (Adt (Left Right)) ((App Tuple ((Var l))) (App Tuple ((Var r)))))))
-            ((Var t) Bool)))))))
+              ,Either
+              (TyFun (,l ,r) (App (Adt (,Left ,Right)) ((App Tuple ((Var ,l))) (App Tuple ((Var ,r)))))))
+            ((Var ,t3) Bool)))))))
 
 
 (test-case "it checks parameterized ADT type constructors with no arguments"
-  (check-equal?
+  (check-match
     @typecheck{
       type Option<a> =
         | Some a
@@ -698,18 +698,18 @@
 
       None();
     }
-    '(Poly
-       (t)
+    `(Poly
+       (,t)
        (App
          (Unique
-           Option
+           ,Option
            (TyFun
-             (a)
+             (,a)
              (App
-               (Adt (Some None))
-               ((App Tuple ((Var a)))
+               (Adt (,Some ,None))
+               ((App Tuple ((Var ,a)))
                 (App Tuple ())))))
-         ((Var t))))))
+         ((Var ,t))))))
 
 ; (test-case "it checks scalar-type interface implementations"
 ;   (check-equal?
