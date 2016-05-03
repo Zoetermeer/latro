@@ -658,6 +658,36 @@
               (App Tuple ())))))
        (Int))))
 
+(test-case "it checks parameterized ADT types with multiple parameters"
+  (check-equal?
+    @typecheck{
+      type Either<l, r> =
+        | Left l
+        | Right r
+        ;
+
+      (Right("hello"), Left(42), Right(True));
+    }
+    '(Poly (t t t)
+       (App
+         Tuple
+         ((App
+            (Unique
+              Either
+              (TyFun (l r) (App (Adt (Left Right)) ((App Tuple ((Var l))) (App Tuple ((Var r)))))))
+            ((Var t) String))
+          (App
+            (Unique
+              Either
+              (TyFun (l r) (App (Adt (Left Right)) ((App Tuple ((Var l))) (App Tuple ((Var r)))))))
+            (Int (Var t)))
+          (App
+            (Unique
+              Either
+              (TyFun (l r) (App (Adt (Left Right)) ((App Tuple ((Var l))) (App Tuple ((Var r)))))))
+            ((Var t) Bool)))))))
+
+
 (test-case "it checks parameterized ADT type constructors with no arguments"
   (check-equal?
     @typecheck{
