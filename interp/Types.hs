@@ -166,12 +166,26 @@ isFreeMeta (TyMeta id) = do
   return $ isNothing ty
 
 
+pushPolyEnv :: Checked (Map.Map UniqId Ty)
+pushPolyEnv = gets polyEnv >>= return
+
+
+restorePolyEnv :: Map.Map UniqId Ty -> Checked ()
+restorePolyEnv env = modify (\tcEnv -> tcEnv { polyEnv = env })
+
+
 lookupPoly :: UniqId -> Checked (Maybe Ty)
 lookupPoly id = envLookup polyEnv id
 
 
 lookupTy :: UniqId -> Checked TyCon
 lookupTy id = envLookupOrFail typeEnv id
+
+
+lookupTyQual :: QualifiedId UniqId -> Checked TyCon
+lookupTyQual (Id id) = lookupTy id
+lookupTyQual qid =
+  throwError $ ErrNotImplemented $ "lookupTyQual " ++ show qid
 
 
 lookupVar :: UniqId -> Checked Ty
@@ -256,6 +270,14 @@ instantiate (TyPoly tyParamIds ty) = do
 instantiate ty = return ty
 
 
+substTyCon :: TyCon -> Checked TyCon
+substTyCon (TyConTyFun varIds ty) = do
+  ty' <- subst ty
+  return $ TyConTyFun varIds ty'
+
+substTyCon tyCon = return tyCon
+
+
 subst :: Ty -> Checked Ty
 subst meta@(TyMeta id) = do
   maybeTy <- lookupMeta id
@@ -263,9 +285,14 @@ subst meta@(TyMeta id) = do
     Just ty -> subst ty
     _ -> return meta
 
-subst (TyApp tycon tyArgs) = do
+subst (TyApp (TyConTyFun [] tyRef@(TyRef _)) []) = do
+  tyRef' <- subst tyRef
+  return tyRef'
+
+subst (TyApp tyCon tyArgs) = do
+  tyCon' <- substTyCon tyCon
   tyArgs' <- mapM subst tyArgs
-  return $ TyApp tycon tyArgs'
+  return $ TyApp tyCon' tyArgs'
 
 subst var@(TyVar id) = do
   maybeTy <- lookupPoly id
@@ -281,6 +308,11 @@ subst (TyPoly tyParamIds ty) = do
   ty'' <- subst ty'
   return $ TyPoly freshParamIds ty''
 
+subst (TyRef (Id id)) = do
+  tyCon <- lookupTy id
+  tyCon' <- substTyCon tyCon
+  return $ TyApp tyCon' []
+
 
 -- Helper for type mismatches (we don't want
 -- to expose types with free metavariables to the
@@ -294,11 +326,25 @@ unifyFail a b = do
 
 
 unify :: Ty -> Ty -> Checked Ty
-unify a@(TyApp tyconA tyArgsA) b@(TyApp tyconB tyArgsB) =
-  if tyconA == tyconB
-  then do mapM_ (uncurry unify) $ zip tyArgsA tyArgsB
-          return a
-  else unifyFail a b
+unify a@(TyApp tyconA tyArgsA) b@(TyApp tyconB tyArgsB) | tyconA == tyconB =
+  do mapM_ (uncurry unify) $ zip tyArgsA tyArgsB
+     return a
+
+unify (TyApp (TyConTyFun paramVarIds ty) tyArgs) tyb = do
+  oldPolyEnv <- pushPolyEnv
+  mapM_ (uncurry putPolyBinding) $ zip paramVarIds tyArgs
+  ty' <- subst ty
+  uty <- unify ty' tyb
+  restorePolyEnv oldPolyEnv
+  return uty
+
+unify tya (TyApp (TyConTyFun paramVarIds ty) tyArgs) = do
+  oldPolyEnv <- pushPolyEnv
+  mapM_ (uncurry putPolyBinding) $ zip paramVarIds tyArgs
+  ty' <- subst ty
+  uty <- unify tya ty'
+  restorePolyEnv oldPolyEnv
+  return uty
 
 unify (TyPoly [] ty) tyb = unify ty tyb
 
@@ -340,9 +386,15 @@ unify ta@(TyVar a) tb@(TyVar b) =
   else throwError $ ErrCantUnify ta tb
 
 unify ty meta@(TyMeta _) = unify meta ty
+unify ta@(TyRef a) tb@(TyRef b) =
+  if a == b
+  then do tyCon <- lookupTyQual a
+          return $ TyApp tyCon []
+  else unifyFail ta tb
+
 unify tyRef@(TyRef _) ty = unify ty tyRef
-unify ty (TyRef (Id id)) = do
-  tyb <- lookupTy id
+unify ty (TyRef qid) = do
+  tyb <- lookupTyQual qid
   unify ty $ TyApp tyb []
 
 unify ta tb = unifyFail ta tb
@@ -387,8 +439,9 @@ tcTy (SynTyRef (Id id) []) = do
   tyCon <- lookupTy id
   case tyCon of
     TyConTyVar id' -> return $ TyVar id'
-    TyConTyFun [] ty -> return ty
-    _ -> throwError $ ErrTyRefIsATyCon id tyCon
+    TyConTyFun [] ty -> return $ TyApp tyCon []
+    TyConUnique uniqId tyCon -> return $ TyApp (TyConUnique uniqId tyCon) []
+    _ -> throwError $ ErrPartialTyConApp id tyCon []
 
 
 tcAdtAlt :: AdtAlternative UniqId -> Checked (UniqId, Ty)
@@ -543,6 +596,7 @@ tc (ExpMemberAccess e id) = do
 
 tc (ExpApp ratorE randEs) = do
   fty <- tc ratorE
+  fty' <- subst fty
   argTys <- mapM tc randEs
   retTyMeta@(TyMeta retTyMetaId) <- freshMeta
   (TyApp TyConArrow argTys) <- unify fty $ TyApp TyConArrow $ argTys ++ [retTyMeta]

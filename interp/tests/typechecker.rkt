@@ -611,7 +611,7 @@
            (App
              (Adt (A B))
              ((App Tuple (Int String))
-              (App Tuple (Bool (Ref Foo)))))))
+              (App Tuple (Bool (App (TyFun () (Ref Foo)) ())))))))
        ())))
 
 (test-case "it fails to unify different ADT types"
@@ -624,6 +624,18 @@
       f(A(1), B(2));
     }
     `(CantUnify (Expected (App (Unique A ,_) ,_)) (Got (App (Unique B ,_) ,_)))))
+
+(test-case "it checks annotated functions involving ADT types"
+  (check-match
+    @typecheck{
+      type A = | Foo Int | Bar Int Bool;
+
+      f => fun(A) : A;
+      f(v) { v; };
+
+      f(Bar(1, False));
+    }
+    `(App (Unique A ,_) ,_)))
 
 ; (test-case "it checks scalar-type interface implementations"
 ;   (check-equal?

@@ -235,4 +235,3 @@ data TyCon =
   | TyConUnique UniqId TyCon
   | TyConTyVar TyVarId -- In the body of a tyfun/poly
   deriving (Eq, Show)
-

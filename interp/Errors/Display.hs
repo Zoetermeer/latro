@@ -124,10 +124,11 @@ instance Sexpable Err where
           , sexp id
           ]
 
-  sexp (ErrTyRefIsATyCon id tyCon) =
-    List  [ Symbol "TyRefIsATyCon"
+  sexp (ErrPartialTyConApp id tyCon tyArgs) =
+    List  [ Symbol "PartialTyConApp"
+          , sexp id
           , sexp tyCon
-          , Atom $ printf "'%s' is a type constructor, not a type." $ showSexp id
+          , toSexpList tyArgs
           ]
 
   sexp (ErrInferenceFail metaEnv fty retTy) =
