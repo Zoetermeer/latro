@@ -289,6 +289,14 @@ subst (TyApp (TyConTyFun [] tyRef@(TyRef _)) []) = do
   tyRef' <- subst tyRef
   return tyRef'
 
+subst (TyApp tyCon@(TyConTyFun tyParamIds ty) tyArgs)
+  | length tyParamIds == length tyArgs =
+    do mapM_ (uncurry putPolyBinding) $ zip tyParamIds tyArgs
+       subst ty >>= subst
+  | otherwise =
+    do madeUpId <- freshId
+       throwError $ ErrPartialTyConApp madeUpId tyCon tyArgs
+
 subst (TyApp tyCon tyArgs) = do
   tyCon' <- substTyCon tyCon
   tyArgs' <- mapM subst tyArgs
@@ -458,15 +466,17 @@ tcTyDec (TypeDecTy id (SynTyStruct fields)) =
     fieldTys <- mapM tcTy fieldSynTys
     return $ TyConTyFun [] $ TyApp (TyConStruct fieldNames) fieldTys
 
-tcTyDec (TypeDecAdt id alts) = do
+tcTyDec (TypeDecAdt id tyParamIds alts) = do
   -- Bind a 'name' type for recursive definitions
-  putTyBinding id $ TyConTyFun [] $ TyRef $ Id id
+  putTyBinding id $ TyConTyFun tyParamIds $ TyRef $ Id id
+  -- Bind a 'tyvar' tycon for each type parameter
+  mapM_ (\tyParamId -> putTyBinding tyParamId $ TyConTyVar tyParamId) tyParamIds
   altNamesTys <- mapM tcAdtAlt alts
   let (names, tys) = unzip altNamesTys
-      adtTyCon = TyConUnique id $ TyConTyFun [] $ TyApp (TyConAdt names) tys
+      adtTyCon = TyConUnique id $ TyConTyFun tyParamIds $ TyApp (TyConAdt names) tys
   -- Add a function binding for each constructor
   mapM_ (\(ctorName, (TyApp TyConTuple argTys)) ->
-            let ctor = TyApp TyConArrow (argTys ++ [TyApp adtTyCon []])
+            let ctor = TyPoly tyParamIds $ TyApp TyConArrow (argTys ++ [TyApp adtTyCon (map TyVar tyParamIds)])
             in do putVarBinding ctorName ctor)
         altNamesTys
   return adtTyCon

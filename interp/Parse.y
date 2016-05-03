@@ -215,8 +215,8 @@ FunParams : id { [$1] }
           | FunParams ',' id { $1 ++ [$3] }
           | {- empty -} { [] }
 
-TypeDec : type id '=' Ty { TypeDecTy $2 $4 }
-        | type id '=' AdtAlternatives { TypeDecAdt $2 $4 }
+TypeDec : type id TyParams '=' Ty { TypeDecTy $2 $5 }
+        | type id TyParams '=' AdtAlternatives { TypeDecAdt $2 $3 $5 }
 
 AdtAlternatives : AdtAlternative  { [$1] }
                 | AdtAlternatives AdtAlternative  { $1 ++ [$2] }

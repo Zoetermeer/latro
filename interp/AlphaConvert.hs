@@ -280,10 +280,11 @@ convert (ExpTypeDec (TypeDecTy id ty)) = do
   ty' <- convertTy ty
   return $ ExpTypeDec $ TypeDecTy id' ty'
 
-convert (ExpTypeDec (TypeDecAdt id alts)) = do
+convert (ExpTypeDec (TypeDecAdt id tyParamIds alts)) = do
   id' <- freshM id
+  tyParamIds' <- mapM freshM tyParamIds
   alts' <- mapM convertAdtAlternative alts
-  return $ ExpTypeDec $ TypeDecAdt id' alts'
+  return $ ExpTypeDec $ TypeDecAdt id' tyParamIds' alts'
 
 convert expAnnDec@(ExpAnnDec _ _ _ _) = convertAnnDec expAnnDec
 

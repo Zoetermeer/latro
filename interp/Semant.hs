@@ -82,13 +82,13 @@ isAnnDefModule _ = False
 
 data TypeDec id =
     TypeDecTy id (SynTy id)
-  | TypeDecAdt id [AdtAlternative id]
+  | TypeDecAdt id [id] [AdtAlternative id]
   deriving (Eq, Show)
 
 
 getTypeDecId :: TypeDec id -> id
 getTypeDecId (TypeDecTy id _) = id
-getTypeDecId (TypeDecAdt id _) = id
+getTypeDecId (TypeDecAdt id _ _) = id
 
 
 data AdtAlternative id =

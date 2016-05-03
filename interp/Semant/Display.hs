@@ -94,8 +94,8 @@ instance Sexpable id => Sexpable (AdtAlternative id) where
 instance Sexpable id => Sexpable (TypeDec id) where
   sexp (TypeDecTy id sTy) =
     List  [ Symbol "TypeDecTy", sexp id, sexp sTy ]
-  sexp (TypeDecAdt id alts) =
-    List  [ Symbol "TypeDecAdt", sexp id, toSexpList alts ]
+  sexp (TypeDecAdt id tyParamIds alts) =
+    List  [ Symbol "TypeDecAdt", toSexpList tyParamIds, sexp id, toSexpList alts ]
 
 
 instance Sexpable id => Sexpable (PatExp id) where

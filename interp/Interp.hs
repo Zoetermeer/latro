@@ -320,7 +320,7 @@ evalE (ExpTypeDec (TypeDecTy id ty)) = do
   putModuleTyExport id ty
   return ValueUnit
 
-evalE (ExpTypeDec (TypeDecAdt id alts)) = do
+evalE (ExpTypeDec (TypeDecAdt id _ alts)) = do
   let alts' = mapi (\i (AdtAlternative aid _ tys) -> AdtAlternative aid i tys) alts
       ty = SynTyAdt id alts'
   putTyBinding id ty

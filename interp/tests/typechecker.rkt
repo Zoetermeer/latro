@@ -637,6 +637,50 @@
     }
     `(App (Unique A ,_) ,_)))
 
+(test-case "it checks parameterized ADT types"
+  (check-equal?
+    @typecheck{
+      type Option<a> =
+        | Some a
+        | None
+        ;
+
+      Some(42);
+    }
+    '(App
+       (Unique
+         Option
+         (TyFun
+           (a)
+           (App
+             (Adt (Some None))
+             ((App Tuple ((Var a)))
+              (App Tuple ())))))
+       (Int))))
+
+(test-case "it checks parameterized ADT type constructors with no arguments"
+  (check-equal?
+    @typecheck{
+      type Option<a> =
+        | Some a
+        | None
+        ;
+
+      None();
+    }
+    '(Poly
+       (t)
+       (App
+         (Unique
+           Option
+           (TyFun
+             (a)
+             (App
+               (Adt (Some None))
+               ((App Tuple ((Var a)))
+                (App Tuple ())))))
+         ((Var t))))))
+
 ; (test-case "it checks scalar-type interface implementations"
 ;   (check-equal?
 ;     @typecheck{
