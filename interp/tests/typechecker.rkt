@@ -761,6 +761,21 @@
     }
     `(UnboundUniqIdentifier (Id MakeOpt ,_))))
 
+(test-case "it does not allow bindings in a pattern to escape into other clauses"
+  (check-match
+    @typecheck{
+      type Foo =
+        | B Bool
+        | I Int
+        ;
+
+      switch (I(42)) {
+        case I(x) -> x;
+        case B(b) -> x;
+      };
+    }
+    `(UnboundUniqIdentifier (Id x ,_))))
+
 (test-case "it does not allow pattern bindings to escape modules"
   (check-match
     @typecheck{

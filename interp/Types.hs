@@ -20,9 +20,12 @@ traceIt :: Show a => a -> a
 traceIt v = trace (show v) v
 
 
+type VarEnv = Map.Map UniqId Ty
+
+
 data TCEnv = TCEnv
   { curModule :: TCModule
-  , varEnv :: Map.Map UniqId Ty
+  , varEnv :: VarEnv
   , alphaEnv :: AlphaEnv
   , polyEnv :: Map.Map UniqId Ty
   , metaEnv :: Map.Map UniqId Ty
@@ -75,9 +78,14 @@ pushNewModuleContext =
 -- A new var env needs to close over all
 -- bindings in the existing env, so
 -- the update function is the identity function
-pushNewVarContext :: Checked TCEnv
-pushNewVarContext =
-  newContextWith id
+pushNewVarEnv :: Checked VarEnv
+pushNewVarEnv =
+  gets varEnv
+
+
+restoreVarEnv :: VarEnv -> Checked ()
+restoreVarEnv varEnv =
+  modify (\tcEnv -> tcEnv { varEnv = varEnv })
 
 
 restoreContext :: TCEnv -> Checked ()
@@ -727,12 +735,15 @@ tc (ExpTuple es) = do
 tc (ExpSwitch e clauses) = do
   tyE <- tc e
   cTys <- mapM (\(CaseClause patE ces) ->
-                  do pty <- tcPatExp patE
+                  do oldVarEnv <- pushNewVarEnv
+                     pty <- tcPatExp patE
                      p <- subst pty
                      pty' <- unify tyE p
                      pty'' <- subst pty'
                      addBindingsForPat patE pty''
-                     tcEs ces)
+                     retTy <- tcEs ces
+                     restoreVarEnv oldVarEnv
+                     return retTy)
                clauses
   clauseResultTy <- unifyAll cTys
   subst clauseResultTy
