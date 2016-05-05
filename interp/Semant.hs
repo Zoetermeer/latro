@@ -219,6 +219,31 @@ data ModuleBinding =
   | ModuleBindingTy FieldName Ty
   deriving (Eq, Show)
 
+data TCModule = TCModule
+  { types :: Map.Map UniqId TyCon
+  , vars :: Map.Map UniqId Ty
+  , patFuns :: Map.Map UniqId Ty
+  }
+  deriving (Eq, Show)
+
+mtTCModule :: TCModule
+mtTCModule =
+  TCModule { types = Map.empty
+           , vars = Map.empty
+           , patFuns = Map.empty
+           }
+
+
+addModuleVar :: TCModule -> UniqId -> Ty -> TCModule
+addModuleVar mod id ty =
+  mod { vars = Map.insert id ty (vars mod) }
+
+
+addModuleTy :: TCModule -> UniqId -> TyCon -> TCModule
+addModuleTy mod id tyCon =
+  mod { types = Map.insert id tyCon (types mod) }
+
+
 data TyCon =
     TyConInt
   | TyConBool
@@ -229,7 +254,7 @@ data TyCon =
   | TyConArrow
   | TyConStruct [FieldName]
   | TyConAdt [CtorName]
-  | TyConModule [TyVarId] [ModuleBinding]
+  | TyConModule [TyVarId] TCModule
   | TyConInterface [ModuleBinding]
   | TyConTyFun [TyVarId] Ty
   | TyConUnique UniqId TyCon

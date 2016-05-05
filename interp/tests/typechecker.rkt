@@ -674,17 +674,23 @@
          ((App
             (Unique
               ,Either
-              (TyFun (,l ,r) (App (Adt (,Left ,Right)) ((App Tuple ((Var ,l))) (App Tuple ((Var ,r)))))))
+              (TyFun
+                (,l ,r)
+                (App (Adt (,Left ,Right)) ((App Tuple ((Var ,l))) (App Tuple ((Var ,r)))))))
             ((Var ,t1) String))
           (App
             (Unique
               ,Either
-              (TyFun (,l ,r) (App (Adt (,Left ,Right)) ((App Tuple ((Var ,l))) (App Tuple ((Var ,r)))))))
+              (TyFun
+                (,l ,r)
+                (App (Adt (,Left ,Right)) ((App Tuple ((Var ,l))) (App Tuple ((Var ,r)))))))
             (Int (Var ,t2)))
           (App
             (Unique
               ,Either
-              (TyFun (,l ,r) (App (Adt (,Left ,Right)) ((App Tuple ((Var ,l))) (App Tuple ((Var ,r)))))))
+              (TyFun
+                (,l ,r)
+                (App (Adt (,Left ,Right)) ((App Tuple ((Var ,l))) (App Tuple ((Var ,r)))))))
             ((Var ,t3) Bool)))))))
 
 
@@ -710,6 +716,67 @@
                ((App Tuple ((Var ,a)))
                 (App Tuple ())))))
          ((Var ,t))))))
+
+(test-case "it checks ADT patterns"
+  (check-equal?
+    @typecheck{
+      type Option<a> =
+        | Some a
+        | None
+        ;
+
+      def Some(v) = Some(42);
+      v;
+    }
+    'Int))
+
+(test-case "it does not allow arbitrary functions in ADT patterns"
+  (check-equal?
+    @typecheck{
+      type Option<a> =
+        | Some a
+        | None
+        ;
+
+      def MakeOpt = fun() { Some(False); };
+      def MakeOpt(v) = Some(42);
+      v;
+    }
+    '(InvalidPattern "Not a constructor")))
+
+(test-case "it does not allow pattern bindings to escape modules"
+  (check-equal?
+    @typecheck{
+      def Opt = module {
+        type t<a> = | Some a | None;
+
+        def GetOne = fun() { Some(42); };
+      };
+
+      switch (Opt.GetOne()) {
+        case Some(43) -> False;
+        case _ -> True;
+      };
+    }
+    '(UnboundUniqIdentifier Some)))
+
+(test-case "it checks qualified ADT patterns"
+  (check-equal?
+    @typecheck{
+      def Opt = module {
+        type t<a> = | Some a | None;
+
+        def GetOne = fun() { Some(42); };
+      };
+
+      switch (Opt.GetOne()) {
+        case Opt.Some(43) -> False;
+        case _ -> True;
+      };
+    }
+    'Bool))
+
+
 
 ; (test-case "it checks scalar-type interface implementations"
 ;   (check-equal?

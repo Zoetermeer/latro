@@ -21,24 +21,25 @@ traceIt v = trace (show v) v
 
 
 data TCEnv = TCEnv
-  { typeEnv :: Map.Map UniqId TyCon
+  { curModule :: TCModule
   , varEnv :: Map.Map UniqId Ty
-  , curModule :: TyCon
   , alphaEnv :: AlphaEnv
   , polyEnv :: Map.Map UniqId Ty
   , metaEnv :: Map.Map UniqId Ty
+  , inTopLevelScope :: Bool
   }
   deriving (Eq)
+
 
 mtEnv :: AlphaEnv -> TCEnv
 mtEnv alphaEnv =
   TCEnv
-    { typeEnv = Map.empty
+    { curModule = mtTCModule
     , varEnv = Map.empty
-    , curModule = TyConModule [] []
     , alphaEnv = alphaEnv
     , polyEnv = Map.empty
     , metaEnv = Map.empty
+    , inTopLevelScope = True
     }
 
 type Checked a = ExceptT Err (State TCEnv) a
@@ -58,40 +59,48 @@ traceVarEnv = do
   traceShowM varEnv
 
 
-pushNewModuleContext :: [TyVarId] -> Checked TCEnv
-pushNewModuleContext tyParamIds = do
+-- Convenience methods for manipulating the environment
+newContextWith :: (TCEnv -> TCEnv) -> Checked TCEnv
+newContextWith fupdate = do
   oldEnv <- get
-  modify (\tcEnv -> tcEnv { curModule = TyConModule tyParamIds [] })
+  modify fupdate
   return oldEnv
 
 
-restoreEnv :: TCEnv -> Checked ()
-restoreEnv tcEnv = put tcEnv
+pushNewModuleContext :: Checked TCEnv
+pushNewModuleContext =
+  newContextWith (\tcEnv -> tcEnv { curModule = mtTCModule })
 
 
--- Convenience methods for manipulating the environment
-addModuleTyBinding :: TyCon -> UniqId -> TyCon -> TyCon
-addModuleTyBinding (TyConModule tyParamIds bindings) id tyCon =
-  TyConModule tyParamIds ((ModuleBindingTyCon id tyCon) : bindings)
+-- A new var env needs to close over all
+-- bindings in the existing env, so
+-- the update function is the identity function
+pushNewVarContext :: Checked TCEnv
+pushNewVarContext =
+  newContextWith id
 
 
-addModuleVarBinding :: TyCon -> UniqId -> Ty -> TyCon
-addModuleVarBinding (TyConModule tyParamIds bindings) id ty =
-  TyConModule tyParamIds ((ModuleBindingTy id ty) : bindings)
+restoreContext :: TCEnv -> Checked ()
+restoreContext tcEnv = put tcEnv
+
+
+putModuleVarBinding :: UniqId -> Ty -> Checked ()
+putModuleVarBinding id ty =
+  modify (\tcEnv -> tcEnv { curModule = addModuleVar (curModule tcEnv) id ty })
 
 
 putTyBinding :: UniqId -> TyCon -> Checked ()
-putTyBinding id ty = do
-  modify (\tcEnv -> tcEnv { typeEnv = Map.insert id ty (typeEnv tcEnv)
-                          , curModule = addModuleTyBinding (curModule tcEnv) id ty
-                          })
+putTyBinding id tyCon = do
+  modify (\tcEnv -> tcEnv { curModule = addModuleTy (curModule tcEnv) id tyCon })
 
 
 putVarBinding :: UniqId -> Ty -> Checked ()
 putVarBinding id ty = do
-  modify (\tcEnv -> tcEnv { varEnv = Map.insert id ty (varEnv tcEnv)
-                          , curModule = addModuleVarBinding (curModule tcEnv) id ty
-                          })
+  isTopLevel <- gets inTopLevelScope
+  modify (\tcEnv -> tcEnv { varEnv = Map.insert id ty (varEnv tcEnv) })
+  if isTopLevel
+  then putModuleVarBinding id ty
+  else return ()
 
 
 putPolyBinding :: UniqId -> Ty -> Checked ()
@@ -178,14 +187,41 @@ lookupPoly :: UniqId -> Checked (Maybe Ty)
 lookupPoly id = envLookup polyEnv id
 
 
+lookupTyIn :: TCModule -> UniqId -> Checked TyCon
+lookupTyIn mod id =
+  hoistEither $ maybeToEither (ErrUnboundUniqIdentifier id) $ Map.lookup id $ types mod
+
+
+lookupVarIn :: TCModule -> UniqId -> Checked Ty
+lookupVarIn mod id =
+  hoistEither $ maybeToEither (ErrUnboundUniqIdentifier id) $ Map.lookup id $ vars mod
+
+
 lookupTy :: UniqId -> Checked TyCon
-lookupTy id = envLookupOrFail typeEnv id
+lookupTy id = do
+  curMod <- gets curModule
+  lookupTyIn curMod id
+
+
+lookupQual :: QualifiedId UniqId -> Checked Ty
+lookupQual (Id id) = lookupVar id
+lookupQual (Path qid id) = do
+  v <- lookupQual qid
+  case v of
+    TyApp (TyConModule _ mod) _ ->
+      hoistEither $ maybeToEither (ErrUndefinedMember id) $ Map.lookup id $ vars mod
+    TyApp (TyConStruct fieldNames) fTys ->
+      do fIndex <- hoistEither $ maybeToEither (ErrUndefinedMember id) $ elemIndex id fieldNames
+         return $ fTys !! fIndex
 
 
 lookupTyQual :: QualifiedId UniqId -> Checked TyCon
 lookupTyQual (Id id) = lookupTy id
-lookupTyQual qid =
-  throwError $ ErrNotImplemented $ "lookupTyQual " ++ show qid
+lookupTyQual (Path qid id) = do
+  ty <- lookupQual qid
+  case ty of
+    TyApp (TyConModule _ mod) _ -> lookupTyIn mod id
+    _ -> throwError $ ErrInvalidModulePath qid
 
 
 lookupVar :: UniqId -> Checked Ty
@@ -295,7 +331,7 @@ subst (TyApp tyCon@(TyConTyFun tyParamIds ty) tyArgs)
        subst ty >>= subst
   | otherwise =
     do madeUpId <- freshId
-       throwError $ ErrPartialTyConApp madeUpId tyCon tyArgs
+       throwError $ ErrPartialTyConApp (Id madeUpId) tyCon tyArgs
 
 subst (TyApp tyCon tyArgs) = do
   tyCon' <- substTyCon tyCon
@@ -443,13 +479,13 @@ tcTy (SynTyList tyArg) = do
   tyArg' <- tcTy tyArg
   return $ TyApp TyConList [tyArg']
 
-tcTy (SynTyRef (Id id) []) = do
-  tyCon <- lookupTy id
+tcTy (SynTyRef qid []) = do
+  tyCon <- lookupTyQual qid
   case tyCon of
     TyConTyVar id' -> return $ TyVar id'
     TyConTyFun [] ty -> return $ TyApp tyCon []
     TyConUnique uniqId tyCon -> return $ TyApp (TyConUnique uniqId tyCon) []
-    _ -> throwError $ ErrPartialTyConApp id tyCon []
+    _ -> throwError $ ErrPartialTyConApp qid tyCon []
 
 
 tcAdtAlt :: AdtAlternative UniqId -> Checked (UniqId, Ty)
@@ -592,16 +628,9 @@ tc (ExpNot e) = do
 tc (ExpMemberAccess e id) = do
   eTy <- tc e
   case eTy of
-    TyApp (TyConModule tyParamIds bindings) [] ->
-      let match = find (\binding -> case binding of
-                                      (ModuleBindingTy name _) -> name == id
-                                      _ -> False
-                       )
-                       bindings
-      in do
-        (ModuleBindingTy _ ty) <- hoistEither $ maybeToEither (ErrUnboundUniqIdentifier id)
-                                              match
-        instantiate ty
+    TyApp (TyConModule tyParamIds mod) [] ->
+      do ty <- lookupVarIn mod id
+         instantiate ty
     _ -> throwError $ ErrNotImplemented "Failed member access"
 
 tc (ExpApp ratorE randEs) = do
@@ -617,11 +646,11 @@ tc (ExpApp ratorE randEs) = do
 -- module { m1 ... mn } --> App(Module, [tc(m1), ..., tc(mn)]
 -- module <t1, ..., tn> { ... } --> Poly([t1, ..., tn], App(Module ...))
 tc (ExpModule paramIds es) = do
-  oldEnv <- pushNewModuleContext paramIds
+  oldEnv <- pushNewModuleContext
   mapM_ tc es
-  moduleTy <- gets curModule
-  restoreEnv oldEnv
-  let tyApp = TyApp moduleTy $ map TyVar paramIds
+  curMod <- gets curModule
+  restoreContext oldEnv
+  let tyApp = TyApp (TyConModule paramIds curMod) $ map TyVar paramIds
   case paramIds of
     [] -> return tyApp
     _ -> return $ TyPoly paramIds tyApp
