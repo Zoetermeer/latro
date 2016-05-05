@@ -717,6 +717,23 @@
                 (App Tuple ())))))
          ((Var ,t))))))
 
+(test-case "it checks monomorphic ADT patterns"
+  (check-equal?
+    @typecheck{
+      type Val =
+        | B Bool
+        | I Int
+        | S String
+        ;
+
+      switch (B(True)) {
+        case I(x) -> x;
+        case B(b) -> 1;
+        case _ -> 0;
+      };
+    }
+    'Int))
+
 (test-case "it checks ADT patterns"
   (check-equal?
     @typecheck{
@@ -731,7 +748,7 @@
     'Int))
 
 (test-case "it does not allow arbitrary functions in ADT patterns"
-  (check-equal?
+  (check-match
     @typecheck{
       type Option<a> =
         | Some a
@@ -742,10 +759,10 @@
       def MakeOpt(v) = Some(42);
       v;
     }
-    '(InvalidPattern "Not a constructor")))
+    `(UnboundUniqIdentifier (Id MakeOpt ,_))))
 
 (test-case "it does not allow pattern bindings to escape modules"
-  (check-equal?
+  (check-match
     @typecheck{
       def Opt = module {
         type t<a> = | Some a | None;
@@ -758,7 +775,7 @@
         case _ -> True;
       };
     }
-    '(UnboundUniqIdentifier Some)))
+    `(UnboundUniqIdentifier (Id Some ,_))))
 
 (test-case "it checks qualified ADT patterns"
   (check-equal?

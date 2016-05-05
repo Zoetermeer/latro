@@ -244,6 +244,11 @@ addModuleTy mod id tyCon =
   mod { types = Map.insert id tyCon (types mod) }
 
 
+addModulePat :: TCModule -> UniqId -> Ty -> TCModule
+addModulePat mod id ty =
+  mod { patFuns = Map.insert id ty (patFuns mod) }
+
+
 data TyCon =
     TyConInt
   | TyConBool

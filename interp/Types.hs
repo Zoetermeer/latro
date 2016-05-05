@@ -103,6 +103,11 @@ putVarBinding id ty = do
   else return ()
 
 
+putPatBinding :: UniqId -> Ty -> Checked ()
+putPatBinding id ty = do
+  modify (\tcEnv -> tcEnv { curModule = addModulePat (curModule tcEnv) id ty })
+
+
 putPolyBinding :: UniqId -> Ty -> Checked ()
 putPolyBinding id ty = do
   modify (\tcEnv -> tcEnv { polyEnv = Map.insert id ty (polyEnv tcEnv) })
@@ -195,6 +200,11 @@ lookupTyIn mod id =
 lookupVarIn :: TCModule -> UniqId -> Checked Ty
 lookupVarIn mod id =
   hoistEither $ maybeToEither (ErrUnboundUniqIdentifier id) $ Map.lookup id $ vars mod
+
+
+lookupPatIn :: TCModule -> UniqId -> Checked Ty
+lookupPatIn mod id =
+  hoistEither $ maybeToEither (ErrUnboundUniqIdentifier id) $ Map.lookup id $ patFuns mod
 
 
 lookupTy :: UniqId -> Checked TyCon
@@ -513,7 +523,8 @@ tcTyDec (TypeDecAdt id tyParamIds alts) = do
   -- Add a function binding for each constructor
   mapM_ (\(ctorName, (TyApp TyConTuple argTys)) ->
             let ctor = TyPoly tyParamIds $ TyApp TyConArrow (argTys ++ [TyApp adtTyCon (map TyVar tyParamIds)])
-            in do putVarBinding ctorName ctor)
+            in do putVarBinding ctorName ctor
+                  putPatBinding ctorName ctor)
         altNamesTys
   return adtTyCon
 
@@ -553,7 +564,18 @@ tcPatExp (PatExpTuple es) = do
   eTys <- mapM tcPatExp es
   return $ TyApp TyConTuple eTys
 
-tcPatExp (PatExpAdt _ _) = throwError $ ErrNotImplemented "tcPatExp for ADT's"
+tcPatExp (PatExpAdt id es) = do
+  curMod <- gets curModule
+  patFunTy <- lookupPatIn curMod id
+  patFunTy' <- subst patFunTy
+  eTys <- mapM tcPatExp es
+  retTyMeta@(TyMeta retTyMetaId) <- freshMeta
+  let gotTy = TyApp TyConArrow $ eTys ++ [retTyMeta]
+  patFunTy'' <- instantiate patFunTy'
+  (TyApp TyConArrow eTys) <- unify patFunTy'' gotTy
+  let (retTy:_) = reverse eTys
+  return retTy
+
 tcPatExp (PatExpList es) = do
   eTys <- mapM tcPatExp es
   patElemTy <- unifyAll eTys
@@ -566,7 +588,11 @@ tcPatExp (PatExpListCons eHd eTl) = do
     TyApp TyConList [elemTy] -> unify elemTy hdTy
     _ -> unify (TyApp TyConList [hdTy]) tlTy
 
-tcPatExp (PatExpId id) = freshMeta
+tcPatExp (PatExpId id) = do
+  ty <- freshMeta
+  putVarBinding id ty
+  return ty
+
 tcPatExp PatExpWildcard = freshMeta
 
 
@@ -575,7 +601,8 @@ addBindingsForPat (PatExpTuple patEs) (TyApp TyConTuple tyArgs) =
   let componentEsTys = zip patEs tyArgs
   in do mapM_ (uncurry addBindingsForPat) componentEsTys
 
-addBindingsForPat (PatExpAdt _ _) _ = throwError $ ErrNotImplemented "addBindingsForPat for ADT's"
+addBindingsForPat (PatExpAdt _ es) (TyApp (TyConUnique _ _) argTys) =
+  mapM_ (uncurry addBindingsForPat) $ zip es argTys
 
 addBindingsForPat (PatExpList elemEs) (TyApp TyConList [tyArg]) =
   let addBindingsForPatWithTy = (flip addBindingsForPat) tyArg
