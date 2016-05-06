@@ -4,13 +4,13 @@ import AlphaConvert
 import Common
 import Control.Error.Util (hoistEither)
 import Control.Monad.Except
-import Control.Monad.State
+import Control.Monad.State.Strict
 import Data.Either.Utils (maybeToEither)
 import Data.List
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 import Data.Maybe (fromMaybe, isNothing)
 import qualified Data.Set as Set
-import Debug.Trace (trace, traceM, traceShowM)
+import Debug.Trace (trace, traceM, traceShowId, traceShowM)
 import Errors
 import Semant
 import Text.Printf (printf)
@@ -45,6 +45,13 @@ mtEnv alphaEnv =
     , inTopLevelScope = True
     }
 
+showHum :: Map.Map UniqId Ty -> String
+showHum map =
+  Map.foldlWithKey
+    (\str key val -> str ++ "\n" ++ show key ++ " --> " ++ show val)
+    ""
+    map
+
 type Checked a = ExceptT Err (State TCEnv) a
 
 
@@ -53,13 +60,19 @@ traceMetaEnv :: Checked ()
 traceMetaEnv = do
   traceM "META ENV:  "
   metaEnv <- gets metaEnv
-  traceShowM metaEnv
+  traceM $ showHum metaEnv
 
 traceVarEnv :: Checked ()
 traceVarEnv = do
   traceM "VAR ENV:  "
   varEnv <- gets varEnv
-  traceShowM varEnv
+  traceM $ showHum varEnv
+
+tracePolyEnv :: Checked ()
+tracePolyEnv = do
+  traceM "POLY Env:  "
+  polyEnv <- gets polyEnv
+  traceM $ showHum polyEnv
 
 
 -- Convenience methods for manipulating the environment
@@ -78,8 +91,8 @@ pushNewModuleContext =
 -- A new var env needs to close over all
 -- bindings in the existing env, so
 -- the update function is the identity function
-pushNewVarEnv :: Checked VarEnv
-pushNewVarEnv =
+snapshotVarEnv :: Checked VarEnv
+snapshotVarEnv =
   gets varEnv
 
 
@@ -122,6 +135,15 @@ putPolyBinding id ty = do
 
 
 putMetaBinding :: UniqId -> Ty -> Checked ()
+putMetaBinding id (TyMeta otherMetaId) = do
+  newMeta <- freshMeta
+  modify (\tcEnv ->
+            let env = metaEnv tcEnv
+                metaEnv' = Map.insert id newMeta env
+                metaEnv'' = Map.insert otherMetaId newMeta metaEnv'
+            in
+              tcEnv { metaEnv = metaEnv'' })
+
 putMetaBinding id ty = do
   modify (\tcEnv -> tcEnv { metaEnv = Map.insert id ty (metaEnv tcEnv) })
 
@@ -188,12 +210,20 @@ isFreeMeta (TyMeta id) = do
   return $ isNothing ty
 
 
-pushPolyEnv :: Checked (Map.Map UniqId Ty)
-pushPolyEnv = gets polyEnv >>= return
+pushNewPolyEnv :: Checked (Map.Map UniqId Ty)
+pushNewPolyEnv = gets polyEnv >>= return
 
 
 restorePolyEnv :: Map.Map UniqId Ty -> Checked ()
 restorePolyEnv env = modify (\tcEnv -> tcEnv { polyEnv = env })
+
+
+pushNewMetaEnv :: Checked (Map.Map UniqId Ty)
+pushNewMetaEnv = gets metaEnv >>= return
+
+
+restoreMetaEnv :: Map.Map UniqId Ty -> Checked ()
+restoreMetaEnv env = modify (\tcEnv -> tcEnv { metaEnv = env })
 
 
 lookupPoly :: UniqId -> Checked (Maybe Ty)
@@ -251,6 +281,12 @@ occursIn _ _ = False
 
 
 expand :: Ty -> Checked Ty
+expand (TyApp (TyConTyFun tyParamIds ty) tyArgs) = do
+  mapM_ (uncurry putPolyBinding) $ zip tyParamIds tyArgs
+  ty' <- subst ty
+  expand ty'
+expand (TyApp (TyConUnique _ tyCon) tyArgs) =
+  expand (TyApp tyCon tyArgs)
 expand meta@(TyMeta id) = do
   maybeTy <- lookupMeta id
   case maybeTy of
@@ -266,23 +302,63 @@ expand ty = return ty
 -- type will yield a poly type, so monomorphic
 -- types will become poly types with empty
 -- type param lists
+
+allMetaIdsInTyCon :: TyCon -> [UniqId]
+allMetaIdsInTyCon (TyConTyFun _ ty) = allMetaIdsIn ty
+allMetaIdsInTyCon (TyConUnique _ tyCon) = allMetaIdsInTyCon tyCon
+allMetaIdsInTyCon _ = []
+
+
+allMetaIdsIn :: Ty -> [UniqId]
+allMetaIdsIn (TyApp tyCon tyArgs) =
+  allMetaIdsInTyCon tyCon ++ concat (map allMetaIdsIn tyArgs)
+
+allMetaIdsIn (TyPoly _ ty) = allMetaIdsIn ty
+allMetaIdsIn (TyMeta id) = [id]
+allMetaIdsIn _ = []
+
+
+referencedMetaIds :: UniqId -> Checked [UniqId]
+referencedMetaIds metaId = do
+  result <- lookupMeta metaId
+  refdIds <- case result of
+    Just ty ->
+      case ty of
+        TyMeta id -> referencedMetaIds id
+        _ -> return []
+    _ -> return []
+  return (metaId : refdIds)
+
+
+allMetasInEnv :: Checked [UniqId]
+allMetasInEnv = do
+  varEnv <- gets varEnv
+  let allTys = snd $ unzip $ Map.toList varEnv
+      metaTys  = filter (\ty -> case ty of
+                                  TyMeta _ -> True
+                                  _ -> False)
+                        allTys
+      allMetaIds = map (\(TyMeta id) -> id) metaTys
+  allBoundMetaIdSets <- mapM referencedMetaIds allMetaIds
+  return $ concat allBoundMetaIdSets
+
+
 freeMetas :: Ty -> Checked [UniqId]
-freeMetas (TyApp _ tyArgs) = do
-  frees <- mapM freeMetas tyArgs
-  return $ concat frees
-freeMetas (TyPoly _ ty) = freeMetas ty
-freeMetas ty@(TyMeta id) = do
-  maybeTy <- lookupMeta id
-  if isNothing maybeTy
-  then return [id]
-  else return []
-freeMetas _ = return []
+freeMetas ty =
+  let occurringMetaIds = allMetaIdsIn ty
+  in do allMetaIds <- allMetasInEnv
+        let occursSet = Set.fromList occurringMetaIds
+            envSet = Set.fromList allMetaIds
+            freeSet = Set.difference occursSet envSet
+        return $ Set.toList freeSet
 
 
 trimUnusedPolyParams :: Ty -> Checked Ty
 trimUnusedPolyParams (TyPoly [] ty) = return ty
 trimUnusedPolyParams (TyPoly tyParamIds ty) =
-    return $ TyPoly tyParamIds' ty
+    case tyParamIds' of
+      [] -> return ty
+      _ -> return $ TyPoly tyParamIds' ty
   where
     allTyConVarIds tyCon =
       case tyCon of
@@ -304,22 +380,27 @@ trimUnusedPolyParams ty = return ty
 
 generalize :: Ty -> Checked Ty
 generalize ty = do
+  traceVarEnv
+  ty' <- subst ty
   frees <- freeMetas ty
-  case frees of
-    [] -> subst ty
-    _ -> do tyParamIds <- mapM (\_ -> freshId) frees
-            let metasAndTyParamIds = zip frees tyParamIds
-            mapM_ (\(metaId, paramId) -> putMetaBinding metaId $ TyVar paramId)
-                  metasAndTyParamIds
-            ty' <- subst ty
-            trimUnusedPolyParams $ TyPoly tyParamIds ty'
+  tyParamIds <- mapM (\_ -> freshId) frees
+  let metasAndTyParamIds = zip frees tyParamIds
+  mapM_ (\(metaId, paramId) -> putMetaBinding metaId $ TyVar paramId)
+        metasAndTyParamIds
+  ty'' <- subst ty'
+  case tyParamIds of
+    [] -> return ty''
+    _ ->
+      let retTy = TyPoly tyParamIds ty''
+      in trimUnusedPolyParams retTy
 
 
 instantiate :: Ty -> Checked Ty
 instantiate (TyPoly tyParamIds ty) = do
   mapM_ (\paramId -> do { meta <- freshMeta; putPolyBinding paramId meta })
         tyParamIds
-  subst ty
+  ty' <- subst ty
+  return ty'
 
 instantiate ty = return ty
 
@@ -333,47 +414,49 @@ substTyCon tyCon = return tyCon
 
 
 subst :: Ty -> Checked Ty
-subst meta@(TyMeta id) = do
-  maybeTy <- lookupMeta id
-  case maybeTy of
-    Just ty -> subst ty
-    _ -> return meta
+subst ty = do
+  oldEnv <- pushNewPolyEnv
+  ty' <- case ty of
+    meta@(TyMeta id) -> do
+      maybeTy <- lookupMeta id
+      case maybeTy of
+        Just ty -> subst ty
+        _ -> return meta
 
-subst (TyApp (TyConTyFun [] tyRef@(TyRef _)) []) = do
-  tyRef' <- subst tyRef
-  return tyRef'
+    (TyApp (TyConTyFun [] tyRef@(TyRef _)) []) -> do
+      tyRef' <- subst tyRef
+      return tyRef'
 
-subst (TyApp tyCon@(TyConTyFun tyParamIds ty) tyArgs)
-  | length tyParamIds == length tyArgs =
-    do mapM_ (uncurry putPolyBinding) $ zip tyParamIds tyArgs
-       subst ty >>= subst
-  | otherwise =
-    do madeUpId <- freshId
-       throwError $ ErrPartialTyConApp (Id madeUpId) tyCon tyArgs
+    (TyApp tyCon@(TyConTyFun tyParamIds ty) tyArgs)
+      | length tyParamIds == length tyArgs ->
+        do mapM_ (uncurry putPolyBinding) $ zip tyParamIds tyArgs
+           subst ty >>= subst
+      | otherwise ->
+        do madeUpId <- freshId
+           throwError $ ErrPartialTyConApp (Id madeUpId) tyCon tyArgs
 
-subst (TyApp tyCon tyArgs) = do
-  tyCon' <- substTyCon tyCon
-  tyArgs' <- mapM subst tyArgs
-  return $ TyApp tyCon' tyArgs'
+    (TyApp tyCon tyArgs) -> do
+      tyCon' <- substTyCon tyCon
+      tyArgs' <- mapM subst tyArgs
+      return $ TyApp tyCon' tyArgs'
 
-subst var@(TyVar id) = do
-  maybeTy <- lookupPoly id
-  case maybeTy of
-    Just ty -> return ty
-    _ -> return var
+    var@(TyVar id) -> do
+      maybeTy <- lookupPoly id
+      case maybeTy of
+        Just ty -> return ty
+        _ -> return var
 
-subst (TyPoly tyParamIds ty) = do
-  ty' <- subst ty
-  freshParamIds <- mapM (\_ -> freshId) tyParamIds
-  let freshParamVars = map TyVar freshParamIds
-  mapM_ (uncurry putPolyBinding) $ zip tyParamIds freshParamVars
-  ty'' <- subst ty'
-  return $ TyPoly freshParamIds ty''
+    TyPoly tyParamIds ty -> do
+      ty' <- subst ty
+      return $ TyPoly tyParamIds ty'
 
-subst (TyRef (Id id)) = do
-  tyCon <- lookupTy id
-  tyCon' <- substTyCon tyCon
-  return $ TyApp tyCon' []
+    (TyRef (Id id)) -> do
+      tyCon <- lookupTy id
+      tyCon' <- substTyCon tyCon
+      return $ TyApp tyCon' []
+
+  -- restorePolyEnv oldEnv
+  return ty'
 
 
 -- Helper for type mismatches (we don't want
@@ -384,82 +467,91 @@ unifyFail :: Ty -> Ty -> Checked Ty
 unifyFail a b = do
   a' <- generalize a
   b' <- generalize b
-  throwError $ ErrCantUnify a' b'
+  throwError $ ErrCantUnify a b
 
 
 unify :: Ty -> Ty -> Checked Ty
-unify a@(TyApp tyconA tyArgsA) b@(TyApp tyconB tyArgsB) | tyconA == tyconB =
-  do mapM_ (uncurry unify) $ zip tyArgsA tyArgsB
-     return a
+unify tya tyb = do
+  oldPolyEnv <- pushNewPolyEnv
+  oldMetaEnv <- pushNewMetaEnv
+  ty <- case (tya, tyb) of
+    (a@(TyApp tyconA tyArgsA), b@(TyApp tyconB tyArgsB))
+      | tyconA == tyconB ->
+        do mapM_ (uncurry unify) $ zip tyArgsA tyArgsB
+           return a
 
-unify (TyApp (TyConTyFun paramVarIds ty) tyArgs) tyb = do
-  oldPolyEnv <- pushPolyEnv
-  mapM_ (uncurry putPolyBinding) $ zip paramVarIds tyArgs
-  ty' <- subst ty
-  uty <- unify ty' tyb
-  restorePolyEnv oldPolyEnv
-  return uty
+    (TyApp (TyConTyFun paramVarIds ty) tyArgs, tyb) -> do
+      -- oldPolyEnv <- pushNewPolyEnv
+      mapM_ (uncurry putPolyBinding) $ zip paramVarIds tyArgs
+      ty' <- subst ty
+      uty <- unify ty' tyb
+      -- restorePolyEnv oldPolyEnv
+      return uty
 
-unify tya (TyApp (TyConTyFun paramVarIds ty) tyArgs) = do
-  oldPolyEnv <- pushPolyEnv
-  mapM_ (uncurry putPolyBinding) $ zip paramVarIds tyArgs
-  ty' <- subst ty
-  uty <- unify tya ty'
-  restorePolyEnv oldPolyEnv
-  return uty
+    (tya, TyApp (TyConTyFun paramVarIds ty) tyArgs) -> do
+      -- oldPolyEnv <- pushNewPolyEnv
+      mapM_ (uncurry putPolyBinding) $ zip paramVarIds tyArgs
+      ty' <- subst ty
+      uty <- unify tya ty'
+      -- restorePolyEnv oldPolyEnv
+      return uty
 
-unify (TyPoly [] ty) tyb = unify ty tyb
+    (TyPoly [] ty, tyb) -> unify ty tyb
 
-unify (TyPoly aParamIds aty) (TyPoly bParamIds bty) =
-  let paramIds = zip bParamIds aParamIds
-  in do mapM_ (\(bParamId, aParamId) -> putPolyBinding bParamId $ TyVar aParamId)
-              paramIds
-        bty' <- subst bty
-        unify aty bty'
+    (TyPoly aParamIds aty, (TyPoly bParamIds bty)) ->
+      let paramIds = zip bParamIds aParamIds
+      in do mapM_ (\(bParamId, aParamId) -> putPolyBinding bParamId $ TyVar aParamId)
+                  paramIds
+            bty' <- subst bty
+            unify aty bty'
 
-unify meta@(TyMeta metaId) ty = do
-  metaTy <- lookupMeta metaId
-  case metaTy of
-    Just mty -> unify mty ty
-    _ ->
-      case ty of
-        TyApp (TyConTyFun _ _) _ -> do
-          expanded <- expand ty
-          unify meta expanded
-        TyMeta rhMetaId ->
-          if metaId == rhMetaId
-          then return meta
-          else do maybeRhMetaTy <- lookupMeta rhMetaId
-                  case maybeRhMetaTy of
-                    Just rhMetaTy -> unify meta rhMetaTy
-                    _ -> do putMetaBinding metaId ty
-                            return ty
+    (meta@(TyMeta metaId), ty) -> do
+      metaTy <- lookupMeta metaId
+      case metaTy of
+        Just mty -> unify mty ty
         _ ->
-          if meta `occursIn` ty
-          then throwError $ ErrCircularType ty
-          else do
-            putMetaBinding metaId ty
-            return ty
+          case ty of
+            TyApp (TyConTyFun _ _) _ -> do
+              expanded <- expand ty
+              unify meta expanded
+            TyMeta rhMetaId ->
+              if metaId == rhMetaId
+              then return meta
+              else do maybeRhMetaTy <- lookupMeta rhMetaId
+                      case maybeRhMetaTy of
+                        Just rhMetaTy -> unify meta rhMetaTy
+                        _ -> do putMetaBinding metaId ty
+                                return ty
+            _ ->
+              if meta `occursIn` ty
+              then throwError $ ErrCircularType ty
+              else do
+                putMetaBinding metaId ty
+                return ty
 
-unify ta@(TyVar a) tb@(TyVar b) =
-  if a == b
-  then do ty <- lookupPoly a
-          return $ fromMaybe ta ty
-  else throwError $ ErrCantUnify ta tb
+    (ta@(TyVar a), tb@(TyVar b)) ->
+      if a == b
+      then do ty <- lookupPoly a
+              return $ fromMaybe ta ty
+      else throwError $ ErrCantUnify ta tb
 
-unify ty meta@(TyMeta _) = unify meta ty
-unify ta@(TyRef a) tb@(TyRef b) =
-  if a == b
-  then do tyCon <- lookupTyQual a
-          return $ TyApp tyCon []
-  else unifyFail ta tb
+    (ty, meta@(TyMeta _)) -> unify meta ty
+    (ta@(TyRef a), tb@(TyRef b)) ->
+      if a == b
+      then do tyCon <- lookupTyQual a
+              return $ TyApp tyCon []
+      else unifyFail ta tb
 
-unify tyRef@(TyRef _) ty = unify ty tyRef
-unify ty (TyRef qid) = do
-  tyb <- lookupTyQual qid
-  unify ty $ TyApp tyb []
+    (tyRef@(TyRef _), ty) -> unify ty tyRef
+    (ty, (TyRef qid)) -> do
+      tyb <- lookupTyQual qid
+      unify ty $ TyApp tyb []
 
-unify ta tb = unifyFail ta tb
+    (ta, tb) -> unifyFail ta tb
+
+  -- restorePolyEnv oldPolyEnv
+  -- restoreMetaEnv oldMetaEnv
+  return ty
 
 
 unifyAll :: [Ty] -> Checked Ty
@@ -497,13 +589,12 @@ tcTy (SynTyList tyArg) = do
   tyArg' <- tcTy tyArg
   return $ TyApp TyConList [tyArg']
 
-tcTy (SynTyRef qid []) = do
+tcTy (SynTyRef qid synTyArgs) = do
   tyCon <- lookupTyQual qid
   case tyCon of
     TyConTyVar id' -> return $ TyVar id'
-    TyConTyFun [] ty -> return $ TyApp tyCon []
-    TyConUnique uniqId tyCon -> return $ TyApp (TyConUnique uniqId tyCon) []
-    _ -> throwError $ ErrPartialTyConApp qid tyCon []
+    _ -> do tyArgs <- mapM tcTy synTyArgs
+            return $ TyApp tyCon tyArgs
 
 
 tcAdtAlt :: AdtAlternative UniqId -> Checked (UniqId, Ty)
@@ -575,12 +666,11 @@ tcPatExp (PatExpTuple es) = do
 tcPatExp (PatExpAdt id es) = do
   curMod <- gets curModule
   patFunTy <- lookupPatIn curMod id
-  patFunTy' <- subst patFunTy
   eTys <- mapM tcPatExp es
   retTyMeta@(TyMeta retTyMetaId) <- freshMeta
   let gotTy = TyApp TyConArrow $ eTys ++ [retTyMeta]
-  patFunTy'' <- instantiate patFunTy'
-  (TyApp TyConArrow eTys) <- unify patFunTy'' gotTy
+  patFunTy' <- instantiate patFunTy
+  (TyApp TyConArrow eTys) <- unify patFunTy' gotTy
   let (retTy:_) = reverse eTys
   return retTy
 
@@ -598,7 +688,8 @@ tcPatExp (PatExpListCons eHd eTl) = do
 
 tcPatExp (PatExpId id) = do
   ty <- freshMeta
-  putVarBinding id ty
+  -- ty' <- generalize ty
+  -- putVarBinding id ty
   return ty
 
 tcPatExp PatExpWildcard = freshMeta
@@ -670,7 +761,10 @@ tc (ExpMemberAccess e id) = do
 
 tc (ExpApp ratorE randEs) = do
   fty <- tc ratorE
-  fty' <- subst fty
+  traceShowM fty
+  traceMetaEnv
+  traceVarEnv
+  tracePolyEnv
   argTys <- mapM tc randEs
   retTyMeta@(TyMeta retTyMetaId) <- freshMeta
   (TyApp TyConArrow argTys) <- unify fty $ TyApp TyConArrow $ argTys ++ [retTyMeta]
@@ -711,11 +805,13 @@ tc (ExpAssign patE (ExpFun paramIds bodyEs)) =
       bodyTyMeta <- freshMeta
       let paramsAndTys = zip paramIds paramMetas
           fty = TyApp TyConArrow $ paramMetas ++ [bodyTyMeta]
+      oldVarEnv <- snapshotVarEnv
       mapM_ (uncurry putVarBinding) paramsAndTys
       putVarBinding id fty
       bodyTy <- tcEs bodyEs
-      unify bodyTyMeta bodyTy
-      fty' <- generalize fty
+      traceVarEnv
+      fty' <- restoreVarEnv oldVarEnv `seq` unify bodyTyMeta bodyTy `seq` generalize fty
+      traceM (show fty')
       putVarBinding id fty'
       return tyUnit
     _ ->
@@ -725,28 +821,29 @@ tc (ExpAssign patE rhe) = do
   rheTy <- tc rhe
   patTy <- tcPatExp patE
   unify patTy rheTy
-  addBindingsForPat patE rheTy
+  rheTy' <- generalize rheTy
+  addBindingsForPat patE rheTy'
   return tyUnit
 
 tc (ExpTuple es) = do
+  eMetas <- mapM (\_ -> freshMeta) es
   tys <- mapM tc es
   return $ TyApp TyConTuple tys
+  unify (TyApp TyConTuple tys) $ TyApp TyConTuple eMetas
 
 tc (ExpSwitch e clauses) = do
   tyE <- tc e
   cTys <- mapM (\(CaseClause patE ces) ->
-                  do oldVarEnv <- pushNewVarEnv
+                  do oldVarEnv <- snapshotVarEnv
                      pty <- tcPatExp patE
-                     p <- subst pty
-                     pty' <- unify tyE p
-                     pty'' <- subst pty'
-                     addBindingsForPat patE pty''
+                     pty' <- unify tyE pty
+                     addBindingsForPat patE pty'
                      retTy <- tcEs ces
                      restoreVarEnv oldVarEnv
                      return retTy)
                clauses
   clauseResultTy <- unifyAll cTys
-  subst clauseResultTy
+  instantiate clauseResultTy >>= return
 
 tc (ExpList es) = do
   tys <- mapM tc es
@@ -758,8 +855,10 @@ tc (ExpFun paramIds bodyEs) = do
   bodyTyMeta <- freshMeta
   let paramsAndTys = zip paramIds paramMetas
       fty = TyApp TyConArrow $ paramMetas ++ [bodyTyMeta]
+  oldVarEnv <- snapshotVarEnv
   mapM_ (uncurry putVarBinding) paramsAndTys
   bodyTy <- tcEs bodyEs
+  restoreVarEnv oldVarEnv
   unify bodyTyMeta bodyTy
   fty' <- generalize fty
   return fty'
