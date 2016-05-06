@@ -2,10 +2,10 @@
 (require "common.rkt"
          rackunit)
 
-; (test-case "it typechecks scalar literals"
-;   (check-equal? @typecheck{42;} 'Int)
-;   (check-equal? @typecheck{True;} 'Bool)
-;   (check-equal? @typecheck{"hello";} 'String))
+(test-case "it typechecks scalar literals"
+  (check-equal? @typecheck{42;} 'Int)
+  (check-equal? @typecheck{True;} 'Bool)
+  (check-equal? @typecheck{"hello";} 'String))
 ; 
 ; (test-case "it typechecks tuples"
 ;   (check-equal?
@@ -501,9 +501,9 @@
         };
       };
 
-      unwrap("hello");
+      (unwrap("hello"), unwrap(42));
     }
-    'Int))
+    '(App Tuple (String Int))))
 
 ; 
 ; (test-case "it checks non-polymorphic annotated function definitions"
@@ -851,46 +851,37 @@
 ;     }
 ;     'Int))
 ;
-; Somehow the second application `id(Some("hello"))` is
-; confusing the checker into thinking that `id` is not really
-; polymorphic at all, and instead always expects arguments of type
-; `Opt<String>`.  We aren't properly making the connection
-; between `id`'s implicit type parameter and `Opt`'s explicit one here
-; (and in the next example).
-; (test-case "it checks the unwrap function on polymorphic ADT's"
-;   (check-equal?
-;     @typecheck{
-;       type Opt<a> = | Some a | None;
-; 
-;       def unwrap = fun(o) {
-;         switch (o) {
-;           case Some(x) -> x;
-;         };
-;       };
-; 
-;       unwrap(Some("hello"));
-;       unwrap(Some(42));
-;     }
-;     '(App Tuple (Int String))))
+(test-case "it checks the unwrap function on polymorphic ADT's"
+  (check-equal?
+    @typecheck{
+      type Opt<a> = | Some a | None;
 
-; (test-case "it infers function types on ADT values"
-;   (check-equal?
-;     @typecheck{
-;       type Opt<a> = | Some a | None;
-; 
-;       def isSome = fun(o) {
-;         switch (o) {
-;           case Some(_) -> True;
-;           case _ -> False;
-;         };
-;       };
-; 
-;       def isNone = fun(o) {
-;         !isSome(o);
-;       };
-; 
-;       (isSome, isSome(Some("hello")));
-;     }
-;     '(App Tuple (Bool Bool))))
+      def unwrap = fun(o) {
+        switch (o) {
+          case Some(x) -> x;
+        };
+      };
 
-; (isNone(Some(42)), isSome(Some("hello")));
+      (unwrap(Some("hello")), unwrap(Some(42)));
+    }
+    '(App Tuple (String Int))))
+
+(test-case "it infers function types on ADT values"
+  (check-equal?
+    @typecheck{
+      type Opt<a> = | Some a | None;
+
+      def isSome = fun(o) {
+        switch (o) {
+          case Some(_) -> True;
+          case _ -> False;
+        };
+      };
+
+      def isNone = fun(o) {
+        !isSome(o);
+      };
+
+      (isSome(None()), isSome(Some("hello")));
+    }
+    '(App Tuple (Bool Bool))))

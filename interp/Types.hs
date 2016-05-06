@@ -91,8 +91,8 @@ pushNewModuleContext =
 -- A new var env needs to close over all
 -- bindings in the existing env, so
 -- the update function is the identity function
-snapshotVarEnv :: Checked VarEnv
-snapshotVarEnv =
+markVarEnv :: Checked VarEnv
+markVarEnv =
   gets varEnv
 
 
@@ -210,16 +210,16 @@ isFreeMeta (TyMeta id) = do
   return $ isNothing ty
 
 
-pushNewPolyEnv :: Checked (Map.Map UniqId Ty)
-pushNewPolyEnv = gets polyEnv >>= return
+markPolyEnv :: Checked (Map.Map UniqId Ty)
+markPolyEnv = gets polyEnv >>= return
 
 
 restorePolyEnv :: Map.Map UniqId Ty -> Checked ()
 restorePolyEnv env = modify (\tcEnv -> tcEnv { polyEnv = env })
 
 
-pushNewMetaEnv :: Checked (Map.Map UniqId Ty)
-pushNewMetaEnv = gets metaEnv >>= return
+markMetaEnv :: Checked (Map.Map UniqId Ty)
+markMetaEnv = gets metaEnv >>= return
 
 
 restoreMetaEnv :: Map.Map UniqId Ty -> Checked ()
@@ -380,9 +380,8 @@ trimUnusedPolyParams ty = return ty
 
 generalize :: Ty -> Checked Ty
 generalize ty = do
-  traceVarEnv
   ty' <- subst ty
-  frees <- freeMetas ty
+  frees <- freeMetas ty'
   tyParamIds <- mapM (\_ -> freshId) frees
   let metasAndTyParamIds = zip frees tyParamIds
   mapM_ (\(metaId, paramId) -> putMetaBinding metaId $ TyVar paramId)
@@ -415,7 +414,7 @@ substTyCon tyCon = return tyCon
 
 subst :: Ty -> Checked Ty
 subst ty = do
-  oldEnv <- pushNewPolyEnv
+  oldEnv <- markPolyEnv
   ty' <- case ty of
     meta@(TyMeta id) -> do
       maybeTy <- lookupMeta id
@@ -472,8 +471,8 @@ unifyFail a b = do
 
 unify :: Ty -> Ty -> Checked Ty
 unify tya tyb = do
-  oldPolyEnv <- pushNewPolyEnv
-  oldMetaEnv <- pushNewMetaEnv
+  oldPolyEnv <- markPolyEnv
+  oldMetaEnv <- markMetaEnv
   ty <- case (tya, tyb) of
     (a@(TyApp tyconA tyArgsA), b@(TyApp tyconB tyArgsB))
       | tyconA == tyconB ->
@@ -481,7 +480,7 @@ unify tya tyb = do
            return a
 
     (TyApp (TyConTyFun paramVarIds ty) tyArgs, tyb) -> do
-      -- oldPolyEnv <- pushNewPolyEnv
+      -- oldPolyEnv <- markPolyEnv
       mapM_ (uncurry putPolyBinding) $ zip paramVarIds tyArgs
       ty' <- subst ty
       uty <- unify ty' tyb
@@ -489,7 +488,7 @@ unify tya tyb = do
       return uty
 
     (tya, TyApp (TyConTyFun paramVarIds ty) tyArgs) -> do
-      -- oldPolyEnv <- pushNewPolyEnv
+      -- oldPolyEnv <- markPolyEnv
       mapM_ (uncurry putPolyBinding) $ zip paramVarIds tyArgs
       ty' <- subst ty
       uty <- unify tya ty'
@@ -761,10 +760,6 @@ tc (ExpMemberAccess e id) = do
 
 tc (ExpApp ratorE randEs) = do
   fty <- tc ratorE
-  traceShowM fty
-  traceMetaEnv
-  traceVarEnv
-  tracePolyEnv
   argTys <- mapM tc randEs
   retTyMeta@(TyMeta retTyMetaId) <- freshMeta
   (TyApp TyConArrow argTys) <- unify fty $ TyApp TyConArrow $ argTys ++ [retTyMeta]
@@ -805,13 +800,13 @@ tc (ExpAssign patE (ExpFun paramIds bodyEs)) =
       bodyTyMeta <- freshMeta
       let paramsAndTys = zip paramIds paramMetas
           fty = TyApp TyConArrow $ paramMetas ++ [bodyTyMeta]
-      oldVarEnv <- snapshotVarEnv
+      oldVarEnv <- markVarEnv
       mapM_ (uncurry putVarBinding) paramsAndTys
       putVarBinding id fty
       bodyTy <- tcEs bodyEs
-      traceVarEnv
-      fty' <- restoreVarEnv oldVarEnv `seq` unify bodyTyMeta bodyTy `seq` generalize fty
-      traceM (show fty')
+      unify bodyTyMeta bodyTy
+      restoreVarEnv oldVarEnv
+      fty' <- generalize fty
       putVarBinding id fty'
       return tyUnit
     _ ->
@@ -834,7 +829,7 @@ tc (ExpTuple es) = do
 tc (ExpSwitch e clauses) = do
   tyE <- tc e
   cTys <- mapM (\(CaseClause patE ces) ->
-                  do oldVarEnv <- snapshotVarEnv
+                  do oldVarEnv <- markVarEnv
                      pty <- tcPatExp patE
                      pty' <- unify tyE pty
                      addBindingsForPat patE pty'
@@ -855,7 +850,7 @@ tc (ExpFun paramIds bodyEs) = do
   bodyTyMeta <- freshMeta
   let paramsAndTys = zip paramIds paramMetas
       fty = TyApp TyConArrow $ paramMetas ++ [bodyTyMeta]
-  oldVarEnv <- snapshotVarEnv
+  oldVarEnv <- markVarEnv
   mapM_ (uncurry putVarBinding) paramsAndTys
   bodyTy <- tcEs bodyEs
   restoreVarEnv oldVarEnv
