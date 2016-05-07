@@ -32,6 +32,12 @@ data CaseClause id =
   deriving (Eq, Show)
 
 
+data CondCaseClause id =
+    CondCaseClause (Exp id) [Exp id]
+  | CondCaseClauseWildcard [Exp id]
+  deriving (Eq, Show)
+
+
 data Exp id =
     ExpAdd (Exp id) (Exp id)
   | ExpSub (Exp id) (Exp id)
@@ -52,6 +58,7 @@ data Exp id =
   | ExpMakeAdt (SynTy id) Int [Exp id]
   | ExpTuple [Exp id]
   | ExpSwitch (Exp id) [CaseClause id]
+  | ExpCond [CondCaseClause id]
   | ExpList [Exp id]
   | ExpFun [id] [Exp id]
   | ExpNum String
@@ -59,6 +66,7 @@ data Exp id =
   | ExpString String
   | ExpRef id
   | ExpUnit
+  | ExpFail String
   deriving (Eq, Show)
 
 data TyAnn id = TyAnn id [id] (SynTy id)

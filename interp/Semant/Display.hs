@@ -125,6 +125,14 @@ instance Sexpable id => Sexpable (CaseClause id) where
           ]
 
 
+instance Sexpable id => Sexpable (CondCaseClause id) where
+  sexp (CondCaseClause e es) =
+    List  [ Symbol "CondCaseClause"
+          , sexp e
+          , toSexpList es
+          ]
+
+
 instance Sexpable id => Sexpable (FunDef id) where
   sexp (FunDefFun id argPatEs es) =
     List  [ Symbol "FunDefFun"
@@ -229,6 +237,7 @@ instance Sexpable id => Sexpable (Exp id) where
   sexp (ExpString s) = List [ Symbol "ExpString", Atom s ]
   sexp (ExpRef id) = List [ Symbol "ExpRef", sexp id ]
   sexp ExpUnit = Symbol "ExpUnit"
+  sexp (ExpFail msg) = List [ Symbol "ExpFail", Atom msg ]
 
 
 instance Sexpable id => Sexpable (TyAnn id) where

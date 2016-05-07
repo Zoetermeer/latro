@@ -35,6 +35,7 @@ import Semant
   if { Token _ TokenIf }
   else { Token _ TokenElse }
   switch { Token _ TokenSwitch }
+  cond { Token _ TokenCond }
   case { Token _ TokenCase }
   ':=' { Token _ TokenAssign }
   '->' { Token _ TokenArrow }
@@ -178,6 +179,7 @@ Exp : '!' ConsExp { ExpNot $2 }
     | TypeDec { ExpTypeDec $1 }
     | if '(' Exp ')' '{' ZeroOrMoreExps '}' else '{' ZeroOrMoreExps '}' { ExpIfElse $3 $6 $10 }
     | switch '(' Exp ')' '{' CaseClauses '}' { ExpSwitch $3 $6 }
+    | cond '{' CondCaseClauses '}' { ExpCond $3 }
 
 AnnDefExp : id '=' ModuleExp { AnnDefModule $1 $3 }
           | FunDef { AnnDefFun $1 }
@@ -206,6 +208,12 @@ CaseClauses : CaseClause { [$1] }
             | CaseClauses CaseClause { $1 ++ [$2] }
 
 CaseClause : case PatExp '->' OneOrMoreExps { CaseClause $2 $4 }
+
+CondCaseClauses : CondCaseClause { [$1] }
+                | CondCaseClauses CondCaseClause { $1 ++ [$2] }
+
+CondCaseClause : case Exp '->' OneOrMoreExps { CondCaseClause $2 $4 }
+               | case '_' '->' OneOrMoreExps { CondCaseClauseWildcard $4 }
 
 ArgExps : Exp { [$1] }
         | ArgExps ',' Exp { $1 ++ [$3] }

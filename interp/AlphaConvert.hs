@@ -209,6 +209,44 @@ desugarFunDefs fid funDefs =
         throwError $ ErrFunDefArityMismatch fid
 
 
+-- cond {
+--   test1 -> es1
+--   test2 -> es2
+--   _ -> es3
+-- }
+--
+-- ==>
+--
+-- if (test1) {
+--   es1
+-- } else (
+--   if (test2) {
+--     es2
+--   } else (
+--     if (True) {
+--       es3
+--     } else {
+--       fail("Inexhaustive cond")
+--     }))
+desugarCondClause :: CondCaseClause RawId -> (Exp RawId, [Exp RawId])
+desugarCondClause (CondCaseClause testE bodyEs) = (testE, bodyEs)
+desugarCondClause (CondCaseClauseWildcard bodyEs) = (ExpBool True, bodyEs)
+
+
+desugarCondClauses :: [CondCaseClause RawId] -> Exp RawId
+desugarCondClauses (clause:clauses) =
+  let (testE, bodyEs) = desugarCondClause clause
+      elseEs = case clauses of
+                 [] -> [ExpFail "Inexhaustive cond expression"]
+                 _ -> [desugarCondClauses clauses]
+  in
+    ExpIfElse testE bodyEs elseEs
+
+
+desugarCond :: Exp RawId -> Exp RawId
+desugarCond (ExpCond clauses) = desugarCondClauses clauses
+
+
 convertAnnDec :: Exp RawId -> AlphaConverted (Exp UniqId)
 convertAnnDec (ExpAnnDec id tyParamIds ty annDefs) = do
   id' <- freshM id
@@ -315,6 +353,8 @@ convert (ExpSwitch e clauses) = do
   clauses' <- mapM convertCaseClause clauses
   return $ ExpSwitch e' clauses'
 
+convert e@(ExpCond clauses) = convert $ desugarCond e
+
 convert (ExpTuple es) = do
   es' <- mapM convert es
   return $ ExpTuple es'
@@ -332,6 +372,7 @@ convert (ExpNum s) = return $ ExpNum s
 convert (ExpBool b) = return $ ExpBool b
 convert (ExpString s) = return $ ExpString s
 convert ExpUnit = return ExpUnit
+convert (ExpFail msg) = return $ ExpFail msg
 convert (ExpRef id) = do
   id' <- lookup id
   return $ ExpRef id'

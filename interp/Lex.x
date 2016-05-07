@@ -42,6 +42,7 @@ tokens :-
   if { lex' TokenIf }
   else { lex' TokenElse }
   switch { lex' TokenSwitch }
+  cond { lex' TokenCond }
   case { lex' TokenCase }
   ":=" { lex' TokenAssign }
   "->" { lex' TokenArrow }
@@ -107,6 +108,7 @@ data TokenClass =
   | TokenIf
   | TokenElse
   | TokenSwitch
+  | TokenCond
   | TokenCase
   | TokenAssign
   | TokenArrow
@@ -163,6 +165,7 @@ unlex (TokenUnit) = "Unit"
 unlex (TokenIf) = "if"
 unlex (TokenElse) = "else"
 unlex (TokenSwitch) = "switch"
+unlex (TokenCond) = "cond"
 unlex (TokenCase) = "case"
 unlex (TokenAssign) = ":="
 unlex (TokenArrow) = "->"

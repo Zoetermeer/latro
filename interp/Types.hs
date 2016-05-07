@@ -728,6 +728,9 @@ addBindingsForPat patE ty =
 
 tc :: Exp UniqId -> Checked Ty
 tc ExpUnit = return $ mtApp TyConUnit
+tc (ExpFail _) = do
+  ty <- freshMeta
+  return ty
 tc (ExpRef id) = do
   ty <- lookupVar id
   instantiate ty

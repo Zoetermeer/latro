@@ -912,3 +912,23 @@
       sizeExp(Leaf(0));
     }
     'Int))
+
+(test-case "it checks cond expressions"
+  (check-equal?
+    @typecheck{
+      cond {
+        case False -> "hello";
+        case _ -> "world";
+      };
+    }
+    'String))
+
+(test-case "it fails if cond tests do not unify with Bool"
+  (check-equal?
+    @typecheck{
+      cond {
+        case 1 -> "foo";
+        case _ -> "bar";
+      };
+    }
+    '(CantUnify (Expected Bool) (Got Int))))
