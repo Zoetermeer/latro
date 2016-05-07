@@ -182,16 +182,16 @@
     }
     '(App Tuple (Int Int))))
 
-; (test-case "it reports an error if inner tuple patterns are ill-typed"
-;   (check-match
-;     @typecheck{
-;       def ((a, b), (c, d)) = ((1, 2), 3);
-;       b;
-;     }
-;     `(CantUnify
-;        (Expected
-;          (Poly (,t1 ,t2) (App Tuple ((Var ,t1) (Var ,t2)))))
-;        (Got Int))))
+(test-case "it reports an error if inner tuple patterns are ill-typed"
+  (check-match
+    @typecheck{
+      def ((a, b), (c, d)) = ((1, 2), 3);
+      b;
+    }
+    `(CantUnify
+       (Expected
+         (App Tuple (,t1 ,t2)))
+       (Got Int))))
 
 (test-case "it checks simple list patterns"
   (check-equal?
@@ -247,23 +247,23 @@
     }
     'Bool))
 
-; (test-case "it checks list patterns against the empty list"
-;   (check-match
-;     @typecheck{
-;       def [x] = [];
-;       x;
-;     }
-;     `(Poly (,t) (Var ,t))))
+(test-case "it checks list patterns against the empty list"
+  (check-match
+    @typecheck{
+      def [x] = [];
+      x;
+    }
+    `(Poly (,t) (Var ,t))))
 
-; (test-case "it checks list patterns against applications returning empty lists"
-;   (check-match
-;     @typecheck{
-;       def mt = fun() { []; };
-;       def [x] = mt();
-; 
-;       x;
-;     }
-;     `(Poly (,t) (Var ,t))))
+(test-case "it checks list patterns against applications returning empty lists"
+  (check-match
+    @typecheck{
+      def mt = fun() { []; };
+      def [x] = mt();
+
+      x;
+    }
+    `(Poly (,t) (Var ,t))))
 
 (test-case "it returns an error for ill-typed list patterns"
   (check-equal?

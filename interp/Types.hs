@@ -706,6 +706,11 @@ addBindingsForPat (PatExpList elemEs) (TyApp TyConList [tyArg]) =
   let addBindingsForPatWithTy = (flip addBindingsForPat) tyArg
   in do mapM_ addBindingsForPatWithTy elemEs
 
+addBindingsForPat (PatExpList elemEs) (TyPoly [tyParamId] (TyApp TyConList [tyArg])) =
+  let elemTy = TyPoly [tyParamId] tyArg
+      addBindingsForPatWithTy = (flip addBindingsForPat) elemTy
+  in do mapM_ addBindingsForPatWithTy elemEs
+
 addBindingsForPat (PatExpList []) (TyMeta _) = return ()
 
 addBindingsForPat (PatExpListCons hdE tlE) ty@(TyApp TyConList [tyArg]) = do
@@ -813,9 +818,11 @@ tc (ExpAssign patE (ExpFun paramIds bodyEs)) =
       throwError ErrInvalidFunPattern
 
 tc (ExpAssign patE rhe) = do
+  oldVarEnv <- markVarEnv
   rheTy <- tc rhe
   patTy <- tcPatExp patE
   unify patTy rheTy
+  restoreVarEnv oldVarEnv
   rheTy' <- generalize rheTy
   addBindingsForPat patE rheTy'
   return tyUnit
