@@ -1,4 +1,3 @@
-{-# LANGUAGE BangPatterns #-}
 module Types where
 
 import AlphaConvert
@@ -424,7 +423,6 @@ substTyCon tyCon = return tyCon
 
 subst :: Ty -> Checked Ty
 subst ty = do
-  oldEnv <- markPolyEnv
   ty' <- case ty of
     meta@(TyMeta id) -> do
       maybeTy <- lookupMeta id
@@ -464,7 +462,6 @@ subst ty = do
       tyCon' <- substTyCon tyCon
       return $ TyApp tyCon' []
 
-  -- restorePolyEnv oldEnv
   return ty'
 
 
@@ -490,19 +487,15 @@ unify tya tyb = do
            return a
 
     (TyApp (TyConTyFun paramVarIds ty) tyArgs, tyb) -> do
-      -- oldPolyEnv <- markPolyEnv
       mapM_ (uncurry bindPoly) $ zip paramVarIds tyArgs
       ty' <- subst ty
       uty <- unify ty' tyb
-      -- restorePolyEnv oldPolyEnv
       return uty
 
     (tya, TyApp (TyConTyFun paramVarIds ty) tyArgs) -> do
-      -- oldPolyEnv <- markPolyEnv
       mapM_ (uncurry bindPoly) $ zip paramVarIds tyArgs
       ty' <- subst ty
       uty <- unify tya ty'
-      -- restorePolyEnv oldPolyEnv
       return uty
 
     (TyPoly [] ty, tyb) -> unify ty tyb
@@ -558,8 +551,6 @@ unify tya tyb = do
 
     (ta, tb) -> unifyFail ta tb
 
-  -- restorePolyEnv oldPolyEnv
-  -- restoreMetaEnv oldMetaEnv
   return ty
 
 
@@ -697,7 +688,6 @@ tcPatExp (PatExpListCons eHd eTl) = do
 
 tcPatExp (PatExpId id) = do
   ty <- freshMeta
-  -- ty' <- generalize ty
   bindVar id ty
   return ty
 
@@ -849,7 +839,6 @@ tc (ExpSwitch e clauses) = do
                   do oldVarEnv <- markVarEnv
                      pty <- tcPatExp patE
                      pty' <- unify tyE pty
-                     -- addBindingsForPat patE pty'
                      retTy <- tcEs ces
                      restoreVarEnv oldVarEnv
                      return retTy)
