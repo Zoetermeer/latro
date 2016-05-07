@@ -672,65 +672,65 @@
 ;               (App Tuple ())))))
 ;        (Int))))
 ; 
-; (test-case "it checks parameterized ADT types with multiple parameters"
-;   (check-match
-;     @typecheck{
-;       type Either<l, r> =
-;         | Left l
-;         | Right r
-;         ;
-; 
-;       (Right("hello"), Left(42), Right(True));
-;     }
-;     `(Poly (,t1 ,t2 ,t3)
-;        (App
-;          Tuple
-;          ((App
-;             (Unique
-;               ,Either
-;               (TyFun
-;                 (,l ,r)
-;                 (App (Adt (,Left ,Right)) ((App Tuple ((Var ,l))) (App Tuple ((Var ,r)))))))
-;             ((Var ,t1) String))
-;           (App
-;             (Unique
-;               ,Either
-;               (TyFun
-;                 (,l ,r)
-;                 (App (Adt (,Left ,Right)) ((App Tuple ((Var ,l))) (App Tuple ((Var ,r)))))))
-;             (Int (Var ,t2)))
-;           (App
-;             (Unique
-;               ,Either
-;               (TyFun
-;                 (,l ,r)
-;                 (App (Adt (,Left ,Right)) ((App Tuple ((Var ,l))) (App Tuple ((Var ,r)))))))
-;             ((Var ,t3) Bool)))))))
-; 
-; 
-; (test-case "it checks parameterized ADT type constructors with no arguments"
-;   (check-match
-;     @typecheck{
-;       type Option<a> =
-;         | Some a
-;         | None
-;         ;
-; 
-;       None();
-;     }
-;     `(Poly
-;        (,t)
-;        (App
-;          (Unique
-;            ,Option
-;            (TyFun
-;              (,a)
-;              (App
-;                (Adt (,Some ,None))
-;                ((App Tuple ((Var ,a)))
-;                 (App Tuple ())))))
-;          ((Var ,t))))))
-; 
+(test-case "it checks parameterized ADT types with multiple parameters"
+  (check-match
+    @typecheck{
+      type Either<l, r> =
+        | Left l
+        | Right r
+        ;
+
+      (Right("hello"), Left(42), Right(True));
+    }
+    `(Poly (,t1 ,t2 ,t3)
+       (App
+         Tuple
+         ((App
+            (Unique
+              ,Either
+              (TyFun
+                (,l ,r)
+                (App (Adt (,Left ,Right)) ((App Tuple ((Var ,l))) (App Tuple ((Var ,r)))))))
+            ((Var ,t1) String))
+          (App
+            (Unique
+              ,Either
+              (TyFun
+                (,l ,r)
+                (App (Adt (,Left ,Right)) ((App Tuple ((Var ,l))) (App Tuple ((Var ,r)))))))
+            (Int (Var ,t2)))
+          (App
+            (Unique
+              ,Either
+              (TyFun
+                (,l ,r)
+                (App (Adt (,Left ,Right)) ((App Tuple ((Var ,l))) (App Tuple ((Var ,r)))))))
+            ((Var ,t3) Bool)))))))
+
+
+(test-case "it checks parameterized ADT type constructors with no arguments"
+  (check-match
+    @typecheck{
+      type Option<a> =
+        | Some a
+        | None
+        ;
+
+      None();
+    }
+    `(Poly
+       (,t)
+       (App
+         (Unique
+           ,Option
+           (TyFun
+             (,a)
+             (App
+               (Adt (,Some ,None))
+               ((App Tuple ((Var ,a)))
+                (App Tuple ())))))
+         ((Var ,t))))))
+
 ; (test-case "it checks monomorphic ADT patterns"
 ;   (check-equal?
 ;     @typecheck{
@@ -747,64 +747,64 @@
 ;       };
 ;     }
 ;     'Int))
-; 
-; (test-case "it checks ADT patterns"
-;   (check-equal?
-;     @typecheck{
-;       type Option<a> =
-;         | Some a
-;         | None
-;         ;
-; 
-;       def Some(v) = Some(42);
-;       v;
-;     }
-;     'Int))
-; 
-; (test-case "it does not allow arbitrary functions in ADT patterns"
-;   (check-match
-;     @typecheck{
-;       type Option<a> =
-;         | Some a
-;         | None
-;         ;
-; 
-;       def MakeOpt = fun() { Some(False); };
-;       def MakeOpt(v) = Some(42);
-;       v;
-;     }
-;     `(UnboundUniqIdentifier (Id MakeOpt ,_))))
-; 
-; (test-case "it does not allow bindings in a pattern to escape into other clauses"
-;   (check-match
-;     @typecheck{
-;       type Foo =
-;         | B Bool
-;         | I Int
-;         ;
-; 
-;       switch (I(42)) {
-;         case I(x) -> x;
-;         case B(b) -> x;
-;       };
-;     }
-;     `(UnboundUniqIdentifier (Id x ,_))))
-; 
-; (test-case "it does not allow pattern bindings to escape modules"
-;   (check-match
-;     @typecheck{
-;       def Opt = module {
-;         type t<a> = | Some a | None;
-; 
-;         def GetOne = fun() { Some(42); };
-;       };
-; 
-;       switch (Opt.GetOne()) {
-;         case Some(43) -> False;
-;         case _ -> True;
-;       };
-;     }
-;     `(UnboundUniqIdentifier (Id Some ,_))))
+
+(test-case "it checks ADT patterns"
+  (check-equal?
+    @typecheck{
+      type Option<a> =
+        | Some a
+        | None
+        ;
+
+      def Some(v) = Some(42);
+      v;
+    }
+    'Int))
+
+(test-case "it does not allow arbitrary functions in ADT patterns"
+  (check-match
+    @typecheck{
+      type Option<a> =
+        | Some a
+        | None
+        ;
+
+      def MakeOpt = fun() { Some(False); };
+      def MakeOpt(v) = Some(42);
+      v;
+    }
+    `(UnboundUniqIdentifier (Id MakeOpt ,_))))
+
+(test-case "it does not allow bindings in a pattern to escape into other clauses"
+  (check-match
+    @typecheck{
+      type Foo =
+        | B Bool
+        | I Int
+        ;
+
+      switch (I(42)) {
+        case I(x) -> x;
+        case B(b) -> x;
+      };
+    }
+    `(UnboundUniqIdentifier (Id x ,_))))
+
+(test-case "it does not allow pattern bindings to escape modules"
+  (check-match
+    @typecheck{
+      def Opt = module {
+        type t<a> = | Some a | None;
+
+        def GetOne = fun() { Some(42); };
+      };
+
+      switch (Opt.GetOne()) {
+        case Some(43) -> False;
+        case _ -> True;
+      };
+    }
+    `(UnboundUniqIdentifier (Id Some ,_))))
 ; 
 ; (test-case "it checks qualified ADT patterns"
 ;   (check-equal?
@@ -850,7 +850,7 @@
 ;       unwrap(Some(42));
 ;     }
 ;     'Int))
-;
+
 (test-case "it checks the unwrap function on polymorphic ADT's"
   (check-equal?
     @typecheck{
