@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 module Types where
 
 import AlphaConvert
@@ -110,15 +111,24 @@ putModuleVarBinding id ty =
   modify (\tcEnv -> tcEnv { curModule = addModuleVar (curModule tcEnv) id ty })
 
 
-putTyBinding :: UniqId -> TyCon -> Checked ()
-putTyBinding id tyCon = do
+bindTy :: UniqId -> TyCon -> Checked ()
+bindTy id tyCon = do
   modify (\tcEnv -> tcEnv { curModule = addModuleTy (curModule tcEnv) id tyCon })
 
 
-putVarBinding :: UniqId -> Ty -> Checked ()
-putVarBinding id ty = do
+bindVar :: UniqId -> Ty -> Checked ()
+bindVar id ty = do
   isTopLevel <- gets inTopLevelScope
   modify (\tcEnv -> tcEnv { varEnv = Map.insert id ty (varEnv tcEnv) })
+  if isTopLevel
+  then putModuleVarBinding id ty
+  else return ()
+
+
+bindVarIfNotBound :: UniqId -> Ty -> Checked ()
+bindVarIfNotBound id ty = do
+  isTopLevel <- gets inTopLevelScope
+  modify (\tcEnv -> tcEnv { varEnv = Map.insertWith (\new old -> old) id ty (varEnv tcEnv) })
   if isTopLevel
   then putModuleVarBinding id ty
   else return ()
@@ -129,13 +139,13 @@ putPatBinding id ty = do
   modify (\tcEnv -> tcEnv { curModule = addModulePat (curModule tcEnv) id ty })
 
 
-putPolyBinding :: UniqId -> Ty -> Checked ()
-putPolyBinding id ty = do
+bindPoly :: UniqId -> Ty -> Checked ()
+bindPoly id ty = do
   modify (\tcEnv -> tcEnv { polyEnv = Map.insert id ty (polyEnv tcEnv) })
 
 
-putMetaBinding :: UniqId -> Ty -> Checked ()
-putMetaBinding id (TyMeta otherMetaId) = do
+bindMeta :: UniqId -> Ty -> Checked ()
+bindMeta id (TyMeta otherMetaId) = do
   newMeta <- freshMeta
   modify (\tcEnv ->
             let env = metaEnv tcEnv
@@ -144,7 +154,7 @@ putMetaBinding id (TyMeta otherMetaId) = do
             in
               tcEnv { metaEnv = metaEnv'' })
 
-putMetaBinding id ty = do
+bindMeta id ty = do
   modify (\tcEnv -> tcEnv { metaEnv = Map.insert id ty (metaEnv tcEnv) })
 
 
@@ -282,7 +292,7 @@ occursIn _ _ = False
 
 expand :: Ty -> Checked Ty
 expand (TyApp (TyConTyFun tyParamIds ty) tyArgs) = do
-  mapM_ (uncurry putPolyBinding) $ zip tyParamIds tyArgs
+  mapM_ (uncurry bindPoly) $ zip tyParamIds tyArgs
   ty' <- subst ty
   expand ty'
 expand (TyApp (TyConUnique _ tyCon) tyArgs) =
@@ -384,7 +394,7 @@ generalize ty = do
   frees <- freeMetas ty'
   tyParamIds <- mapM (\_ -> freshId) frees
   let metasAndTyParamIds = zip frees tyParamIds
-  mapM_ (\(metaId, paramId) -> putMetaBinding metaId $ TyVar paramId)
+  mapM_ (\(metaId, paramId) -> bindMeta metaId $ TyVar paramId)
         metasAndTyParamIds
   ty'' <- subst ty'
   case tyParamIds of
@@ -396,7 +406,7 @@ generalize ty = do
 
 instantiate :: Ty -> Checked Ty
 instantiate (TyPoly tyParamIds ty) = do
-  mapM_ (\paramId -> do { meta <- freshMeta; putPolyBinding paramId meta })
+  mapM_ (\paramId -> do { meta <- freshMeta; bindPoly paramId meta })
         tyParamIds
   ty' <- subst ty
   return ty'
@@ -428,7 +438,7 @@ subst ty = do
 
     (TyApp tyCon@(TyConTyFun tyParamIds ty) tyArgs)
       | length tyParamIds == length tyArgs ->
-        do mapM_ (uncurry putPolyBinding) $ zip tyParamIds tyArgs
+        do mapM_ (uncurry bindPoly) $ zip tyParamIds tyArgs
            subst ty >>= subst
       | otherwise ->
         do madeUpId <- freshId
@@ -481,7 +491,7 @@ unify tya tyb = do
 
     (TyApp (TyConTyFun paramVarIds ty) tyArgs, tyb) -> do
       -- oldPolyEnv <- markPolyEnv
-      mapM_ (uncurry putPolyBinding) $ zip paramVarIds tyArgs
+      mapM_ (uncurry bindPoly) $ zip paramVarIds tyArgs
       ty' <- subst ty
       uty <- unify ty' tyb
       -- restorePolyEnv oldPolyEnv
@@ -489,7 +499,7 @@ unify tya tyb = do
 
     (tya, TyApp (TyConTyFun paramVarIds ty) tyArgs) -> do
       -- oldPolyEnv <- markPolyEnv
-      mapM_ (uncurry putPolyBinding) $ zip paramVarIds tyArgs
+      mapM_ (uncurry bindPoly) $ zip paramVarIds tyArgs
       ty' <- subst ty
       uty <- unify tya ty'
       -- restorePolyEnv oldPolyEnv
@@ -499,7 +509,7 @@ unify tya tyb = do
 
     (TyPoly aParamIds aty, (TyPoly bParamIds bty)) ->
       let paramIds = zip bParamIds aParamIds
-      in do mapM_ (\(bParamId, aParamId) -> putPolyBinding bParamId $ TyVar aParamId)
+      in do mapM_ (\(bParamId, aParamId) -> bindPoly bParamId $ TyVar aParamId)
                   paramIds
             bty' <- subst bty
             unify aty bty'
@@ -519,13 +529,13 @@ unify tya tyb = do
               else do maybeRhMetaTy <- lookupMeta rhMetaId
                       case maybeRhMetaTy of
                         Just rhMetaTy -> unify meta rhMetaTy
-                        _ -> do putMetaBinding metaId ty
+                        _ -> do bindMeta metaId ty
                                 return ty
             _ ->
               if meta `occursIn` ty
               then throwError $ ErrCircularType ty
               else do
-                putMetaBinding metaId ty
+                bindMeta metaId ty
                 return ty
 
     (ta@(TyVar a), tb@(TyVar b)) ->
@@ -612,16 +622,16 @@ tcTyDec (TypeDecTy id (SynTyStruct fields)) =
 
 tcTyDec (TypeDecAdt id tyParamIds alts) = do
   -- Bind a 'name' type for recursive definitions
-  putTyBinding id $ TyConTyFun tyParamIds $ TyRef $ Id id
+  bindTy id $ TyConTyFun tyParamIds $ TyRef $ Id id
   -- Bind a 'tyvar' tycon for each type parameter
-  mapM_ (\tyParamId -> putTyBinding tyParamId $ TyConTyVar tyParamId) tyParamIds
+  mapM_ (\tyParamId -> bindTy tyParamId $ TyConTyVar tyParamId) tyParamIds
   altNamesTys <- mapM tcAdtAlt alts
   let (names, tys) = unzip altNamesTys
       adtTyCon = TyConUnique id $ TyConTyFun tyParamIds $ TyApp (TyConAdt names) tys
   -- Add a function binding for each constructor
   mapM_ (\(ctorName, (TyApp TyConTuple argTys)) ->
             let ctor = TyPoly tyParamIds $ TyApp TyConArrow (argTys ++ [TyApp adtTyCon (map TyVar tyParamIds)])
-            in do putVarBinding ctorName ctor
+            in do bindVar ctorName ctor
                   putPatBinding ctorName ctor)
         altNamesTys
   return adtTyCon
@@ -688,7 +698,7 @@ tcPatExp (PatExpListCons eHd eTl) = do
 tcPatExp (PatExpId id) = do
   ty <- freshMeta
   -- ty' <- generalize ty
-  -- putVarBinding id ty
+  bindVar id ty
   return ty
 
 tcPatExp PatExpWildcard = freshMeta
@@ -717,7 +727,7 @@ addBindingsForPat (PatExpListCons hdE tlE) ty@(TyApp TyConList [tyArg]) = do
   addBindingsForPat hdE tyArg
   addBindingsForPat tlE ty
 
-addBindingsForPat (PatExpId id) ty = putVarBinding id ty
+addBindingsForPat (PatExpId id) ty = bindVar id ty
 addBindingsForPat PatExpWildcard _ = return ()
 addBindingsForPat (PatExpNumLiteral _) _ = return ()
 addBindingsForPat (PatExpBoolLiteral _) _ = return ()
@@ -806,13 +816,13 @@ tc (ExpAssign patE (ExpFun paramIds bodyEs)) =
       let paramsAndTys = zip paramIds paramMetas
           fty = TyApp TyConArrow $ paramMetas ++ [bodyTyMeta]
       oldVarEnv <- markVarEnv
-      mapM_ (uncurry putVarBinding) paramsAndTys
-      putVarBinding id fty
+      mapM_ (uncurry bindVar) paramsAndTys
+      bindVar id fty
       bodyTy <- tcEs bodyEs
       unify bodyTyMeta bodyTy
       restoreVarEnv oldVarEnv
       fty' <- generalize fty
-      putVarBinding id fty'
+      bindVar id fty'
       return tyUnit
     _ ->
       throwError ErrInvalidFunPattern
@@ -839,7 +849,7 @@ tc (ExpSwitch e clauses) = do
                   do oldVarEnv <- markVarEnv
                      pty <- tcPatExp patE
                      pty' <- unify tyE pty
-                     addBindingsForPat patE pty'
+                     -- addBindingsForPat patE pty'
                      retTy <- tcEs ces
                      restoreVarEnv oldVarEnv
                      return retTy)
@@ -858,7 +868,7 @@ tc (ExpFun paramIds bodyEs) = do
   let paramsAndTys = zip paramIds paramMetas
       fty = TyApp TyConArrow $ paramMetas ++ [bodyTyMeta]
   oldVarEnv <- markVarEnv
-  mapM_ (uncurry putVarBinding) paramsAndTys
+  mapM_ (uncurry bindVar) paramsAndTys
   bodyTy <- tcEs bodyEs
   restoreVarEnv oldVarEnv
   unify bodyTyMeta bodyTy
@@ -879,7 +889,7 @@ tc (ExpTypeDec tyDec) =
   let id = getTypeDecId tyDec
   in do
     tycon <- tcTyDec tyDec
-    putTyBinding id tycon
+    bindTy id tycon
     return tyUnit
 
 -- Note that `annDefs` here will never contain
@@ -897,15 +907,17 @@ tc (ExpAnnDec decId tyParamIds synTy [AnnDefFun (FunDefFun defId paramPats bodyE
   then
     let paramIds = map (\(PatExpId id) -> id) paramPats
         asnE = ExpAssign (PatExpId defId) $ ExpFun paramIds bodyEs
-    in do mapM_ (\tyParamId -> putTyBinding tyParamId $ TyConTyVar tyParamId) tyParamIds
-          tc asnE
+        (SynTyArrow paramSynTys retSynTy) = synTy
+    in do mapM_ (\tyParamId -> bindTy tyParamId $ TyConTyVar tyParamId) tyParamIds
           givenTy <- tcTy synTy
+          let givenTy' = case tyParamIds of
+                            [] -> givenTy
+                            _ -> TyPoly tyParamIds givenTy
+          tc asnE
           inferredTy <- lookupVar defId
-          funTy <- unify givenTy inferredTy
-          let funTy' = case tyParamIds of
-                          [] -> funTy
-                          _ -> TyPoly tyParamIds funTy
-          putVarBinding defId funTy'
+          givenTy'' <- instantiate givenTy'
+          funTy <- instantiate inferredTy >>= unify givenTy''
+          generalize funTy >>= bindVar defId
           return tyUnit
   else
     throwError $ ErrFunDefIdMismatch decId defId

@@ -125,6 +125,7 @@
     }
     '(InvalidStructType Int)))
 
+; Pending a well-defined typing semantics around structs
 ; (test-case "it checks struct-field accesses"
 ;   (check-equal?
 ;     @typecheck{
@@ -515,45 +516,47 @@
     }
     'Int))
 
-; (test-case "it fails if annotations don't match inferred types (monomorphic)"
-;   (check-equal?
-;     @typecheck{
-;       add => fun(Int, Int) : Int;
-;       add(x, y) { False; };
-;     }
-;     '(CantUnify (Expected Int) (Got Bool))))
+(test-case "it fails if annotations don't match inferred types (monomorphic)"
+  (check-match
+    @typecheck{
+      add => fun(Int, Int) : Int;
+      add(x, y) { False; };
+    }
+    `(CantUnify
+       (Expected Int)
+       (Got Bool))))
 
-; (test-case "it checks annotated function definitions"
-;   (check-equal?
-;     @typecheck{
-;       f<a> => fun(a) : a;
-;       f(x) { x; };
-; 
-;       f(42);
-;     }
-;     'Int))
+(test-case "it checks annotated function definitions"
+  (check-equal?
+    @typecheck{
+      f<a> => fun(a) : a;
+      f(x) { x; };
 
-; (test-case "it checks annotated functions with recursive application"
-;   (check-equal?
-;     @typecheck{
-;       len<a> => fun(a[]) : Int;
-;       len([]) { 0; }
-;       len(x::xs) { 1 + len(xs); };
-; 
-;       len([1, 2]);
-;     }
-;     'Int))
-; 
-; (test-case "it fails in ill-typed application of annotated functions"
-;   (check-match
-;     @typecheck{
-;       len<a> => fun(a[]) : Int;
-;       len([]) { 0; }
-;       len(x::xs) { 1 + len(xs); };
-; 
-;       len(3);
-;     }
-;     `(CantUnify (Expected (Poly (,t) (App List ((Var ,t))))) (Got Int))))
+      f(42);
+    }
+    'Int))
+
+(test-case "it checks annotated functions with recursive application"
+  (check-equal?
+    @typecheck{
+      len<a> => fun(a[]) : Int;
+      len([]) { 0; }
+      len(x::xs) { 1 + len(xs); };
+
+      len([1, 2]);
+    }
+    'Int))
+
+(test-case "it fails in ill-typed application of annotated functions"
+  (check-match
+    @typecheck{
+      len<a> => fun(a[]) : Int;
+      len([]) { 0; }
+      len(x::xs) { 1 + len(xs); };
+
+      len(3);
+    }
+    `(CantUnify (Expected (App List (,t))) (Got Int))))
 
 (test-case "it fails if return values are of different type params"
   (check-equal?
@@ -636,17 +639,17 @@
     }
     `(CantUnify (Expected (App (Unique (Id A ,_) ,_) ,_)) (Got (App (Unique (Id B ,_) ,_) ,_)))))
 
-; (test-case "it checks annotated functions involving ADT types"
-;   (check-match
-;     @typecheck{
-;       type A = | Foo Int | Bar Int Bool;
-; 
-;       f => fun(A) : A;
-;       f(v) { v; };
-; 
-;       f(Bar(1, False));
-;     }
-;     `(App (Unique (Id A ,_) ,_) ,_)))
+(test-case "it checks annotated functions involving ADT types"
+  (check-match
+    @typecheck{
+      type A = | Foo Int | Bar Int Bool;
+
+      f => fun(A) : A;
+      f(v) { v; };
+
+      f(Bar(1, False));
+    }
+    `(App (Unique (Id A ,_) ,_) ,_)))
 
 (test-case "it checks parameterized ADT types"
   (check-match
@@ -728,22 +731,22 @@
                 (App Tuple ())))))
          ((Var ,t))))))
 
-; (test-case "it checks monomorphic ADT patterns"
-;   (check-equal?
-;     @typecheck{
-;       type Val =
-;         | B Bool
-;         | I Int
-;         | S String
-;         ;
-; 
-;       switch (B(True)) {
-;         case I(x) -> x;
-;         case B(b) -> 1;
-;         case _ -> 0;
-;       };
-;     }
-;     'Int))
+(test-case "it checks monomorphic ADT patterns"
+  (check-equal?
+    @typecheck{
+      type Val =
+        | B Bool
+        | I Int
+        | S String
+        ;
+
+      switch (B(True)) {
+        case I(x) -> x;
+        case B(b) -> 1;
+        case _ -> 0;
+      };
+    }
+    'Int))
 
 (test-case "it checks ADT patterns"
   (check-equal?
@@ -802,51 +805,52 @@
       };
     }
     `(UnboundUniqIdentifier (Id Some ,_))))
-; 
+;
+; Pended until the syntax supports these qualified patterns (trivial)
 ; (test-case "it checks qualified ADT patterns"
 ;   (check-equal?
 ;     @typecheck{
 ;       def Opt = module {
 ;         type t<a> = | Some a | None;
-; 
+;
 ;         def GetOne = fun() { Some(42); };
 ;       };
-; 
+;
 ;       switch (Opt.GetOne()) {
 ;         case Opt.Some(43) -> False;
 ;         case _ -> True;
 ;       };
 ;     }
 ;     'Bool))
-; 
-; (test-case "it checks annotated functions on ADT values"
-;   (check-equal?
-;     @typecheck{
-;       type Opt<a> = | Some a | None;
-; 
-;       isSome<a> => fun(Opt<a>) : Bool;
-;       isSome(Some(_)) { True; }
-;       isSome(_) { False; };
-; 
-;       isNone<a> => fun(Opt<a>) : Bool;
-;       isNone(o) { !isSome(o); };
-; 
-;       (isNone(Some(42)), isSome(Some(True)));
-;     }
-;     '(App Tuple (Bool Bool))))
 
-; (test-case "it checks the annotated unwrap function on polymorphic ADT's"
-;   (check-equal?
-;     @typecheck{
-;       type Opt<a> = | Some a | None;
-; 
-;       unwrap<a> => fun(Opt<a>) : a;
-;       unwrap(Some(x)) { x; };
-; 
-;       unwrap(Some("hello"));
-;       unwrap(Some(42));
-;     }
-;     'Int))
+(test-case "it checks annotated functions on ADT values"
+  (check-equal?
+    @typecheck{
+      type Opt<a> = | Some a | None;
+
+      isSome<a> => fun(Opt<a>) : Bool;
+      isSome(Some(_)) { True; }
+      isSome(_) { False; };
+
+      isNone<a> => fun(Opt<a>) : Bool;
+      isNone(o) { !isSome(o); };
+
+      (isNone(Some(42)), isSome(Some(True)));
+    }
+    '(App Tuple (Bool Bool))))
+
+(test-case "it checks the annotated unwrap function on polymorphic ADT's"
+  (check-equal?
+    @typecheck{
+      type Opt<a> = | Some a | None;
+
+      unwrap<a> => fun(Opt<a>) : a;
+      unwrap(Some(x)) { x; };
+
+      unwrap(Some("hello"));
+      unwrap(Some(42));
+    }
+    'Int))
 
 (test-case "it checks the unwrap function on polymorphic ADT's"
   (check-equal?
