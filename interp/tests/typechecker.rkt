@@ -886,3 +886,29 @@
       (isSome(None()), isSome(Some("hello")));
     }
     '(App Tuple (Bool Bool))))
+
+(test-case "it checks applications involving parameterized recursive types"
+  (check-equal?
+    @typecheck{
+      type BTree<a> =
+        | Node a BTree<a> BTree<a>
+        | Leaf a
+        ;
+
+      def sizeImp = fun(tree) {
+        switch (tree) {
+          case Leaf(_) -> 1;
+          case Node(_, left, right) ->
+            1 + sizeImp(left) + sizeImp(right);
+        };
+      };
+
+      sizeExp<a> => fun(BTree<a>) : Int;
+      sizeExp(Leaf(_)) { 1; }
+      sizeExp(Node(_, left, right)) {
+        1 + sizeImp(left) + sizeImp(right);
+      };
+
+      sizeExp(Leaf(0));
+    }
+    'Int))

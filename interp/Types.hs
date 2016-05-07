@@ -908,7 +908,8 @@ tc (ExpAnnDec decId tyParamIds synTy [AnnDefFun (FunDefFun defId paramPats bodyE
     let paramIds = map (\(PatExpId id) -> id) paramPats
         asnE = ExpAssign (PatExpId defId) $ ExpFun paramIds bodyEs
         (SynTyArrow paramSynTys retSynTy) = synTy
-    in do mapM_ (\tyParamId -> bindTy tyParamId $ TyConTyVar tyParamId) tyParamIds
+    in do oldMetaEnv <- markMetaEnv
+          mapM_ (\tyParamId -> bindTy tyParamId $ TyConTyVar tyParamId) tyParamIds
           givenTy <- tcTy synTy
           let givenTy' = case tyParamIds of
                             [] -> givenTy
@@ -917,6 +918,7 @@ tc (ExpAnnDec decId tyParamIds synTy [AnnDefFun (FunDefFun defId paramPats bodyE
           inferredTy <- lookupVar defId
           givenTy'' <- instantiate givenTy'
           funTy <- instantiate inferredTy >>= unify givenTy''
+          restoreMetaEnv oldMetaEnv
           generalize funTy >>= bindVar defId
           return tyUnit
   else
