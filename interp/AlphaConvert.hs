@@ -253,29 +253,28 @@ convertAnnDec (ExpAnnDec id tyParamIds ty annDefs) = do
   tyParamIds' <- mapM freshM tyParamIds
   ty' <- convertTy ty
   case ty' of
-    (SynTyModule _ _) ->
-      if length annDefs /= 1
-      then throwError $ ErrTooManyModuleDefs id'
-      else
-        if not $ all isAnnDefModule annDefs
-        then throwError $ ErrNoModuleDefInModuleDec id'
-        else
-          let (AnnDefModule defId defE) = head annDefs
-          in do
-            defId' <- lookup defId
-            defE' <- convert defE
-            return $ ExpAnnDec id' tyParamIds' ty' [AnnDefModule defId' defE']
-    (SynTyArrow _ _) ->
-      if not $ all isAnnDefFun annDefs
-      then throwError $ ErrNonFunDefsInFunDec id'
-      else
+    (SynTyModule _ _)
+      | length annDefs /= 1 ->
+        throwError $ ErrTooManyModuleDefs id'
+      | not $ all isAnnDefModule annDefs ->
+        throwError $ ErrNoModuleDefInModuleDec id'
+      | otherwise ->
+        let (AnnDefModule defId defE) = head annDefs
+        in do
+          defId' <- lookup defId
+          defE' <- convert defE
+          return $ ExpAnnDec id' tyParamIds' ty' [AnnDefModule defId' defE']
+    (SynTyArrow _ _)
+      | not $ all isAnnDefFun annDefs ->
+        throwError $ ErrNonFunDefsInFunDec id'
+      | otherwise ->
         let funDefs = map (\(AnnDefFun funDef) -> funDef) annDefs
         in do funDef' <- (liftM fst) $ desugarFunDefs id' funDefs
               return $ ExpAnnDec id' tyParamIds' ty' [AnnDefFun funDef']
-    _ ->
-      if length annDefs /= 1
-      then throwError $ ErrMultipleDefsInSimpleAnnDec id'
-      else
+    _
+      | length annDefs /= 1 ->
+        throwError $ ErrMultipleDefsInSimpleAnnDec id'
+      | otherwise ->
         let (AnnDefExp e) = head annDefs
         in do e' <- convert e
               return $ ExpAnnDec id' tyParamIds' ty' [AnnDefExp e']
