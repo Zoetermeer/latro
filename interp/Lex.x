@@ -12,6 +12,7 @@ module Lex
 
 import Prelude hiding (lex)
 import Control.Monad (liftM)
+import Semant (SourcePos(..))
 
 }
 
@@ -85,7 +86,7 @@ getFilePath = liftM filePath alexGetUserState
 setFilePath :: FilePath -> Alex ()
 setFilePath = alexSetUserState . AlexUserState
 
-data Token = Token AlexPosn TokenClass
+data Token = Token SourcePos TokenClass
   deriving (Show)
 
 data TokenClass =
@@ -142,8 +143,9 @@ data TokenClass =
 
 alexEOF :: Alex Token
 alexEOF = do
+  fp <- getFilePath
   (p, _, _, _) <- alexGetInput
-  return $ Token p TokenEOF
+  return $ Token (sourcePos fp p) TokenEOF
 
 unlex :: TokenClass -> String
 unlex (TokenModule) = "module"
@@ -196,8 +198,14 @@ unlex (TokenId s) = s
 unlex (TokenString s) = s
 unlex (TokenEOF) = "<EOF>"
 
+sourcePos :: String -> AlexPosn -> SourcePos
+sourcePos filePath (AlexPn _ line col) =
+  SourcePos filePath line col
+
 lex :: (String -> TokenClass) -> AlexAction Token
-lex f = \(p, _, _, s) i -> return $ Token p (f (take i s))
+lex f = \(p, _, _, s) i -> do
+  fp <- getFilePath
+  return $ Token (sourcePos fp p) (f (take i s))
 
 lex' :: TokenClass -> AlexAction Token
 lex' = lex . const

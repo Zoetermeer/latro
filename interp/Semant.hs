@@ -2,6 +2,14 @@ module Semant where
 
 import qualified Data.Map as Map
 
+
+type LineNumber = Int
+type ColNumber = Int
+type SourceFilePath = String
+data SourcePos = SourcePos SourceFilePath LineNumber ColNumber
+  deriving (Eq, Show)
+
+
 type RawId = String
 
 
@@ -10,127 +18,233 @@ data QualifiedId id =
   | Path (QualifiedId id) id
   deriving (Eq, Show)
 
+class AstNode a where
+  nodeData :: a b id -> b
 
-data CompUnit id = CompUnit [Exp id]
+
+data CompUnit a id = CompUnit a [Exp a id]
   deriving (Eq, Show)
 
 
-data PatExp id =
-    PatExpNumLiteral String
-  | PatExpBoolLiteral Bool
-  | PatExpTuple [PatExp id]
-  | PatExpAdt id [PatExp id]
-  | PatExpList [PatExp id]
-  | PatExpListCons (PatExp id) (PatExp id)
-  | PatExpId id
-  | PatExpWildcard
+instance AstNode CompUnit where
+  nodeData (CompUnit d _) = d
+
+
+data PatExp a id =
+    PatExpNumLiteral a String
+  | PatExpBoolLiteral a Bool
+  | PatExpTuple a [PatExp a id]
+  | PatExpAdt a id [PatExp a id]
+  | PatExpList a [PatExp a id]
+  | PatExpListCons a (PatExp a id) (PatExp a id)
+  | PatExpId a id
+  | PatExpWildcard a
   deriving (Eq, Show)
 
 
-data CaseClause id =
-    CaseClause (PatExp id) [Exp id]
+instance AstNode PatExp where
+  nodeData patExp =
+    case patExp of
+      PatExpNumLiteral d _ -> d
+      PatExpBoolLiteral d _ -> d
+      PatExpTuple d _ -> d
+      PatExpAdt d _ _ -> d
+      PatExpList d _ -> d
+      PatExpListCons d _ _ -> d
+      PatExpId d _ -> d
+      PatExpWildcard d -> d
+
+
+data CaseClause a id =
+    CaseClause a (PatExp a id) [Exp a id]
   deriving (Eq, Show)
 
 
-data CondCaseClause id =
-    CondCaseClause (Exp id) [Exp id]
-  | CondCaseClauseWildcard [Exp id]
+instance AstNode CaseClause where
+  nodeData (CaseClause d _ _) = d
+
+
+data CondCaseClause a id =
+    CondCaseClause a (Exp a id) [Exp a id]
+  | CondCaseClauseWildcard a [Exp a id]
   deriving (Eq, Show)
 
 
-data Exp id =
-    ExpAdd (Exp id) (Exp id)
-  | ExpSub (Exp id) (Exp id)
-  | ExpDiv (Exp id) (Exp id)
-  | ExpMul (Exp id) (Exp id)
-  | ExpCons (Exp id) (Exp id)
-  | ExpNot (Exp id)
-  | ExpMemberAccess (Exp id) id
-  | ExpApp (Exp id) [Exp id]
-  | ExpImport (QualifiedId id)
-  | ExpAssign (PatExp id) (Exp id)
-  | ExpTypeDec (TypeDec id)
-  | ExpAnnDec id [id] (SynTy id) [AnnDef id]
-  | ExpInterfaceDec id [id] [TyAnn id]
-  | ExpModule [id] [Exp id]
-  | ExpStruct (Exp id) [(id, Exp id)]
-  | ExpIfElse (Exp id) [Exp id] [Exp id]
-  | ExpMakeAdt (SynTy id) Int [Exp id]
-  | ExpTuple [Exp id]
-  | ExpSwitch (Exp id) [CaseClause id]
-  | ExpCond [CondCaseClause id]
-  | ExpList [Exp id]
-  | ExpFun [id] [Exp id]
-  | ExpNum String
-  | ExpBool Bool
-  | ExpString String
-  | ExpRef id
-  | ExpUnit
-  | ExpFail String
+instance AstNode CondCaseClause where
+  nodeData (CondCaseClause d _ _) = d
+  nodeData (CondCaseClauseWildcard d _) = d
+
+
+data Exp a id =
+    ExpAdd a (Exp a id) (Exp a id)
+  | ExpSub a (Exp a id) (Exp a id)
+  | ExpDiv a (Exp a id) (Exp a id)
+  | ExpMul a (Exp a id) (Exp a id)
+  | ExpCons a (Exp a id) (Exp a id)
+  | ExpNot a (Exp a id)
+  | ExpMemberAccess a (Exp a id) id
+  | ExpApp a (Exp a id) [Exp a id]
+  | ExpImport a (QualifiedId id)
+  | ExpAssign a (PatExp a id) (Exp a id)
+  | ExpTypeDec a (TypeDec a id)
+  | ExpAnnDec a id [id] (SynTy a id) [AnnDef a id]
+  | ExpInterfaceDec a id [id] [TyAnn a id]
+  | ExpModule a [id] [Exp a id]
+  | ExpStruct a (Exp a id) [(id, Exp a id)]
+  | ExpIfElse a (Exp a id) [Exp a id] [Exp a id]
+  | ExpMakeAdt a (SynTy a id) Int [Exp a id]
+  | ExpTuple a [Exp a id]
+  | ExpSwitch a (Exp a id) [CaseClause a id]
+  | ExpCond a [CondCaseClause a id]
+  | ExpList a [Exp a id]
+  | ExpFun a [id] [Exp a id]
+  | ExpNum a String
+  | ExpBool a Bool
+  | ExpString a String
+  | ExpRef a id
+  | ExpUnit a
+  | ExpFail a String
   deriving (Eq, Show)
 
-data TyAnn id = TyAnn id [id] (SynTy id)
+
+instance AstNode Exp where
+  nodeData e =
+    case e of
+      ExpAdd d _ _ -> d
+      ExpSub d _ _ -> d
+      ExpDiv d _ _ -> d
+      ExpMul d _ _ -> d
+      ExpCons d _ _ -> d
+      ExpNot d _ -> d
+      ExpMemberAccess d _ _ -> d
+      ExpApp d _ _ -> d
+      ExpImport d _ -> d
+      ExpAssign d _ _ -> d
+      ExpTypeDec d _ -> d
+      ExpAnnDec d _ _ _ _ -> d
+      ExpInterfaceDec d _ _ _ -> d
+      ExpModule d _ _ -> d
+      ExpStruct d _ _ -> d
+      ExpIfElse d _ _ _ -> d
+      ExpMakeAdt d _ _ _ -> d
+      ExpTuple d _ -> d
+      ExpSwitch d _ _ -> d
+      ExpCond d _ -> d
+      ExpList d _ -> d
+      ExpFun d _ _ -> d
+      ExpNum d _ -> d
+      ExpBool d _ -> d
+      ExpString d _ -> d
+      ExpRef d _ -> d
+      ExpUnit d -> d
+      ExpFail d _ -> d
+
+
+data TyAnn a id = TyAnn a id [id] (SynTy a id)
   deriving (Eq, Show)
 
 
-data AnnDef id =
-    AnnDefModule id (Exp id)
-  | AnnDefFun (FunDef id)
-  | AnnDefExp (Exp id)
+instance AstNode TyAnn where
+  nodeData (TyAnn d _ _ _) = d
+
+
+data AnnDef a id =
+    AnnDefModule a id (Exp a id)
+  | AnnDefFun a (FunDef a id)
+  | AnnDefExp a (Exp a id)
   deriving (Eq, Show)
 
-isAnnDefFun :: AnnDef id -> Bool
-isAnnDefFun (AnnDefFun _) = True
+
+instance AstNode AnnDef where
+  nodeData def =
+    case def of
+      AnnDefModule d _ _ -> d
+      AnnDefFun d _ -> d
+      AnnDefExp d _ -> d
+
+
+isAnnDefFun :: AnnDef a id -> Bool
+isAnnDefFun (AnnDefFun _ _) = True
 isAnnDefFun _ = False
 
-isAnnDefModule :: AnnDef id -> Bool
-isAnnDefModule (AnnDefModule _ _) = True
+isAnnDefModule :: AnnDef a id -> Bool
+isAnnDefModule (AnnDefModule _ _ _) = True
 isAnnDefModule _ = False
 
 
-data TypeDec id =
-    TypeDecTy id (SynTy id)
-  | TypeDecAdt id [id] [AdtAlternative id]
+data TypeDec a id =
+    TypeDecTy a id (SynTy a id)
+  | TypeDecAdt a id [id] [AdtAlternative a id]
   deriving (Eq, Show)
 
 
-getTypeDecId :: TypeDec id -> id
-getTypeDecId (TypeDecTy id _) = id
-getTypeDecId (TypeDecAdt id _ _) = id
+instance AstNode TypeDec where
+  nodeData td =
+    case td of
+      TypeDecTy d _ _ -> d
+      TypeDecAdt d _ _ _ -> d
 
 
-data AdtAlternative id =
-    AdtAlternative id Int [SynTy id]
+getTypeDecId :: TypeDec a id -> id
+getTypeDecId (TypeDecTy _ id _) = id
+getTypeDecId (TypeDecAdt _ id _ _) = id
+
+
+data AdtAlternative a id =
+    AdtAlternative a id Int [SynTy a id]
   deriving (Eq, Show)
 
 
-data SynTy id =
-    SynTyInt
-  | SynTyBool
-  | SynTyString
-  | SynTyUnit
-  | SynTyArrow [SynTy id] (SynTy id)
-  | SynTyModule [SynTy id] (Maybe (SynTy id))
-  | SynTyInterface [id]
-  | SynTyDefault (QualifiedId id) [SynTy id]
-  | SynTyStruct [(id, (SynTy id))]
-  | SynTyAdt id [AdtAlternative id]
-  | SynTyTuple [SynTy id]
-  | SynTyList (SynTy id)
-  | SynTyRef (QualifiedId id) [SynTy id]
+instance AstNode AdtAlternative where
+  nodeData (AdtAlternative d _ _ _) = d
+
+
+data SynTy a id =
+    SynTyInt a
+  | SynTyBool a
+  | SynTyString a
+  | SynTyUnit a
+  | SynTyArrow a [SynTy a id] (SynTy a id)
+  | SynTyModule a [SynTy a id] (Maybe (SynTy a id))
+  | SynTyInterface a [id]
+  | SynTyDefault a (QualifiedId id) [SynTy a id]
+  | SynTyStruct a [(id, (SynTy a id))]
+  | SynTyAdt a id [AdtAlternative a id]
+  | SynTyTuple a [SynTy a id]
+  | SynTyList a (SynTy a id)
+  | SynTyRef a (QualifiedId id) [SynTy a id]
   deriving (Eq, Show)
 
 
-data FunDec id =
-    FunDecFun id (SynTy id) [FunDef id]
-  | FunDecInstFun id (SynTy id) (SynTy id) [FunDef id]
+instance AstNode SynTy where
+  nodeData sty =
+    case sty of
+      SynTyInt d -> d
+      SynTyBool d -> d
+      SynTyString d -> d
+      SynTyUnit d -> d
+      SynTyArrow d _ _ -> d
+      SynTyModule d _ _ -> d
+      SynTyInterface d _ -> d
+      SynTyDefault d _ _ -> d
+      SynTyStruct d _ -> d
+      SynTyAdt d _ _ -> d
+      SynTyTuple d _ -> d
+      SynTyList d _ -> d
+      SynTyRef d _ _ -> d
+
+
+data FunDef a id =
+    FunDefFun a id [PatExp a id] [Exp a id]
+  | FunDefInstFun a (PatExp a id) id [PatExp a id] [Exp a id]
   deriving (Eq, Show)
 
 
-data FunDef id =
-    FunDefFun id [PatExp id] [Exp id]
-  | FunDefInstFun (PatExp id) id [PatExp id] [Exp id]
-  deriving (Eq, Show)
+instance AstNode FunDef where
+  nodeData fd =
+    case fd of
+      FunDefFun d _ _ _ -> d
+      FunDefInstFun d _ _ _ _ -> d
 
 
 data UniqId =
@@ -157,7 +271,11 @@ instance Ord UniqId where
 
 
 type VEnv = Map.Map UniqId Value
-type TEnv = Map.Map UniqId (SynTy UniqId)
+type TEnv = Map.Map UniqId Ty
+
+
+data CheckedData = CheckedData SourcePos Ty
+  deriving (Eq, Show)
 
 
 data ClosureEnv = ClosureEnv
@@ -183,15 +301,15 @@ data Module = Module ClosureEnv [UniqId] Exports
   deriving (Eq, Show)
 
 
-data Closure = Closure UniqId (SynTy UniqId) ClosureEnv [UniqId] [Exp UniqId]
+data Closure = Closure UniqId Ty ClosureEnv [UniqId] [Exp CheckedData UniqId]
   deriving (Eq, Show)
 
 
-data Struct = Struct (SynTy UniqId) [(UniqId, Value)]
+data Struct = Struct Ty [(UniqId, Value)]
   deriving (Eq, Show)
 
 
-data Adt = Adt (SynTy UniqId) Int [Value]
+data Adt = Adt Ty Int [Value]
   deriving (Eq, Show)
 
 

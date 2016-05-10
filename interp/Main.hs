@@ -15,7 +15,6 @@ import System.Environment (getArgs)
 import Test.Hspec
 import Text.Printf (printf)
 import qualified Types as T
-import Types.Display
 
 type ProgramText = String
 

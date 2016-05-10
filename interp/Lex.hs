@@ -14,6 +14,7 @@ module Lex
 
 import Prelude hiding (lex)
 import Control.Monad (liftM)
+import Semant (SourcePos(..))
 
 
 #if __GLASGOW_HASKELL__ >= 603
@@ -270,7 +271,7 @@ alex_deflt :: Array Int Int
 alex_deflt = listArray (0,134) [-1,-1,-1,13,13,4,4,-1,-1,14,14,16,16,16,19,19,16,21,21,21,-1,21,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1]
 
 alex_accept = listArray (0::Int,134) [AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccSkip,AlexAccSkip,AlexAcc (alex_action_2),AlexAcc (alex_action_3),AlexAcc (alex_action_4),AlexAcc (alex_action_5),AlexAcc (alex_action_6),AlexAcc (alex_action_7),AlexAcc (alex_action_8),AlexAcc (alex_action_9),AlexAcc (alex_action_10),AlexAcc (alex_action_11),AlexAcc (alex_action_12),AlexAcc (alex_action_13),AlexAcc (alex_action_14),AlexAcc (alex_action_15),AlexAcc (alex_action_16),AlexAcc (alex_action_17),AlexAcc (alex_action_18),AlexAcc (alex_action_19),AlexAcc (alex_action_20),AlexAcc (alex_action_21),AlexAcc (alex_action_22),AlexAcc (alex_action_23),AlexAcc (alex_action_24),AlexAcc (alex_action_25),AlexAcc (alex_action_26),AlexAcc (alex_action_27),AlexAcc (alex_action_28),AlexAcc (alex_action_29),AlexAcc (alex_action_30),AlexAcc (alex_action_31),AlexAcc (alex_action_32),AlexAcc (alex_action_33),AlexAcc (alex_action_34),AlexAcc (alex_action_35),AlexAcc (alex_action_36),AlexAcc (alex_action_37),AlexAcc (alex_action_38),AlexAcc (alex_action_39),AlexAcc (alex_action_40),AlexAcc (alex_action_41),AlexAcc (alex_action_42),AlexAcc (alex_action_43),AlexAcc (alex_action_44),AlexAcc (alex_action_45),AlexAcc (alex_action_46),AlexAcc (alex_action_47),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_49)]
-{-# LINE 75 "Lex.x" #-}
+{-# LINE 76 "Lex.x" #-}
 
 
 data AlexUserState = AlexUserState { filePath :: FilePath }
@@ -284,7 +285,7 @@ getFilePath = liftM filePath alexGetUserState
 setFilePath :: FilePath -> Alex ()
 setFilePath = alexSetUserState . AlexUserState
 
-data Token = Token AlexPosn TokenClass
+data Token = Token SourcePos TokenClass
   deriving (Show)
 
 data TokenClass =
@@ -341,8 +342,9 @@ data TokenClass =
 
 alexEOF :: Alex Token
 alexEOF = do
+  fp <- getFilePath
   (p, _, _, _) <- alexGetInput
-  return $ Token p TokenEOF
+  return $ Token (sourcePos fp p) TokenEOF
 
 unlex :: TokenClass -> String
 unlex (TokenModule) = "module"
@@ -395,8 +397,14 @@ unlex (TokenId s) = s
 unlex (TokenString s) = s
 unlex (TokenEOF) = "<EOF>"
 
+sourcePos :: String -> AlexPosn -> SourcePos
+sourcePos filePath (AlexPn _ line col) =
+  SourcePos filePath line col
+
 lex :: (String -> TokenClass) -> AlexAction Token
-lex f = \(p, _, _, s) i -> return $ Token p (f (take i s))
+lex f = \(p, _, _, s) i -> do
+  fp <- getFilePath
+  return $ Token (sourcePos fp p) (f (take i s))
 
 lex' :: TokenClass -> AlexAction Token
 lex' = lex . const

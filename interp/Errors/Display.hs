@@ -3,7 +3,6 @@ module Errors.Display where
 import Errors
 import Semant
 import Semant.Display
-import Types.Display
 import Sexpable
 import Text.Printf (printf)
 

@@ -7,24 +7,24 @@ import Semant
 data Err =
     ErrSyntax String
   | ErrNonExhaustivePattern Value
-  | ErrInvalidConstructor UniqId (SynTy UniqId)
+  | ErrInvalidConstructor UniqId Ty
   | ErrNotAConstructor UniqId
   | ErrNotAnAdt Value
   | ErrInvalidFunPattern
   | ErrInvalidAdtPattern
-  | ErrInvalidTypeExp (Exp UniqId)
+  | ErrInvalidTypeExp (Exp SourcePos UniqId)
   | ErrNumLitPatMatchFail Int Int
   | ErrBoolLitPatMatchFail Bool Bool
   | ErrListPatMatchFail Value
   | ErrPatMatchFailOn Value
-  | ErrPatMatchBindingFail (PatExp UniqId) Ty
+  | ErrPatMatchBindingFail (PatExp SourcePos UniqId) Ty
   | ErrInvalidConsTo Value
   | ErrNonFunDefsInFunDec UniqId
   | ErrNoFunDefGivenFor UniqId
   | ErrNoInstFunDefGivenFor UniqId
   | ErrFunDefIdMismatch UniqId UniqId
   | ErrFunDefArityMismatch UniqId
-  | ErrCantEvaluate (Exp UniqId)
+  | ErrCantEvaluate (Exp CheckedData UniqId)
   | ErrUnboundRawIdentifier RawId
   | ErrUnboundUniqIdentifier UniqId
   | ErrCantUnify Ty Ty

@@ -969,20 +969,3 @@
       Lists.Map(fun(n) { IsEven(n); }, [1, 2, 3, 4]);
     }
     "<list [False, True, False, True]>"))
-
-(test-case "it properly instantiates generic types in other generic types"
-  (check-equal?
-    @interp{
-      type <a> Maybe =
-        | Just a
-        | Nothing
-        ;
-
-      type <a> UserDefinedList = struct {
-        a Head;
-        <<a> UserDefinedList> Option Tail;
-      };
-
-      <Int>UserDefinedList { Head = 42; Tail = Nothing; };
-    }
-    "<<Int>UserDefinedList { Head = 42, Tail = <Int>Maybe = Nothing }>"))

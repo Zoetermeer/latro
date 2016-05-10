@@ -19,54 +19,75 @@ instance Sexpable RawId where
   sexp s = Symbol s
 
 
+instance Sexpable SourcePos where
+  sexp (SourcePos filePath lineNum colNum) =
+    List  [ Symbol "SourcePos"
+          , Atom filePath
+          , Atom $ show lineNum
+          , Atom $ show colNum
+          ]
+
+
+instance Sexpable CheckedData where
+  sexp (CheckedData srcPos ty) =
+    List  [ Symbol "CheckedData"
+          , sexp srcPos
+          , sexp ty
+          ]
+
+
 instance Sexpable id => Sexpable (QualifiedId id) where
   sexp (Id raw) = sexp raw
   sexp (Path qid raw) =
     Symbol $ printf "%s.%s" (showSexp qid) (showSexp raw)
 
 
-instance Sexpable id => Sexpable (SynTy id) where
-  sexp SynTyInt = Symbol "Int"
-  sexp SynTyBool = Symbol "Bool"
-  sexp SynTyString = Symbol "String"
-  sexp SynTyUnit = Symbol "Unit"
-  sexp (SynTyArrow paramTys retTy) =
-    List $ ((intersperse (Symbol "->" )) . map sexp) (paramTys ++ [retTy])
+instance (Sexpable a, Sexpable id) => Sexpable (SynTy a id) where
+  sexp (SynTyInt d) = List [ Symbol "Int", sexp d ]
+  sexp (SynTyBool d) = List [ Symbol "Bool", sexp d ]
+  sexp (SynTyString d) = List [ Symbol "String", sexp d ]
+  sexp (SynTyUnit d) = List [ Symbol "Unit", sexp d ]
+  sexp (SynTyArrow d paramTys retTy) =
+    List $ [sexp d] ++ ((intersperse (Symbol "->" )) . map sexp) (paramTys ++ [retTy])
 
-  sexp (SynTyModule paramTys maybeImplTy)  =
+  sexp (SynTyModule d paramTys maybeImplTy)  =
     List  [ Symbol "Module"
+          , sexp d
           , toSexpList paramTys
           , sexp maybeImplTy
           ]
-  sexp (SynTyInterface []) = Symbol "Interface"
-  sexp (SynTyInterface ids) = List [ Symbol "Interface", toSexpList ids ]
-  sexp (SynTyDefault qid synTyArgs) =
+  sexp (SynTyInterface d []) = List [ Symbol "Interface", sexp d ]
+  sexp (SynTyInterface d ids) = List [ Symbol "Interface", sexp d, toSexpList ids ]
+  sexp (SynTyDefault d qid synTyArgs) =
     List  [ Symbol "Default"
+          , sexp d
           , sexp qid
           , toSexpList synTyArgs
           ]
-  sexp (SynTyStruct fields) =
+  sexp (SynTyStruct d fields) =
     List  [ Symbol "Struct"
+          , sexp d
           , List $ map (\(id, ty) -> List [ Symbol "Field", sexp id, sexp ty ]) fields
           ]
 
-  sexp (SynTyAdt id alts) =
+  sexp (SynTyAdt d id alts) =
     List  [ Symbol "ADT"
+          , sexp d
           , sexp id
           , toSexpList alts
           ]
 
-  sexp (SynTyTuple synTys) =
-    List  [ Symbol "Tuple" , toSexpList synTys ]
+  sexp (SynTyTuple d synTys) =
+    List  [ Symbol "Tuple" , sexp d, toSexpList synTys ]
 
-  sexp (SynTyList synTy) =
-    List  [ Symbol "List", sexp synTy ]
+  sexp (SynTyList d synTy) =
+    List  [ Symbol "List", sexp d, sexp synTy ]
 
-  sexp (SynTyRef qid []) =
-    List [ Symbol "Ref", sexp qid ]
+  sexp (SynTyRef d qid []) =
+    List [ Symbol "Ref", sexp d, sexp qid ]
 
-  sexp (SynTyRef qid tyParamIds) =
-    List [ Symbol "Ref", sexp qid, toSexpList tyParamIds ]
+  sexp (SynTyRef d qid tyParamIds) =
+    List [ Symbol "Ref", sexp d, sexp qid, toSexpList tyParamIds ]
 
 
 instance Sexpable UniqId where
@@ -76,72 +97,78 @@ instance Sexpable UniqId where
   sexp (UniqId i raw) = List [ Symbol "Id", Symbol raw, Symbol $ show i ]
 
 
-instance Sexpable id => Sexpable (CompUnit id) where
-  sexp (CompUnit es) =
+instance (Sexpable a, Sexpable id) => Sexpable (CompUnit a id) where
+  sexp (CompUnit d es) =
     List  [ Symbol "CompUnit"
+          , sexp d
           , toSexpList es
           ]
 
 
-instance Sexpable id => Sexpable (AdtAlternative id) where
-  sexp (AdtAlternative id i sTys) =
+instance (Sexpable a, Sexpable id) => Sexpable (AdtAlternative a id) where
+  sexp (AdtAlternative d id i sTys) =
     List  [ Symbol "AdtAlternative"
+          , sexp d
           , sexp id
           , Symbol $ show i
           , toSexpList sTys
           ]
 
 
-instance Sexpable id => Sexpable (TypeDec id) where
-  sexp (TypeDecTy id sTy) =
-    List  [ Symbol "TypeDecTy", sexp id, sexp sTy ]
-  sexp (TypeDecAdt id tyParamIds alts) =
-    List  [ Symbol "TypeDecAdt", toSexpList tyParamIds, sexp id, toSexpList alts ]
+instance (Sexpable a, Sexpable id) => Sexpable (TypeDec a id) where
+  sexp (TypeDecTy d id sTy) =
+    List  [ Symbol "TypeDecTy", sexp d, sexp id, sexp sTy ]
+  sexp (TypeDecAdt d id tyParamIds alts) =
+    List  [ Symbol "TypeDecAdt", sexp d, toSexpList tyParamIds, sexp id, toSexpList alts ]
 
 
-instance Sexpable id => Sexpable (PatExp id) where
-  sexp (PatExpNumLiteral str) =
-    List  [ Symbol "PatExpNumLiteral", Atom str ]
-  sexp (PatExpBoolLiteral b) =
-    List  [ Symbol "PatExpBoolLiteral", Symbol $ show b ]
-  sexp (PatExpTuple patEs) =
-    List  [ Symbol "PatExpTuple", toSexpList patEs ]
-  sexp (PatExpAdt id patEs) =
-    List  [ Symbol "PatExpAdt", sexp id, toSexpList patEs ]
-  sexp (PatExpList patEs) =
-    List  [ Symbol "PatExpList", toSexpList patEs ]
-  sexp (PatExpListCons a b) =
-    List  [ Symbol "PatExpListCons", sexp a, sexp b ]
-  sexp (PatExpId id) =
-    List  [ Symbol "PatExpId", sexp id ]
-  sexp PatExpWildcard = Symbol "PatExpWildcard"
+instance (Sexpable a, Sexpable id) => Sexpable (PatExp a id) where
+  sexp (PatExpNumLiteral d str) =
+    List  [ Symbol "PatExpNumLiteral", sexp d, Atom str ]
+  sexp (PatExpBoolLiteral d b) =
+    List  [ Symbol "PatExpBoolLiteral", sexp d, Symbol $ show b ]
+  sexp (PatExpTuple d patEs) =
+    List  [ Symbol "PatExpTuple", sexp d, toSexpList patEs ]
+  sexp (PatExpAdt d id patEs) =
+    List  [ Symbol "PatExpAdt", sexp d, sexp id, toSexpList patEs ]
+  sexp (PatExpList d patEs) =
+    List  [ Symbol "PatExpList", sexp d, toSexpList patEs ]
+  sexp (PatExpListCons d a b) =
+    List  [ Symbol "PatExpListCons", sexp d, sexp a, sexp b ]
+  sexp (PatExpId d id) =
+    List  [ Symbol "PatExpId", sexp d, sexp id ]
+  sexp (PatExpWildcard d) = List [ Symbol "PatExpWildcard", sexp d ]
 
 
-instance Sexpable id => Sexpable (CaseClause id) where
-  sexp (CaseClause patE es) =
+instance (Sexpable a, Sexpable id) => Sexpable (CaseClause a id) where
+  sexp (CaseClause d patE es) =
     List  [ Symbol "CaseClause"
+          , sexp d
           , sexp patE
           , toSexpList es
           ]
 
 
-instance Sexpable id => Sexpable (CondCaseClause id) where
-  sexp (CondCaseClause e es) =
+instance (Sexpable a, Sexpable id) => Sexpable (CondCaseClause a id) where
+  sexp (CondCaseClause d e es) =
     List  [ Symbol "CondCaseClause"
+          , sexp d
           , sexp e
           , toSexpList es
           ]
 
 
-instance Sexpable id => Sexpable (FunDef id) where
-  sexp (FunDefFun id argPatEs es) =
+instance (Sexpable a, Sexpable id) => Sexpable (FunDef a id) where
+  sexp (FunDefFun d id argPatEs es) =
     List  [ Symbol "FunDefFun"
+          , sexp d
           , sexp id
           , toSexpList argPatEs
           , toSexpList es
           ]
-  sexp (FunDefInstFun instPatE id argPatEs es) =
+  sexp (FunDefInstFun d instPatE id argPatEs es) =
     List  [ Symbol "FunDefInstFun"
+          , sexp d
           , sexp instPatE
           , sexp id
           , toSexpList argPatEs
@@ -149,100 +176,94 @@ instance Sexpable id => Sexpable (FunDef id) where
           ]
 
 
-instance Sexpable id => Sexpable (FunDec id) where
-  sexp (FunDecFun id sTy funDefs) =
-    List  [ Symbol "FunDecFun"
-          , sexp id
-          , sexp sTy
-          , toSexpList funDefs
-          ]
-  sexp (FunDecInstFun id instTy arrowTy funDefs) =
-    List  [ Symbol "FunDecInstFun"
-          , sexp id
-          , sexp instTy
-          , sexp arrowTy
-          , toSexpList funDefs
-          ]
+instance (Sexpable a, Sexpable id) => Sexpable (AnnDef a id) where
+  sexp (AnnDefModule d id e) = List [ Symbol "AnnDefModule", sexp d, sexp e ]
+  sexp (AnnDefFun d funDef) = List [ Symbol "AnnDefFun", sexp d, sexp funDef ]
 
 
-instance Sexpable id => Sexpable (AnnDef id) where
-  sexp (AnnDefModule id e) = List [ Symbol "AnnDefModule", sexp e ]
-  sexp (AnnDefFun funDef) = List [ Symbol "AnnDefFun", sexp funDef ]
-
-
-instance Sexpable id => Sexpable (Exp id) where
-  sexp (ExpAdd a b) = List [ Symbol "ExpAdd", sexp a, sexp b ]
-  sexp (ExpSub a b) = List [ Symbol "ExpSub", sexp a, sexp b ]
-  sexp (ExpDiv a b) = List [ Symbol "ExpDiv", sexp a, sexp b ]
-  sexp (ExpMul a b) = List [ Symbol "ExpMul", sexp a, sexp b ]
-  sexp (ExpCons a b) = List [ Symbol "ExpCons", sexp a, sexp b ]
-  sexp (ExpNot e) = List [ Symbol "ExpNot", sexp e ]
-  sexp (ExpMemberAccess e id) =
+instance (Sexpable a, Sexpable id) => Sexpable (Exp a id) where
+  sexp (ExpAdd d a b) = List [ Symbol "ExpAdd", sexp d, sexp a, sexp b ]
+  sexp (ExpSub d a b) = List [ Symbol "ExpSub", sexp d, sexp a, sexp b ]
+  sexp (ExpDiv d a b) = List [ Symbol "ExpDiv", sexp d, sexp a, sexp b ]
+  sexp (ExpMul d a b) = List [ Symbol "ExpMul", sexp d, sexp a, sexp b ]
+  sexp (ExpCons d a b) = List [ Symbol "ExpCons", sexp d, sexp a, sexp b ]
+  sexp (ExpNot d e) = List [ Symbol "ExpNot", sexp d, sexp e ]
+  sexp (ExpMemberAccess d e id) =
     List  [ Symbol "ExpMemberAccess"
+          , sexp d
           , sexp e
           , sexp id
           ]
-  sexp (ExpApp rator rands) =
+  sexp (ExpApp d rator rands) =
     List  [ Symbol "ExpApp"
+          , sexp d
           , sexp rator
           , toSexpList rands
           ]
-  sexp (ExpImport qid) = List [ Symbol "ExpImport", sexp qid ]
-  sexp (ExpAssign patE e) =
+  sexp (ExpImport d qid) = List [ Symbol "ExpImport", sexp d, sexp qid ]
+  sexp (ExpAssign d patE e) =
     List  [ Symbol "ExpAssign"
+          , sexp d
           , sexp patE
           , sexp e
           ]
-  sexp (ExpTypeDec tyDec) = List [ Symbol "ExpTypeDec", sexp tyDec ]
-  sexp (ExpAnnDec id tyParamIds ty annDefs) =
+  sexp (ExpTypeDec d tyDec) = List [ Symbol "ExpTypeDec", sexp d, sexp tyDec ]
+  sexp (ExpAnnDec d id tyParamIds ty annDefs) =
     List  [ Symbol "ExpAnnDec"
+          , sexp d
           , sexp id
           , toSexpList tyParamIds
           , sexp ty
           , toSexpList annDefs
           ]
-  sexp (ExpInterfaceDec id tyParamIds tyAnns) =
+  sexp (ExpInterfaceDec d id tyParamIds tyAnns) =
     List  [ Symbol "ExpInterfaceDec"
+          , sexp d
           , sexp id
           , toSexpList tyParamIds
           , toSexpList tyAnns
           ]
-  sexp (ExpModule paramIds es) = List [ Symbol "ExpModule", toSexpList paramIds, toSexpList es ]
-  sexp (ExpStruct tyE fieldEs) =
+  sexp (ExpModule d paramIds es) = List [ Symbol "ExpModule", sexp d, toSexpList paramIds, toSexpList es ]
+  sexp (ExpStruct d tyE fieldEs) =
     List  [ Symbol "ExpStruct"
+          , sexp d
           , List $ map (\(id, e) -> List [ sexp id, sexp e ]) fieldEs
           ]
-  sexp (ExpIfElse e thenEs elseEs) =
+  sexp (ExpIfElse d e thenEs elseEs) =
     List  [ Symbol "ExpIfElse"
+          , sexp d
           , sexp e
           , toSexpList thenEs
           , toSexpList elseEs
           ]
-  sexp (ExpMakeAdt sTy i es) =
+  sexp (ExpMakeAdt d sTy i es) =
     List  [ Symbol "ExpMakeAdt"
+          , sexp d
           , sexp sTy
           , Atom $ show i
           , toSexpList es
           ]
-  sexp (ExpTuple es) = List [ Symbol "ExpTuple", toSexpList es ]
-  sexp (ExpSwitch e clauses) = List [ Symbol "ExpSwitch", sexp e, toSexpList clauses ]
-  sexp (ExpList es) = List [ Symbol "ExpList", toSexpList es ]
-  sexp (ExpFun paramIds es) =
+  sexp (ExpTuple d es) = List [ Symbol "ExpTuple", sexp d, toSexpList es ]
+  sexp (ExpSwitch d e clauses) = List [ Symbol "ExpSwitch", sexp d, sexp e, toSexpList clauses ]
+  sexp (ExpList d es) = List [ Symbol "ExpList", sexp d, toSexpList es ]
+  sexp (ExpFun d paramIds es) =
     List  [ Symbol "ExpFun"
+          , sexp d
           , toSexpList paramIds
           , toSexpList es
           ]
-  sexp (ExpNum str) = List [ Symbol "ExpNum", Symbol str ]
-  sexp (ExpBool b) = List [ Symbol "ExpBool", Symbol $ show b ]
-  sexp (ExpString s) = List [ Symbol "ExpString", Atom s ]
-  sexp (ExpRef id) = List [ Symbol "ExpRef", sexp id ]
-  sexp ExpUnit = Symbol "ExpUnit"
-  sexp (ExpFail msg) = List [ Symbol "ExpFail", Atom msg ]
+  sexp (ExpNum d str) = List [ Symbol "ExpNum", sexp d, Symbol str ]
+  sexp (ExpBool d b) = List [ Symbol "ExpBool", sexp d, Symbol $ show b ]
+  sexp (ExpString d s) = List [ Symbol "ExpString", sexp d, Atom s ]
+  sexp (ExpRef d id) = List [ Symbol "ExpRef", sexp d, sexp id ]
+  sexp (ExpUnit d) = List [ Symbol "ExpUnit", sexp d ]
+  sexp (ExpFail d msg) = List [ Symbol "ExpFail", sexp d, Atom msg ]
 
 
-instance Sexpable id => Sexpable (TyAnn id) where
-  sexp (TyAnn id tyParamIds synTy) =
+instance (Sexpable a, Sexpable id) => Sexpable (TyAnn a id) where
+  sexp (TyAnn d id tyParamIds synTy) =
     List  [ Symbol "TyAnn"
+          , sexp d
           , sexp id
           , toSexpList tyParamIds
           , sexp synTy
@@ -295,14 +316,12 @@ instance Sexpable Struct where
 
 
 instance Sexpable Adt where
-  sexp (Adt (SynTyAdt id alts) i vs) =
-      List  [ sexp id
-            , sexp altName
+  sexp (Adt ty i vs) =
+      List  [ Symbol "Adt"
+            , Symbol "??"
+            , Atom (show i)
             , toSexpList vs
             ]
-    where
-      (AdtAlternative altName _ _) =
-        fromJust $ find (\(AdtAlternative aid ai _) -> ai == i) alts
 
 
 instance Sexpable Value where
@@ -317,3 +336,44 @@ instance Sexpable Value where
   sexp (ValueList vs) = List [ Symbol "List", toSexpList vs ]
   sexp ValueUnit = Symbol "Unit"
   sexp (Err str) = List [ Symbol "Error", Atom str ]
+
+
+instance Sexpable Ty where
+  sexp (TyApp TyConInt []) = Symbol "Int"
+  sexp (TyApp TyConBool []) = Symbol "Bool"
+  sexp (TyApp TyConString []) = Symbol "String"
+  sexp (TyApp tyCon tys) =
+    List  [ Symbol "App"
+          , sexp tyCon
+          , toSexpList tys
+          ]
+
+  sexp (TyPoly tyVars ty) =
+    List  [ Symbol "Poly"
+          , toSexpList tyVars
+          , sexp ty
+          ]
+
+  sexp (TyVar tyVar) = List [ Symbol "Var", sexp tyVar ]
+  sexp (TyMeta id) = List [ Symbol "Meta", sexp id ]
+  sexp (TyRef qid) = List [ Symbol "Ref", sexp qid ]
+
+
+instance Sexpable TyCon where
+  sexp TyConInt = Symbol "Int"
+  sexp TyConBool = Symbol "Bool"
+  sexp TyConString = Symbol "String"
+  sexp TyConUnit = Symbol "Unit"
+  sexp TyConList = Symbol "List"
+  sexp TyConTuple = Symbol "Tuple"
+  sexp TyConArrow = Symbol "Arrow"
+  sexp (TyConStruct fieldNames) =
+    List [ Symbol "Struct", toSexpList fieldNames ]
+  sexp (TyConAdt ctorNames) =
+    List [ Symbol "Adt", toSexpList ctorNames ]
+  sexp (TyConTyFun tyVarIds ty) =
+    List [ Symbol "TyFun", toSexpList tyVarIds, sexp ty ]
+  sexp (TyConUnique id tyCon) =
+    List [ Symbol "Unique", sexp id, sexp tyCon ]
+  sexp (TyConTyVar varId) =
+    List [ Symbol "TyVar", sexp varId ]
