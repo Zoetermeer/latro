@@ -34,8 +34,8 @@ data Err =
   | ErrNoModuleDefInModuleDec UniqId
   | ErrMultipleDefsInSimpleAnnDec UniqId
   | ErrCircularType Ty
-  | ErrPartialTyConApp (QualifiedId UniqId) TyCon [Ty]
-  | ErrInvalidModulePath (QualifiedId UniqId)
+  | ErrPartialTyConApp (QualifiedId SourcePos UniqId) TyCon [Ty]
+  | ErrInvalidModulePath (QualifiedId SourcePos UniqId)
   | ErrInferenceFail (Map.Map UniqId Ty) Ty Ty
   | ErrInterpFailure String
   | ErrNotImplemented String

@@ -6,6 +6,7 @@ module Lex
   , AlexPosn(..)
   , TokenClass(..)
   , Alex(..)
+  , tokValue
   , unlex
   , runAlex'
   , alexMonadScan'
@@ -271,7 +272,7 @@ alex_deflt :: Array Int Int
 alex_deflt = listArray (0,134) [-1,-1,-1,13,13,4,4,-1,-1,14,14,16,16,16,19,19,16,21,21,21,-1,21,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1]
 
 alex_accept = listArray (0::Int,134) [AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccNone,AlexAccSkip,AlexAccSkip,AlexAcc (alex_action_2),AlexAcc (alex_action_3),AlexAcc (alex_action_4),AlexAcc (alex_action_5),AlexAcc (alex_action_6),AlexAcc (alex_action_7),AlexAcc (alex_action_8),AlexAcc (alex_action_9),AlexAcc (alex_action_10),AlexAcc (alex_action_11),AlexAcc (alex_action_12),AlexAcc (alex_action_13),AlexAcc (alex_action_14),AlexAcc (alex_action_15),AlexAcc (alex_action_16),AlexAcc (alex_action_17),AlexAcc (alex_action_18),AlexAcc (alex_action_19),AlexAcc (alex_action_20),AlexAcc (alex_action_21),AlexAcc (alex_action_22),AlexAcc (alex_action_23),AlexAcc (alex_action_24),AlexAcc (alex_action_25),AlexAcc (alex_action_26),AlexAcc (alex_action_27),AlexAcc (alex_action_28),AlexAcc (alex_action_29),AlexAcc (alex_action_30),AlexAcc (alex_action_31),AlexAcc (alex_action_32),AlexAcc (alex_action_33),AlexAcc (alex_action_34),AlexAcc (alex_action_35),AlexAcc (alex_action_36),AlexAcc (alex_action_37),AlexAcc (alex_action_38),AlexAcc (alex_action_39),AlexAcc (alex_action_40),AlexAcc (alex_action_41),AlexAcc (alex_action_42),AlexAcc (alex_action_43),AlexAcc (alex_action_44),AlexAcc (alex_action_45),AlexAcc (alex_action_46),AlexAcc (alex_action_47),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_48),AlexAcc (alex_action_49)]
-{-# LINE 76 "Lex.x" #-}
+{-# LINE 77 "Lex.x" #-}
 
 
 data AlexUserState = AlexUserState { filePath :: FilePath }
@@ -339,6 +340,16 @@ data TokenClass =
   | TokenString String
   | TokenEOF
   deriving (Show)
+
+
+tokValue :: Token -> String
+tokValue (Token _ tok) =
+  case tok of
+    TokenNumLit s -> s
+    TokenId s -> s
+    TokenString s -> s
+    _ -> ""
+
 
 alexEOF :: Alex Token
 alexEOF = do

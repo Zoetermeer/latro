@@ -13,13 +13,18 @@ data SourcePos = SourcePos SourceFilePath LineNumber ColNumber
 type RawId = String
 
 
-data QualifiedId id =
-    Id id
-  | Path (QualifiedId id) id
+data QualifiedId a id =
+    Id a id
+  | Path a (QualifiedId a id) id
   deriving (Eq, Show)
 
 class AstNode a where
   nodeData :: a b id -> b
+
+
+instance AstNode QualifiedId where
+  nodeData (Id d _) = d
+  nodeData (Path d _ _) = d
 
 
 data CompUnit a id = CompUnit a [Exp a id]
@@ -84,7 +89,7 @@ data Exp a id =
   | ExpNot a (Exp a id)
   | ExpMemberAccess a (Exp a id) id
   | ExpApp a (Exp a id) [Exp a id]
-  | ExpImport a (QualifiedId id)
+  | ExpImport a (QualifiedId a id)
   | ExpAssign a (PatExp a id) (Exp a id)
   | ExpTypeDec a (TypeDec a id)
   | ExpAnnDec a id [id] (SynTy a id) [AnnDef a id]
@@ -207,12 +212,12 @@ data SynTy a id =
   | SynTyArrow a [SynTy a id] (SynTy a id)
   | SynTyModule a [SynTy a id] (Maybe (SynTy a id))
   | SynTyInterface a [id]
-  | SynTyDefault a (QualifiedId id) [SynTy a id]
+  | SynTyDefault a (QualifiedId a id) [SynTy a id]
   | SynTyStruct a [(id, (SynTy a id))]
   | SynTyAdt a id [AdtAlternative a id]
   | SynTyTuple a [SynTy a id]
   | SynTyList a (SynTy a id)
-  | SynTyRef a (QualifiedId id) [SynTy a id]
+  | SynTyRef a (QualifiedId a id) [SynTy a id]
   deriving (Eq, Show)
 
 
@@ -278,6 +283,11 @@ data CheckedData = CheckedData SourcePos Ty
   deriving (Eq, Show)
 
 
+type RawAstNode a = a SourcePos RawId
+type PosAstNode a = a SourcePos UniqId
+type CheckedAstNode a = a CheckedData UniqId
+
+
 data ClosureEnv = ClosureEnv
   { cloTypeEnv :: TEnv
   , cloVarEnv :: VEnv
@@ -337,7 +347,7 @@ data Ty =
   | TyPoly [TyVarId] Ty
   | TyVar TyVarId
   | TyMeta TyVarId
-  | TyRef (QualifiedId UniqId) -- Only for recursive type definitions
+  | TyRef (QualifiedId SourcePos UniqId) -- Only for recursive type definitions
   deriving (Eq, Show)
 
 data ModuleBinding =

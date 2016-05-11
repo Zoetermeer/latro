@@ -36,9 +36,9 @@ instance Sexpable CheckedData where
           ]
 
 
-instance Sexpable id => Sexpable (QualifiedId id) where
-  sexp (Id raw) = sexp raw
-  sexp (Path qid raw) =
+instance (Sexpable a, Sexpable id) => Sexpable (QualifiedId a id) where
+  sexp (Id _ raw) = sexp raw
+  sexp (Path _ qid raw) =
     Symbol $ printf "%s.%s" (showSexp qid) (showSexp raw)
 
 

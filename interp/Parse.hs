@@ -2443,9 +2443,9 @@ happyReduction_14 (HappyAbsSyn33  happy_var_3)
 happyReduction_14 _ _ _  = notHappyAtAll 
 
 happyReduce_15 = happySpecReduce_1  11 happyReduction_15
-happyReduction_15 (HappyTerminal (Token _ (TokenNumLit happy_var_1)))
+happyReduction_15 (HappyTerminal happy_var_1)
 	 =  HappyAbsSyn11
-		 (PatExpNumLiteral (pos happy_var_1) happy_var_1
+		 (PatExpNumLiteral (pos happy_var_1) (tokValue happy_var_1)
 	)
 happyReduction_15 _  = notHappyAtAll 
 
@@ -2494,10 +2494,10 @@ happyReduce_21 = happyReduce 4 14 happyReduction_21
 happyReduction_21 (_ `HappyStk`
 	(HappyAbsSyn15  happy_var_3) `HappyStk`
 	_ `HappyStk`
-	(HappyTerminal (Token _ (TokenId happy_var_1))) `HappyStk`
+	(HappyTerminal happy_var_1) `HappyStk`
 	happyRest)
 	 = HappyAbsSyn14
-		 (PatExpAdt (pos happy_var_1) happy_var_1 happy_var_3
+		 (PatExpAdt (pos happy_var_1) (tokValue happy_var_1) happy_var_3
 	) `HappyStk` happyRest
 
 happyReduce_22 = happySpecReduce_1  15 happyReduction_22
@@ -2573,9 +2573,9 @@ happyReduction_31 (HappyAbsSyn14  happy_var_1)
 happyReduction_31 _  = notHappyAtAll 
 
 happyReduce_32 = happySpecReduce_1  17 happyReduction_32
-happyReduction_32 (HappyTerminal (Token _ (TokenId happy_var_1)))
+happyReduction_32 (HappyTerminal happy_var_1)
 	 =  HappyAbsSyn17
-		 (PatExpId (pos happy_var_1) happy_var_1
+		 (PatExpId (pos happy_var_1) (tokValue happy_var_1)
 	)
 happyReduction_32 _  = notHappyAtAll 
 
@@ -2591,7 +2591,7 @@ happyReduction_34 (HappyAbsSyn18  happy_var_3)
 	_
 	(HappyAbsSyn17  happy_var_1)
 	 =  HappyAbsSyn18
-		 (PatExpListCons (pos happy_var_1) happy_var_1 happy_var_3
+		 (PatExpListCons (nodeData happy_var_1) happy_var_1 happy_var_3
 	)
 happyReduction_34 _ _ _  = notHappyAtAll 
 
@@ -2649,18 +2649,18 @@ happyReduction_41 _
 happyReduction_41 _ _ _  = notHappyAtAll 
 
 happyReduce_42 = happySpecReduce_1  22 happyReduction_42
-happyReduction_42 (HappyTerminal (Token _ (TokenId happy_var_1)))
+happyReduction_42 (HappyTerminal happy_var_1)
 	 =  HappyAbsSyn22
-		 ([happy_var_1]
+		 ([tokValue happy_var_1]
 	)
 happyReduction_42 _  = notHappyAtAll 
 
 happyReduce_43 = happySpecReduce_3  22 happyReduction_43
-happyReduction_43 (HappyTerminal (Token _ (TokenId happy_var_3)))
+happyReduction_43 (HappyTerminal happy_var_3)
 	_
 	(HappyAbsSyn22  happy_var_1)
 	 =  HappyAbsSyn22
-		 (happy_var_1 ++ [happy_var_3]
+		 (happy_var_1 ++ [tokValue happy_var_3]
 	)
 happyReduction_43 _ _ _  = notHappyAtAll 
 
@@ -2756,9 +2756,9 @@ happyReduction_54 (_ `HappyStk`
 	) `HappyStk` happyRest
 
 happyReduce_55 = happySpecReduce_1  25 happyReduction_55
-happyReduction_55 (HappyTerminal (Token _ (TokenNumLit happy_var_1)))
+happyReduction_55 (HappyTerminal happy_var_1)
 	 =  HappyAbsSyn25
-		 (ExpNum (pos happy_var_1) happy_var_1
+		 (ExpNum (pos happy_var_1) (tokValue happy_var_1)
 	)
 happyReduction_55 _  = notHappyAtAll 
 
@@ -2777,25 +2777,25 @@ happyReduction_57 (HappyTerminal happy_var_1)
 happyReduction_57 _  = notHappyAtAll 
 
 happyReduce_58 = happySpecReduce_1  25 happyReduction_58
-happyReduction_58 (HappyTerminal (Token _ (TokenString happy_var_1)))
+happyReduction_58 (HappyTerminal happy_var_1)
 	 =  HappyAbsSyn25
-		 (ExpString (pos happy_var_1) happy_var_1
+		 (ExpString (pos happy_var_1) (tokValue happy_var_1)
 	)
 happyReduction_58 _  = notHappyAtAll 
 
 happyReduce_59 = happySpecReduce_1  25 happyReduction_59
-happyReduction_59 (HappyTerminal (Token _ (TokenId happy_var_1)))
+happyReduction_59 (HappyTerminal happy_var_1)
 	 =  HappyAbsSyn25
-		 (ExpRef (pos happy_var_1) happy_var_1
+		 (ExpRef (pos happy_var_1) (tokValue happy_var_1)
 	)
 happyReduction_59 _  = notHappyAtAll 
 
 happyReduce_60 = happySpecReduce_3  26 happyReduction_60
-happyReduction_60 (HappyTerminal (Token _ (TokenId happy_var_3)))
+happyReduction_60 (HappyTerminal happy_var_3)
 	_
 	(HappyAbsSyn27  happy_var_1)
 	 =  HappyAbsSyn26
-		 (ExpMemberAccess (pos happy_var_1) happy_var_1 happy_var_3
+		 (ExpMemberAccess (nodeData happy_var_1) happy_var_1 (tokValue happy_var_3)
 	)
 happyReduction_60 _ _ _  = notHappyAtAll 
 
@@ -2813,7 +2813,7 @@ happyReduction_62 (_ `HappyStk`
 	(HappyAbsSyn27  happy_var_1) `HappyStk`
 	happyRest)
 	 = HappyAbsSyn27
-		 (ExpApp (pos happy_var_1) happy_var_1 happy_var_3
+		 (ExpApp (nodeData happy_var_1) happy_var_1 happy_var_3
 	) `HappyStk` happyRest
 
 happyReduce_63 = happySpecReduce_1  27 happyReduction_63
@@ -2828,7 +2828,7 @@ happyReduction_64 (HappyAbsSyn27  happy_var_3)
 	_
 	(HappyAbsSyn28  happy_var_1)
 	 =  HappyAbsSyn28
-		 (ExpMul (pos happy_var_1) happy_var_1 happy_var_3
+		 (ExpMul (nodeData happy_var_1) happy_var_1 happy_var_3
 	)
 happyReduction_64 _ _ _  = notHappyAtAll 
 
@@ -2844,7 +2844,7 @@ happyReduction_66 (HappyAbsSyn28  happy_var_3)
 	_
 	(HappyAbsSyn29  happy_var_1)
 	 =  HappyAbsSyn29
-		 (ExpDiv (pos happy_var_1) happy_var_1 happy_var_3
+		 (ExpDiv (nodeData happy_var_1) happy_var_1 happy_var_3
 	)
 happyReduction_66 _ _ _  = notHappyAtAll 
 
@@ -2860,7 +2860,7 @@ happyReduction_68 (HappyAbsSyn29  happy_var_3)
 	_
 	(HappyAbsSyn30  happy_var_1)
 	 =  HappyAbsSyn30
-		 (ExpAdd (pos happy_var_1) happy_var_1 happy_var_3
+		 (ExpAdd (nodeData happy_var_1) happy_var_1 happy_var_3
 	)
 happyReduction_68 _ _ _  = notHappyAtAll 
 
@@ -2876,7 +2876,7 @@ happyReduction_70 (HappyAbsSyn30  happy_var_3)
 	_
 	(HappyAbsSyn31  happy_var_1)
 	 =  HappyAbsSyn31
-		 (ExpSub (pos happy_var_1) happy_var_1 happy_var_3
+		 (ExpSub (nodeData happy_var_1) happy_var_1 happy_var_3
 	)
 happyReduction_70 _ _ _  = notHappyAtAll 
 
@@ -2892,7 +2892,7 @@ happyReduction_72 (HappyAbsSyn32  happy_var_3)
 	_
 	(HappyAbsSyn31  happy_var_1)
 	 =  HappyAbsSyn32
-		 (ExpCons (pos happy_var_1) happy_var_1 happy_var_3
+		 (ExpCons (nodeData happy_var_1) happy_var_1 happy_var_3
 	)
 happyReduction_72 _ _ _  = notHappyAtAll 
 
@@ -2943,13 +2943,13 @@ happyReduction_78 (_ `HappyStk`
 	(HappyAbsSyn26  happy_var_1) `HappyStk`
 	happyRest)
 	 = HappyAbsSyn33
-		 (ExpStruct (pos happy_var_1) happy_var_1 happy_var_3
+		 (ExpStruct (nodeData happy_var_1) happy_var_1 happy_var_3
 	) `HappyStk` happyRest
 
 happyReduce_79 = happySpecReduce_1  33 happyReduction_79
 happyReduction_79 (HappyAbsSyn48  happy_var_1)
 	 =  HappyAbsSyn33
-		 (ExpTypeDec (pos happy_var_1) happy_var_1
+		 (ExpTypeDec (nodeData happy_var_1) happy_var_1
 	)
 happyReduction_79 _  = notHappyAtAll 
 
@@ -2996,16 +2996,16 @@ happyReduction_82 (_ `HappyStk`
 happyReduce_83 = happySpecReduce_3  34 happyReduction_83
 happyReduction_83 (HappyAbsSyn24  happy_var_3)
 	_
-	(HappyTerminal (Token _ (TokenId happy_var_1)))
+	(HappyTerminal happy_var_1)
 	 =  HappyAbsSyn34
-		 (AnnDefModule (pos happy_var_1) happy_var_1 happy_var_3
+		 (AnnDefModule (pos happy_var_1) (tokValue happy_var_1) happy_var_3
 	)
 happyReduction_83 _ _ _  = notHappyAtAll 
 
 happyReduce_84 = happySpecReduce_1  34 happyReduction_84
 happyReduction_84 (HappyAbsSyn53  happy_var_1)
 	 =  HappyAbsSyn34
-		 (AnnDefFun (pos happy_var_1) happy_var_1
+		 (AnnDefFun (nodeData happy_var_1) happy_var_1
 	)
 happyReduction_84 _  = notHappyAtAll 
 
@@ -3045,10 +3045,10 @@ happyReduction_89 (_ `HappyStk`
 	(HappyAbsSyn61  happy_var_4) `HappyStk`
 	_ `HappyStk`
 	(HappyAbsSyn36  happy_var_2) `HappyStk`
-	(HappyTerminal (Token _ (TokenId happy_var_1))) `HappyStk`
+	(HappyTerminal happy_var_1) `HappyStk`
 	happyRest)
 	 = HappyAbsSyn37
-		 (ExpAnnDec (pos happy_var_1) happy_var_1 happy_var_2 happy_var_4 happy_var_6
+		 (ExpAnnDec (pos happy_var_1) (tokValue happy_var_1) happy_var_2 happy_var_4 happy_var_6
 	) `HappyStk` happyRest
 
 happyReduce_90 = happyReduce 5 38 happyReduction_90
@@ -3056,10 +3056,10 @@ happyReduction_90 (_ `HappyStk`
 	(HappyAbsSyn61  happy_var_4) `HappyStk`
 	_ `HappyStk`
 	(HappyAbsSyn36  happy_var_2) `HappyStk`
-	(HappyTerminal (Token _ (TokenId happy_var_1))) `HappyStk`
+	(HappyTerminal happy_var_1) `HappyStk`
 	happyRest)
 	 = HappyAbsSyn38
-		 (TyAnn (pos happy_var_1) happy_var_1 happy_var_2 happy_var_4
+		 (TyAnn (pos happy_var_1) (tokValue happy_var_1) happy_var_2 happy_var_4
 	) `HappyStk` happyRest
 
 happyReduce_91 = happySpecReduce_1  39 happyReduction_91
@@ -3082,11 +3082,11 @@ happyReduction_93 (_ `HappyStk`
 	(HappyAbsSyn39  happy_var_5) `HappyStk`
 	_ `HappyStk`
 	(HappyAbsSyn36  happy_var_3) `HappyStk`
-	(HappyTerminal (Token _ (TokenId happy_var_2))) `HappyStk`
+	(HappyTerminal happy_var_2) `HappyStk`
 	(HappyTerminal happy_var_1) `HappyStk`
 	happyRest)
 	 = HappyAbsSyn40
-		 (ExpInterfaceDec (pos happy_var_1) happy_var_2 happy_var_3 happy_var_5
+		 (ExpInterfaceDec (pos happy_var_1) (tokValue happy_var_2) happy_var_3 happy_var_5
 	) `HappyStk` happyRest
 
 happyReduce_94 = happySpecReduce_1  41 happyReduction_94
@@ -3193,18 +3193,18 @@ happyReduction_106  =  HappyAbsSyn46
 	)
 
 happyReduce_107 = happySpecReduce_1  47 happyReduction_107
-happyReduction_107 (HappyTerminal (Token _ (TokenId happy_var_1)))
+happyReduction_107 (HappyTerminal happy_var_1)
 	 =  HappyAbsSyn47
-		 ([happy_var_1]
+		 ([tokValue happy_var_1]
 	)
 happyReduction_107 _  = notHappyAtAll 
 
 happyReduce_108 = happySpecReduce_3  47 happyReduction_108
-happyReduction_108 (HappyTerminal (Token _ (TokenId happy_var_3)))
+happyReduction_108 (HappyTerminal happy_var_3)
 	_
 	(HappyAbsSyn47  happy_var_1)
 	 =  HappyAbsSyn47
-		 (happy_var_1 ++ [happy_var_3]
+		 (happy_var_1 ++ [tokValue happy_var_3]
 	)
 happyReduction_108 _ _ _  = notHappyAtAll 
 
@@ -3217,22 +3217,22 @@ happyReduce_110 = happyReduce 5 48 happyReduction_110
 happyReduction_110 ((HappyAbsSyn61  happy_var_5) `HappyStk`
 	_ `HappyStk`
 	_ `HappyStk`
-	(HappyTerminal (Token _ (TokenId happy_var_2))) `HappyStk`
+	(HappyTerminal happy_var_2) `HappyStk`
 	(HappyTerminal happy_var_1) `HappyStk`
 	happyRest)
 	 = HappyAbsSyn48
-		 (TypeDecTy (pos happy_var_1) happy_var_2 happy_var_5
+		 (TypeDecTy (pos happy_var_1) (tokValue happy_var_2) happy_var_5
 	) `HappyStk` happyRest
 
 happyReduce_111 = happyReduce 5 48 happyReduction_111
 happyReduction_111 ((HappyAbsSyn49  happy_var_5) `HappyStk`
 	_ `HappyStk`
 	(HappyAbsSyn36  happy_var_3) `HappyStk`
-	(HappyTerminal (Token _ (TokenId happy_var_2))) `HappyStk`
+	(HappyTerminal happy_var_2) `HappyStk`
 	(HappyTerminal happy_var_1) `HappyStk`
 	happyRest)
 	 = HappyAbsSyn48
-		 (TypeDecAdt (pos happy_var_1) happy_var_2 happy_var_3 happy_var_5
+		 (TypeDecAdt (pos happy_var_1) (tokValue happy_var_2) happy_var_3 happy_var_5
 	) `HappyStk` happyRest
 
 happyReduce_112 = happySpecReduce_1  49 happyReduction_112
@@ -3252,10 +3252,10 @@ happyReduction_113 _ _  = notHappyAtAll
 
 happyReduce_114 = happySpecReduce_3  50 happyReduction_114
 happyReduction_114 (HappyAbsSyn51  happy_var_3)
-	(HappyTerminal (Token _ (TokenId happy_var_2)))
+	(HappyTerminal happy_var_2)
 	(HappyTerminal happy_var_1)
 	 =  HappyAbsSyn50
-		 (AdtAlternative (pos happy_var_1) happy_var_2 0 happy_var_3
+		 (AdtAlternative (pos happy_var_1) (tokValue happy_var_2) 0 happy_var_3
 	)
 happyReduction_114 _ _ _  = notHappyAtAll 
 
@@ -3301,11 +3301,11 @@ happyReduction_120 (_ `HappyStk`
 	_ `HappyStk`
 	(HappyAbsSyn55  happy_var_4) `HappyStk`
 	_ `HappyStk`
-	(HappyTerminal (Token _ (TokenId happy_var_2))) `HappyStk`
+	(HappyTerminal happy_var_2) `HappyStk`
 	(HappyAbsSyn54  happy_var_1) `HappyStk`
 	happyRest)
 	 = HappyAbsSyn53
-		 (FunDefInstFun (pos happy_var_1) happy_var_1 happy_var_2 happy_var_4 happy_var_7
+		 (FunDefInstFun (nodeData happy_var_1) happy_var_1 (tokValue happy_var_2) happy_var_4 happy_var_7
 	) `HappyStk` happyRest
 
 happyReduce_121 = happyReduce 7 53 happyReduction_121
@@ -3315,10 +3315,10 @@ happyReduction_121 (_ `HappyStk`
 	_ `HappyStk`
 	(HappyAbsSyn55  happy_var_3) `HappyStk`
 	_ `HappyStk`
-	(HappyTerminal (Token _ (TokenId happy_var_1))) `HappyStk`
+	(HappyTerminal happy_var_1) `HappyStk`
 	happyRest)
 	 = HappyAbsSyn53
-		 (FunDefFun (pos happy_var_1) happy_var_1 happy_var_3 happy_var_6
+		 (FunDefFun (pos happy_var_1) (tokValue happy_var_1) happy_var_3 happy_var_6
 	) `HappyStk` happyRest
 
 happyReduce_122 = happyReduce 4 54 happyReduction_122
@@ -3535,7 +3535,7 @@ happyReduction_147 _  = notHappyAtAll
 happyReduce_148 = happySpecReduce_1  61 happyReduction_148
 happyReduction_148 (HappyAbsSyn66  happy_var_1)
 	 =  HappyAbsSyn61
-		 (SynTyRef (pos happy_var_1) happy_var_1 []
+		 (SynTyRef (nodeData happy_var_1) happy_var_1 []
 	)
 happyReduction_148 _  = notHappyAtAll 
 
@@ -3546,7 +3546,7 @@ happyReduction_149 (_ `HappyStk`
 	(HappyAbsSyn66  happy_var_1) `HappyStk`
 	happyRest)
 	 = HappyAbsSyn61
-		 (SynTyRef (pos happy_var_1) happy_var_1 happy_var_3
+		 (SynTyRef (nodeData happy_var_1) happy_var_1 happy_var_3
 	) `HappyStk` happyRest
 
 happyReduce_150 = happySpecReduce_3  61 happyReduction_150
@@ -3554,16 +3554,16 @@ happyReduction_150 _
 	_
 	(HappyAbsSyn61  happy_var_1)
 	 =  HappyAbsSyn61
-		 (SynTyList (pos happy_var_1) happy_var_1
+		 (SynTyList (nodeData happy_var_1) happy_var_1
 	)
 happyReduction_150 _ _ _  = notHappyAtAll 
 
 happyReduce_151 = happySpecReduce_3  62 happyReduction_151
 happyReduction_151 _
-	(HappyTerminal (Token _ (TokenId happy_var_2)))
+	(HappyTerminal happy_var_2)
 	(HappyAbsSyn61  happy_var_1)
 	 =  HappyAbsSyn62
-		 ((happy_var_2, happy_var_1)
+		 ((tokValue happy_var_2, happy_var_1)
 	)
 happyReduction_151 _ _ _  = notHappyAtAll 
 
@@ -3591,10 +3591,10 @@ happyReduce_155 = happyReduce 4 64 happyReduction_155
 happyReduction_155 (_ `HappyStk`
 	(HappyAbsSyn33  happy_var_3) `HappyStk`
 	_ `HappyStk`
-	(HappyTerminal (Token _ (TokenId happy_var_1))) `HappyStk`
+	(HappyTerminal happy_var_1) `HappyStk`
 	happyRest)
 	 = HappyAbsSyn64
-		 ((happy_var_1, happy_var_3)
+		 ((tokValue happy_var_1, happy_var_3)
 	) `HappyStk` happyRest
 
 happyReduce_156 = happySpecReduce_1  65 happyReduction_156
@@ -3618,18 +3618,18 @@ happyReduction_158  =  HappyAbsSyn65
 	)
 
 happyReduce_159 = happySpecReduce_1  66 happyReduction_159
-happyReduction_159 (HappyTerminal (Token _ (TokenId happy_var_1)))
+happyReduction_159 (HappyTerminal happy_var_1)
 	 =  HappyAbsSyn66
-		 (Id happy_var_1
+		 (Id (pos happy_var_1) (tokValue happy_var_1)
 	)
 happyReduction_159 _  = notHappyAtAll 
 
 happyReduce_160 = happySpecReduce_3  66 happyReduction_160
-happyReduction_160 (HappyTerminal (Token _ (TokenId happy_var_3)))
+happyReduction_160 (HappyTerminal happy_var_3)
 	_
 	(HappyAbsSyn66  happy_var_1)
 	 =  HappyAbsSyn66
-		 (Path happy_var_1 happy_var_3
+		 (Path (nodeData happy_var_1) happy_var_1 (tokValue happy_var_3)
 	)
 happyReduction_160 _ _ _  = notHappyAtAll 
 
@@ -3683,9 +3683,9 @@ happyNewToken action sts stk
 	Token _ TokenColon -> cont 109;
 	Token _ TokenComma -> cont 110;
 	Token _ TokenUnderscore -> cont 111;
-	Token _ (TokenNumLit happy_dollar_dollar) -> cont 112;
-	Token _ (TokenId happy_dollar_dollar) -> cont 113;
-	Token _ (TokenString happy_dollar_dollar) -> cont 114;
+	Token _ (TokenNumLit _) -> cont 112;
+	Token _ (TokenId _) -> cont 113;
+	Token _ (TokenString _) -> cont 114;
 	_ -> happyError' tk
 	})
 
@@ -3711,16 +3711,16 @@ happySeq = happyDontSeq
 pos :: Token -> SourcePos
 pos (Token sourcePos _) = sourcePos
 
-firstPos :: AstNode a => [a] -> SourcePos
-firstPos [] = SourcePos 0 0
+firstPos :: AstNode a => [a SourcePos RawId] -> SourcePos
+firstPos [] = SourcePos "" 0 0
 firstPos (e:_) = nodeData e
 
 lexwrap :: (Token -> Alex a) -> Alex a
 lexwrap = (alexMonadScan' >>=)
 
 happyError :: Token -> Alex a
-happyError (Token p t) =
-  alexError' p ("parse error at token '" ++ unlex t ++ "'")
+happyError (Token (SourcePos _ line col) t) =
+  alexError' (AlexPn 0 line col) ("parse error at token '" ++ unlex t ++ "'")
 
 parseExp :: FilePath -> String -> Either Err (CompUnit SourcePos RawId)
 parseExp filePath input = first (\errMsg -> ErrSyntax errMsg) $ runAlex' parse filePath input

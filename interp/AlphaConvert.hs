@@ -43,7 +43,8 @@ lookup id = do
       throwError $ ErrUnboundRawIdentifier id
 
 
-convertBin :: (Exp UniqId -> Exp UniqId -> Exp UniqId) -> Exp RawId -> Exp RawId -> AlphaConverted (Exp UniqId)
+convertBin :: (PosAstNode Exp -> PosAstNode Exp -> PosAstNode Exp) -> RawAstNode Exp -> RawAstNode Exp -> AlphaConverted (PosAstNode Exp)
+-- convertBin :: (Exp UniqId -> Exp UniqId -> Exp UniqId) -> Exp RawId -> Exp RawId -> AlphaConverted (Exp UniqId)
 convertBin c a b = do
   a' <- convert a
   b' <- convert b

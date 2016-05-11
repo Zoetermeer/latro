@@ -4,6 +4,7 @@ module Lex
   , AlexPosn(..)
   , TokenClass(..)
   , Alex(..)
+  , tokValue
   , unlex
   , runAlex'
   , alexMonadScan'
@@ -140,6 +141,16 @@ data TokenClass =
   | TokenString String
   | TokenEOF
   deriving (Show)
+
+
+tokValue :: Token -> String
+tokValue (Token _ tok) =
+  case tok of
+    TokenNumLit s -> s
+    TokenId s -> s
+    TokenString s -> s
+    _ -> ""
+
 
 alexEOF :: Alex Token
 alexEOF = do
