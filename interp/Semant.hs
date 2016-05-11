@@ -283,9 +283,9 @@ data CheckedData = CheckedData SourcePos Ty
   deriving (Eq, Show)
 
 
-type RawAstNode a = a SourcePos RawId
-type PosAstNode a = a SourcePos UniqId
-type CheckedAstNode a = a CheckedData UniqId
+type RawAst a = a SourcePos RawId
+type UniqAst a = a SourcePos UniqId
+type TypedAst a = a CheckedData UniqId
 
 
 data ClosureEnv = ClosureEnv
