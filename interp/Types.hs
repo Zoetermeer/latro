@@ -562,11 +562,17 @@ unifyAll (ta:tb:tys) = do
   unifyAll (ty':tys)
 
 
-tcArith :: Exp UniqId -> Exp UniqId -> Checked Ty
-tcArith a b = do
-  tc a >>= unify tyInt
-  tc b >>= unify tyInt
-  return tyInt
+tcArith :: (CheckedData -> UniqAst Exp -> UniqAst Exp -> UniqAst Exp)
+        -> SourcePos
+        -> UniqAst Exp
+        -> UniqAst Exp
+        -> Checked Ty
+tcArith ctor p a b = do
+  (tya, a') <- tc a
+  (tyb, b') <- tc b
+  unify tya tyInt
+  unify tyb tyInt
+  return (tyInt, ctor (OfTy p tyInt) a' b')
 
 
 -- A "syntax-level type" is just an
@@ -726,66 +732,72 @@ addBindingsForPat patE ty =
   throwError $ ErrPatMatchBindingFail patE ty
 
 
-tc :: Exp UniqId -> Checked Ty
-tc ExpUnit = return $ mtApp TyConUnit
-tc (ExpFail _) = do
+tc :: UniqAst Exp -> Checked (Ty, TypedAst Exp)
+tc (ExpUnit p) = return (mtApp TyConUnit, ExpUnit (OfTy p (mtApp TyConUnit)))
+tc (ExpFail p msg) = do
   ty <- freshMeta
-  return ty
-tc (ExpRef id) = do
+  return (ty, ExpFail (OfTy p ty) msg)
+
+tc (ExpRef p id) = do
   ty <- lookupVar id
-  instantiate ty
+  ty' <- instantiate ty
+  return (ty', ExpRef (OfTy p ty') id)
 
-tc (ExpString _) = return $ mtApp TyConString
-tc (ExpBool _) = return $ mtApp TyConBool
-tc (ExpNum _) = return $ mtApp TyConInt
+tc (ExpString p s) = return (tyStr, ExpString (OfTy p tyStr) s)
+tc (ExpBool p b) = return (tyBool, ExpBool (OfTy p tyBool) b)
+tc (ExpNum p n) = return (tyInt, ExpNum (OfTy p tyInt) n)
 
-tc (ExpAdd a b) = tcArith a b
-tc (ExpSub a b) = tcArith a b
-tc (ExpDiv a b) = tcArith a b
-tc (ExpMul a b) = tcArith a b
+tc (ExpAdd p a b) = tcArith ExpAdd p a b
+tc (ExpSub p a b) = tcArith ExpSub p a b
+tc (ExpDiv p a b) = tcArith ExpDiv p a b
+tc (ExpMul p a b) = tcArith ExpMul p a b
 
-tc (ExpCons headE listE) = do
-  tyListE <- tc listE
-  tyHeadE <- tc headE
+tc (ExpCons p headE listE) = do
+  (tyListE, listE') <- tc listE
+  (tyHeadE, headE') <- tc headE
   tyListE' <- instantiate tyListE
-  case tyListE' of
-    TyApp TyConList _ -> do
-      listTy <- unify tyListE' $ TyApp TyConList [tyHeadE]
-      subst listTy
-    _ -> unify (TyApp TyConList [tyHeadE]) tyListE'
+  listTy <- case tyListE' of
+              TyApp TyConList _ ->
+                unify tyListE' $ TyApp TyConList [tyHeadE] >>= subst
+              _ -> -- Failure case, we unify expecting a (ListOf(<headTy>)) to fail
+                unify (TyApp TyConList [tyHeadE]) tyListE'
+  return (listTy, ExpCons (OfTy p listTy) headE' listE')
 
-tc (ExpNot e) = do
-  te <- tc e >>= unify tyBool
-  return tyBool
+tc (ExpNot p e) = do
+  (ty, e') <- tc e
+  unify tyBool ty
+  return (tyBool, ExpNot (OfTy p tyBool) e')
 
-tc (ExpMemberAccess e id) = do
-  eTy <- tc e
+tc (ExpMemberAccess p e id) = do
+  (eTy, e') <- tc e
   case eTy of
     TyApp (TyConModule tyParamIds mod) [] ->
-      do ty <- lookupVarIn mod id
-         instantiate ty
+      do ty <- lookupVarIn mod id >>= instantiate
+         return (ty, ExpMemberAccess (OfTy p ty) e' id)
     _ -> throwError $ ErrNotImplemented "Failed member access"
 
-tc (ExpApp ratorE randEs) = do
-  fty <- tc ratorE
-  argTys <- mapM tc randEs
+tc (ExpApp p ratorE randEs) = do
+  (fty, ratorE') <- tc ratorE
+  (randTys, randEs') <- unzip $ mapM tc randEs
   retTyMeta@(TyMeta retTyMetaId) <- freshMeta
-  (TyApp TyConArrow argTys) <- unify fty $ TyApp TyConArrow $ argTys ++ [retTyMeta]
-  case reverse argTys of
-    [] -> return tyUnit
-    retTy:_ -> return retTy
+  (TyApp TyConArrow arrowTys) <- unify fty $ TyApp TyConArrow $ randTys ++ [retTyMeta]
+  let ty = case reverse arrowTys of
+              [] -> tyUnit
+              retTy:_ -> retTy
+  return (ty, ExpApp (OfTy p ty) ratorE' randEs')
 
 -- module { m1 ... mn } --> App(Module, [tc(m1), ..., tc(mn)]
 -- module <t1, ..., tn> { ... } --> Poly([t1, ..., tn], App(Module ...))
-tc (ExpModule paramIds es) = do
+tc (ExpModule p paramIds es) = do
   oldEnv <- pushNewModuleContext
-  mapM_ tc es
+  (_, es') <- unzip $ mapM tc es
   curMod <- gets curModule
   restoreContext oldEnv
   let tyApp = TyApp (TyConModule paramIds curMod) $ map TyVar paramIds
-  case paramIds of
-    [] -> return tyApp
-    _ -> return $ TyPoly paramIds tyApp
+      tyApp' = case paramIds of
+                [] -> tyApp
+                _ -> TyPoly paramIds tyApp
+  return (tyApp', ExpModule (OfTy p tyApp') paramIds es')
 
 -- If the right-hand side is a function,
 -- we must bind the name before typechecking
@@ -925,14 +937,14 @@ tc (ExpIfElse testE thenEs elseEs) = do
 tc e = throwError $ ErrInterpFailure $ printf "In function tc: %s" $ show e
 
 
-tcEs :: [Exp UniqId] -> Checked Ty
-tcEs [] = return $ mtApp TyConUnit
+tcEs :: [UniqAst Exp] -> Checked (Ty, [TypedAst Exp])
+tcEs [] = return (mtApp TyConUnit, [])
 tcEs es = do
-  tys <- mapM tc es
-  return $ last tys
+  (tys, es') <- unzip $ mapM tc es
+  return (last tys, es')
 
 
-typeCheck :: CompUnit UniqId -> AlphaEnv -> Either Err (Ty, AlphaEnv)
+typeCheck :: UniqAst CompUnit -> AlphaEnv -> Either Err (Ty, AlphaEnv)
 typeCheck (CompUnit es) aEnv = do
   (tyResult, tcEnv) <- return $ runState (runExceptT $ do { ty <- tcEs es; generalize ty }) $ mtEnv aEnv
   ty <- tyResult

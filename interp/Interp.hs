@@ -435,9 +435,9 @@ evalEs es = do
   return $ last vs
 
 
-eval :: CompUnit UniqId -> Eval Value
+eval :: TypedAst CompUnit -> Eval Value
 eval (CompUnit es) = evalEs es
 
-interp :: CompUnit UniqId -> AlphaEnv -> Either Err Value
+interp :: TypedAst CompUnit -> AlphaEnv -> Either Err Value
 interp alphaConverted alphaEnv = do
   evalState (runExceptT $ eval alphaConverted) $ mtInterpEnv alphaEnv

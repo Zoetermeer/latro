@@ -279,7 +279,7 @@ type VEnv = Map.Map UniqId Value
 type TEnv = Map.Map UniqId Ty
 
 
-data CheckedData = CheckedData SourcePos Ty
+data CheckedData = OfTy SourcePos Ty
   deriving (Eq, Show)
 
 

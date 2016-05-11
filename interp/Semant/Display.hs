@@ -29,8 +29,8 @@ instance Sexpable SourcePos where
 
 
 instance Sexpable CheckedData where
-  sexp (CheckedData srcPos ty) =
-    List  [ Symbol "CheckedData"
+  sexp (OfTy srcPos ty) =
+    List  [ Symbol "OfTy"
           , sexp srcPos
           , sexp ty
           ]
