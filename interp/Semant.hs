@@ -95,9 +95,9 @@ data Exp a id =
   | ExpAnnDec a id [id] (SynTy a id) [AnnDef a id]
   | ExpInterfaceDec a id [id] [TyAnn a id]
   | ExpModule a [id] [Exp a id]
-  | ExpStruct a (Exp a id) [(id, Exp a id)]
+  | ExpStruct a (SynTy a id) [(id, Exp a id)]
   | ExpIfElse a (Exp a id) [Exp a id] [Exp a id]
-  | ExpMakeAdt a (SynTy a id) Int [Exp a id]
+  | ExpMakeAdt a id Int [Exp a id]
   | ExpTuple a [Exp a id]
   | ExpSwitch a (Exp a id) [CaseClause a id]
   | ExpCond a [CondCaseClause a id]
@@ -108,6 +108,7 @@ data Exp a id =
   | ExpString a String
   | ExpRef a id
   | ExpUnit a
+  | ExpBegin a [Exp a id]
   | ExpFail a String
   deriving (Eq, Show)
 
@@ -319,7 +320,7 @@ data Struct = Struct Ty [(UniqId, Value)]
   deriving (Eq, Show)
 
 
-data Adt = Adt Ty Int [Value]
+data Adt = Adt UniqId Int [Value]
   deriving (Eq, Show)
 
 

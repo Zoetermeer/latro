@@ -33,6 +33,10 @@ freshM id = do
   return uniqId
 
 
+nextIdIndex :: AlphaEnv -> Int
+nextIdIndex (AlphaEnv i _) = i
+
+
 lookup :: RawId -> AlphaConverted UniqId
 lookup id = do
   (AlphaEnv _ table) <- lift get
@@ -344,10 +348,10 @@ convert (ExpModule p paramIds bodyEs) = do
   bodyEs' <- mapM convert bodyEs
   return $ ExpModule p paramIds' bodyEs'
 
-convert (ExpStruct p eDefiner fields) = do
-  eDefiner' <- convert eDefiner
+convert (ExpStruct p synTy fields) = do
+  synTy' <- convertTy synTy
   fields' <- mapM (\(fieldId, fieldE) -> do { fieldE' <- convert fieldE; fieldId' <- freshM fieldId; return (fieldId', fieldE') }) fields
-  return $ ExpStruct p eDefiner' fields'
+  return $ ExpStruct p synTy' fields'
 
 convert (ExpIfElse p condE thenEs elseEs) = do
   condE' <- convert condE

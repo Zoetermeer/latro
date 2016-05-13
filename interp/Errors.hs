@@ -6,17 +6,15 @@ import Semant
 
 data Err =
     ErrSyntax String
-  | ErrNonExhaustivePattern Value
+  | ErrNonExhaustivePattern (TypedAst Exp) Value
   | ErrInvalidConstructor UniqId Ty
   | ErrNotAConstructor UniqId
   | ErrNotAnAdt Value
   | ErrInvalidFunPattern
   | ErrInvalidAdtPattern
   | ErrInvalidTypeExp (Exp SourcePos UniqId)
-  | ErrNumLitPatMatchFail Int Int
-  | ErrBoolLitPatMatchFail Bool Bool
-  | ErrListPatMatchFail Value
-  | ErrPatMatchFailOn Value
+  | ErrPatMatchFail (TypedAst PatExp) Value
+  | ErrPatMatchFailOn SourcePos Value
   | ErrPatMatchBindingFail (PatExp SourcePos UniqId) Ty
   | ErrInvalidConsTo Value
   | ErrNonFunDefsInFunDec UniqId
@@ -28,8 +26,8 @@ data Err =
   | ErrUnboundRawIdentifier RawId
   | ErrUnboundUniqIdentifier UniqId
   | ErrCantUnify Ty Ty
-  | ErrUndefinedMember UniqId
-  | ErrInvalidStructType TyCon
+  | ErrUndefinedMember SourcePos UniqId
+  | ErrInvalidStructType Ty
   | ErrTooManyModuleDefs UniqId
   | ErrNoModuleDefInModuleDec UniqId
   | ErrMultipleDefsInSimpleAnnDec UniqId
@@ -37,6 +35,7 @@ data Err =
   | ErrPartialTyConApp (QualifiedId SourcePos UniqId) TyCon [Ty]
   | ErrInvalidModulePath (QualifiedId SourcePos UniqId)
   | ErrInferenceFail (Map.Map UniqId Ty) Ty Ty
+  | ErrUserFail SourcePos String
   | ErrInterpFailure String
   | ErrNotImplemented String
   deriving (Show)

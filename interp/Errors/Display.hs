@@ -11,8 +11,9 @@ instance Sexpable Err where
   sexp (ErrSyntax msg) =
     List  [ Symbol "Syntax", Atom msg ]
 
-  sexp (ErrNonExhaustivePattern v) =
+  sexp (ErrNonExhaustivePattern e v) =
     List  [ Symbol "NonExhaustivePattern"
+          , sexp e
           , sexp v
           ]
 
@@ -38,14 +39,8 @@ instance Sexpable Err where
   sexp (ErrInvalidTypeExp e) =
     List  [ Symbol "InvalidTypeExp", sexp e ]
 
-  sexp (ErrNumLitPatMatchFail x y) =
-    List  [ Symbol "NumLitPatMatchFail", Atom (show x), Atom (show y) ]
-
-  sexp (ErrBoolLitPatMatchFail x y) =
-    List  [ Symbol "BoolLitPatMatchFail", Atom (show x), Atom (show y) ]
-
-  sexp (ErrPatMatchFailOn v) =
-    List  [ Symbol "PatMatchFailOn", sexp v ]
+  sexp (ErrPatMatchFail e v) =
+    List  [ Symbol "PatMatchFail", sexp e, sexp v ]
 
   sexp (ErrPatMatchBindingFail patE ty) =
     List  [ Symbol "PatMatchBindingFail"
@@ -81,8 +76,9 @@ instance Sexpable Err where
           , List [ Symbol "Got", sexp b ]
           ]
 
-  sexp (ErrUndefinedMember id) =
+  sexp (ErrUndefinedMember d id) =
     List  [ Symbol "UndefinedMember"
+          , sexp d
           , sexp id
           ]
 

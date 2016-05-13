@@ -175,8 +175,7 @@ Exp : '!' ConsExp { ExpNot (pos $1) $2 }
     | ConsExp { $1 }
     | import QualifiedId { ExpImport (pos $1) $2 }
     | def PatExp '=' Exp { ExpAssign (pos $1) $2 $4 }
-    | MemberAccessExp '{' StructFieldInitializers '}' { ExpStruct (nodeData $1) $1 $3 }
-    | TypeDec { ExpTypeDec (nodeData $1) $1 }
+    | id '{' StructFieldInitializers '}' { ExpStruct (pos $1) (SynTyRef (pos $1) (Id (pos $1) (tokValue $1)) []) $3 }
     | if '(' Exp ')' '{' ZeroOrMoreExps '}' else '{' ZeroOrMoreExps '}' { ExpIfElse (pos $1) $3 $6 $10 }
     | switch '(' Exp ')' '{' CaseClauses '}' { ExpSwitch (pos $1) $3 $6 }
     | cond '{' CondCaseClauses '}' { ExpCond (pos $1) $3 }
@@ -202,6 +201,7 @@ InterfaceDecExp: interface id TyParams '{' TyAnns '}' { ExpInterfaceDec (pos $1)
 
 ModuleLevelExp : AnnDecExp { $1 }
                | InterfaceDecExp ';' { $1 }
+               | TypeDec { ExpTypeDec (nodeData $1) $1 }
                | ExpT { $1 }
 
 CaseClauses : CaseClause { [$1] }

@@ -257,6 +257,11 @@ instance (Sexpable a, Sexpable id) => Sexpable (Exp a id) where
   sexp (ExpString d s) = List [ Symbol "ExpString", sexp d, Atom s ]
   sexp (ExpRef d id) = List [ Symbol "ExpRef", sexp d, sexp id ]
   sexp (ExpUnit d) = List [ Symbol "ExpUnit", sexp d ]
+  sexp (ExpBegin d es) =
+    List  [ Symbol "ExpBegin"
+          , sexp d
+          , toSexpList es
+          ]
   sexp (ExpFail d msg) = List [ Symbol "ExpFail", sexp d, Atom msg ]
 
 
@@ -316,9 +321,9 @@ instance Sexpable Struct where
 
 
 instance Sexpable Adt where
-  sexp (Adt ty i vs) =
+  sexp (Adt id i vs) =
       List  [ Symbol "Adt"
-            , Symbol "??"
+            , sexp id
             , Atom (show i)
             , toSexpList vs
             ]
