@@ -144,4 +144,10 @@ instance Sexpable Err where
           , Atom s
           ]
 
+  sexp (ErrAtPos p err) =
+    List  [ Symbol "AtPos"
+          , sexp p
+          , sexp err
+          ]
+
   sexp err = List  [ Symbol "Error", Atom $ show err ]

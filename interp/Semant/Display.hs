@@ -330,8 +330,8 @@ instance Sexpable Adt where
 
 
 instance Sexpable Value where
-  sexp (ValueInt i) = Atom $ show i
-  sexp (ValueBool b) = Atom $ show b
+  sexp (ValueInt i) = Symbol $ show i
+  sexp (ValueBool b) = Symbol $ show b
   sexp (ValueStr s) = Atom s
   sexp (ValueModule m) = sexp m
   sexp (ValueFun clo) = sexp clo

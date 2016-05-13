@@ -881,3 +881,44 @@
       };
     }
     'String))
+
+(test-case "checks a module with common list operations"
+  (check-equal?
+    @typecheck{
+      IsEven => fun(Int) : Bool;
+      IsEven(x) {
+        switch (x) {
+          case 0 -> True;
+          case 1 -> False;
+          case 2 -> True;
+          case _ -> IsEven(x - 2);
+        };
+      };
+
+      type BoolList = Bool[];
+
+      def IntList = module {
+        type t = Int[];
+
+        Concat => fun(t[], t[]) : t[];
+        Concat(xs, []) { xs; }
+        Concat([], ys) { ys; }
+        Concat(x::xs, ys) {
+          x :: Concat(xs, ys);
+        };
+
+        Map => fun(fun(Int) : Bool, t) : BoolList;
+        Map(f, []) { []; }
+        Map(f, x::xs) {
+          f(x) :: Map(f, xs);
+        };
+      };
+
+      [
+        IntList.Concat([], []),
+        IntList.Concat([1, 2], []),
+        IntList.Concat([1, 2], [3, 4, 5]),
+        IntList.Map(IsEven, [1, 2, 3, 4])
+      ];
+    }
+    'Int))

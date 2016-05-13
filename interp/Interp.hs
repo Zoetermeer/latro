@@ -19,6 +19,12 @@ import Semant
 import Text.Printf (printf)
 
 
+-- This annotation is correct but not allowed without FlexibleContexts
+-- reportPosOnFail :: MonadError Err m => m a -> SourcePos -> m a
+reportPosOnFail a p = do
+  a `catchError` (\err -> throwError $ ErrAtPos p err)
+
+
 -- An evaluator monad is a possibly-failing computation
 -- with a state: (type environment, variable environment, current module)
 -- The variable environment maps ID --o--> Value
@@ -75,8 +81,8 @@ lookupQualIn  :: UniqAst QualifiedId
               -> (Exports -> Map.Map UniqId a)
               -> (InterpEnv -> Map.Map UniqId a)
               -> Eval a
-lookupQualIn (Id _ id) intEnv _ extractAEnv = lookupId id $ extractAEnv intEnv
-lookupQualIn (Path _ qid id) intEnv extractExportEnv _ = do
+lookupQualIn (Id p id) intEnv _ extractAEnv = lookupId id $ extractAEnv intEnv
+lookupQualIn (Path p qid id) intEnv extractExportEnv _ = do
   (ValueModule (Module _ _ exports)) <- lookupQualIn qid intEnv exportVars varEnv
   lookupId id $ extractExportEnv exports
 
@@ -296,13 +302,19 @@ evalE (ExpStruct (OfTy _ ty) _ fieldInits) = do
   fieldInitVs <- mapM (\(id, e) -> do { v <- evalE e; return (id, v) }) fieldInits
   return $ ValueStruct $ Struct ty fieldInitVs
 
+evalE (ExpAssign _ patE@(PatExpId _ funId) ef@(ExpFun _ _ _)) = do
+  (ValueFun (Closure _ ty cloEnv paramIds bodyEs)) <- evalE ef
+  let recF = ValueFun $ Closure funId ty cloEnv paramIds bodyEs
+  evalPatExp patE recF
+  return ValueUnit
+
 evalE (ExpAssign _ patE e) = do
   v <- evalE e
   evalPatExp patE v
   return ValueUnit
 
-evalE (ExpRef _ rawId) = do
-  v <- lookupVarId rawId
+evalE (ExpRef (OfTy p _) rawId) = do
+  v <- lookupVarId rawId `reportPosOnFail` p
   return v
 
 evalE (ExpApp _ e argEs) = do
@@ -325,12 +337,14 @@ evalE (ExpFun (OfTy _ ty) paramIds bodyEs) = do
   newId <- freshId
   return $ ValueFun $ Closure newId ty cloEnv paramIds bodyEs
 
-evalE (ExpMemberAccess _ e id) = do
+evalE (ExpMemberAccess (OfTy p _) e id) = do
   v <- evalE e
-  case v of
-    (ValueModule (Module _ _ exports)) -> lookupId id $ exportVars exports
-    (ValueStruct (Struct _ fields)) ->
-      hoistEither $ maybeToEither err $ lookup id fields
+  let handle = (flip reportPosOnFail) p
+  handle $ case v of
+             (ValueModule (Module _ _ exports)) ->
+               lookupId id $ exportVars exports
+             (ValueStruct (Struct _ fields)) ->
+               hoistEither $ maybeToEither err $ lookup id fields
   where
     err = ErrUnboundUniqIdentifier id
 

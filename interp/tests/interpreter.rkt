@@ -916,7 +916,7 @@
         IntList.Map(IsEven, [1, 2, 3, 4])
       ];
     }
-    "<list [False, True, <list []>, <list [1, 2]>, <list [1, 2, 3, 4, 5]>, <list [False, True, False, True]>]>"))
+    '(List (False True (List ()) (List (1 2)) (List (1 2 3 4 5)) (List (False True False True))))))
 
 (test-case "it evaluates recursive function defs that depend on pattern ordering"
   (check-equal?
@@ -929,7 +929,7 @@
 
       (GetTwoOrLess(1), GetTwoOrLess(4));
     }
-    "<tuple (1, 2)>"))
+    '(Tuple (1 2))))
 
 (test-case "it evaluates anonymous lambda expressions"
   (check-match
@@ -943,7 +943,7 @@
     @interp{
       fun (x, y) { x + y; }(1, 2);
     }
-    "3"))
+    3))
 
 (test-case "it evaluates polymorphic functions"
   (check-equal?
@@ -968,4 +968,4 @@
 
       Lists.Map(fun(n) { IsEven(n); }, [1, 2, 3, 4]);
     }
-    "<list [False, True, False, True]>"))
+    '(List (False True False True))))

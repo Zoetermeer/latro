@@ -38,4 +38,5 @@ data Err =
   | ErrUserFail SourcePos String
   | ErrInterpFailure String
   | ErrNotImplemented String
+  | ErrAtPos SourcePos Err
   deriving (Show)

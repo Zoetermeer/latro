@@ -744,7 +744,7 @@ tc (ExpFail p msg) = do
   return (ty, ExpFail (OfTy p ty) msg)
 
 tc (ExpRef p id) = do
-  ty <- lookupVar id
+  ty <- lookupVar id `catchError` (\err -> throwError $ ErrAtPos p err)
   ty' <- instantiate ty
   return (ty', ExpRef (OfTy p ty') id)
 
