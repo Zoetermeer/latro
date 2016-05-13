@@ -201,7 +201,7 @@ InterfaceDecExp: interface id TyParams '{' TyAnns '}' { ExpInterfaceDec (pos $1)
 
 ModuleLevelExp : AnnDecExp { $1 }
                | InterfaceDecExp ';' { $1 }
-               | TypeDec { ExpTypeDec (nodeData $1) $1 }
+               | TypeDec ';' { ExpTypeDec (nodeData $1) $1 }
                | ExpT { $1 }
 
 CaseClauses : CaseClause { [$1] }

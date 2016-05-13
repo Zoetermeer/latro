@@ -93,47 +93,6 @@
     @typecheck{if (True) { 42; } else { "hello"; };}
     '(CantUnify (Expected Int) (Got String))))
 
-(test-case "it checks structs"
-  (check-equal?
-    @typecheck{
-      type WeirdPoint = struct { Int X; Bool Y; };
-      WeirdPoint { X = 1; Y = False; };
-    }
-    '(App (Struct (X Y)) (Int Bool))))
-
-(test-case "it fails on undefined-member initializers"
-  (check-match
-    @typecheck{
-      type WeirdPoint = struct { Int X; Bool Y; };
-      WeirdPoint { X = 1; A = False; };
-    }
-    `(UndefinedMember (Id A ,_))))
-
-(test-case "it fails on type mismatches in field initializers"
-  (check-equal?
-    @typecheck{
-      type WeirdPoint = struct { Int X; Bool Y; };
-      WeirdPoint { X = 1; Y = 2; };
-    }
-    '(CantUnify (Expected Bool) (Got Int))))
-
-(test-case "it fails on attempts to struct-initialize non-struct types"
-  (check-equal?
-    @typecheck{
-      type Foo = Int;
-      Foo { X = 1; };
-    }
-    '(InvalidStructType Int)))
-
-; Pending a well-defined typing semantics around structs
-; (test-case "it checks struct-field accesses"
-;   (check-equal?
-;     @typecheck{
-;       type Point = struct { Int X; Int Y; };
-;       (Point { X = 1; Y = 2; }).Y;
-;     }
-;     'Int))
-
 (test-case "it checks module-value accesses"
   (check-equal?
     @typecheck{
@@ -691,21 +650,21 @@
               (TyFun
                 (,l ,r)
                 (App (Adt (,Left ,Right)) ((App Tuple ((Var ,l))) (App Tuple ((Var ,r)))))))
-            ((Var ,t3) String))
+            ((Var ,t1) String))
           (App
             (Unique
               ,Either
               (TyFun
                 (,l ,r)
                 (App (Adt (,Left ,Right)) ((App Tuple ((Var ,l))) (App Tuple ((Var ,r)))))))
-            (Int (Var ,t1)))
+            (Int (Var ,t2)))
           (App
             (Unique
               ,Either
               (TyFun
                 (,l ,r)
                 (App (Adt (,Left ,Right)) ((App Tuple ((Var ,l))) (App Tuple ((Var ,r)))))))
-            ((Var ,t2) Bool)))))))
+            ((Var ,t3) Bool)))))))
 
 
 (test-case "it checks parameterized ADT type constructors with no arguments"
@@ -922,13 +881,3 @@
       };
     }
     'String))
-
-(test-case "it fails if cond tests do not unify with Bool"
-  (check-equal?
-    @typecheck{
-      cond {
-        case 1 -> "foo";
-        case _ -> "bar";
-      };
-    }
-    '(CantUnify (Expected Bool) (Got Int))))

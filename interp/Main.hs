@@ -51,7 +51,9 @@ alphaConvertCmd compUnit =
 
 tcCmd :: UniqAst CompUnit -> AlphaEnv -> Command (TypedAst CompUnit, AlphaEnv)
 tcCmd alphaConverted alphaEnv =
-  Command DumpTypecheckResult (\(tcResult, _) -> sexp tcResult) $ T.typeCheck alphaConverted alphaEnv
+  Command DumpTypecheckResult
+          (\(CompUnit (OfTy _ ty) _, _) -> sexp ty)
+          $ T.typeCheck alphaConverted alphaEnv
 
 interpCmd :: TypedAst CompUnit -> AlphaEnv -> Command Value
 interpCmd alphaConverted alphaEnv =

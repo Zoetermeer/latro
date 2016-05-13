@@ -570,8 +570,8 @@ tcArith :: (CheckedData -> TypedAst Exp -> TypedAst Exp -> TypedAst Exp)
 tcArith ctor p a b = do
   (tya, a') <- tc a
   (tyb, b') <- tc b
-  unify tya tyInt
-  unify tyb tyInt
+  unify tyInt tya
+  unify tyInt tyb
   return (tyInt, ctor (OfTy p tyInt) a' b')
 
 
@@ -635,7 +635,8 @@ tcTyDec (TypeDecAdt p id tyParamIds alts) = do
   altNamesTys <- mapM tcAdtAlt alts
   let (names, tys) = unzip altNamesTys
       altsTys = zip alts tys
-      adtTyCon = TyConUnique id $ TyConTyFun tyParamIds $ TyApp (TyConAdt names) $ concat tys
+      ctorTups = map (\ts -> TyApp TyConTuple ts) tys
+      adtTyCon = TyConUnique id $ TyConTyFun tyParamIds $ TyApp (TyConAdt names) ctorTups
   -- Add a function binding for each constructor,
   -- and return a function expression for each one
   ctorEs <- mapM (\(alt@(AdtAlternative _ ctorName _ _), argTys) ->
@@ -788,7 +789,8 @@ tc (ExpApp p ratorE randEs) = do
   let ty = case reverse arrowTys of
               [] -> tyUnit
               retTy:_ -> retTy
-  return (ty, ExpApp (OfTy p ty) ratorE' randEs')
+  ty' <- subst ty
+  return (ty', ExpApp (OfTy p ty) ratorE' randEs')
 
 -- module { m1 ... mn } --> App(Module, [tc(m1), ..., tc(mn)]
 -- module <t1, ..., tn> { ... } --> Poly([t1, ..., tn], App(Module ...))
@@ -955,8 +957,15 @@ tcEs es = do
   return (last tys, es')
 
 
+tcCompUnit :: UniqAst CompUnit -> Checked (Ty, TypedAst CompUnit)
+tcCompUnit (CompUnit p es) = do
+  (ty, es') <- tcEs es
+  ty' <- generalize ty
+  return (ty', CompUnit (OfTy p ty') es')
+
+
 typeCheck :: UniqAst CompUnit -> AlphaEnv -> Either Err (TypedAst CompUnit, AlphaEnv)
-typeCheck (CompUnit p es) aEnv = do
-  (tyResult, tcEnv) <- return $ runState (runExceptT (tcEs es)) $ mtEnv aEnv
-  (ty, es') <- tyResult
-  return (CompUnit (OfTy p ty) es', alphaEnv tcEnv)
+typeCheck cu aEnv = do
+  (tyResult, tcEnv) <- return $ runState (runExceptT (tcCompUnit cu)) $ mtEnv aEnv
+  (ty, cu') <- tyResult
+  return (cu', alphaEnv tcEnv)
