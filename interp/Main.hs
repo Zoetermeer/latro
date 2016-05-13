@@ -41,19 +41,19 @@ instance Monad CommandResult where
 data Command a = Command UserSwitch (a -> Sexpable.Sexp) (Either Err a)
 
 
-parseCmd :: FilePath -> ProgramText -> Command (CompUnit RawId)
+parseCmd :: FilePath -> ProgramText -> Command (RawAst CompUnit)
 parseCmd filePath program =
   Command DumpParseTree sexp $ parseExp filePath program
 
-alphaConvertCmd :: CompUnit RawId -> Command (CompUnit UniqId, AlphaEnv)
+alphaConvertCmd :: RawAst CompUnit -> Command (UniqAst CompUnit, AlphaEnv)
 alphaConvertCmd compUnit =
   Command DumpAlphaConverted (\(ac, _) -> sexp ac) $ alphaConvert compUnit
 
-tcCmd :: CompUnit UniqId -> AlphaEnv -> Command (Ty, AlphaEnv)
+tcCmd :: UniqAst CompUnit -> AlphaEnv -> Command (TypedAst CompUnit, AlphaEnv)
 tcCmd alphaConverted alphaEnv =
   Command DumpTypecheckResult (\(tcResult, _) -> sexp tcResult) $ T.typeCheck alphaConverted alphaEnv
 
-interpCmd :: CompUnit UniqId -> AlphaEnv -> Command Value
+interpCmd :: TypedAst CompUnit -> AlphaEnv -> Command Value
 interpCmd alphaConverted alphaEnv =
   Command Evaluate sexp $ Interp.interp alphaConverted alphaEnv
 
@@ -72,9 +72,9 @@ run :: UserSwitch -> FilePath -> ProgramText -> CommandResult Value
 run switch filePath program =
   let runCmd' = runCmd switch
   in do ast <- runCmd' $ parseCmd filePath program
-        (alphaConverted, alphaEnv) <- runCmd' $ alphaConvertCmd ast
-        (progType, alphaEnv') <- runCmd' $ tcCmd alphaConverted alphaEnv
-        runCmd' $ interpCmd alphaConverted alphaEnv'
+        (alphaConvertedAst, alphaEnv) <- runCmd' $ alphaConvertCmd ast
+        (typedAst, alphaEnv') <- runCmd' $ tcCmd alphaConvertedAst alphaEnv
+        runCmd' $ interpCmd typedAst alphaEnv'
 
 
 getUserSwitch :: [String] -> (UserSwitch, FilePath)
