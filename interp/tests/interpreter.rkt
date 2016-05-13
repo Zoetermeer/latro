@@ -932,11 +932,11 @@
     "<tuple (1, 2)>"))
 
 (test-case "it evaluates anonymous lambda expressions"
-  (check-equal?
+  (check-match
     @interp{
       fun(x, y) { x + y; };
     }
-    '(Fun _ (Closure [] []))))
+    `(Fun ,_ (Closure () ()))))
 
 (test-case "it evaluates anonymous function application"
   (check-equal?
