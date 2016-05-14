@@ -515,15 +515,15 @@
 
       len(3);
     }
-    `(CantUnify (Expected (App List (,t))) (Got Int))))
+    `(AtPos ,_ (CantUnify (Expected (App List (,t))) (Got Int)))))
 
 (test-case "it fails if return values are of different type params"
-  (check-equal?
+  (check-match
     @typecheck{
       def f = fun(x, y) { if (True) { x; } else { y; }; };
       f(1, False);
     }
-    '(CantUnify (Expected Int) (Got Bool))))
+    `(AtPos ,_ (CantUnify (Expected Int) (Got Bool)))))
 
 (test-case "it unifies different type params if an application matches their types"
   (check-equal?
@@ -555,7 +555,7 @@
        ())))
 
 (test-case "it fails on ill-typed ADT constructor applications"
-  (check-equal?
+  (check-match
     @typecheck{
       type Rope =
         | Leaf String
@@ -564,7 +564,7 @@
 
       Leaf(False);
     }
-    '(CantUnify (Expected String) (Got Bool))))
+    `(AtPos ,_ (CantUnify (Expected String) (Got Bool)))))
 
 (test-case "it checks recursive ADT's"
   (check-match
@@ -596,7 +596,11 @@
       def f = fun(x, y) { if (True) { x; } else { y; }; };
       f(A(1), B(2));
     }
-    `(CantUnify (Expected (App (Unique (Id A ,_) ,_) ,_)) (Got (App (Unique (Id B ,_) ,_) ,_)))))
+    `(AtPos
+       ,_
+       (CantUnify
+         (Expected (App (Unique (Id A ,_) ,_) ,_))
+         (Got (App (Unique (Id B ,_) ,_) ,_))))))
 
 (test-case "it checks annotated functions involving ADT types"
   (check-match
@@ -747,7 +751,7 @@
         case B(b) -> x;
       };
     }
-    `(UnboundUniqIdentifier (Id x ,_))))
+    `(AtPos ,_ (UnboundUniqIdentifier (Id x ,_)))))
 
 (test-case "it does not allow pattern bindings to escape modules"
   (check-match
@@ -885,22 +889,12 @@
 (test-case "checks a module with common list operations"
   (check-equal?
     @typecheck{
-      IsEven => fun(Int) : Bool;
-      IsEven(x) {
-        switch (x) {
-          case 0 -> True;
-          case 1 -> False;
-          case 2 -> True;
-          case _ -> IsEven(x - 2);
-        };
-      };
-
-      type BoolList = Bool[];
-
       def IntList = module {
         type t = Int[];
+        type BoolList = Bool[];
 
-        Concat => fun(t[], t[]) : t[];
+
+        Concat => fun(t, t) : t;
         Concat(xs, []) { xs; }
         Concat([], ys) { ys; }
         Concat(x::xs, ys) {
@@ -917,8 +911,7 @@
       [
         IntList.Concat([], []),
         IntList.Concat([1, 2], []),
-        IntList.Concat([1, 2], [3, 4, 5]),
-        IntList.Map(IsEven, [1, 2, 3, 4])
+        IntList.Concat([1, 2], [3, 4, 5])
       ];
     }
-    'Int))
+    '(App List ((App List (Int))))))

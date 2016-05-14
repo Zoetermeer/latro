@@ -364,6 +364,10 @@ instance Sexpable Ty where
   sexp (TyRef qid) = List [ Symbol "Ref", sexp qid ]
 
 
+instance Sexpable TCModule where
+  sexp _ = List [ Symbol "Module" ]
+
+
 instance Sexpable TyCon where
   sexp TyConInt = Symbol "Int"
   sexp TyConBool = Symbol "Bool"
@@ -376,6 +380,8 @@ instance Sexpable TyCon where
     List [ Symbol "Struct", toSexpList fieldNames ]
   sexp (TyConAdt ctorNames) =
     List [ Symbol "Adt", toSexpList ctorNames ]
+  sexp (TyConModule tyParamIds tcMod) =
+    List [ Symbol "Module", toSexpList tyParamIds, sexp tcMod ]
   sexp (TyConTyFun tyVarIds ty) =
     List [ Symbol "TyFun", toSexpList tyVarIds, sexp ty ]
   sexp (TyConUnique id tyCon) =

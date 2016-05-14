@@ -23,6 +23,7 @@ data UserSwitch =
   | DumpParseTree
   | DumpAlphaConverted
   | DumpTypecheckResult
+  | DumpTypedAst
   deriving (Eq, Show)
 
 data CommandResult a =
@@ -34,6 +35,9 @@ instance Monad CommandResult where
   Success v >>= f = f v
   DumpOutput sexp >>= _ = DumpOutput sexp
   Error err >>= _ = Error err
+
+  DumpOutput sexp >> _ = DumpOutput sexp
+  _ >> b = b
 
   return v = Success v
 
@@ -54,6 +58,10 @@ tcCmd alphaConverted alphaEnv =
   Command DumpTypecheckResult
           (\(CompUnit (OfTy _ ty) _, _) -> sexp ty)
           $ T.typeCheck alphaConverted alphaEnv
+
+showTypedAstCmd :: TypedAst CompUnit -> Command (TypedAst CompUnit)
+showTypedAstCmd typedAst =
+  Command DumpTypedAst sexp $ return typedAst
 
 interpCmd :: TypedAst CompUnit -> AlphaEnv -> Command Value
 interpCmd alphaConverted alphaEnv =
@@ -76,13 +84,15 @@ run switch filePath program =
   in do ast <- runCmd' $ parseCmd filePath program
         (alphaConvertedAst, alphaEnv) <- runCmd' $ alphaConvertCmd ast
         (typedAst, alphaEnv') <- runCmd' $ tcCmd alphaConvertedAst alphaEnv
+        runCmd' $ showTypedAstCmd typedAst
         runCmd' $ interpCmd typedAst alphaEnv'
 
 
 getUserSwitch :: [String] -> (UserSwitch, FilePath)
 getUserSwitch ["-p", path] = (DumpParseTree, path)
 getUserSwitch ["-a", path] = (DumpAlphaConverted, path)
-getUserSwitch ["-t", path] = (DumpTypecheckResult, path)
+getUserSwitch ["-tc", path] = (DumpTypecheckResult, path)
+getUserSwitch ["-t", path] = (DumpTypedAst, path)
 getUserSwitch [path] = (Evaluate, path)
 getUserSwitch _ = error "Usage: interp [-a|-p|-t] FILEPATH"
 

@@ -647,6 +647,15 @@ tcTyDec (TypeDecAdt p id tyParamIds alts) = do
                  altsTys
   return (adtTyCon, ctorEs)
 
+tcTyDec (TypeDecTy _ id (SynTyList _ (SynTyInt _))) =
+  let tycon = TyConTyFun [] $ TyApp TyConList [tyInt]
+    in do bindTy id tycon
+          return (tycon, [])
+
+tcTyDec (TypeDecTy _ id (SynTyList _ (SynTyBool _))) = do
+  let tycon = TyConTyFun [] $ TyApp TyConList [tyBool]
+    in do bindTy id tycon
+          return (tycon, [])
 
 tcStructFields :: [(UniqId, Ty)] -> [(UniqId, UniqAst Exp)] -> Checked (Ty, [(UniqId, TypedAst Exp)])
 tcStructFields _ [] = return (tyUnit, [])
@@ -785,7 +794,8 @@ tc (ExpApp p ratorE randEs) = do
   (fty, ratorE') <- tc ratorE
   (randTys, randEs') <- mapAndUnzipM tc randEs
   retTyMeta@(TyMeta retTyMetaId) <- freshMeta
-  (TyApp TyConArrow arrowTys) <- unify fty $ TyApp TyConArrow $ randTys ++ [retTyMeta]
+  (TyApp TyConArrow arrowTys) <-
+    withFailPos p $ unify fty $ TyApp TyConArrow $ randTys ++ [retTyMeta]
   let ty = case reverse arrowTys of
               [] -> tyUnit
               retTy:_ -> retTy

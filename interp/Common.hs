@@ -1,7 +1,9 @@
 module Common where
 
+import Control.Monad.Except
 import Data.List
 import Data.Monoid
+import Errors
 
 data Env a b = Env [(a, b)]
   deriving (Eq, Show)
@@ -11,6 +13,13 @@ instance Monoid (Env a b) where
   mappend (Env a) (Env b) = Env (a <> b)
 
 type FailMessage = String
+
+-- This annotation is correct but not allowed without FlexibleContexts
+-- reportPosOnFail :: MonadError Err m => m a -> SourcePos -> m a
+reportPosOnFail a p = do
+  a `catchError` (\err -> throwError $ ErrAtPos p err)
+
+withFailPos p a = reportPosOnFail a p
 
 class Show a => PrettyShow a where
   showShort :: a -> String

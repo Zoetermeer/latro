@@ -56,6 +56,9 @@
   (call-and-read '("-a") (apply string-append s)))
 
 (define (typecheck . s)
+  (call-and-read '("-tc") (apply string-append s)))
+
+(define (show-typed-ast . s)
   (call-and-read '("-t") (apply string-append s)))
 
 (define (interp . s)

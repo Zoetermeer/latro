@@ -19,12 +19,6 @@ import Semant
 import Text.Printf (printf)
 
 
--- This annotation is correct but not allowed without FlexibleContexts
--- reportPosOnFail :: MonadError Err m => m a -> SourcePos -> m a
-reportPosOnFail a p = do
-  a `catchError` (\err -> throwError $ ErrAtPos p err)
-
-
 -- An evaluator monad is a possibly-failing computation
 -- with a state: (type environment, variable environment, current module)
 -- The variable environment maps ID --o--> Value
@@ -316,6 +310,10 @@ evalE (ExpAssign _ patE e) = do
 evalE (ExpRef (OfTy p _) rawId) = do
   v <- lookupVarId rawId `reportPosOnFail` p
   return v
+
+evalE (ExpUnit _) = return ValueUnit
+
+evalE (ExpBegin _ es) = evalEs es
 
 evalE (ExpApp _ e argEs) = do
   fv@(ValueFun (Closure fid fTy fenv paramIds bodyEs)) <- evalE e
