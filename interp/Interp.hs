@@ -19,6 +19,10 @@ import Semant
 import Text.Printf (printf)
 
 
+reportErrorAt a p =
+  reportPosOnFail a "Interp" p
+
+
 -- An evaluator monad is a possibly-failing computation
 -- with a state: (type environment, variable environment, current module)
 -- The variable environment maps ID --o--> Value
@@ -308,7 +312,7 @@ evalE (ExpAssign _ patE e) = do
   return ValueUnit
 
 evalE (ExpRef (OfTy p _) rawId) = do
-  v <- lookupVarId rawId `reportPosOnFail` p
+  v <- lookupVarId rawId `reportErrorAt` p
   return v
 
 evalE (ExpUnit _) = return ValueUnit
@@ -337,7 +341,7 @@ evalE (ExpFun (OfTy _ ty) paramIds bodyEs) = do
 
 evalE (ExpMemberAccess (OfTy p _) e id) = do
   v <- evalE e
-  let handle = (flip reportPosOnFail) p
+  let handle = (flip reportErrorAt) p
   handle $ case v of
              (ValueModule (Module _ _ exports)) ->
                lookupId id $ exportVars exports
@@ -358,12 +362,10 @@ evalE (ExpIfElse _ condE thenEs elseEs) = do
   restoreEnv curEnv
   return v
 
-evalE switchE@(ExpSwitch _ e clauses) = do
+evalE switchE@(ExpSwitch (OfTy p _) e clauses) = do
   v <- evalE e
   matchResult <- evalCaseClauses v clauses
-  case matchResult of
-    Nothing -> throwError $ ErrNonExhaustivePattern switchE v
-    Just retV -> return retV
+  (hoistEither (maybeToEither (ErrNonExhaustivePattern switchE v) matchResult)) `reportErrorAt` p
 
 evalE (ExpFail (OfTy pos _) msg) =
   throwError $ ErrUserFail pos msg

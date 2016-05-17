@@ -144,9 +144,10 @@ instance Sexpable Err where
           , Atom s
           ]
 
-  sexp (ErrAtPos p err) =
+  sexp (ErrAtPos p moduleName err) =
     List  [ Symbol "AtPos"
           , sexp p
+          , List [ Symbol "CompilerModule", Symbol moduleName ]
           , sexp err
           ]
 

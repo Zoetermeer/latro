@@ -2,7 +2,8 @@
 (provide interp
          parse-tree
          alpha-convert
-         typecheck)
+         typecheck
+         show-typed-ast)
 
 (define (needs-recompile? file depends-on-file)
   (> (file-or-directory-modify-seconds depends-on-file)

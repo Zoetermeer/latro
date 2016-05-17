@@ -9,3 +9,4 @@
 /interp/test.spar
 /interp/tests/compiled/
 /interp/tests/scratch.rkt
+/interp/tests/*.rkt~

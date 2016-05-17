@@ -134,6 +134,14 @@
     }
     'Bool))
 
+(test-case "it reports an error for tuple patterns with non-tuple right-hand exps"
+  (check-match
+    @interp{
+      def (a, b) = 42;
+      a;
+    }
+    `(CantUnify (Expected (App Tuple (,_ ,_))) (Got Int))))
+
 (test-case "it checks compound tuple patterns"
   (check-equal?
     @typecheck{
@@ -213,7 +221,7 @@
       def [x] = [];
       x;
     }
-    `(Poly (,t) (Var ,t))))
+    `(Meta ,_)))
 
 (test-case "it checks list patterns against applications returning empty lists"
   (check-match
@@ -223,15 +231,15 @@
 
       x;
     }
-    `(Poly (,t) (Var ,t))))
+    `(Meta ,_)))
 
 (test-case "it returns an error for ill-typed list patterns"
-  (check-equal?
+  (check-match
     @typecheck{
       def [True, 1, x] = [1, 2, 3];
       x;
     }
-    '(CantUnify (Expected Bool) (Got Int))))
+    `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Bool) (Got Int)))))
 
 (test-case "it fails regardless of subexpression order in list pats"
   (check-equal?
@@ -515,7 +523,7 @@
 
       len(3);
     }
-    `(AtPos ,_ (CantUnify (Expected (App List (,t))) (Got Int)))))
+    `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected (App List (,t))) (Got Int)))))
 
 (test-case "it fails if return values are of different type params"
   (check-match
@@ -523,7 +531,7 @@
       def f = fun(x, y) { if (True) { x; } else { y; }; };
       f(1, False);
     }
-    `(AtPos ,_ (CantUnify (Expected Int) (Got Bool)))))
+    `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
 
 (test-case "it unifies different type params if an application matches their types"
   (check-equal?
@@ -564,7 +572,7 @@
 
       Leaf(False);
     }
-    `(AtPos ,_ (CantUnify (Expected String) (Got Bool)))))
+    `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected String) (Got Bool)))))
 
 (test-case "it checks recursive ADT's"
   (check-match
@@ -598,6 +606,7 @@
     }
     `(AtPos
        ,_
+       (CompilerModule Types)
        (CantUnify
          (Expected (App (Unique (Id A ,_) ,_) ,_))
          (Got (App (Unique (Id B ,_) ,_) ,_))))))
@@ -751,7 +760,7 @@
         case B(b) -> x;
       };
     }
-    `(AtPos ,_ (UnboundUniqIdentifier (Id x ,_)))))
+    `(AtPos ,_ (CompilerModule Types) (UnboundUniqIdentifier (Id x ,_)))))
 
 (test-case "it does not allow pattern bindings to escape modules"
   (check-match

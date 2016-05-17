@@ -16,10 +16,10 @@ type FailMessage = String
 
 -- This annotation is correct but not allowed without FlexibleContexts
 -- reportPosOnFail :: MonadError Err m => m a -> SourcePos -> m a
-reportPosOnFail a p = do
-  a `catchError` (\err -> throwError $ ErrAtPos p err)
+reportPosOnFail a moduleName p = do
+  a `catchError` (\err -> throwError $ ErrAtPos p moduleName err)
 
-withFailPos p a = reportPosOnFail a p
+withFailPos p moduleName a = reportPosOnFail a moduleName p
 
 class Show a => PrettyShow a where
   showShort :: a -> String

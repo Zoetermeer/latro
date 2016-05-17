@@ -16,6 +16,13 @@ import Semant
 import Text.Printf (printf)
 
 
+reportErrorAt a p =
+  reportPosOnFail a "Types" p
+
+
+withFailPos' p a = withFailPos p "Types" a
+
+
 traceIt :: Show a => a -> a
 traceIt v = trace (show v) v
 
@@ -692,16 +699,14 @@ tcPatExp (PatExpAdt p id es) = do
 
 tcPatExp (PatExpList p es) = do
   (eTys, es') <- mapAndUnzipM tcPatExp es
-  patElemTy <- unifyAll eTys
+  patElemTy <- unifyAll eTys `reportErrorAt` p
   let ty = TyApp TyConList [patElemTy]
   return (ty, PatExpList (OfTy p ty) es')
 
 tcPatExp (PatExpListCons p eHd eTl) = do
   (hdTy, eHd') <- tcPatExp eHd
   (tlTy, eTl') <- tcPatExp eTl
-  ty <- case tlTy of
-          TyApp TyConList [elemTy] -> unify elemTy hdTy
-          _ -> unify (TyApp TyConList [hdTy]) tlTy
+  ty <- unify tlTy $ TyApp TyConList [hdTy]
   return (ty, PatExpListCons (OfTy p ty) eHd' eTl')
 
 tcPatExp (PatExpId p id) = do
@@ -753,7 +758,7 @@ tc (ExpFail p msg) = do
   return (ty, ExpFail (OfTy p ty) msg)
 
 tc (ExpRef p id) = do
-  ty <- lookupVar id `catchError` (\err -> throwError $ ErrAtPos p err)
+  ty <- lookupVar id `reportErrorAt` p
   ty' <- instantiate ty
   return (ty', ExpRef (OfTy p ty') id)
 
@@ -795,7 +800,7 @@ tc (ExpApp p ratorE randEs) = do
   (randTys, randEs') <- mapAndUnzipM tc randEs
   retTyMeta@(TyMeta retTyMetaId) <- freshMeta
   (TyApp TyConArrow arrowTys) <-
-    withFailPos p $ unify fty $ TyApp TyConArrow $ randTys ++ [retTyMeta]
+    withFailPos' p $ unify fty $ TyApp TyConArrow $ randTys ++ [retTyMeta]
   let ty = case reverse arrowTys of
               [] -> tyUnit
               retTy:_ -> retTy
@@ -856,7 +861,7 @@ tc (ExpAssign p patE rhe) = do
   (rheTy, rhe') <- tc rhe
   (patTy, patE') <- tcPatExp patE
   unify patTy rheTy
-  restoreVarEnv oldVarEnv
+  -- restoreVarEnv oldVarEnv
   rheTy' <- generalize rheTy
   addBindingsForPat patE rheTy'
   return (tyUnit, ExpAssign (OfTy p tyUnit) patE' rhe')
