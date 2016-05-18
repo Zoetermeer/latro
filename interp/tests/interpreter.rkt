@@ -88,7 +88,6 @@
     }
     `(AtPos ,_ (CompilerModule Types) (UnboundUniqIdentifier (Id runForever ,_)))))
 
-
 (test-case "it does not add bindings introduced in subexpressions to the module export env"
   (check-match
     @interp{
@@ -116,7 +115,6 @@
       };
     }
     42))
-
 
 (test-case "it evaluates nested if-else expressions"
   (check-equal?
@@ -825,45 +823,50 @@
     }
     `(AtPos ,_ (CompilerModule Interp) (NonExhaustivePattern ,_ (Tuple (1))))))
 
-; (test-case "it evaluates ADT patterns"
-;   (check-equal?
-;     @interp{
-;       type StringOption =
-;         | Some String
-;         | None
-;         ;
-; 
-;       def Some(x) = Some("hello world");
-;       x;
-;     }
-;     "hello world"))
-; 
-; (test-case "it returns an error for non-exhaustive patterns in ADT bindings"
-;   (check-match
-;     @interp{
-;       type IntOption =
-;         | Some Int
-;         | None
-;         ;
-; 
-;       def None() = Some(10);
-;     }
-;     `(AtPos ,_ (CompilerModule Interp) (NonExhaustivePattern ,_ ,_))))
-; 
-; (test-case "it evaluates ADT argument patterns"
-;   (check-equal?
-;     @interp{
-;       type IntOption = | Some Int | None ;
-; 
-;       IsSome => fun(IntOption) : Bool;
-;       IsSome(Some(_)) { True; }
-;       IsSome(_) { False; };
-; 
-;       def s = Some(42);
-;       def Some(v) = s;
-;       (IsSome(None()), IsSome(s), v);
-;     }
-;     '(Tuple (False True 42))))
+(test-case "it evaluates ADT patterns"
+  (check-equal?
+    @interp{
+      type StringOption =
+        | Some String
+        | None
+        ;
+
+      def Some(x) = Some("hello world");
+      x;
+    }
+    "hello world"))
+
+(test-case "it returns an error for non-exhaustive patterns in ADT bindings"
+  (check-match
+    @interp{
+      type IntOption =
+        | Some Int
+        | None
+        ;
+
+      def None() = Some(10);
+    }
+    `(AtPos
+       ,_
+       (CompilerModule Interp)
+       (PatMatchFail
+         ,_
+         (Adt (Id Some ,_) 0 (10))))))
+
+(test-case "it evaluates ADT argument patterns"
+  (check-equal?
+    @interp{
+      type IntOption = | Some Int | None ;
+
+      IsSome => fun(IntOption) : Bool;
+      IsSome(Some(_)) { True; }
+      IsSome(_) { False; };
+
+      def s = Some(42);
+      def Some(v) = s;
+      (IsSome(None()), IsSome(s), v);
+    }
+    '(Tuple (False True 42))))
 
 (test-case "can encode a module with common list operations"
   (check-equal?

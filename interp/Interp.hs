@@ -221,12 +221,12 @@ evalPatExp e@(PatExpTuple _ patEs) v =
   where
     (ValueTuple vs) = v
 
-evalPatExp patE@(PatExpAdt _ id patEs) v@(ValueAdt (Adt ctorId _ vs))
+evalPatExp patE@(PatExpAdt (OfTy p _) id patEs) v@(ValueAdt (Adt ctorId _ vs))
   | id == ctorId =
     let evPairs = zip patEs vs
     in do mapM_ (\(patE, v) -> evalPatExp patE v) evPairs
           return ()
-  | otherwise = throwError $ ErrPatMatchFail patE v
+  | otherwise = (throwError $ ErrPatMatchFail patE v) `reportErrorAt` p
 
 evalPatExp e@(PatExpList (OfTy p _) es) v =
     if length es /= length vs
@@ -307,6 +307,7 @@ evalE (ExpAssign _ patE@(PatExpId _ funId) ef@(ExpFun _ _ _)) = do
 
 evalE (ExpAssign _ patE e) = do
   v <- evalE e
+  let (OfTy patEPos _) = nodeData patE
   evalPatExp patE v
   return ValueUnit
 
