@@ -214,7 +214,7 @@ desugarFunDefs fid funDefs =
     case paramsLen of
       [len] -> do
         paramIds <- mapM (\_ -> freshM "arg") $ replicate len ()
-        let argsTup = ExpTuple startP $ map (ExpRef startP) paramIds
+        let argsTup = ExpTuple startP $ map (\paramId -> ExpRef startP (Id startP paramId)) paramIds
         cases <- mapM funDefToCaseClause funDefs
         return (FunDefFun startP fid (map (PatExpId startP) paramIds) [ExpSwitch startP argsTup cases], paramIds)
       _ ->
@@ -384,9 +384,9 @@ convert (ExpBool p b) = return $ ExpBool p b
 convert (ExpString p s) = return $ ExpString p s
 convert (ExpUnit p) = return $ ExpUnit p
 convert (ExpFail p msg) = return $ ExpFail p msg
-convert (ExpRef p id) = do
-  id' <- lookup id
-  return $ ExpRef p id'
+convert (ExpRef p qid) = do
+  qid' <- convertQualId qid
+  return $ ExpRef p qid'
 
 
 alphaConvert :: RawAst CompUnit -> Either Err (UniqAst CompUnit, AlphaEnv)

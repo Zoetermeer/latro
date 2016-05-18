@@ -106,7 +106,7 @@ data Exp a id =
   | ExpNum a String
   | ExpBool a Bool
   | ExpString a String
-  | ExpRef a id
+  | ExpRef a (QualifiedId a id)
   | ExpUnit a
   | ExpBegin a [Exp a id]
   | ExpFail a String

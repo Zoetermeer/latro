@@ -279,6 +279,20 @@ lookupQual (Path p qid id) = do
          return $ fTys !! fIndex
 
 
+tcQualId :: UniqAst QualifiedId -> Checked (TypedAst QualifiedId, Ty)
+tcQualId (Id p id) = lookupVar id >>= \ty -> return (Id (OfTy p ty) id, ty)
+tcQualId (Path p qid id) = do
+  (qid', innerTy) <- tcQualId qid
+  case innerTy of
+    TyApp (TyConModule _ mod) _ ->
+      do ty <- lookupVarIn mod id
+         return (Path (OfTy p ty) qid' id, ty)
+    TyApp (TyConStruct fieldNames) fTys ->
+      do fIndex <- hoistEither $ maybeToEither (ErrUndefinedMember p id) $ elemIndex id fieldNames
+         let ty = fTys !! fIndex
+         return (Path (OfTy p ty) qid' id, ty)
+
+
 lookupTyQual :: UniqAst QualifiedId -> Checked TyCon
 lookupTyQual (Id _ id) = lookupTy id
 lookupTyQual (Path p qid id) = do
@@ -621,7 +635,7 @@ makeAdtCtor (AdtAlternative p ctorId ctorInd synTys) adtTy ctorTy argTys = do
   paramIds <- mapM (\_ -> freshId) synTys
   let paramDs = map (\(paramId, synTy, ty) -> (paramId, nodeData synTy, ty))
                     $ zip3 paramIds synTys argTys
-      paramRefs = map (\(paramId, pp, pty) -> (ExpRef (OfTy pp pty) paramId)) paramDs
+      paramRefs = map (\(paramId, pp, pty) -> (ExpRef (OfTy pp pty) (Id (OfTy pp pty) paramId))) paramDs
   return $ ExpFun (OfTy p ctorTy) paramIds [ExpMakeAdt (OfTy p adtTy) ctorId ctorInd paramRefs]
 
 
@@ -757,10 +771,10 @@ tc (ExpFail p msg) = do
   ty <- freshMeta
   return (ty, ExpFail (OfTy p ty) msg)
 
-tc (ExpRef p id) = do
-  ty <- lookupVar id `reportErrorAt` p
+tc (ExpRef p qid) = do
+  (qid', ty) <- tcQualId qid `reportErrorAt` p
   ty' <- instantiate ty
-  return (ty', ExpRef (OfTy p ty') id)
+  return (ty', ExpRef (OfTy p ty') qid')
 
 tc (ExpString p s) = return (tyStr, ExpString (OfTy p tyStr) s)
 tc (ExpBool p b) = return (tyBool, ExpBool (OfTy p tyBool) b)

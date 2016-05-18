@@ -74,7 +74,7 @@ lookupId id map =
     err = ErrUnboundUniqIdentifier id
 
 
-lookupQualIn  :: UniqAst QualifiedId
+lookupQualIn  :: TypedAst QualifiedId
               -> InterpEnv
               -> (Exports -> Map.Map UniqId a)
               -> (InterpEnv -> Map.Map UniqId a)
@@ -89,11 +89,11 @@ lookupQualIn (Path p qid id) intEnv extractExportEnv _ = do
 -- lookupTyQualIn id intEnv = lookupQualIn id intEnv exportTypes typeEnv
 
 
-lookupVarQualIn :: UniqAst QualifiedId -> InterpEnv -> Eval Value
+lookupVarQualIn :: TypedAst QualifiedId -> InterpEnv -> Eval Value
 lookupVarQualIn id intEnv = lookupQualIn id intEnv exportVars varEnv
 
 
-lookupVarQual :: UniqAst QualifiedId -> Eval Value
+lookupVarQual :: TypedAst QualifiedId -> Eval Value
 lookupVarQual id = get >>= lookupVarQualIn id
 
 
@@ -193,10 +193,10 @@ freshId = do
 
 evalPatExp :: TypedAst PatExp -> Value -> Eval ()
 evalPatExp (PatExpWildcard _) _ = return ()
-evalPatExp e@(PatExpNumLiteral _ n) v =
+evalPatExp e@(PatExpNumLiteral (OfTy p _) n) v =
     if i == ni
     then return ()
-    else throwError $ ErrPatMatchFail e v
+    else (throwError $ ErrPatMatchFail e v) `reportErrorAt` p
   where
     (ValueInt i) = v
     ni = read n
@@ -225,9 +225,9 @@ evalPatExp patE@(PatExpAdt _ id patEs) v@(ValueAdt (Adt ctorId _ vs))
           return ()
   | otherwise = throwError $ ErrPatMatchFail patE v
 
-evalPatExp e@(PatExpList _ es) v =
+evalPatExp e@(PatExpList (OfTy p _) es) v =
     if length es /= length vs
-    then throwError $ ErrPatMatchFail e v
+    then (throwError $ ErrPatMatchFail e v) `reportErrorAt` p
     else do
       let evPairs = zip es vs
       mapM_ (\(patE, v) -> evalPatExp patE v) evPairs
@@ -311,8 +311,8 @@ evalE (ExpAssign _ patE e) = do
   evalPatExp patE v
   return ValueUnit
 
-evalE (ExpRef (OfTy p _) rawId) = do
-  v <- lookupVarId rawId `reportErrorAt` p
+evalE (ExpRef (OfTy p _) qid) = do
+  v <- lookupVarQual qid `reportErrorAt` p
   return v
 
 evalE (ExpUnit _) = return ValueUnit

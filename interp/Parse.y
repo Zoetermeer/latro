@@ -143,12 +143,13 @@ AtomExp : '(' Exp ')' { $2 }
         | '(' ')' { ExpUnit (pos $1) }
         | '(' Exp TupleRestExps ')' { ExpTuple (pos $1) ($2:$3) }
         | ListExp { $1 }
+        | QualifiedId '{' StructFieldInitializers '}' { ExpStruct (nodeData $1) (SynTyRef (nodeData $1) $1 []) $3 }
         | fun '(' CommaSeparatedIds ')' '{' ZeroOrMoreExps '}' { ExpFun (pos $1) $3 $6 }
         | num { ExpNum (pos $1) (tokValue $1) }
         | True { ExpBool (pos $1) True }
         | False { ExpBool (pos $1) False }
         | string { ExpString (pos $1) (tokValue $1) }
-        | id  { ExpRef (pos $1) (tokValue $1) }
+        | QualifiedId { ExpRef (nodeData $1) $1 }
 
 MemberAccessExp : AppExp '.' id { ExpMemberAccess (nodeData $1) $1 (tokValue $3) }
                 | AtomExp { $1 }
@@ -175,7 +176,6 @@ Exp : '!' ConsExp { ExpNot (pos $1) $2 }
     | ConsExp { $1 }
     | import QualifiedId { ExpImport (pos $1) $2 }
     | def PatExp '=' Exp { ExpAssign (pos $1) $2 $4 }
-    | id '{' StructFieldInitializers '}' { ExpStruct (pos $1) (SynTyRef (pos $1) (Id (pos $1) (tokValue $1)) []) $3 }
     | if '(' Exp ')' '{' ZeroOrMoreExps '}' else '{' ZeroOrMoreExps '}' { ExpIfElse (pos $1) $3 $6 $10 }
     | switch '(' Exp ')' '{' CaseClauses '}' { ExpSwitch (pos $1) $3 $6 }
     | cond '{' CondCaseClauses '}' { ExpCond (pos $1) $3 }
