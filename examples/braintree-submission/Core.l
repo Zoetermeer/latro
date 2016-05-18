@@ -1,33 +1,32 @@
 Prims := module {
-  type Char = Byte
-  type String = Char[]
+  type Char = Byte;
+  type String = Char[];
 
   interface [A] Eq {
     fun (==)(A, A) : Bool
     fun (!=)(A, A) : Bool
-  }
+  };
 
   interface [A] Ord {
     fun (<)(A, A) : Bool
     fun (>)(A, A) : Bool
     fun (<=)(A, A) : Bool
     fun (>=)(A, A) : Bool
-  }
+  };
 
   interface [A] Show {
     fun (A) Show() : String
   }
 
 
-  << Pure >>
-  fun (String) Split(String) : String[]
+  Split => fun(String)(String) : String[];
   ("").Split(sep) := { [] }
   (str).Split(sep) := {
 
-  }
+  };
 
 
-  type [T] Option = Some T | None
+  type Option<T> = Some T | None;
 
   imp [Show T] ([T Option] Show) {
     (Some t).Show() := { "Some #{t.Show()}" }
@@ -42,12 +41,10 @@ Prims := module {
     (!=)(a, b) := !(a == b)
   }
 
-  << Pure >>
   fun [T] ([T] Option) IsJust() : Bool
   (Some _).IsSome() := { True }
   (_).IsSome() := { False }
 
-  << Pure >>
   fun [T] ([T] Option) IsNone() : Bool
   (opt).IsNone() := { !opt.IsSome() }
 
@@ -114,14 +111,14 @@ def Hash := module {
   }
 }
 
-Executables := module {
+def Executables = module {
   interface Entrypoint {
     fun Main(String[]) : Int
   }
-}
+};
 
-Core := module {
-  provide Prims;
-  provide Hash;
-  provide Executables;
-}
+def Core = module {
+  include Prims;
+  include Hash;
+  include Executables;
+};

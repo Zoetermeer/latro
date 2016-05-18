@@ -58,19 +58,18 @@ def Accounts = module {
   (_).ExecuteCommand(_) { () };
 
 
-  << Pure >>
-  fun ParseCommand(String) : (Command, Bool);
-  ParseCommand(commandString) = {
+  ParseCommand => fun(String) : (Command, Bool);
+  ParseCommand(line) = {
     switch (line.Split(" ")) {
-      case ["Add", name, cardNumber, amount] -> (Add name cardNumber amount, False)
-      case ["Charge", name, amount] -> (Charge name amount, False)
-      case ["Credit", name, amount] -> (Credit name amount, False)
-      case _ -> (Quit, True)
+      case ["Add", name, cardNumber, amount] -> (Add(name, cardNumber, amount), False)
+      case ["Charge", name, amount] -> (Charge(name, amount), False)
+      case ["Credit", name, amount] -> (Credit(name, amount), False)
+      case _ -> (Quit(), True)
     };
   };
 
 
-  fun (Ledger) ProcessCommand(String) : Bool;
+  ProcessCommand => fun(Ledger)(String) : Bool;
   (ledger).ProcessCommand(line) = {
     def (command, shouldExit) = ParseCommand(line);
     ledger.ExecuteCommand(command);

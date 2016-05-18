@@ -10,15 +10,17 @@ Program = module {
       case _ -> IO.Stdin;
     };
 
-    while (True) {
-      def line = IO.ReadLine(in);
+    def loop = fun(line) {
       def done = ledger.ProcessCommand(line);
 
-      if (done) {
-        break;
-      };
-    };
+      if (!done) {
+        loop(IO.ReadLine(in));
+      } else {
+        ();
+      }
+    }
 
+    loop(IO.ReadLine(in));
     0;
   };
 };
