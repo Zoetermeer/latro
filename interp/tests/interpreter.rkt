@@ -576,7 +576,7 @@
     4))
 
 (test-case "it does not allow module-exported type bindings to escape"
-  (check-equal?
+  (check-match
     @interp{
       def Geometry = module {
         type Point = struct {
@@ -588,7 +588,7 @@
       def p = Point { X = 0; Y = 0; };
       p;
     }
-    "Error: Unbound identifier 'Point'"))
+    `(UnboundUniqIdentifier (Id Point ,_))))
 
 (test-case "it evaluates algebraic data type definitions"
   (check-equal?
@@ -616,7 +616,7 @@
     "<IntOption = Just(42)>"))
 
 (test-case "it scopes ADT defs/ctors to module exports"
-  (check-equal?
+  (check-match
     @interp{
       def m = module {
         type IntOption =
@@ -627,7 +627,7 @@
 
       Just(42);
     }
-    "Error: Unbound identifier 'Just'"))
+    `(AtPos ,_ (CompilerModule Types) (UnboundUniqIdentifier (Id Just ,_)))))
 
 (test-case "it evaluates multi-arity ADT constructors"
   (check-equal?
@@ -663,7 +663,7 @@
 (test-case "it applies functions with tuple arguments"
   (check-equal?
     @interp{
-      fun f((Int, Bool)) : (Int, Bool);
+      f => fun((Int, Bool)) : (Int, Bool);
       f(pair) { pair; };
 
       f((5, False));
@@ -695,7 +695,7 @@
 (test-case "it makes cons right-associative"
   (check-equal?
     @interp{
-      fun f(Int, Int) : Int[];
+      f => fun(Int, Int) : Int[];
       f(x, y) {
         x :: y :: [3, 4, 5];
       };
@@ -721,12 +721,12 @@
     2))
 
 (test-case "it fails to bind to list patterns if lengths don't match"
-  (check-equal?
+  (check-match
     @interp{
       def [a, b] = [];
       a;
     }
-    "Error: Binding pattern match failure for value '<list []>'"))
+    `(AtPos ,_ (CompilerModule Interp) (PatMatchFail ,_ (List ())))))
 
 (test-case "it evaluates list cons patterns"
   (check-equal?
