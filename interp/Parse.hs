@@ -3204,12 +3204,12 @@ happyReduction_109  =  HappyAbsSyn47
 happyReduce_110 = happyReduce 5 48 happyReduction_110
 happyReduction_110 ((HappyAbsSyn61  happy_var_5) `HappyStk`
 	_ `HappyStk`
-	_ `HappyStk`
+	(HappyAbsSyn36  happy_var_3) `HappyStk`
 	(HappyTerminal happy_var_2) `HappyStk`
 	(HappyTerminal happy_var_1) `HappyStk`
 	happyRest)
 	 = HappyAbsSyn48
-		 (TypeDecTy (pos happy_var_1) (tokValue happy_var_2) happy_var_5
+		 (TypeDecTy (pos happy_var_1) (tokValue happy_var_2) happy_var_3 happy_var_5
 	) `HappyStk` happyRest
 
 happyReduce_111 = happyReduce 5 48 happyReduction_111

@@ -98,6 +98,7 @@ data Exp a id =
   | ExpStruct a (SynTy a id) [(id, Exp a id)]
   | ExpIfElse a (Exp a id) [Exp a id] [Exp a id]
   | ExpMakeAdt a id Int [Exp a id]
+  | ExpGetAdtField a (Exp a id) Int
   | ExpTuple a [Exp a id]
   | ExpSwitch a (Exp a id) [CaseClause a id]
   | ExpCond a [CondCaseClause a id]
@@ -179,7 +180,7 @@ isAnnDefModule _ = False
 
 
 data TypeDec a id =
-    TypeDecTy a id (SynTy a id)
+    TypeDecTy a id [id] (SynTy a id)
   | TypeDecAdt a id [id] [AdtAlternative a id]
   deriving (Eq, Show)
 
@@ -187,12 +188,12 @@ data TypeDec a id =
 instance AstNode TypeDec where
   nodeData td =
     case td of
-      TypeDecTy d _ _ -> d
+      TypeDecTy d _ _ _ -> d
       TypeDecAdt d _ _ _ -> d
 
 
 getTypeDecId :: TypeDec a id -> id
-getTypeDecId (TypeDecTy _ id _) = id
+getTypeDecId (TypeDecTy _ id _ _) = id
 getTypeDecId (TypeDecAdt _ id _ _) = id
 
 

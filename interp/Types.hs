@@ -4,6 +4,7 @@ import AlphaConvert
 import Common
 import Control.Error.Util (hoistEither)
 import Control.Monad.Except
+import Control.Monad.ListM (sortByM)
 import Control.Monad.State.Strict
 import Data.Either.Utils (maybeToEither)
 import Data.List
@@ -37,6 +38,7 @@ data TCEnv = TCEnv
   , polyEnv :: Map.Map UniqId Ty
   , metaEnv :: Map.Map UniqId Ty
   , inTopLevelScope :: Bool
+  , fieldIndices :: Map.Map UniqId Int
   }
   deriving (Eq)
 
@@ -50,9 +52,10 @@ mtEnv alphaEnv =
     , polyEnv = Map.empty
     , metaEnv = Map.empty
     , inTopLevelScope = True
+    , fieldIndices = Map.empty
     }
 
-showHum :: Map.Map UniqId Ty -> String
+showHum :: Show v => Map.Map UniqId v -> String
 showHum map =
   Map.foldlWithKey
     (\str key val -> str ++ "\n" ++ show key ++ " --> " ++ show val)
@@ -80,6 +83,12 @@ tracePolyEnv = do
   traceM "POLY Env:  "
   polyEnv <- gets polyEnv
   traceM $ showHum polyEnv
+
+traceFieldIndices :: Checked ()
+traceFieldIndices = do
+  traceM "Field indices:  "
+  fieldIndices <- gets fieldIndices
+  traceM $ showHum fieldIndices
 
 
 -- Convenience methods for manipulating the environment
@@ -164,6 +173,11 @@ bindMeta id ty = do
   modify (\tcEnv -> tcEnv { metaEnv = Map.insert id ty (metaEnv tcEnv) })
 
 
+bindFieldIndex :: UniqId -> Int -> Checked ()
+bindFieldIndex id ind = do
+  modify (\tcEnv -> tcEnv { fieldIndices = Map.insert id ind (fieldIndices tcEnv) })
+
+
 mtApp :: TyCon -> Ty
 mtApp tyCon = TyApp tyCon []
 
@@ -210,6 +224,10 @@ envLookupOrFail :: (TCEnv -> Map.Map UniqId a) -> UniqId -> Checked a
 envLookupOrFail getTable id = do
   result <- envLookup getTable id
   hoistEither $ maybeToEither (ErrUnboundUniqIdentifier id) result
+
+
+lookupFieldIndex :: UniqId -> Checked Int
+lookupFieldIndex id = envLookupOrFail fieldIndices id
 
 
 lookupMeta :: UniqId -> Checked (Maybe Ty)
@@ -641,13 +659,51 @@ makeAdtCtor (AdtAlternative p ctorId ctorInd synTys) adtTy ctorTy argTys = do
 
 
 tcTyDec :: UniqAst TypeDec -> Checked (TyCon, [TypedAst Exp])
-tcTyDec (TypeDecTy _ id (SynTyInt _)) = return (TyConInt, [])
-tcTyDec (TypeDecTy _ id (SynTyStruct _ fields)) =
+tcTyDec (TypeDecTy _ id tyParamIds (SynTyInt _)) = return (TyConInt, [])
+tcTyDec (TypeDecTy _ id tyParamIds (SynTyBool _)) = return (TyConBool, [])
+tcTyDec (TypeDecTy _ id tyParamIds (SynTyString _)) = return (TyConString, [])
+
+-- We desugar struct types into simple product types, with getter
+-- functions for each field using the following rule:
+--
+-- type ID = { TY0 FID0; TY1 FID1; };
+--
+-- -->
+--
+-- type ID = ID TY0 TY1;
+--
+-- FID0 => fun(ID) : TY0;
+-- FID0(x) { get-adt-field(ID, 0); };
+--
+-- FID1 => fun(ID) : TY1;
+-- FID1(x) { get-adt-field(x, 1); };
+tcTyDec (TypeDecTy p id tyParamIds (SynTyStruct _ fields)) =
   let (fieldNames, fieldSynTys) = unzip fields
   in do
+    -- Bind a 'name' type for recursive definitions
+    bindTy id $ TyConTyFun tyParamIds $ TyRef $ Id p id
+    -- Bind a 'tyvar' tycon for each type parameter
+    mapM_ (\tyParamId -> bindTy tyParamId $ TyConTyVar tyParamId) tyParamIds
     fieldTys <- mapM tcTy fieldSynTys
-    let tycon = TyConTyFun [] $ TyApp (TyConStruct fieldNames) fieldTys
-    return (tycon, [])
+    let alt = AdtAlternative p id 0 fieldSynTys
+        adtDec = TypeDecAdt p id tyParamIds [alt]
+    (adtTyCon, es) <- tcTyDec adtDec
+    let adtTy = TyApp adtTyCon [TyApp TyConTuple fieldTys]
+    getters <- mapMi (\index (fName, fTy) ->
+                        let getterTy = TyApp TyConArrow [adtTy, fTy]
+                        in do bindFieldIndex fName index
+                              bindVar fName getterTy
+                              paramId <- freshId
+                              return $
+                                ExpAssign
+                                  (OfTy p tyUnit)
+                                  (PatExpId (OfTy p getterTy) fName)
+                                  (ExpFun
+                                    (OfTy p getterTy)
+                                    [paramId]
+                                    [ExpGetAdtField (OfTy p adtTy) (ExpRef (OfTy p adtTy) (Id (OfTy p adtTy) paramId)) index]))
+                (zip fieldNames fieldTys)
+    return (adtTyCon, es ++ getters)
 
 tcTyDec (TypeDecAdt p id tyParamIds alts) = do
   -- Bind a 'name' type for recursive definitions
@@ -669,12 +725,12 @@ tcTyDec (TypeDecAdt p id tyParamIds alts) = do
                  altsTys
   return (adtTyCon, ctorEs)
 
-tcTyDec (TypeDecTy _ id (SynTyList _ (SynTyInt _))) =
+tcTyDec (TypeDecTy _ id _ (SynTyList _ (SynTyInt _))) =
   let tycon = TyConTyFun [] $ TyApp TyConList [tyInt]
     in do bindTy id tycon
           return (tycon, [])
 
-tcTyDec (TypeDecTy _ id (SynTyList _ (SynTyBool _))) = do
+tcTyDec (TypeDecTy _ id _ (SynTyList _ (SynTyBool _))) = do
   let tycon = TyConTyFun [] $ TyApp TyConList [tyBool]
     in do bindTy id tycon
           return (tycon, [])
@@ -922,13 +978,17 @@ tc (ExpFun p paramIds bodyEs) = do
 
 tc (ExpMakeAdt p synTy i es) = throwError $ ErrNotImplemented "tc for MakeAdt"
 
-tc (ExpStruct p strSynTy@(SynTyRef pSty _ _) fieldInitEs) = do
-  structTy <- tcTy strSynTy
-  case structTy of
-    structTyConApp@(TyApp (TyConStruct fids) ftys) -> do
-      (ty, fieldInitEs') <- tcStructFields (zip fids ftys) fieldInitEs
-      return (structTyConApp, ExpStruct (OfTy p structTy) (SynTyUnit (OfTy pSty tyUnit)) fieldInitEs')
-    _ -> throwError $ ErrInvalidStructType structTy
+tc (ExpStruct p strSynTy@(SynTyRef pSty qid _) fieldInitEs) = do
+  sorted <- sortByM (\a@(aId, _) b@(bId, _) -> do
+                        aInd <- lookupFieldIndex aId `reportErrorAt` p
+                        bInd <- lookupFieldIndex bId `reportErrorAt` p
+                        return $ compare aInd bInd)
+                    fieldInitEs
+  let initEs = (snd . unzip) sorted
+  ty <- tcTy strSynTy
+  (qid', ctorTy) <- tcQualId qid `reportErrorAt` (nodeData qid)
+  (_, initEs') <- tcEs initEs
+  return (ty, ExpApp (OfTy p ty) (ExpRef (OfTy p ctorTy) qid') initEs')
 
 tc (ExpTypeDec p tyDec) =
   let id = getTypeDecId tyDec

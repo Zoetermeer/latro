@@ -90,7 +90,7 @@
 
 
 (test-case "it does not add bindings introduced in subexpressions to the module export env"
-  (check-equal?
+  (check-match
     @interp{
       module {
         if (True) {
@@ -100,7 +100,7 @@
         };
       };
     }
-    "<module (Closure [] []) (Exports [] [])>"))
+    '(Module (Closure () ()) () (Exports () ()))))
 
 (test-case "it evaluates non-literals in the test position"
   (check-equal?
@@ -109,7 +109,7 @@
         if (x) { True; } else { False; };
       };
 
-      if (f(1)) {
+      if (f(True)) {
         42;
       } else {
         43;
@@ -142,7 +142,7 @@
 
       f;
     }
-    `(Fun (Id f ,_) (Closure () ((Id v ,_))))))
+    `(Fun (Id f ,_) (Closure () (((Id v ,_) 1))))))
 
 (test-case "it returns module values"
   (check-match
@@ -267,19 +267,14 @@
     42))
 
 (test-case "it captures bindings from the env in function bodies"
-  (check-match
+  (check-equal?
     @interp{
-      def m = module { };
-      f => fun() : module { };
-      f() { m; };
+      def v = 42;
+      f => fun() : Int;
+      f() { v; };
       f();
     }
-    `(Module
-       (Closure () ())
-       ()
-       (Exports
-         ()
-         ()))))
+    42))
 
 (test-case "it does not add locals in function bodies to the module export env"
   (check-match
@@ -464,10 +459,13 @@
 
       n;
     }
-    '(Module
-       (Closure () (((Id f ,_) ,_))
+    `(Module
+      (Closure
        ()
-       (Exports () (((Id v ,_) 2)))))))
+       (((Id f ,fid) (Fun (Id f ,fid) (Closure () (((Id m ,mid) ,_)))))
+        ((Id m ,mid) (Module (Closure () ()) () (Exports () ())))))
+      ()
+      (Exports () (((Id v ,_) 2))))))
 
 (test-case "it evaluates accesses on nested-module-level scalars"
   (check-equal?
@@ -490,15 +488,15 @@
     6))
 
 (test-case "it returns the empty struct"
-  (check-equal?
+  (check-match
     @interp{
       type t = struct { };
       t { };
     }
-    "<struct <<{ }>> { }>"))
+    `(Adt (Id t ,_) 0 ())))
 
 (test-case "it evaluates struct instances"
-  (check-equal?
+  (check-match
     @interp{
       type Point = struct {
         Int X;
@@ -507,7 +505,7 @@
 
       Point { X = 3; Y = 4; };
     }
-    "<struct <<{ X <<Int>>, Y <<Int>> }>> { X = 3, Y = 4 }>"))
+    `(Adt (Id Point ,_) 0 (3 4))))
 
 (test-case "it evaluates struct field accesses"
   (check-equal?
@@ -518,7 +516,7 @@
       };
 
       def p = Point { X = 3; Y = 4; };
-      p.Y;
+      Y(p);
     }
     4))
 
@@ -527,7 +525,7 @@
     @interp{
       type t = struct { };
       def v = t { };
-      v.x;
+      x(v);
     }
     '(UnboundRawIdentifier x)))
 
@@ -549,7 +547,7 @@
         B = Point { X = 3; Y = 4; };
       };
 
-      l.B.Y;
+      Y(B(l));
     }
     4))
 
@@ -573,7 +571,7 @@
         B = Geometry.Point { X = 3; Y = 4; };
       };
 
-      l.B.Y;
+      Y(B(l));
     }
     4))
 

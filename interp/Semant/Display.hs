@@ -116,10 +116,20 @@ instance (Sexpable a, Sexpable id) => Sexpable (AdtAlternative a id) where
 
 
 instance (Sexpable a, Sexpable id) => Sexpable (TypeDec a id) where
-  sexp (TypeDecTy d id sTy) =
-    List  [ Symbol "TypeDecTy", sexp d, sexp id, sexp sTy ]
+  sexp (TypeDecTy d id tyParamIds sTy) =
+    List  [ Symbol "TypeDecTy"
+          , sexp d
+          , sexp id
+          , toSexpList tyParamIds
+          , sexp sTy
+          ]
   sexp (TypeDecAdt d id tyParamIds alts) =
-    List  [ Symbol "TypeDecAdt", sexp d, toSexpList tyParamIds, sexp id, toSexpList alts ]
+    List  [ Symbol "TypeDecAdt"
+          , sexp d
+          , sexp id
+          , toSexpList tyParamIds
+          , toSexpList alts
+          ]
 
 
 instance (Sexpable a, Sexpable id) => Sexpable (PatExp a id) where
@@ -242,6 +252,12 @@ instance (Sexpable a, Sexpable id) => Sexpable (Exp a id) where
           , sexp sTy
           , Atom $ show i
           , toSexpList es
+          ]
+  sexp (ExpGetAdtField d e index) =
+    List  [ Symbol "ExpGetAdtField"
+          , sexp d
+          , sexp e
+          , Atom $ show index
           ]
   sexp (ExpTuple d es) = List [ Symbol "ExpTuple", sexp d, toSexpList es ]
   sexp (ExpSwitch d e clauses) = List [ Symbol "ExpSwitch", sexp d, sexp e, toSexpList clauses ]

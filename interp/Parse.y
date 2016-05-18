@@ -223,7 +223,7 @@ FunParams : id { [tokValue $1] }
           | FunParams ',' id { $1 ++ [tokValue $3] }
           | {- empty -} { [] }
 
-TypeDec : type id TyParams '=' Ty { TypeDecTy (pos $1) (tokValue $2) $5 }
+TypeDec : type id TyParams '=' Ty { TypeDecTy (pos $1) (tokValue $2) $3 $5 }
         | type id TyParams '=' AdtAlternatives { TypeDecAdt (pos $1) (tokValue $2) $3 $5 }
 
 AdtAlternatives : AdtAlternative  { [$1] }

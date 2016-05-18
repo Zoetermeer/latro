@@ -81,8 +81,11 @@ lookupQualIn  :: TypedAst QualifiedId
               -> Eval a
 lookupQualIn (Id p id) intEnv _ extractAEnv = lookupId id $ extractAEnv intEnv
 lookupQualIn (Path p qid id) intEnv extractExportEnv _ = do
-  (ValueModule (Module _ _ exports)) <- lookupQualIn qid intEnv exportVars varEnv
-  lookupId id $ extractExportEnv exports
+  v <- lookupQualIn qid intEnv exportVars varEnv
+  case v of
+    ValueModule (Module _ _ exports) ->
+      lookupId id $ extractExportEnv exports
+    _ -> throwError $ ErrInterpFailure $ printf "Can't lookup qualified ID in: %s" $ show v
 
 
 -- lookupTyQualIn :: UniqAst QualifiedId -> InterpEnv -> Eval (UniqAst SynTy)
@@ -279,19 +282,11 @@ evalE (ExpMakeAdt _ ty i ctorArgEs) = do
   argVs <- mapM evalE ctorArgEs
   return $ ValueAdt $ Adt ty i argVs
 
-evalE (ExpTypeDec _ (TypeDecTy _ id ty)) = do
-  -- putTyBinding id ty
-  -- putModuleTyExport id ty
-  return ValueUnit
+evalE (ExpGetAdtField _ e index) = do
+  (ValueAdt (Adt _ _ fieldVs)) <- evalE e
+  return (fieldVs !! index)
 
-evalE (ExpTypeDec _ (TypeDecAdt _ id _ alts)) = do
-  -- let alts' = mapi (\\i (AdtAlternative aid _ tys) -> AdtAlternative aid i tys) alts
-  --     ty = SynTyAdt id alts'
-  -- putTyBinding id ty
-  -- putModuleTyExport id ty
-
-  -- mapM_ (evalAdtAlt ty) alts'
-  return ValueUnit
+evalE (ExpTypeDec _ _) = return ValueUnit
 
 evalE (ExpModule _ paramIds moduleEs) = do
   oldEnv <- pushNewModuleContext

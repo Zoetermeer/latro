@@ -324,10 +324,11 @@ convert (ExpAssign p patExp e) = do
   patExp' <- convertPatExp patExp
   return $ ExpAssign p patExp' e'
 
-convert (ExpTypeDec p (TypeDecTy pInner id ty)) = do
+convert (ExpTypeDec p (TypeDecTy pInner id tyParamIds ty)) = do
   id' <- freshM id
+  tyParamIds' <- mapM freshM tyParamIds
   ty' <- convertTy ty
-  return $ ExpTypeDec p $ TypeDecTy pInner id' ty'
+  return $ ExpTypeDec p $ TypeDecTy pInner id' tyParamIds' ty'
 
 convert (ExpTypeDec p (TypeDecAdt pInner id tyParamIds alts)) = do
   id' <- freshM id
