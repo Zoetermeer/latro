@@ -324,7 +324,7 @@ instance Sexpable Adt where
   sexp (Adt id i vs) =
       List  [ Symbol "Adt"
             , sexp id
-            , Atom (show i)
+            , Symbol (show i)
             , toSexpList vs
             ]
 

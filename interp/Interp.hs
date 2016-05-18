@@ -258,6 +258,10 @@ evalE (ExpSub _ a b) = evalBinArith (-) a b
 evalE (ExpDiv _ a b) = evalBinArith quot a b
 evalE (ExpMul _ a b) = evalBinArith (*) a b
 
+evalE (ExpNot _ e) = do
+  (ValueBool b) <- evalE e
+  return $ ValueBool $ not b
+
 evalE (ExpCons _ a b) = do
   vHd <- evalE a
   (ValueList vs) <- evalE b

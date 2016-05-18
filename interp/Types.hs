@@ -636,7 +636,8 @@ makeAdtCtor (AdtAlternative p ctorId ctorInd synTys) adtTy ctorTy argTys = do
   let paramDs = map (\(paramId, synTy, ty) -> (paramId, nodeData synTy, ty))
                     $ zip3 paramIds synTys argTys
       paramRefs = map (\(paramId, pp, pty) -> (ExpRef (OfTy pp pty) (Id (OfTy pp pty) paramId))) paramDs
-  return $ ExpFun (OfTy p ctorTy) paramIds [ExpMakeAdt (OfTy p adtTy) ctorId ctorInd paramRefs]
+      ctorFun = ExpFun (OfTy p ctorTy) paramIds [ExpMakeAdt (OfTy p adtTy) ctorId ctorInd paramRefs]
+  return $ ExpAssign (OfTy p tyUnit) (PatExpId (OfTy p ctorTy) ctorId) ctorFun
 
 
 tcTyDec :: UniqAst TypeDec -> Checked (TyCon, [TypedAst Exp])
@@ -660,11 +661,11 @@ tcTyDec (TypeDecAdt p id tyParamIds alts) = do
       adtTyCon = TyConUnique id $ TyConTyFun tyParamIds $ TyApp (TyConAdt names) ctorTups
   -- Add a function binding for each constructor,
   -- and return a function expression for each one
-  ctorEs <- mapM (\(alt@(AdtAlternative _ ctorName _ _), argTys) ->
-                    let ctor = TyPoly tyParamIds $ TyApp TyConArrow (argTys ++ [TyApp adtTyCon (map TyVar tyParamIds)])
-                    in do bindVar ctorName ctor
-                          putPatBinding ctorName ctor
-                          makeAdtCtor alt (TyApp adtTyCon argTys) ctor argTys)
+  ctorEs <- mapM (\(alt@(AdtAlternative altPos ctorName _ _), argTys) ->
+                    let ctorTy = TyPoly tyParamIds $ TyApp TyConArrow (argTys ++ [TyApp adtTyCon (map TyVar tyParamIds)])
+                    in do bindVar ctorName ctorTy
+                          putPatBinding ctorName ctorTy
+                          makeAdtCtor alt (TyApp adtTyCon argTys) ctorTy argTys)
                  altsTys
   return (adtTyCon, ctorEs)
 
@@ -969,11 +970,15 @@ tc (ExpAnnDec p decId tyParamIds synTy [AnnDefFun annP (FunDefFun funP defId par
     throwError $ ErrFunDefIdMismatch decId defId
 
 tc (ExpIfElse p testE thenEs elseEs) = do
+  oldVarEnv <- markVarEnv
   (testTy, testE') <- tc testE
   unify tyBool testTy
+  restoreVarEnv oldVarEnv
   (thenTy, thenEs') <- tcEs thenEs
+  restoreVarEnv oldVarEnv
   (elseTy, elseEs') <- tcEs elseEs
   ty <- unify thenTy elseTy
+  restoreVarEnv oldVarEnv
   return (ty, ExpIfElse (OfTy p ty) testE' thenEs' elseEs')
 
 tc e = throwError $ ErrInterpFailure $ printf "In function tc: %s" $ show e

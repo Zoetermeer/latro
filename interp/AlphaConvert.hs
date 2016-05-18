@@ -123,11 +123,11 @@ convertTy (SynTyRef p qid tyArgs) = do
   return $ SynTyRef p qid' tyArgs'
 
 
-convertAdtAlternative :: RawAst AdtAlternative -> AlphaConverted (UniqAst AdtAlternative)
-convertAdtAlternative (AdtAlternative p id i tys) = do
+convertAdtAlternative :: Int -> RawAst AdtAlternative -> AlphaConverted (UniqAst AdtAlternative)
+convertAdtAlternative index (AdtAlternative p id _ tys) = do
   id' <- freshM id
   tys' <- mapM convertTy tys
-  return $ AdtAlternative p id' i tys'
+  return $ AdtAlternative p id' index tys'
 
 
 convertPatExp :: RawAst PatExp -> AlphaConverted (UniqAst PatExp)
@@ -332,7 +332,7 @@ convert (ExpTypeDec p (TypeDecTy pInner id ty)) = do
 convert (ExpTypeDec p (TypeDecAdt pInner id tyParamIds alts)) = do
   id' <- freshM id
   tyParamIds' <- mapM freshM tyParamIds
-  alts' <- mapM convertAdtAlternative alts
+  alts' <- mapMi convertAdtAlternative alts
   return $ ExpTypeDec p $ TypeDecAdt pInner id' tyParamIds' alts'
 
 convert expAnnDec@(ExpAnnDec _ _ _ _ _) = convertAnnDec expAnnDec

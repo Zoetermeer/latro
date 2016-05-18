@@ -3,20 +3,20 @@
          rackunit)
 
 (test-case "it evaluates literals"
-  (check-equal? @interp{True;} "True")
-  (check-equal? @interp{False;} "False")
-  (check-equal? @interp{42;} "42")
+  (check-equal? @interp{True;} 'True)
+  (check-equal? @interp{False;} 'False)
+  (check-equal? @interp{42;} 42)
   (check-equal? @interp{"hello";} "hello"))
 
 (test-case "it returns an error for unbound identifiers"
   (check-equal? @interp{x;} '(UnboundRawIdentifier x)))
 
 (test-case "it evaluates arithmetic exps"
-  (check-equal? (interp "4 + 3;") "7")
-  (check-equal? (interp "4 + 3 * 2;") "10")
-  (check-equal? (interp "4 - 3 / 3;") "3")
-  (check-equal? (interp "3 * 2 + 4;") "10")
-  (check-equal? (interp "(4 + 3) * 2;") "14"))
+  (check-equal? (interp "4 + 3;") 7)
+  (check-equal? (interp "4 + 3 * 2;") 10)
+  (check-equal? (interp "4 - 3 / 3;") 3)
+  (check-equal? (interp "3 * 2 + 4;") 10)
+  (check-equal? (interp "(4 + 3) * 2;") 14))
 
 (test-case "it evaluates arithmetic expressions involving application"
   (check-equal?
@@ -26,7 +26,7 @@
 
       3 + f(4);
     }
-    "7"))
+    7))
 
 (test-case "it evaluates if-else expressions"
   (check-equal?
@@ -37,7 +37,7 @@
         43;
       };
     }
-    "42"))
+    42))
 
 (test-case "it takes the else branch on false"
   (check-equal?
@@ -48,10 +48,10 @@
         43;
       };
     }
-    "43"))
+    43))
 
 (test-case "it does not allow bindings to escape from then/else scopes"
-  (check-equal?
+  (check-match
     @interp{
       def v = if (True) {
         def x = 42;
@@ -60,21 +60,21 @@
 
       x;
     }
-    '(UnboundRawIdentifier x)))
+    `(AtPos ,_ (CompilerModule Types) (UnboundUniqIdentifier (Id x ,_)))))
 
 (test-case "it does not allow bindings to escape the test exp of an if/else"
-  (check-equal?
+  (check-match
     @interp{
-      if (def x = 42) {
+      if (switch (def x = 42) { case _ -> True; }) {
         x;
       } else {
         x;
       };
     }
-    '(UnboundRawIdentifier x)))
+    `(AtPos ,_ (CompilerModule Types) (UnboundUniqIdentifier (Id x ,_)))))
 
 (test-case "it does not allow argument bindings to escape"
-  (check-equal?
+  (check-match
     @typecheck{
       def f = fun(x, runForever) {
         if (runForever) {
@@ -86,7 +86,7 @@
 
       runForever(3, False);
     }
-    '(UnboundRawIdentifier runForever)))
+    `(AtPos ,_ (CompilerModule Types) (UnboundUniqIdentifier (Id runForever ,_)))))
 
 
 (test-case "it does not add bindings introduced in subexpressions to the module export env"
@@ -105,8 +105,7 @@
 (test-case "it evaluates non-literals in the test position"
   (check-equal?
     @interp{
-      fun f(Int) : Int;
-      f(x) {
+      def f = fun(x) {
         if (x) { True; } else { False; };
       };
 
@@ -116,7 +115,7 @@
         43;
       };
     }
-    "42"))
+    42))
 
 
 (test-case "it evaluates nested if-else expressions"
@@ -124,57 +123,62 @@
     @interp{
       42 + (if (True) { 1; } else { 2; });
     }
-    "43"))
+    43))
 
 (test-case "it returns function values"
-  (check-equal?
+  (check-match
     @interp{
-      fun f() : Int;
-      f() { 42; };
+      def f = fun() { 42; };
 
       f;
     }
-    "<fun f (Closure [] [])>"))
+    `(Fun (Id f ,_) (Closure () ()))))
 
 (test-case "it returns function values with closures"
-  (check-equal?
+  (check-match
     @interp{
       def v = 1;
-      fun f() : Int;
-      f() { v; };
+      def f = fun() { v; };
 
       f;
     }
-    "<fun f (Closure [] [v])>"))
+    `(Fun (Id f ,_) (Closure () ((Id v ,_))))))
 
 (test-case "it returns module values"
-  (check-equal?
+  (check-match
     @interp{
       def m = module {}; m;
     }
-    "<module (Closure [] []) (Exports [] [])>"))
+    `(Module
+       (Closure () ())
+       ()
+       (Exports
+         ()
+         ()))))
 
 (test-case "it adds definitions to module exports"
-  (check-equal?
+  (check-match
     @interp{
       def m = module { def v = 42; }; m;
     }
-    "<module (Closure [] []) (Exports [] [v])>"))
+    `(Module
+       (Closure () ())
+       ()
+       (Exports
+         ()
+         (((Id v ,_) 42))))))
 
 (test-case "it applies functions on modules with multiple decs"
   (check-equal?
     @interp{
       def m = module {
-        fun f() : Int;
-        f() { 42; };
-
-        fun g() : Int;
-        g() { 43; };
+        def f = fun() { 42; };
+        def g = fun() { 43; };
       };
 
       m.g();
     }
-    "43"))
+    43))
 
 (test-case "it returns values defined in modules"
   (check-equal?
@@ -182,18 +186,18 @@
       def m = module { def v = 42; };
       m.v;
     }
-    "42"))
+    42))
 
 (test-case "it can apply module-exported functions"
   (check-equal?
     @interp{
       def m = module {
-        fun f() : Int;
+        f => fun() : Int;
         f() { 42; };
       };
       m.f();
     }
-    "42"))
+    42))
 
 (test-case "it can apply module-exported functions occurring after a nested module dec"
   (check-equal?
@@ -201,27 +205,27 @@
       def m = module {
         def n = module { };
 
-        fun f() : Int;
+        f => fun() : Int;
         f() { 42; };
       };
       m.f();
     }
-    "42"))
+    42))
 
 (test-case "it can apply module-exported functions occurring before a nested module dec"
   (check-equal?
     @interp{
       def m = module {
-        fun f() : Int;
+        f => fun() : Int;
         f() { 42; };
 
         def n = module { };
       };
       m.f();
     }
-    "42"))
+    42))
 
-(test-case "it returns nested module values"
+(test-case "it returns values defined in nested modules"
   (check-equal?
     @interp{
       def a = module {
@@ -232,111 +236,101 @@
 
       a.b.v;
     }
-    "42"))
+    42))
 
 (test-case "it applies defined functions"
   (check-equal?
     @interp{
-      fun f() : Int;
+      f => fun() : Int;
       f() { 42; };
       f();
     }
-    "42"))
+    42))
 
 (test-case "it substitutes function args"
   (check-equal?
     @interp{
-      fun f(Int) : Int;
+      f => fun(Int) : Int;
       f(x) { x; };
       f(42);
     }
-    "42"))
+    42))
 
 (test-case "it correctly shadows bindings in function bodies"
   (check-equal?
     @interp{
       def m = module { };
-      fun f(Int) : Int;
+      f => fun(Int) : Int;
       f(m) { m; };
       f(42);
     }
-    "42"))
+    42))
 
 (test-case "it captures bindings from the env in function bodies"
-  (check-equal?
+  (check-match
     @interp{
       def m = module { };
-      fun f() : module { };
+      f => fun() : module { };
       f() { m; };
       f();
     }
-    "<module (Closure [] []) (Exports [] [])>"))
-
-(test-case "it preserves lexical scope for local module defs"
-  (check-equal?
-    @interp{
-      fun f() : module { };
-      f() {
-        def m = module {};
-      };
-      m;
-    }
-    "Error: Unbound identifier 'm'"))
+    `(Module
+       (Closure () ())
+       ()
+       (Exports
+         ()
+         ()))))
 
 (test-case "it does not add locals in function bodies to the module export env"
-  (check-equal?
+  (check-match
     @interp{
       module {
-        fun f() : Int;
+        f => fun() : Int;
         f() {
           def x = 42;
           x;
         };
       };
     }
-    "<module (Closure [] []) (Exports [] [f])>"))
-
-(test-case "it can apply functions on returned local modules"
-  (check-equal?
-    @interp{
-      fun f() : module { };
-      f() {
-        module {
-          fun g() : Int;
-          g() { 42; };
-        };
-      };
-      f().g();
-    }
-    "42"))
+    `(Module
+       (Closure () ())
+       ()
+       (Exports
+         ()
+         (((Id f ,_) (Fun ,_ ,_)))))))
 
 (test-case "it returns nested module values"
-  (check-equal?
+  (check-match
     @interp{
       def m = module {
         def m' = module {
-          fun g() : Int;
+          g => fun() : Int;
           g() { 43; };
         };
 
-        fun f() : Int;
+        f => fun() : Int;
         f() { 42; };
       };
 
       m.m';
     }
-    "<module (Closure [] []) (Exports [] [g])>"))
+    `(Module
+       (Closure () ())
+       ()
+       (Exports
+         ()
+         (((Id g ,_) (Fun ,_ ,_)))))))
 
 (test-case "it resolves functions on nested modules"
   (check-equal?
     @interp{
       def m = module {
         def m' = module {
-          fun g() : Int;
+          g => fun() : Int;
           g() { 43; };
         };
 
-        fun f() : Int;
+        f => fun() : Int;
         f() { 42; };
       };
 
@@ -349,11 +343,11 @@
     @interp{
       def m = module {
         def m1 = module {
-          fun g(Int, Int) : Int;
+          g => fun(Int, Int) : Int;
           g(x, y) { y + x; };
         };
 
-        fun f() : Int;
+        f => fun() : Int;
         f() { 42; };
       };
 
@@ -364,12 +358,12 @@
 (test-case "it evaluates higher-order functions"
   (check-equal?
     @interp{
-      fun f(fun(Int) : Int, Int) : Int;
+      f => fun(fun(Int) : Int, Int) : Int;
       f(g, x) {
         g(10) + x;
       };
 
-      fun h(Int) : Int;
+      h => fun(Int) : Int;
       h(x) {
         x + 1;
       };
@@ -379,11 +373,11 @@
     14))
 
 (test-case "it does not allow nested modules to escape the local env"
-  (check-equal?
+  (check-match
     @interp{
       def m = module {
         def m1 = module {
-          fun g(Int, Int) : Int;
+          g => fun(Int, Int) : Int;
           g(x, y) {
             y + x;
           };
@@ -392,13 +386,13 @@
 
       m1.g(1, 1);
     }
-    "Error: Unbound identifier 'm1'"))
+    `(AtPos ,_ (CompilerModule Types) (UnboundUniqIdentifier (Id m1 ,_)))))
 
 (test-case "it does not capture id's in lexical scope for modules as exports"
-  (check-equal?
+  (check-match
     @interp{
       def m = module {
-        fun f() : Int;
+        f => fun() : Int;
         f() { 42; };
 
         def n = module { };
@@ -406,14 +400,19 @@
 
       m.n.f();
     }
-    "Error: Unbound identifier 'f'"))
+    `(AtPos ,_ (CompilerModule Types) (UnboundUniqIdentifier (Id f ,_)))))
 
 (test-case "it evaluates recursive functions"
   (check-equal?
     @interp{
-      fun f(Int) : Int;
+      f => fun(Int) : Int;
       f(x) {
-        if (x) {
+        def isZero = switch (x) {
+          case 0 -> True;
+          case _ -> False;
+        };
+
+        if (!isZero) {
           x + f(x - 1);
         } else {
           x;
@@ -433,7 +432,7 @@
           };
         };
 
-        fun f() : Int;
+        f => fun() : Int;
         f() { n.o.v; };
       };
 
@@ -453,10 +452,10 @@
     6))
 
 (test-case "it can access prior bindings in a module closure"
-  (check-equal?
+  (check-match
     @interp{
       def m = module { };
-      fun f() : Int;
+      f => fun() : Int;
       f() { 1; };
 
       def n = module {
@@ -465,7 +464,10 @@
 
       n;
     }
-    "<module (Closure [] [f, m]) (Exports [] [v])>"))
+    '(Module
+       (Closure () (((Id f ,_) ,_))
+       ()
+       (Exports () (((Id v ,_) 2)))))))
 
 (test-case "it evaluates accesses on nested-module-level scalars"
   (check-equal?
@@ -527,7 +529,7 @@
       def v = t { };
       v.x;
     }
-    "Error: Unbound identifier 'x'"))
+    '(UnboundRawIdentifier x)))
 
 (test-case "it evaluates nested struct field accesses"
   (check-equal?
@@ -591,7 +593,7 @@
     `(UnboundUniqIdentifier (Id Point ,_))))
 
 (test-case "it evaluates algebraic data type definitions"
-  (check-equal?
+  (check-match
     @interp{
       def Prims = module {
         type IntOption =
@@ -601,10 +603,16 @@
       };
       Prims;
     }
-    "<module (Closure [] []) (Exports [IntOption] [Just, None])>"))
+    `(Module
+       (Closure () ())
+       ()
+       (Exports
+         ()
+         (((Id Just ,_) ,_)
+          ((Id None ,_) ,_))))))
 
 (test-case "it constructs ADT instances"
-  (check-equal?
+  (check-match
     @interp{
       type IntOption =
         | Just Int
@@ -613,7 +621,7 @@
 
       Just(42);
     }
-    "<IntOption = Just(42)>"))
+    `(Adt (Id Just ,_) 0 (42))))
 
 (test-case "it scopes ADT defs/ctors to module exports"
   (check-match
@@ -630,21 +638,16 @@
     `(AtPos ,_ (CompilerModule Types) (UnboundUniqIdentifier (Id Just ,_)))))
 
 (test-case "it evaluates multi-arity ADT constructors"
-  (check-equal?
+  (check-match
     @interp{
       type T =
         | IBTuple Int Bool
         | B Bool
         ;
 
-      type S = struct {
-        T A;
-        T B;
-      };
-
-      S { B = B(True); A = IBTuple(2, False); };
+      (B(True), IBTuple(2, False));
     }
-    "<struct <<{ A T, B T }>> { B = <T = B(True)>, A = <T = IBTuple(2, False)> }>"))
+    `(Tuple ((Adt (Id B ,_) 1 (True)) (Adt (Id IBTuple ,_) 0 (2 False))))))
 
 (test-case "it evaluates tuple expressions"
   (check-equal?

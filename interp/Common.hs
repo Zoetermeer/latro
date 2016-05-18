@@ -33,5 +33,15 @@ mapInd f i (x:xs) =
   (f i x):(mapInd f (i + 1) xs)
 
 mapi :: (Int -> a -> b) -> [a] -> [b]
-mapi _ [] = []
 mapi f xs = mapInd f 0 xs
+
+
+mapIndM :: Monad m => (Int -> a -> m b) -> Int -> [a] -> m [b]
+mapIndM _ _ [] = return []
+mapIndM f i (x:xs) = do
+  x' <- f i x
+  xs' <- mapIndM f (i + 1) xs
+  return (x':xs')
+
+mapMi :: Monad m => (Int -> a -> m b) -> [a] -> m [b]
+mapMi f xs = mapIndM f 0 xs
