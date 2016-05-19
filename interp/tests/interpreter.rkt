@@ -6,7 +6,8 @@
   (check-equal? @interp{True;} 'True)
   (check-equal? @interp{False;} 'False)
   (check-equal? @interp{42;} 42)
-  (check-equal? @interp{"hello";} "hello"))
+  (check-equal? @interp{"hello";} "hello")
+  (check-equal? @interp{'f';} #\f))
 
 (test-case "it returns an error for unbound identifiers"
   (check-equal? @interp{x;} '(UnboundRawIdentifier x)))

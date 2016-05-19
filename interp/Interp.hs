@@ -180,20 +180,6 @@ freshId = do
   return uniqId
 
 
--- evalAdtAlt :: UniqAst SynTy -> UniqAst AdtAlternative -> Eval ()
--- evalAdtAlt ty (AdtAlternative id i tys) = do
---   argIds <- mapM (\\_ -> freshId) tys
---   let argRefs = map ExpRef argIds
---   cloTypeEnv <- gets typeEnv
---   let cloEnv = ClosureEnv { cloTypeEnv, cloVarEnv = Map.empty }
---       ctorTy = SynTyArrow tys ty
---       clo = Closure id ctorTy cloEnv argIds [ExpMakeAdt ty i argRefs]
--- 
---   putVarBinding id $ ValueFun clo
---   putModuleVarExport id $ ValueFun clo
---   return ()
-
-
 evalPatExp :: TypedAst PatExp -> Value -> Eval ()
 evalPatExp (PatExpWildcard _) _ = return ()
 evalPatExp e@(PatExpNumLiteral (OfTy p _) n) v =
@@ -217,6 +203,13 @@ evalPatExp e@(PatExpStringLiteral _ s) v =
     else throwError $ ErrPatMatchFail e v
   where
     (ValueStr sv) = v
+
+evalPatExp e@(PatExpCharLiteral _ [c]) v =
+    if cv == c
+    then return ()
+    else throwError $ ErrPatMatchFail e v
+  where
+    (ValueChar cv) = v
 
 evalPatExp e@(PatExpTuple _ patEs) v =
     if length patEs /= length vs
@@ -263,6 +256,7 @@ evalE :: TypedAst Exp -> Eval Value
 evalE (ExpNum _ str) = return $ ValueInt $ read str
 evalE (ExpBool _ b) = return $ ValueBool b
 evalE (ExpString _ s) = return $ ValueStr s
+evalE (ExpChar _ [c]) = return $ ValueChar c
 evalE (ExpAdd _ a b) = evalBinArith (+) a b
 evalE (ExpSub _ a b) = evalBinArith (-) a b
 evalE (ExpDiv _ a b) = evalBinArith quot a b

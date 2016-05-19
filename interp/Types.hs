@@ -192,6 +192,9 @@ tyBool = mtApp TyConBool
 tyStr :: Ty
 tyStr = mtApp TyConString
 
+tyChar :: Ty
+tyChar = mtApp TyConChar
+
 tyUnit :: Ty
 tyUnit = mtApp TyConUnit
 
@@ -753,6 +756,7 @@ tcPatExp :: UniqAst PatExp -> Checked (Ty, TypedAst PatExp)
 tcPatExp (PatExpNumLiteral p n) = return (tyInt, PatExpNumLiteral (OfTy p tyInt) n)
 tcPatExp (PatExpBoolLiteral p b) = return (tyBool, PatExpBoolLiteral (OfTy p tyBool) b)
 tcPatExp (PatExpStringLiteral p s) = return (tyStr, PatExpStringLiteral (OfTy p tyStr) s)
+tcPatExp (PatExpCharLiteral p s) = return (tyChar, PatExpCharLiteral (OfTy p tyChar) s)
 tcPatExp (PatExpTuple p es) = do
   (eTys, es') <- mapAndUnzipM tcPatExp es
   let ty = TyApp TyConTuple eTys
@@ -819,6 +823,7 @@ addBindingsForPat (PatExpWildcard _) _ = return ()
 addBindingsForPat (PatExpNumLiteral _ _) _ = return ()
 addBindingsForPat (PatExpBoolLiteral _ _) _ = return ()
 addBindingsForPat (PatExpStringLiteral _ _) _ = return ()
+addBindingsForPat (PatExpCharLiteral _ _) _ = return ()
 
 addBindingsForPat patE ty =
   throwError $ ErrPatMatchBindingFail patE ty
@@ -836,6 +841,7 @@ tc (ExpRef p qid) = do
   return (ty', ExpRef (OfTy p ty') qid')
 
 tc (ExpString p s) = return (tyStr, ExpString (OfTy p tyStr) s)
+tc (ExpChar p s) = return (tyChar, ExpChar (OfTy p tyChar) s)
 tc (ExpBool p b) = return (tyBool, ExpBool (OfTy p tyBool) b)
 tc (ExpNum p n) = return (tyInt, ExpNum (OfTy p tyInt) n)
 

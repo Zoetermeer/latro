@@ -40,6 +40,7 @@ tokens :-
   Int { lex' TokenInt }
   Bool { lex' TokenBool }
   String { lex' TokenStringTy }
+  Char { lex' TokenCharTy }
   Unit { lex' TokenUnit }
   if { lex' TokenIf }
   else { lex' TokenElse }
@@ -73,6 +74,7 @@ tokens :-
   $digit+ { lex TokenNumLit }
   $alpha [$alpha $digit \_ \']* { lex TokenId }
   [\"] [^\"]* [\"] { lex TokenString }
+  [\'] [^\']{1} [\'] { lex TokenChar }
 
 {
 
@@ -106,6 +108,7 @@ data TokenClass =
   | TokenInt
   | TokenBool
   | TokenStringTy
+  | TokenCharTy
   | TokenUnit
   | TokenIf
   | TokenElse
@@ -139,6 +142,7 @@ data TokenClass =
   | TokenNumLit String
   | TokenId String
   | TokenString String
+  | TokenChar String
   | TokenEOF
   deriving (Show)
 
@@ -149,7 +153,7 @@ tokValue (Token _ tok) =
     TokenNumLit s -> s
     TokenId s -> s
     TokenString s -> s
-    _ -> ""
+    TokenChar s -> s
 
 
 alexEOF :: Alex Token
@@ -174,6 +178,7 @@ unlex (TokenFalse) = "False"
 unlex (TokenInt) = "Int"
 unlex (TokenBool) = "Bool"
 unlex (TokenStringTy) = "String"
+unlex (TokenCharTy) = "Char"
 unlex (TokenUnit) = "Unit"
 unlex (TokenIf) = "if"
 unlex (TokenElse) = "else"
@@ -222,8 +227,10 @@ lex' :: TokenClass -> AlexAction Token
 lex' = lex . const
 
 stripQuotes :: String -> String
+stripQuotes (['\'', c, '\'']) = [c]
 stripQuotes ('\"':s) =
   take ((length s) - 1) s
+
 
 alexMonadScan' :: Alex Token
 alexMonadScan' = do
@@ -241,6 +248,7 @@ alexMonadScan' = do
       tok <- action (ignorePendingBytes inp) len
       case tok of
         Token p (TokenString s) -> return $ Token p $ TokenString $ stripQuotes s
+        Token p (TokenChar s) -> return $ Token p $ TokenChar $ stripQuotes s
         _ -> return tok
 
 alexError' :: AlexPosn -> String -> Alex a

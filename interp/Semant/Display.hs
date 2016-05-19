@@ -46,6 +46,7 @@ instance (Sexpable a, Sexpable id) => Sexpable (SynTy a id) where
   sexp (SynTyInt d) = List [ Symbol "Int", sexp d ]
   sexp (SynTyBool d) = List [ Symbol "Bool", sexp d ]
   sexp (SynTyString d) = List [ Symbol "String", sexp d ]
+  sexp (SynTyChar d) = List [ Symbol "Char", sexp d ]
   sexp (SynTyUnit d) = List [ Symbol "Unit", sexp d ]
   sexp (SynTyArrow d paramTys retTy) =
     List $ [sexp d] ++ ((intersperse (Symbol "->" )) . map sexp) (paramTys ++ [retTy])
@@ -139,6 +140,8 @@ instance (Sexpable a, Sexpable id) => Sexpable (PatExp a id) where
     List  [ Symbol "PatExpBoolLiteral", sexp d, Symbol $ show b ]
   sexp (PatExpStringLiteral d s) =
     List  [ Symbol "PatExpStringLiteral", sexp d, Atom s ]
+  sexp (PatExpCharLiteral d s) =
+    List  [ Symbol "PatExpCharLiteral", sexp d, Atom s ]
   sexp (PatExpTuple d patEs) =
     List  [ Symbol "PatExpTuple", sexp d, toSexpList patEs ]
   sexp (PatExpAdt d id patEs) =
@@ -273,6 +276,7 @@ instance (Sexpable a, Sexpable id) => Sexpable (Exp a id) where
   sexp (ExpNum d str) = List [ Symbol "ExpNum", sexp d, Symbol str ]
   sexp (ExpBool d b) = List [ Symbol "ExpBool", sexp d, Symbol $ show b ]
   sexp (ExpString d s) = List [ Symbol "ExpString", sexp d, Atom s ]
+  sexp (ExpChar d s) = List [ Symbol "ExpChar", sexp d, Atom s ]
   sexp (ExpRef d id) = List [ Symbol "ExpRef", sexp d, sexp id ]
   sexp (ExpUnit d) = List [ Symbol "ExpUnit", sexp d ]
   sexp (ExpBegin d es) =
@@ -351,6 +355,7 @@ instance Sexpable Value where
   sexp (ValueInt i) = Symbol $ show i
   sexp (ValueBool b) = Symbol $ show b
   sexp (ValueStr s) = Atom s
+  sexp (ValueChar c) = Symbol $ printf "#\\%c" c
   sexp (ValueModule m) = sexp m
   sexp (ValueFun clo) = sexp clo
   sexp (ValueStruct struct) = sexp struct
@@ -365,6 +370,7 @@ instance Sexpable Ty where
   sexp (TyApp TyConInt []) = Symbol "Int"
   sexp (TyApp TyConBool []) = Symbol "Bool"
   sexp (TyApp TyConString []) = Symbol "String"
+  sexp (TyApp TyConChar []) = Symbol "Char"
   sexp (TyApp tyCon tys) =
     List  [ Symbol "App"
           , sexp tyCon
@@ -390,6 +396,7 @@ instance Sexpable TyCon where
   sexp TyConInt = Symbol "Int"
   sexp TyConBool = Symbol "Bool"
   sexp TyConString = Symbol "String"
+  sexp TyConChar = Symbol "Char"
   sexp TyConUnit = Symbol "Unit"
   sexp TyConList = Symbol "List"
   sexp TyConTuple = Symbol "Tuple"

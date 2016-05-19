@@ -31,6 +31,7 @@ import Semant
   Int { Token _ TokenInt }
   Bool { Token _ TokenBool }
   String { Token _ TokenStringTy }
+  Char { Token _ TokenCharTy }
   Unit { Token _ TokenUnit }
   if { Token _ TokenIf }
   else { Token _ TokenElse }
@@ -64,6 +65,7 @@ import Semant
   num { Token _ (TokenNumLit _) }
   id  { Token _ (TokenId _) }
   string { Token _ (TokenString _) }
+  char { Token _ (TokenChar _) }
 
 %name parse
 
@@ -94,6 +96,7 @@ LiteralPatExp : num { PatExpNumLiteral (pos $1) (tokValue $1) }
               | True { PatExpBoolLiteral (pos $1) True }
               | False { PatExpBoolLiteral (pos $1) False }
               | string { PatExpStringLiteral (pos $1) (tokValue $1) }
+              | char { PatExpCharLiteral (pos $1) (tokValue $1) }
 
 TuplePatExpsRest : ',' PatExp { [$2] }
                  | TuplePatExpsRest ',' PatExp { $1 ++ [$3] }
@@ -150,6 +153,7 @@ AtomExp : '(' Exp ')' { $2 }
         | True { ExpBool (pos $1) True }
         | False { ExpBool (pos $1) False }
         | string { ExpString (pos $1) (tokValue $1) }
+        | char { ExpChar (pos $1) (tokValue $1) }
         | QualifiedId { ExpRef (nodeData $1) $1 }
 
 MemberAccessExp : AppExp '.' id { ExpMemberAccess (nodeData $1) $1 (tokValue $3) }
@@ -266,6 +270,7 @@ TyArgs : '<' CommaSeparatedTys '>' { $2 }
 Ty : Int { SynTyInt (pos $1)  }
    | Bool { SynTyBool (pos $1) }
    | String { SynTyString (pos $1) }
+   | Char { SynTyChar (pos $1) }
    | Unit { SynTyUnit (pos $1) }
    | fun '(' ')' ':' Ty { SynTyArrow (pos $1) [] $5 }
    | fun '(' CommaSeparatedTys ')' ':' Ty { SynTyArrow (pos $1) $3 $6 }

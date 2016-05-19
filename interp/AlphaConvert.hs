@@ -135,6 +135,7 @@ convertPatExp (PatExpWildcard p) = return $ PatExpWildcard p
 convertPatExp (PatExpNumLiteral p s) = return $ PatExpNumLiteral p s
 convertPatExp (PatExpBoolLiteral p b) = return $ PatExpBoolLiteral p b
 convertPatExp (PatExpStringLiteral p s) = return $ PatExpStringLiteral p s
+convertPatExp (PatExpCharLiteral p s) = return $ PatExpCharLiteral p s
 convertPatExp (PatExpTuple p es) = do
   es' <- mapM convertPatExp es
   return $ PatExpTuple p es'
@@ -384,6 +385,7 @@ convert (ExpFun p paramIds bodyEs) = do
 convert (ExpNum p s) = return $ ExpNum p s
 convert (ExpBool p b) = return $ ExpBool p b
 convert (ExpString p s) = return $ ExpString p s
+convert (ExpChar p s) = return $ ExpChar p s
 convert (ExpUnit p) = return $ ExpUnit p
 convert (ExpFail p msg) = return $ ExpFail p msg
 convert (ExpRef p qid) = do

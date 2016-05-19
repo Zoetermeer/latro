@@ -39,6 +39,7 @@ data PatExp a id =
     PatExpNumLiteral a String
   | PatExpBoolLiteral a Bool
   | PatExpStringLiteral a String
+  | PatExpCharLiteral a String
   | PatExpTuple a [PatExp a id]
   | PatExpAdt a id [PatExp a id]
   | PatExpList a [PatExp a id]
@@ -54,6 +55,7 @@ instance AstNode PatExp where
       PatExpNumLiteral d _ -> d
       PatExpBoolLiteral d _ -> d
       PatExpStringLiteral d _ -> d
+      PatExpCharLiteral d _ -> d
       PatExpTuple d _ -> d
       PatExpAdt d _ _ -> d
       PatExpList d _ -> d
@@ -109,6 +111,7 @@ data Exp a id =
   | ExpNum a String
   | ExpBool a Bool
   | ExpString a String
+  | ExpChar a String
   | ExpRef a (QualifiedId a id)
   | ExpUnit a
   | ExpBegin a [Exp a id]
@@ -136,6 +139,7 @@ instance AstNode Exp where
       ExpStruct d _ _ -> d
       ExpIfElse d _ _ _ -> d
       ExpMakeAdt d _ _ _ -> d
+      ExpGetAdtField d _ _ -> d
       ExpTuple d _ -> d
       ExpSwitch d _ _ -> d
       ExpCond d _ -> d
@@ -144,6 +148,7 @@ instance AstNode Exp where
       ExpNum d _ -> d
       ExpBool d _ -> d
       ExpString d _ -> d
+      ExpChar d _ -> d
       ExpRef d _ -> d
       ExpUnit d -> d
       ExpFail d _ -> d
@@ -212,6 +217,7 @@ data SynTy a id =
     SynTyInt a
   | SynTyBool a
   | SynTyString a
+  | SynTyChar a
   | SynTyUnit a
   | SynTyArrow a [SynTy a id] (SynTy a id)
   | SynTyModule a [SynTy a id] (Maybe (SynTy a id))
@@ -231,6 +237,7 @@ instance AstNode SynTy where
       SynTyInt d -> d
       SynTyBool d -> d
       SynTyString d -> d
+      SynTyChar d -> d
       SynTyUnit d -> d
       SynTyArrow d _ _ -> d
       SynTyModule d _ _ -> d
@@ -331,6 +338,7 @@ data Value =
     ValueInt Int
   | ValueBool Bool
   | ValueStr String
+  | ValueChar Char
   | ValueModule Module
   | ValueFun Closure
   | ValueStruct Struct
@@ -393,6 +401,7 @@ data TyCon =
     TyConInt
   | TyConBool
   | TyConString
+  | TyConChar
   | TyConUnit
   | TyConList
   | TyConTuple

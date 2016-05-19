@@ -5,7 +5,8 @@
 (test-case "it typechecks scalar literals"
   (check-equal? @typecheck{42;} 'Int)
   (check-equal? @typecheck{True;} 'Bool)
-  (check-equal? @typecheck{"hello";} 'String))
+  (check-equal? @typecheck{"hello";} 'String)
+  (check-equal? @typecheck{'a';} 'Char))
 
 (test-case "it typechecks tuples"
   (check-equal?
