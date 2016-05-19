@@ -1,22 +1,22 @@
-Prims := module {
+def Prims = module {
   type Char = Byte;
   type String = Char[];
 
-  interface [A] Eq {
-    fun (==)(A, A) : Bool
-    fun (!=)(A, A) : Bool
+  interface Eq<A> {
+    (==) => fun(A, A) : Bool;
+    (!=) => fun(A, A) : Bool;
   };
 
-  interface [A] Ord {
-    fun (<)(A, A) : Bool
-    fun (>)(A, A) : Bool
-    fun (<=)(A, A) : Bool
-    fun (>=)(A, A) : Bool
+  interface Ord<A> {
+    (<) => fun(A, A) : Bool;
+    (>) => fun(A, A) : Bool;
+    (<=) => fun(A, A) : Bool;
+    (>=) => fun(A, A) : Bool;
   };
 
-  interface [A] Show {
-    fun (A) Show() : String
-  }
+  interface Show<A> {
+    Show => fun(A) : String;
+  };
 
 
   Split => fun(String)(String) : String[];
@@ -28,50 +28,38 @@ Prims := module {
 
   type Option<T> = Some T | None;
 
-  imp [Show T] ([T Option] Show) {
-    (Some t).Show() := { "Some #{t.Show()}" }
-    (None).Show() := "None"
-  }
+  ShowOpt<T> => default Show<Option<T>>(default Show<T>);
+  module(ShowT) {
+    (Some(t)).Show() { "Some #{t.Show()}"; }
+    (None).Show() { "None"; };
+  };
 
-  imp [Eq T] ([T Option] Eq) {
-    (==)(Some a, Some b) := a == b
-    (==)(None, None) := True
-    (==)(_, _) := False
 
-    (!=)(a, b) := !(a == b)
-  }
+  EqOpt<T> => default Eq<Option<T>>(default Eq<T>);
+  module(EqT) {
+    (==)(Some(a), Some(b)) { a == b; }
+    (==)(None(), None()) { True; }
+    (==)(_, _) { False; };
 
-  fun [T] ([T] Option) IsJust() : Bool
-  (Some _).IsSome() := { True }
-  (_).IsSome() := { False }
-
-  fun [T] ([T] Option) IsNone() : Bool
-  (opt).IsNone() := { !opt.IsSome() }
-
-  type [T] List =
-    | Cons T ([T] List)
-    | Nil
-
-  fun [A, B] ([A] List) Map(fun (A) : B) : [B] List
-  (Nil).Map(_) := Nil
-  (Cons x xs).Map(f) := Cons (f(x)) (Map xs f)
+    (!=)(a, b) { !(a == b); };
+  };
 }
 
-`Prims Tests` := test module {
-  `Option Tests` := test module {
-    `IsSome/None` := test module {
-      `it returns true for Somes`() := {
+def `Prims Tests` = test module {
+  def `Option Tests` = test module {
+    def `IsSome/None` = test module {
+      def `it returns true for Somes` = fun() {
         Check((Some 42).IsSome() == True);
-      }
+      };
 
-      `it returns false for Nones`() := {
+      def `it returns false for Nones` = fun() {
         Check((None).IsSome() == False);
-      }
-    }
-  }
-}
+      };
+    };
+  };
+};
 
-def Hash := module {
+def Hash = module {
   /*
 
     Functions with patterns are desugared using the following rule:
@@ -89,32 +77,32 @@ def Hash := module {
 
   */
 
-  type [K, V] Hash = struct {
+  type Hash<K, V> = struct {
 
   };
 
-  fun [K, V] ([K, V] Hash) Find(K) : [V] Option;
-  (hash) Find(key) := {
-    None;
+  Find<K, V> => fun(Hash<K, V>)(K) : Option<V>;
+  (hash) Find(key) {
+    None();
   };
 
 
-  fun [K, V] ([K, V] Hash) Insert(K, V) : Unit;
-  (hash).Insert(key, value) := {
-
+  Insert<K, V> => fun(Hash<K, V>)(K, V) : Unit;
+  (hash).Insert(key, value) {
+    ();
   };
 
 
-  fun [K, V] ([K, V] Hash) Update(K, V, (fun (V) : V)) : Unit
-  fun (this) Update(key, value, updateExisting) {
-
-  }
+  Update<K, V> => fun(Hash<K, V>)(K, V, fun(V) : V) : Unit;
+  (this).Update(key, value, updateExisting) {
+    ();
+  };
 }
 
 def Executables = module {
   interface Entrypoint {
-    fun Main(String[]) : Int
-  }
+    Main => fun(String[]) : Int;
+  };
 };
 
 def Core = module {
