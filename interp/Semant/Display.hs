@@ -137,6 +137,8 @@ instance (Sexpable a, Sexpable id) => Sexpable (PatExp a id) where
     List  [ Symbol "PatExpNumLiteral", sexp d, Atom str ]
   sexp (PatExpBoolLiteral d b) =
     List  [ Symbol "PatExpBoolLiteral", sexp d, Symbol $ show b ]
+  sexp (PatExpStringLiteral d s) =
+    List  [ Symbol "PatExpStringLiteral", sexp d, Atom s ]
   sexp (PatExpTuple d patEs) =
     List  [ Symbol "PatExpTuple", sexp d, toSexpList patEs ]
   sexp (PatExpAdt d id patEs) =

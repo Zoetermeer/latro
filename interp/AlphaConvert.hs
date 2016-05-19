@@ -134,6 +134,7 @@ convertPatExp :: RawAst PatExp -> AlphaConverted (UniqAst PatExp)
 convertPatExp (PatExpWildcard p) = return $ PatExpWildcard p
 convertPatExp (PatExpNumLiteral p s) = return $ PatExpNumLiteral p s
 convertPatExp (PatExpBoolLiteral p b) = return $ PatExpBoolLiteral p b
+convertPatExp (PatExpStringLiteral p s) = return $ PatExpStringLiteral p s
 convertPatExp (PatExpTuple p es) = do
   es' <- mapM convertPatExp es
   return $ PatExpTuple p es'

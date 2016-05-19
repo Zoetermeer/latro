@@ -126,6 +126,17 @@
     }
     'String))
 
+(test-case "it checks string patterns"
+  (check-equal?
+    @typecheck{
+      switch ("hello") {
+        case "foo" -> "bar";
+        case "hello" -> "world";
+        case _ -> "no match";
+      };
+    }
+    'String))
+
 (test-case "it checks tuple patterns"
   (check-equal?
     @typecheck{

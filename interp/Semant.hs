@@ -38,6 +38,7 @@ instance AstNode CompUnit where
 data PatExp a id =
     PatExpNumLiteral a String
   | PatExpBoolLiteral a Bool
+  | PatExpStringLiteral a String
   | PatExpTuple a [PatExp a id]
   | PatExpAdt a id [PatExp a id]
   | PatExpList a [PatExp a id]
@@ -52,6 +53,7 @@ instance AstNode PatExp where
     case patExp of
       PatExpNumLiteral d _ -> d
       PatExpBoolLiteral d _ -> d
+      PatExpStringLiteral d _ -> d
       PatExpTuple d _ -> d
       PatExpAdt d _ _ -> d
       PatExpList d _ -> d

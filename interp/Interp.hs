@@ -211,6 +211,13 @@ evalPatExp e@(PatExpBoolLiteral _ b) v =
   where
     (ValueBool bv) = v
 
+evalPatExp e@(PatExpStringLiteral _ s) v =
+    if sv == s
+    then return ()
+    else throwError $ ErrPatMatchFail e v
+  where
+    (ValueStr sv) = v
+
 evalPatExp e@(PatExpTuple _ patEs) v =
     if length patEs /= length vs
     then throwError $ ErrPatMatchFail e v

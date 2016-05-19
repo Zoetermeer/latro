@@ -93,6 +93,7 @@ TupleRestExps : ',' Exp { [$2] }
 LiteralPatExp : num { PatExpNumLiteral (pos $1) (tokValue $1) }
               | True { PatExpBoolLiteral (pos $1) True }
               | False { PatExpBoolLiteral (pos $1) False }
+              | string { PatExpStringLiteral (pos $1) (tokValue $1) }
 
 TuplePatExpsRest : ',' PatExp { [$2] }
                  | TuplePatExpsRest ',' PatExp { $1 ++ [$3] }

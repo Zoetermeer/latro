@@ -752,6 +752,7 @@ tcStructFields tyFields ((fieldId, fieldExp):fieldInitExps) =
 tcPatExp :: UniqAst PatExp -> Checked (Ty, TypedAst PatExp)
 tcPatExp (PatExpNumLiteral p n) = return (tyInt, PatExpNumLiteral (OfTy p tyInt) n)
 tcPatExp (PatExpBoolLiteral p b) = return (tyBool, PatExpBoolLiteral (OfTy p tyBool) b)
+tcPatExp (PatExpStringLiteral p s) = return (tyStr, PatExpStringLiteral (OfTy p tyStr) s)
 tcPatExp (PatExpTuple p es) = do
   (eTys, es') <- mapAndUnzipM tcPatExp es
   let ty = TyApp TyConTuple eTys
@@ -817,6 +818,7 @@ addBindingsForPat (PatExpId _ id) ty = bindVar id ty
 addBindingsForPat (PatExpWildcard _) _ = return ()
 addBindingsForPat (PatExpNumLiteral _ _) _ = return ()
 addBindingsForPat (PatExpBoolLiteral _ _) _ = return ()
+addBindingsForPat (PatExpStringLiteral _ _) _ = return ()
 
 addBindingsForPat patE ty =
   throwError $ ErrPatMatchBindingFail patE ty

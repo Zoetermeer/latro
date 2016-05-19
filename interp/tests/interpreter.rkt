@@ -28,6 +28,17 @@
     }
     7))
 
+(test-case "it evaluates string patterns"
+  (check-equal?
+    @interp{
+      switch ("hello") {
+        case "foo" -> "bar";
+        case "hello" -> "world";
+        case _ -> "no match";
+      };
+    }
+    "world"))
+
 (test-case "it evaluates if-else expressions"
   (check-equal?
     @interp{
