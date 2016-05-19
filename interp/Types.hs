@@ -666,6 +666,13 @@ tcTyDec :: UniqAst TypeDec -> Checked (TyCon, [TypedAst Exp])
 tcTyDec (TypeDecTy _ id tyParamIds (SynTyInt _)) = return (TyConInt, [])
 tcTyDec (TypeDecTy _ id tyParamIds (SynTyBool _)) = return (TyConBool, [])
 tcTyDec (TypeDecTy _ id tyParamIds (SynTyChar _)) = return (TyConChar, [])
+tcTyDec (TypeDecTy _ id tyParamIds synTy@(SynTyRef _ qid synTyArgs)) = do
+  mapM_ (\tyParamId -> exportTy tyParamId $ TyConTyVar tyParamId) tyParamIds
+  tyArgs <- mapM tcTy synTyArgs
+  ty <- tcTy synTy
+  let tycon = TyConTyFun tyParamIds ty
+  exportTy id tycon
+  return (tycon, [])
 
 tcTyDec (TypeDecTy _ id tyParamIds (SynTyList _ sty)) = do
   mapM_ (\tyParamId -> exportTy tyParamId $ TyConTyVar tyParamId) tyParamIds
@@ -938,7 +945,7 @@ tc (ExpAssign p patE rhe) = do
   oldVarEnv <- markVarEnv
   (rheTy, rhe') <- tc rhe
   (patTy, patE') <- tcPatExp patE
-  unify patTy rheTy
+  unify patTy rheTy `reportErrorAt` p
   -- restoreVarEnv oldVarEnv
   rheTy' <- generalize rheTy
   addBindingsForPat patE rheTy'
@@ -947,7 +954,7 @@ tc (ExpAssign p patE rhe) = do
 tc (ExpTuple p es) = do
   eMetas <- mapM (\_ -> freshMeta) es
   (tys, es') <- mapAndUnzipM tc es
-  ty <- unify (TyApp TyConTuple tys) $ TyApp TyConTuple eMetas
+  ty <- unify (TyApp TyConTuple tys) (TyApp TyConTuple eMetas) `reportErrorAt` p
   return (ty, ExpTuple (OfTy p ty) es')
 
 tc (ExpSwitch p e clauses) = do
@@ -956,17 +963,17 @@ tc (ExpSwitch p e clauses) = do
     mapAndUnzipM (\(CaseClause cp patE ces) ->
                       do oldVarEnv <- markVarEnv
                          (pty, patE') <- tcPatExp patE
-                         pty' <- unify tyE pty
+                         pty' <- unify tyE pty `reportErrorAt` (nodeData patE)
                          (retTy, ces') <- tcEs ces
                          restoreVarEnv oldVarEnv
                          return (retTy, CaseClause (OfTy cp retTy) patE' ces'))
                   clauses
-  ty <- unifyAll cTys >>= instantiate
+  ty <- unifyAll cTys `reportErrorAt` p >>= instantiate
   return (ty, ExpSwitch (OfTy p ty) e' clauses')
 
 tc (ExpList p es) = do
   (tys, es') <- mapAndUnzipM tc es
-  elemTy <- unifyAll tys
+  elemTy <- unifyAll tys `reportErrorAt` p
   let ty = TyApp TyConList [elemTy]
   return (ty, ExpList (OfTy p ty) es')
 
@@ -979,7 +986,7 @@ tc (ExpFun p paramIds bodyEs) = do
   mapM_ (uncurry bindVar) paramsAndTys
   (bodyTy, bodyEs') <- tcEs bodyEs
   restoreVarEnv oldVarEnv
-  unify bodyTyMeta bodyTy
+  unify bodyTyMeta bodyTy `reportErrorAt` p
   fty' <- generalize fty
   return (fty', ExpFun (OfTy p fty') paramIds bodyEs')
 
@@ -1029,7 +1036,8 @@ tc (ExpAnnDec p decId tyParamIds synTy [AnnDefFun annP (FunDefFun funP defId par
           (_, asnE') <- tc asnE
           inferredTy <- lookupVar defId
           givenTy'' <- instantiate givenTy'
-          funTy <- instantiate inferredTy >>= unify givenTy''
+          inferredTy' <- instantiate inferredTy
+          funTy <- unify givenTy'' inferredTy' `reportErrorAt` p
           restoreMetaEnv oldMetaEnv
           generalize funTy >>= bindVar defId
           return (tyUnit, asnE')
