@@ -962,3 +962,16 @@
       Lists.Map(fun(n) { IsEven(n); }, [1, 2, 3, 4]);
     }
     '(List (False True False True))))
+
+(test-case "it evaluates a string-length function"
+  (check-equal?
+    @interp{
+      type String = Char[];
+
+      len => fun(String) : Int;
+      len("") { 0; }
+      len(c::cs) { 1 + len(cs); };
+
+      len("hello");
+    }
+    5))
