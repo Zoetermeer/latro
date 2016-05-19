@@ -940,3 +940,32 @@
       ];
     }
     '(App List ((App List (Int))))))
+
+(test-case "it checks functions with argument types accepting multiple type params"
+  (check-match
+    @typecheck{
+      type t<k, v> = (k, v)[];
+
+      insert<k, v> => fun(t<k, v>, k, v) : t<k, v>;
+      insert(map, key, val) { (key, val) :: map; };
+
+      present<k, v> => fun(t<k, v>, k) : Bool;
+      present(_, _) { False; };
+
+      def m = [(1, "hello")];
+      present(m, 3);
+    }
+    'Bool))
+
+(test-case "it checks implicit functions with argument types accepting multiple type params"
+  (check-match
+    @typecheck{
+      type t<k, v> = (k, v)[];
+
+      def insert = fun(map, key, val) { (key, val) :: map; };
+      def present = fun(m, k) { False; };
+
+      def m = [(1, "hello")];
+      present(m, 3);
+    }
+    'Bool))

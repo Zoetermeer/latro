@@ -126,8 +126,8 @@ putModuleVarBinding id ty =
   modify (\tcEnv -> tcEnv { curModule = addModuleVar (curModule tcEnv) id ty })
 
 
-bindTy :: UniqId -> TyCon -> Checked ()
-bindTy id tyCon = do
+exportTy :: UniqId -> TyCon -> Checked ()
+exportTy id tyCon = do
   modify (\tcEnv -> tcEnv { curModule = addModuleTy (curModule tcEnv) id tyCon })
 
 
@@ -667,10 +667,11 @@ tcTyDec (TypeDecTy _ id tyParamIds (SynTyInt _)) = return (TyConInt, [])
 tcTyDec (TypeDecTy _ id tyParamIds (SynTyBool _)) = return (TyConBool, [])
 tcTyDec (TypeDecTy _ id tyParamIds (SynTyChar _)) = return (TyConChar, [])
 
-tcTyDec (TypeDecTy _ id _ (SynTyList _ sty)) = do
+tcTyDec (TypeDecTy _ id tyParamIds (SynTyList _ sty)) = do
+  mapM_ (\tyParamId -> exportTy tyParamId $ TyConTyVar tyParamId) tyParamIds
   elemTy <- tcTy sty
-  let tycon = TyConTyFun [] $ TyApp TyConList [elemTy]
-  bindTy id tycon
+  let tycon = TyConTyFun tyParamIds $ TyApp TyConList [elemTy]
+  exportTy id tycon
   return (tycon, [])
 
 -- We desugar struct types into simple product types, with getter
@@ -691,9 +692,9 @@ tcTyDec (TypeDecTy p id tyParamIds (SynTyStruct _ fields)) =
   let (fieldNames, fieldSynTys) = unzip fields
   in do
     -- Bind a 'name' type for recursive definitions
-    bindTy id $ TyConTyFun tyParamIds $ TyRef $ Id p id
+    exportTy id $ TyConTyFun tyParamIds $ TyRef $ Id p id
     -- Bind a 'tyvar' tycon for each type parameter
-    mapM_ (\tyParamId -> bindTy tyParamId $ TyConTyVar tyParamId) tyParamIds
+    mapM_ (\tyParamId -> exportTy tyParamId $ TyConTyVar tyParamId) tyParamIds
     fieldTys <- mapM tcTy fieldSynTys
     let alt = AdtAlternative p id 0 fieldSynTys
         adtDec = TypeDecAdt p id tyParamIds [alt]
@@ -717,9 +718,9 @@ tcTyDec (TypeDecTy p id tyParamIds (SynTyStruct _ fields)) =
 
 tcTyDec (TypeDecAdt p id tyParamIds alts) = do
   -- Bind a 'name' type for recursive definitions
-  bindTy id $ TyConTyFun tyParamIds $ TyRef $ Id p id
+  exportTy id $ TyConTyFun tyParamIds $ TyRef $ Id p id
   -- Bind a 'tyvar' tycon for each type parameter
-  mapM_ (\tyParamId -> bindTy tyParamId $ TyConTyVar tyParamId) tyParamIds
+  mapM_ (\tyParamId -> exportTy tyParamId $ TyConTyVar tyParamId) tyParamIds
   altNamesTys <- mapM tcAdtAlt alts
   let (names, tys) = unzip altNamesTys
       altsTys = zip alts tys
@@ -734,6 +735,7 @@ tcTyDec (TypeDecAdt p id tyParamIds alts) = do
                           makeAdtCtor alt (TyApp adtTyCon argTys) ctorTy argTys)
                  altsTys
   return (adtTyCon, ctorEs)
+
 
 tcStructFields :: [(UniqId, Ty)] -> [(UniqId, UniqAst Exp)] -> Checked (Ty, [(UniqId, TypedAst Exp)])
 tcStructFields _ [] = return (tyUnit, [])
@@ -999,7 +1001,7 @@ tc (ExpTypeDec p tyDec) =
   let id = getTypeDecId tyDec
   in do
     (tycon, es) <- tcTyDec tyDec
-    bindTy id tycon
+    exportTy id tycon
     return (tyUnit, ExpBegin (OfTy p tyUnit) es)
 
 -- Note that `annDefs` here will never contain
@@ -1019,7 +1021,7 @@ tc (ExpAnnDec p decId tyParamIds synTy [AnnDefFun annP (FunDefFun funP defId par
         asnE = ExpAssign p (PatExpId p defId) $ ExpFun funP paramIds bodyEs
         (SynTyArrow _ paramSynTys retSynTy) = synTy
     in do oldMetaEnv <- markMetaEnv
-          mapM_ (\tyParamId -> bindTy tyParamId $ TyConTyVar tyParamId) tyParamIds
+          mapM_ (\tyParamId -> exportTy tyParamId $ TyConTyVar tyParamId) tyParamIds
           givenTy <- tcTy synTy
           let givenTy' = case tyParamIds of
                             [] -> givenTy
