@@ -198,11 +198,12 @@ evalPatExp e@(PatExpBoolLiteral _ b) v =
     (ValueBool bv) = v
 
 evalPatExp e@(PatExpStringLiteral _ s) v =
-    if sv == s
+    if vStr == s
     then return ()
     else throwError $ ErrPatMatchFail e v
   where
-    (ValueStr sv) = v
+    (ValueList cvs) = v
+    vStr = map (\(ValueChar c) -> c) cvs
 
 evalPatExp e@(PatExpCharLiteral _ [c]) v =
     if cv == c
@@ -255,7 +256,7 @@ evalPatExp (PatExpId _ id) v = do
 evalE :: TypedAst Exp -> Eval Value
 evalE (ExpNum _ str) = return $ ValueInt $ read str
 evalE (ExpBool _ b) = return $ ValueBool b
-evalE (ExpString _ s) = return $ ValueStr s
+evalE (ExpString _ s) = return $ ValueList $ map ValueChar s
 evalE (ExpChar _ [c]) = return $ ValueChar c
 evalE (ExpAdd _ a b) = evalBinArith (+) a b
 evalE (ExpSub _ a b) = evalBinArith (-) a b

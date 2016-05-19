@@ -45,7 +45,6 @@ instance (Sexpable a, Sexpable id) => Sexpable (QualifiedId a id) where
 instance (Sexpable a, Sexpable id) => Sexpable (SynTy a id) where
   sexp (SynTyInt d) = List [ Symbol "Int", sexp d ]
   sexp (SynTyBool d) = List [ Symbol "Bool", sexp d ]
-  sexp (SynTyString d) = List [ Symbol "String", sexp d ]
   sexp (SynTyChar d) = List [ Symbol "Char", sexp d ]
   sexp (SynTyUnit d) = List [ Symbol "Unit", sexp d ]
   sexp (SynTyArrow d paramTys retTy) =
@@ -354,14 +353,21 @@ instance Sexpable Adt where
 instance Sexpable Value where
   sexp (ValueInt i) = Symbol $ show i
   sexp (ValueBool b) = Symbol $ show b
-  sexp (ValueStr s) = Atom s
   sexp (ValueChar c) = Symbol $ printf "#\\%c" c
   sexp (ValueModule m) = sexp m
   sexp (ValueFun clo) = sexp clo
   sexp (ValueStruct struct) = sexp struct
   sexp (ValueAdt adt) = sexp adt
   sexp (ValueTuple vs) = List [ Symbol "Tuple", toSexpList vs ]
-  sexp (ValueList vs) = List [ Symbol "List", toSexpList vs ]
+  sexp (ValueList vs)
+    | null vs = List [ Symbol "List", toSexpList vs ]
+    | all (\v -> case v of
+                   ValueChar _ -> True
+                   _ -> False
+          )
+          vs = Atom $ map (\(ValueChar c) -> c) vs
+    | otherwise = List [ Symbol "List", toSexpList vs ]
+
   sexp ValueUnit = Symbol "Unit"
   sexp (Err str) = List [ Symbol "Error", Atom str ]
 
@@ -369,7 +375,6 @@ instance Sexpable Value where
 instance Sexpable Ty where
   sexp (TyApp TyConInt []) = Symbol "Int"
   sexp (TyApp TyConBool []) = Symbol "Bool"
-  sexp (TyApp TyConString []) = Symbol "String"
   sexp (TyApp TyConChar []) = Symbol "Char"
   sexp (TyApp tyCon tys) =
     List  [ Symbol "App"
@@ -395,7 +400,6 @@ instance Sexpable TCModule where
 instance Sexpable TyCon where
   sexp TyConInt = Symbol "Int"
   sexp TyConBool = Symbol "Bool"
-  sexp TyConString = Symbol "String"
   sexp TyConChar = Symbol "Char"
   sexp TyConUnit = Symbol "Unit"
   sexp TyConList = Symbol "List"

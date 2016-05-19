@@ -30,7 +30,6 @@ import Semant
   False { Token _ TokenFalse }
   Int { Token _ TokenInt }
   Bool { Token _ TokenBool }
-  String { Token _ TokenStringTy }
   Char { Token _ TokenCharTy }
   Unit { Token _ TokenUnit }
   if { Token _ TokenIf }
@@ -269,7 +268,6 @@ TyArgs : '<' CommaSeparatedTys '>' { $2 }
 
 Ty : Int { SynTyInt (pos $1)  }
    | Bool { SynTyBool (pos $1) }
-   | String { SynTyString (pos $1) }
    | Char { SynTyChar (pos $1) }
    | Unit { SynTyUnit (pos $1) }
    | fun '(' ')' ':' Ty { SynTyArrow (pos $1) [] $5 }

@@ -838,6 +838,7 @@
 (test-case "it evaluates ADT patterns"
   (check-equal?
     @interp{
+      type String = Char[];
       type StringOption =
         | Some String
         | None

@@ -80,7 +80,7 @@ convertTyAnn (TyAnn p id tyParamIds ty) = do
 convertTy :: RawAst SynTy -> AlphaConverted (UniqAst SynTy)
 convertTy (SynTyInt p) = return $ SynTyInt p
 convertTy (SynTyBool p) = return $ SynTyBool p
-convertTy (SynTyString p) = return $ SynTyString p
+convertTy (SynTyChar p) = return $ SynTyChar p
 convertTy (SynTyUnit p) = return $ SynTyUnit p
 convertTy (SynTyArrow p paramTys retTy) = do
   paramTys' <- mapM convertTy paramTys

@@ -189,8 +189,9 @@ tyInt = mtApp TyConInt
 tyBool :: Ty
 tyBool = mtApp TyConBool
 
+
 tyStr :: Ty
-tyStr = mtApp TyConString
+tyStr = TyApp TyConList [tyChar]
 
 tyChar :: Ty
 tyChar = mtApp TyConChar
@@ -622,7 +623,7 @@ tcArith ctor p a b = do
 tcTy :: UniqAst SynTy -> Checked Ty
 tcTy (SynTyInt _) = return tyInt
 tcTy (SynTyBool _) = return tyBool
-tcTy (SynTyString _) = return tyStr
+tcTy (SynTyChar _) = return tyChar
 tcTy (SynTyUnit _) = return tyUnit
 tcTy (SynTyArrow _ paramTys retTy) = do
   paramTys' <- mapM tcTy paramTys
@@ -664,7 +665,13 @@ makeAdtCtor (AdtAlternative p ctorId ctorInd synTys) adtTy ctorTy argTys = do
 tcTyDec :: UniqAst TypeDec -> Checked (TyCon, [TypedAst Exp])
 tcTyDec (TypeDecTy _ id tyParamIds (SynTyInt _)) = return (TyConInt, [])
 tcTyDec (TypeDecTy _ id tyParamIds (SynTyBool _)) = return (TyConBool, [])
-tcTyDec (TypeDecTy _ id tyParamIds (SynTyString _)) = return (TyConString, [])
+tcTyDec (TypeDecTy _ id tyParamIds (SynTyChar _)) = return (TyConChar, [])
+
+tcTyDec (TypeDecTy _ id _ (SynTyList _ sty)) = do
+  elemTy <- tcTy sty
+  let tycon = TyConTyFun [] $ TyApp TyConList [elemTy]
+  bindTy id tycon
+  return (tycon, [])
 
 -- We desugar struct types into simple product types, with getter
 -- functions for each field using the following rule:
@@ -727,16 +734,6 @@ tcTyDec (TypeDecAdt p id tyParamIds alts) = do
                           makeAdtCtor alt (TyApp adtTyCon argTys) ctorTy argTys)
                  altsTys
   return (adtTyCon, ctorEs)
-
-tcTyDec (TypeDecTy _ id _ (SynTyList _ (SynTyInt _))) =
-  let tycon = TyConTyFun [] $ TyApp TyConList [tyInt]
-    in do bindTy id tycon
-          return (tycon, [])
-
-tcTyDec (TypeDecTy _ id _ (SynTyList _ (SynTyBool _))) = do
-  let tycon = TyConTyFun [] $ TyApp TyConList [tyBool]
-    in do bindTy id tycon
-          return (tycon, [])
 
 tcStructFields :: [(UniqId, Ty)] -> [(UniqId, UniqAst Exp)] -> Checked (Ty, [(UniqId, TypedAst Exp)])
 tcStructFields _ [] = return (tyUnit, [])

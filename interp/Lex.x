@@ -39,7 +39,6 @@ tokens :-
   False { lex' TokenFalse }
   Int { lex' TokenInt }
   Bool { lex' TokenBool }
-  String { lex' TokenStringTy }
   Char { lex' TokenCharTy }
   Unit { lex' TokenUnit }
   if { lex' TokenIf }
@@ -107,7 +106,6 @@ data TokenClass =
   | TokenFalse
   | TokenInt
   | TokenBool
-  | TokenStringTy
   | TokenCharTy
   | TokenUnit
   | TokenIf
@@ -177,7 +175,6 @@ unlex (TokenTrue) = "True"
 unlex (TokenFalse) = "False"
 unlex (TokenInt) = "Int"
 unlex (TokenBool) = "Bool"
-unlex (TokenStringTy) = "String"
 unlex (TokenCharTy) = "Char"
 unlex (TokenUnit) = "Unit"
 unlex (TokenIf) = "if"

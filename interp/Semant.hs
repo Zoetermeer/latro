@@ -337,7 +337,6 @@ data Adt = Adt UniqId Int [Value]
 data Value =
     ValueInt Int
   | ValueBool Bool
-  | ValueStr String
   | ValueChar Char
   | ValueModule Module
   | ValueFun Closure
@@ -400,7 +399,6 @@ addModulePat mod id ty =
 data TyCon =
     TyConInt
   | TyConBool
-  | TyConString
   | TyConChar
   | TyConUnit
   | TyConList

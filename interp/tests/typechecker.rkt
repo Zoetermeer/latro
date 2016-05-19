@@ -5,7 +5,7 @@
 (test-case "it typechecks scalar literals"
   (check-equal? @typecheck{42;} 'Int)
   (check-equal? @typecheck{True;} 'Bool)
-  (check-equal? @typecheck{"hello";} 'String)
+  (check-equal? @typecheck{"hello";} '(App List (Char)))
   (check-equal? @typecheck{'a';} 'Char))
 
 (test-case "it typechecks tuples"
@@ -16,7 +16,7 @@
 (test-case "it typechecks tuples of tuples"
   (check-equal?
     @typecheck{(42, ("hello", True));}
-    '(App Tuple (Int (App Tuple (String Bool))))))
+    '(App Tuple (Int (App Tuple ((App List (Char)) Bool))))))
 
 (test-case "it typechecks arithmetic expressions"
   (check-equal? @typecheck{1 + 1;} 'Int)
@@ -92,7 +92,7 @@
 (test-case "it fails to typecheck if an if-else's branch types do not unify"
   (check-equal?
     @typecheck{if (True) { 42; } else { "hello"; };}
-    '(CantUnify (Expected Int) (Got String))))
+    '(CantUnify (Expected Int) (Got (App List (Char))))))
 
 (test-case "it checks module-value accesses"
   (check-equal?
@@ -125,7 +125,7 @@
 
       M.f("hello world");
     }
-    'String))
+    '(App List (Char))))
 
 (test-case "it checks string patterns"
   (check-equal?
@@ -136,7 +136,7 @@
         case _ -> "no match";
       };
     }
-    'String))
+    '(App List (Char))))
 
 (test-case "it checks tuple patterns"
   (check-equal?
@@ -267,7 +267,7 @@
       def [x, y] = [1, "hello"];
       y;
     }
-    '(CantUnify (Expected Int) (Got String))))
+    '(CantUnify (Expected Int) (Got (App List (Char))))))
 
 (test-case "it infers function types"
   (check-equal?
@@ -291,7 +291,7 @@
       def id = fun(x) { x; };
       (id(42), id(False), id("hello"));
     }
-    '(App Tuple (Int Bool String))))
+    '(App Tuple (Int Bool (App List (Char))))))
 
 (test-case "it infers types for expressions with polymorphic applications"
   (check-equal?
@@ -367,7 +367,7 @@
       def toList = fun(x) { x::[]; };
       (toList(42), toList("foo"));
     }
-    '(App Tuple ((App List (Int)) (App List (String))))))
+    '(App Tuple ((App List (Int)) (App List ((App List (Char))))))))
 
 (test-case "it checks recursive functions"
   (check-equal?
@@ -415,7 +415,7 @@
         case _ -> 44;
       };
     }
-    '(CantUnify (Expected String) (Got Int))))
+    '(CantUnify (Expected (App List (Char))) (Got Int))))
 
 (test-case "it fails if switch clauses don't unify with the test expression"
   (check-equal?
@@ -482,7 +482,7 @@
 
       (unwrap("hello"), unwrap(42));
     }
-    '(App Tuple (String Int))))
+    '(App Tuple ((App List (Char)) Int))))
 
 (test-case "it checks non-polymorphic annotated function definitions"
   (check-equal?
@@ -556,6 +556,7 @@
 (test-case "it checks ADT constructors"
   (check-match
     @typecheck{
+      type String = Char[];
       type Foo =
         | A Int
         | B String
@@ -571,12 +572,13 @@
            (App
              (Adt ((Id A ,_) (Id B ,_)))
              ((App Tuple (Int))
-              (App Tuple (String))))))
+              (App Tuple ((App (TyFun () (App List (Char))) ())))))))
        ())))
 
 (test-case "it fails on ill-typed ADT constructor applications"
   (check-match
     @typecheck{
+      type String = Char[];
       type Rope =
         | Leaf String
         | Node Int Rope Rope
@@ -584,11 +586,12 @@
 
       Leaf(False);
     }
-    `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected String) (Got Bool)))))
+    `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected (App List (Char))) (Got Bool)))))
 
 (test-case "it checks recursive ADT's"
   (check-match
     @typecheck{
+      type String = Char[];
       type Foo =
         | A Int String
         | B Bool Foo
@@ -603,7 +606,7 @@
            ()
            (App
              (Adt ((Id A ,_) (Id B ,_)))
-             ((App Tuple (Int String))
+             ((App Tuple (Int (App (TyFun () (App List (Char))) ())))
               (App Tuple (Bool (App (TyFun () (Ref (Id Foo ,foo-ind))) ())))))))
        ())))
 
@@ -675,7 +678,7 @@
               (TyFun
                 (,l ,r)
                 (App (Adt (,Left ,Right)) ((App Tuple ((Var ,l))) (App Tuple ((Var ,r)))))))
-            ((Var ,t1) String))
+            ((Var ,t1) (App List (Char))))
           (App
             (Unique
               ,Either
@@ -718,6 +721,7 @@
 (test-case "it checks monomorphic ADT patterns"
   (check-equal?
     @typecheck{
+      type String = Char[];
       type Val =
         | B Bool
         | I Int
@@ -849,7 +853,7 @@
 
       (unwrap(Some("hello")), unwrap(Some(42)));
     }
-    '(App Tuple (String Int))))
+    '(App Tuple ((App List (Char)) Int))))
 
 (test-case "it infers function types on ADT values"
   (check-equal?
@@ -905,7 +909,7 @@
         case _ -> "world";
       };
     }
-    'String))
+    '(App List (Char))))
 
 (test-case "checks a module with common list operations"
   (check-equal?
