@@ -1,16 +1,25 @@
 def List = module {
-  len<a> => fun(a[]) : Int;
-  len([]) { 0; }
-  len(x::xs) { 1 + len(xs); };
+  def len = fun(xs) {
+    switch (xs) {
+      case [] -> 0;
+      case x::xs -> 1 + len(xs);
+    };
+  };
 
-  append<a> => fun(a[], a[]) : a[];
-  append([], b) { b; }
-  append(a, []) { a; }
-  append(a::as, bs) { a :: append(as, bs); };
+  def append = fun(a, b) {
+    switch ((a, b)) {
+      case ([], b) -> b;
+      case (a, []) -> a;
+      case (a::as, bs) -> a :: append(as, bs);
+    };
+  };
 
-  map<a, b> => fun(fun(a) : b, a[]) : b[];
-  map(_, []) { []; }
-  map(f, x::xs) { f(x) :: map(f, xs); };
+  def map = fun(f, xs) {
+    switch(xs) {
+      case [] -> [];
+      case x::xs -> f(x) :: map(f, xs);
+    };
+  };
 };
 
 def String = module {
