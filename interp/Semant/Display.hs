@@ -23,8 +23,8 @@ instance Sexpable SourcePos where
   sexp (SourcePos filePath lineNum colNum) =
     List  [ Symbol "SourcePos"
           , Atom filePath
-          , Atom $ show lineNum
-          , Atom $ show colNum
+          , Symbol $ show lineNum
+          , Symbol $ show colNum
           ]
 
 

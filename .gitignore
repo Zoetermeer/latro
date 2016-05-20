@@ -6,6 +6,7 @@
 /interp/parse
 /interp/interp
 /interp/main
+/interp/Scratch.l
 /interp/test.spar
 /interp/tests/compiled/
 /interp/tests/scratch.rkt

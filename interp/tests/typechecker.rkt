@@ -49,9 +49,9 @@
     `(Poly (,t) (App List ((Var ,t))))))
 
 (test-case "it fails non-uniformly-typed list expressions"
-  (check-equal?
+  (check-match
     @typecheck{[1, False];}
-    '(CantUnify (Expected Int) (Got Bool))))
+    `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
 
 (test-case "it checks cons expressions"
   (check-equal?
@@ -105,6 +105,19 @@
     }
     'Int))
 
+(test-case "it searches the module closure for type names"
+  (check-equal?
+    @typecheck{
+      type Foo = Int;
+      def M = module {
+        add => fun(Foo, Int) : Int;
+        add(x, y) { x + y; };
+      };
+
+      add(1, 2);
+    }
+    'Int))
+
 (test-case "it checks expressions with module-binding components"
   (check-equal?
     @typecheck{
@@ -152,7 +165,7 @@
       def (a, b) = 42;
       a;
     }
-    `(CantUnify (Expected (App Tuple (,_ ,_))) (Got Int))))
+    `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected (App Tuple (,_ ,_))) (Got Int)))))
 
 (test-case "it checks compound tuple patterns"
   (check-equal?
@@ -168,10 +181,13 @@
       def ((a, b), (c, d)) = ((1, 2), 3);
       b;
     }
-    `(CantUnify
-       (Expected
-         (App Tuple (,t1 ,t2)))
-       (Got Int))))
+    `(AtPos
+       ,_
+       (CompilerModule Types)
+       (CantUnify
+         (Expected
+           (App Tuple (,t1 ,t2)))
+         (Got Int)))))
 
 (test-case "it checks simple list patterns"
   (check-equal?
@@ -254,20 +270,20 @@
     `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Bool) (Got Int)))))
 
 (test-case "it fails regardless of subexpression order in list pats"
-  (check-equal?
+  (check-match
     @typecheck{
       def [x, 1] = [True, False];
       x;
     }
-    '(CantUnify (Expected Int) (Got Bool))))
+    `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
 
 (test-case "it fails if the right-hand side of a list-pat binding is ill-typed"
-  (check-equal?
+  (check-match
     @typecheck{
       def [x, y] = [1, "hello"];
       y;
     }
-    '(CantUnify (Expected Int) (Got (App List (Char))))))
+    `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got (App List (Char)))))))
 
 (test-case "it infers function types"
   (check-equal?
@@ -326,9 +342,23 @@
         };
         f;
       };
-      (randomzap(42)(), randomzap(False)());
+      (randomzap(42)(43), randomzap(False)(True));
     }
     '(App Tuple (Int Bool))))
+
+(test-case "it fails to unify if we apply the nested function with a different type"
+  (check-match
+    @typecheck{
+      def randomzap = fun(x) {
+        def f = fun(y) {
+          if (False) { y; } else { x; };
+        };
+        f;
+      };
+
+      randomzap(42)(False);
+    }
+    `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
 
 (test-case "it infers list types in implicitly polymorphic functions"
   (check-equal?
@@ -407,7 +437,7 @@
     'Int))
 
 (test-case "it fails if switch clauses return different types"
-  (check-equal?
+  (check-match
     @typecheck{
       switch (42) {
         case 0 -> "hello";
@@ -415,17 +445,20 @@
         case _ -> 44;
       };
     }
-    '(CantUnify (Expected (App List (Char))) (Got Int))))
+    `(AtPos
+       ,_
+       (CompilerModule Types)
+       (CantUnify (Expected (App List (Char))) (Got Int)))))
 
 (test-case "it fails if switch clauses don't unify with the test expression"
-  (check-equal?
+  (check-match
     @typecheck{
       switch (42) {
         case 0 -> "hello";
         case False -> "world";
       };
     }
-    '(CantUnify (Expected Int) (Got Bool))))
+    `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
 
 (test-case "it allows id shadowing in switch pattern bindings"
   (check-equal?
@@ -501,9 +534,7 @@
       add => fun(Int, Int) : Int;
       add(x, y) { False; };
     }
-    `(CantUnify
-       (Expected Int)
-       (Got Bool))))
+    `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
 
 (test-case "it checks annotated function definitions"
   (check-equal?
@@ -761,7 +792,7 @@
       def MakeOpt(v) = Some(42);
       v;
     }
-    `(UnboundUniqIdentifier (Id MakeOpt ,_))))
+    `(AtPos (SourcePos ,_ 7 ,_) (CompilerModule Types) (UnboundUniqIdentifier (Id MakeOpt ,_)))))
 
 (test-case "it does not allow bindings in a pattern to escape into other clauses"
   (check-match
@@ -792,24 +823,23 @@
         case _ -> True;
       };
     }
-    `(UnboundUniqIdentifier (Id Some ,_))))
-;
-; Pended until the syntax supports these qualified patterns (trivial)
-; (test-case "it checks qualified ADT patterns"
-;   (check-equal?
-;     @typecheck{
-;       def Opt = module {
-;         type t<a> = | Some a | None;
-;
-;         def GetOne = fun() { Some(42); };
-;       };
-;
-;       switch (Opt.GetOne()) {
-;         case Opt.Some(43) -> False;
-;         case _ -> True;
-;       };
-;     }
-;     'Bool))
+    `(AtPos ,_ (CompilerModule Types) (UnboundUniqIdentifier (Id Some ,_)))))
+
+(test-case "it checks qualified ADT patterns"
+  (check-equal?
+    @typecheck{
+      def Opt = module {
+        type t<a> = | Some a | None;
+
+        def GetOne = fun() { Some(42); };
+      };
+
+      switch (Opt.GetOne()) {
+        case Opt.Some(43) -> False;
+        case _ -> True;
+      };
+    }
+    'Bool))
 
 (test-case "it checks annotated functions on ADT values"
   (check-equal?
