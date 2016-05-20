@@ -22,6 +22,7 @@ data Err =
   | ErrNoInstFunDefGivenFor UniqId
   | ErrFunDefIdMismatch UniqId UniqId
   | ErrFunDefArityMismatch UniqId
+  | ErrWrongArity (Exp CheckedData UniqId) Int Int
   | ErrCantEvaluate (Exp CheckedData UniqId)
   | ErrUnboundRawIdentifier RawId
   | ErrUnboundUniqIdentifier UniqId

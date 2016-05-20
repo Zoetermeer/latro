@@ -102,7 +102,7 @@ TuplePatExpsRest : ',' PatExp { [$2] }
 
 TuplePatExp : '(' PatExp TuplePatExpsRest ')' { PatExpTuple (pos $1) ([$2] ++ $3) }
 
-AdtPatExp : id '(' ZeroOrMorePatExps ')' { PatExpAdt (pos $1) (tokValue $1) $3 }
+AdtPatExp : QualifiedId '(' ZeroOrMorePatExps ')' { PatExpAdt (nodeData $1) $1 $3 }
 
 ZeroOrMorePatExps : PatExp { [$1] }
                   | ZeroOrMorePatExps ',' PatExp { $1 ++ [$3] }

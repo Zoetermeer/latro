@@ -144,10 +144,10 @@ convertPatExp (PatExpId p id) = do
   id' <- freshM id
   return $ PatExpId p id'
 
-convertPatExp (PatExpAdt p id es) = do
-  id' <- lookup id
+convertPatExp (PatExpAdt p qid es) = do
+  qid' <- convertQualId qid
   es' <- mapM convertPatExp es
-  return $ PatExpAdt p id' es'
+  return $ PatExpAdt p qid' es'
 
 convertPatExp (PatExpList p es) = do
   es' <- mapM convertPatExp es

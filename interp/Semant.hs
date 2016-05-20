@@ -41,7 +41,7 @@ data PatExp a id =
   | PatExpStringLiteral a String
   | PatExpCharLiteral a String
   | PatExpTuple a [PatExp a id]
-  | PatExpAdt a id [PatExp a id]
+  | PatExpAdt a (QualifiedId a id) [PatExp a id]
   | PatExpList a [PatExp a id]
   | PatExpListCons a (PatExp a id) (PatExp a id)
   | PatExpId a id

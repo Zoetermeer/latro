@@ -143,8 +143,8 @@ instance (Sexpable a, Sexpable id) => Sexpable (PatExp a id) where
     List  [ Symbol "PatExpCharLiteral", sexp d, Atom s ]
   sexp (PatExpTuple d patEs) =
     List  [ Symbol "PatExpTuple", sexp d, toSexpList patEs ]
-  sexp (PatExpAdt d id patEs) =
-    List  [ Symbol "PatExpAdt", sexp d, sexp id, toSexpList patEs ]
+  sexp (PatExpAdt d qid patEs) =
+    List  [ Symbol "PatExpAdt", sexp d, sexp qid, toSexpList patEs ]
   sexp (PatExpList d patEs) =
     List  [ Symbol "PatExpList", sexp d, toSexpList patEs ]
   sexp (PatExpListCons d a b) =

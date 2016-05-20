@@ -283,6 +283,19 @@ lookupPatIn mod id =
   hoistEither $ maybeToEither (ErrUnboundUniqIdentifier id) $ Map.lookup id $ patFuns mod
 
 
+lookupPat :: UniqAst QualifiedId -> Checked Ty
+lookupPat (Id p id) = do
+  curMod <- gets curModule
+  lookupPatIn curMod id `reportErrorAt` p
+
+lookupPat (Path p qid id) = do
+  modTy <- lookupQual qid `reportErrorAt` (nodeData qid)
+  case modTy of
+    TyApp (TyConModule _ mod) _ ->
+      lookupPatIn mod id `reportErrorAt` p
+    _ -> throwError (ErrInvalidModulePath qid) `reportErrorAt` (nodeData qid)
+
+
 lookupTy :: UniqId -> Checked TyCon
 lookupTy id = do
   curMod <- gets curModule
@@ -768,16 +781,18 @@ tcPatExp (PatExpTuple p es) = do
   let ty = TyApp TyConTuple eTys
   return (ty, PatExpTuple (OfTy p ty) es')
 
-tcPatExp (PatExpAdt p id es) = do
-  curMod <- gets curModule
-  patFunTy <- lookupPatIn curMod id
+tcPatExp (PatExpAdt p qid es) = do
+  -- curMod <- gets curModule
+  patFunTy <- lookupPat qid
+  -- patFunTy <- lookupPatIn curMod id
+  (qid', _) <- tcQualId qid
   (eTys, es') <- mapAndUnzipM tcPatExp es
   retTyMeta@(TyMeta retTyMetaId) <- freshMeta
   let gotTy = TyApp TyConArrow $ eTys ++ [retTyMeta]
   patFunTy' <- instantiate patFunTy
   (TyApp TyConArrow eTys) <- unify patFunTy' gotTy
   let (retTy:_) = reverse eTys
-  return (retTy, PatExpAdt (OfTy p retTy) id es')
+  return (retTy, PatExpAdt (OfTy p retTy) qid' es')
 
 tcPatExp (PatExpList p es) = do
   (eTys, es') <- mapAndUnzipM tcPatExp es
@@ -876,7 +891,8 @@ tc (ExpMemberAccess p e id) = do
   (eTy, e') <- tc e
   case eTy of
     TyApp (TyConModule tyParamIds mod) [] ->
-      do ty <- lookupVarIn mod id >>= instantiate
+      do ty <- lookupVarIn mod id `reportErrorAt` p
+         ty' <- instantiate ty
          return (ty, ExpMemberAccess (OfTy p ty) e' id)
     _ -> throwError $ ErrNotImplemented "Failed member access"
 
@@ -889,8 +905,12 @@ tc (ExpApp p ratorE randEs) = do
   let ty = case reverse arrowTys of
               [] -> tyUnit
               retTy:_ -> retTy
-  ty' <- subst ty
-  return (ty', ExpApp (OfTy p ty) ratorE' randEs')
+      arity = (length arrowTys) - 1
+      argLen = length randEs
+  if arity /= argLen
+  then throwError (ErrWrongArity ratorE' arity argLen) `reportErrorAt` p
+  else do ty' <- subst ty
+          return (ty', ExpApp (OfTy p ty) ratorE' randEs')
 
 -- module { m1 ... mn } --> App(Module, [tc(m1), ..., tc(mn)]
 -- module <t1, ..., tn> { ... } --> Poly([t1, ..., tn], App(Module ...))

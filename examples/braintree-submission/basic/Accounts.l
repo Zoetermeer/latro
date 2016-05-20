@@ -10,12 +10,37 @@ def Core = module {
 def Num = module {
   def add = fun(x, y) { x + y; };
   def sub = fun(x, y) { x - y; };
+
+  read => fun(Core.String) : Int;
+  read(_) { 0; };
+};
+
+def List = module {
+  append<a> => fun(a[], a[]) : a[];
+  append([], bs) { bs; }
+  append(as, []) { as; }
+  append(a::as, bs) {
+    a :: append(as, bs);
+  };
+
+  reverse<a> => fun(a[]) : a[];
+  reverse([]) { []; }
+  reverse(x::xs) {
+    append(reverse(xs), [x]);
+  };
 };
 
 def Str = module {
-  split => fun(Core.String, Core.String) : Core.String[];
-  split(s, "") { [s]; }
-  split(s, _) { [s]; };
+  words' => fun(Core.String, Core.String) : Core.String[];
+  words'("", s) { [List.reverse(s)]; }
+  words'(c::cs, s) {
+    switch ([c]) {
+      case " " -> List.reverse(s) :: words'(cs, "");
+      case _ -> words'(cs, c :: s);
+    };
+  };
+
+  def words = fun(s) { words'(s, ""); };
 };
 
 def Map = module {
@@ -49,44 +74,38 @@ def Accounts = module {
     Amount Balance;
   };
 
-  type Ledger = Map.t<Username, Account>;
+  type Ledger = Map.t<Username, Amount>;
 
   applyBalanceCharge => fun(Ledger, Username, Amount, fun(Amount, Amount) : Amount) : Ledger;
   applyBalanceCharge(ledger, name, amount, f) {
-    switch (Map.find(name)) {
-      case Core.Some(account) ->
-        Map.update(name, f(0, amount));
+    switch (Map.find(ledger, name)) {
+      case Core.Some(balance) -> Map.update(ledger, name, f(balance, amount));
       case _ -> ledger;
     };
   };
 
   executeCommand => fun(Ledger, Command) : Ledger;
   executeCommand(ledger, Add(name, cardNumber, balance)) {
-    def acct = Account {
-      Name = name;
-      CardNumber = cardNumber;
-      Balance = amount;
-    };
-
-    Map.insert(name, acct);
+    Map.insert(ledger, name, balance);
   }
 
   executeCommand(ledger, Charge(name, amount)) {
-    applyBalanceCharge(ledger, name, amount, Core.sub);
+    applyBalanceCharge(ledger, name, amount, Num.sub);
   }
 
   executeCommand(ledger, Credit(name, amount)) {
-    applyBalanceCharge(ledger, name, amount, Core.add);
+    applyBalanceCharge(ledger, name, amount, Num.add);
   }
 
   executeCommand(ledger, _) { ledger; };
 
 
-  def parseCommand = fun(s) {
-    switch (Str.split(s, " ")) {
-      case ["Add", name, cardNumber, amount] -> (Add(name, cardNumber, amount), False);
-      case ["Charge", name, amount] -> (Charge(name, amount), False);
-      case ["Credit", name, amount] -> (Credit(name, amount), False);
+  parseCommand => fun(Core.String) : (Command, Bool);
+  parseCommand(s) {
+    switch (Str.words(s)) {
+      case ["Add", name, cardNumber, amount] -> (Add(name, cardNumber, Num.read(amount)), False);
+      case ["Charge", name, amount] -> (Charge(name, Num.read(amount)), False);
+      case ["Credit", name, amount] -> (Credit(name, Num.read(amount)), False);
       case _ -> (Quit(), True);
     };
   };
@@ -95,15 +114,19 @@ def Accounts = module {
   processCommands => fun(Ledger, Core.String[]) : Ledger;
   processCommands(ledger, []) { ledger; }
   processCommands(ledger, line::lines) {
-    def cmd = parseCommand(line);
+    def (cmd, shouldQuit) = parseCommand(line);
     processCommands(executeCommand(ledger, cmd), lines);
   };
 };
 
 def lines = [
   "Add James 1234 100",
-  "Charge James 10"
+  "Charge James 10",
+  "Add John 1 2"
 ];
 
 def ledger = [];
-def ledger' = processCommands(ledger, lines);
+Accounts.processCommands(ledger, lines);
+
+
+

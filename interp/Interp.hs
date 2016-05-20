@@ -222,12 +222,16 @@ evalPatExp e@(PatExpTuple _ patEs) v =
   where
     (ValueTuple vs) = v
 
-evalPatExp patE@(PatExpAdt (OfTy p _) id patEs) v@(ValueAdt (Adt ctorId _ vs))
-  | id == ctorId =
-    let evPairs = zip patEs vs
-    in do mapM_ (\(patE, v) -> evalPatExp patE v) evPairs
-          return ()
-  | otherwise = (throwError $ ErrPatMatchFail patE v) `reportErrorAt` p
+evalPatExp patE@(PatExpAdt (OfTy p _) qid patEs) v@(ValueAdt (Adt ctorId _ vs))
+    | id == ctorId =
+      let evPairs = zip patEs vs
+      in do mapM_ (\(patE, v) -> evalPatExp patE v) evPairs
+            return ()
+    | otherwise = (throwError $ ErrPatMatchFail patE v) `reportErrorAt` p
+  where
+    id = case qid of
+          Path _ qid' id -> id
+          Id _ id -> id
 
 evalPatExp e@(PatExpList (OfTy p _) es) v =
     if length es /= length vs
@@ -346,7 +350,7 @@ evalE (ExpMemberAccess (OfTy p _) e id) = do
   let handle = (flip reportErrorAt) p
   handle $ case v of
              (ValueModule (Module _ _ exports)) ->
-               lookupId id $ exportVars exports
+               lookupId id (exportVars exports) `reportErrorAt` p
              (ValueStruct (Struct _ fields)) ->
                hoistEither $ maybeToEither err $ lookup id fields
   where

@@ -114,6 +114,13 @@ instance Sexpable Err where
           , Atom "One or more definitions have different arity."
           ]
 
+  sexp (ErrWrongArity funE arity argLen) =
+    List  [ Symbol "WrongArity"
+          , sexp funE
+          , List [ Symbol "ExpectedArity", Symbol $ show arity ]
+          , List [ Symbol "ArgLen", Symbol $ show argLen ]
+          ]
+
   sexp (ErrMultipleDefsInSimpleAnnDec id) =
     List  [ Symbol "MultipleDefsInSimpleAnnDec"
           , sexp id

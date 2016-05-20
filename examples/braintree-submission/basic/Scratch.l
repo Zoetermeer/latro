@@ -1,19 +1,25 @@
-def Core = module {
-  type Maybe<a> =
-    | Some a
-    | None
-    ;
+type String = Char[];
+
+append<a> => fun(a[], a[]) : a[];
+append([], bs) { bs; }
+append(as, []) { as; }
+append(a::as, bs) {
+  a :: append(as, bs);
 };
 
-def Map = module {
-  type t<k, v> = (k, v)[];
-
-  insert<k, v> => fun(t<k, v>, k, v) : t<k, v>;
-  insert(map, key, val) { (key, val) :: map; };
-
-  find<k, v> => fun(t<k, v>, k) : Core.Maybe<v>;
-  find(_, _) { Core.None(); };
+reverse<a> => fun(a[]) : a[];
+reverse([]) { []; }
+reverse(x::xs) {
+  append(reverse(xs), [x]);
 };
 
-def m = [(1, "hello")];
-Map.find(m, 3);
+words => fun(String, String) : String[];
+words("", s) { [reverse(s)]; }
+words(c::cs, s) {
+  switch ([c]) {
+    case " " -> reverse(s) :: words(cs, "");
+    case _ -> words(cs, c :: s);
+  };
+};
+
+words("Add James 1 100", "");
