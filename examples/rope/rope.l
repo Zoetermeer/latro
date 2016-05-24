@@ -1,13 +1,12 @@
 //This is a transliteration of Pat Brown's
 //Haskell Rope implementation:
 //https://github.com/ptrckbrwn/rope
-def Core = module {
-  type String = Char[];
-  type Maybe<a> =
-    | Just a
-    | Nothing
-    ;
-};
+
+type String = Char[];
+type Maybe<a> =
+  | Just a
+  | Nothing
+  ;
 
 lt => fun(Int, Int) : Bool;
 lt(0, 0) { False; }
@@ -45,14 +44,14 @@ def List = module {
     a :: append(as, bs);
   };
 
-  elem<a> => fun(a[], Int) : Core.Maybe<a>;
-  elem([], _) { Core.Nothing(); }
-  elem(x::_, 0) { Core.Just(x); }
+  elem<a> => fun(a[], Int) : Maybe<a>;
+  elem([], _) { Nothing(); }
+  elem(x::_, 0) { Just(x); }
   elem(_::xs, n) { elem(xs, n - 1); };
 };
 
 def Str = module {
-  splitAt => fun(Core.String, Int) : (Core.String, Core.String);
+  splitAt => fun(String, Int) : (String, String);
   splitAt(s, 0) { (s, ""); }
   splitAt("", _) { ("", ""); }
   splitAt(c::cs, 1) { ([c], cs); }
@@ -64,7 +63,7 @@ def Str = module {
 
 
 type Rope =
-  | Leaf Core.String
+  | Leaf String
   | Node Int Rope Rope
   ;
 
@@ -103,7 +102,7 @@ delete(Node(weight, left, right), i, j) {
 };
 
 
-index => fun(Rope, Int) : Core.Maybe<Char>;
+index => fun(Rope, Int) : Maybe<Char>;
 index(Leaf(string), n) { List.elem(string, n); }
 index(Node(weight, left, right), n) {
   cond {
@@ -113,7 +112,7 @@ index(Node(weight, left, right), n) {
 };
 
 
-insert => fun(Rope, Int, Core.String) : Rope;
+insert => fun(Rope, Int, String) : Rope;
 insert(Leaf(oldString), n, newString) {
   def (s1, s3) = Str.splitAt(oldString, n);
   def s2       = newString;
@@ -135,26 +134,26 @@ insert(Node(weight, left, right), n, string) {
 };
 
 
-substring => fun(Rope, Int, Int) : Core.Maybe<Core.String>;
+substring => fun(Rope, Int, Int) : Maybe<String>;
 substring(Leaf(string), i, j) {
   def (_, tmp) = Str.splitAt(string, i);
   def (s, _)   = Str.splitAt(tmp, j - i);
 
-  Core.Just(s);
+  Just(s);
 }
 
 substring(Node(_, left, right), i, j) {
   def llen = length'(left);
 
   cond {
-    case gt(i, j)                         -> Core.Nothing();
+    case gt(i, j)                         -> Nothing();
     case and(lt(i, llen), geq(j, llen))   -> substring(left, i, j);
     case geq(i, llen)                     -> substring(right, i - llen, j - llen);
   };
 };
 
 
-toString => fun(Rope) : Core.String;
+toString => fun(Rope) : String;
 toString(Leaf(string)) { string; }
 toString(Node(_, left, right)) { List.append(toString(left), toString(right)); };
 

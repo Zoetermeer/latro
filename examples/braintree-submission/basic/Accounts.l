@@ -1,17 +1,15 @@
-def Core = module {
-  type String = Char[];
+type String = Char[];
 
-  type Maybe<a> =
-    | Some a
-    | None
-    ;
-};
+type Maybe<a> =
+  | Some a
+  | None
+  ;
 
 def Num = module {
   def add = fun(x, y) { x + y; };
   def sub = fun(x, y) { x - y; };
 
-  read => fun(Core.String) : Int;
+  read => fun(String) : Int;
   read(_) { 0; };
 };
 
@@ -31,7 +29,7 @@ def List = module {
 };
 
 def Str = module {
-  words' => fun(Core.String, Core.String) : Core.String[];
+  words' => fun(String, String) : String[];
   words'("", s) { [List.reverse(s)]; }
   words'(c::cs, s) {
     switch ([c]) {
@@ -52,13 +50,13 @@ def Map = module {
   update<k, v> => fun(t<k, v>, k, v) : t<k, v>;
   update(map, key, val) { insert(map, key, val); };
 
-  find<k, v> => fun(t<k, v>, k) : Core.Maybe<v>;
-  find(_, _) { Core.None(); };
+  find<k, v> => fun(t<k, v>, k) : Maybe<v>;
+  find(_, _) { None(); };
 };
 
 def Accounts = module {
-  type Username = Core.String;
-  type CardNumber = Core.String;
+  type Username = String;
+  type CardNumber = String;
   type Amount = Int;
 
   type Command =
@@ -79,7 +77,7 @@ def Accounts = module {
   applyBalanceCharge => fun(Ledger, Username, Amount, fun(Amount, Amount) : Amount) : Ledger;
   applyBalanceCharge(ledger, name, amount, f) {
     switch (Map.find(ledger, name)) {
-      case Core.Some(balance) -> Map.update(ledger, name, f(balance, amount));
+      case Some(balance) -> Map.update(ledger, name, f(balance, amount));
       case _ -> ledger;
     };
   };
@@ -100,7 +98,7 @@ def Accounts = module {
   executeCommand(ledger, _) { ledger; };
 
 
-  parseCommand => fun(Core.String) : (Command, Bool);
+  parseCommand => fun(String) : (Command, Bool);
   parseCommand(s) {
     switch (Str.words(s)) {
       case ["Add", name, cardNumber, amount] -> (Add(name, cardNumber, Num.read(amount)), False);
@@ -111,7 +109,7 @@ def Accounts = module {
   };
 
 
-  processCommands => fun(Ledger, Core.String[]) : Ledger;
+  processCommands => fun(Ledger, String[]) : Ledger;
   processCommands(ledger, []) { ledger; }
   processCommands(ledger, line::lines) {
     def (cmd, shouldQuit) = parseCommand(line);

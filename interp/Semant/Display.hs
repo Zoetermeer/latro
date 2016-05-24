@@ -300,14 +300,6 @@ sexpOfMap :: (Sexpable k, Sexpable v) => Map.Map k v -> Sexp
 sexpOfMap m = List $ map (\(k, v) -> List [ sexp k, sexp v]) $ Map.toList m
 
 
-instance Sexpable ClosureEnv where
-  sexp (ClosureEnv { cloTypeEnv, cloVarEnv }) =
-    List  [ Symbol "Closure"
-          , sexpOfMap cloTypeEnv
-          , sexpOfMap cloVarEnv
-          ]
-
-
 instance Sexpable Exports where
   sexp (Exports { exportTypes, exportVars }) =
     List  [ Symbol "Exports"
@@ -319,7 +311,7 @@ instance Sexpable Exports where
 instance Sexpable Module where
   sexp (Module cloEnv paramIds exports) =
     List  [ Symbol "Module"
-          , sexp cloEnv
+          , sexpOfMap cloEnv
           , toSexpList paramIds
           , sexp exports
           ]
@@ -329,7 +321,7 @@ instance Sexpable Closure where
   sexp (Closure id _ cloEnv _ _) =
     List  [ Symbol "Fun"
           , sexp id
-          , sexp cloEnv
+          , sexpOfMap cloEnv
           ]
 
 

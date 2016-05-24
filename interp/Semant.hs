@@ -286,8 +286,14 @@ instance Ord UniqId where
   (UniqId _ raw) `compare` (UserId raw') = raw `compare` raw'
 
 
-type VEnv = Map.Map UniqId Value
-type TEnv = Map.Map UniqId Ty
+type Env a = Map.Map UniqId a
+type CloEnv a = Env a
+type VEnv = Env Value
+type TEnv = Env Ty
+
+
+mtEnv :: Env a
+mtEnv = Map.empty
 
 
 data CheckedData = OfTy SourcePos Ty
@@ -297,13 +303,6 @@ data CheckedData = OfTy SourcePos Ty
 type RawAst a = a SourcePos RawId
 type UniqAst a = a SourcePos UniqId
 type TypedAst a = a CheckedData UniqId
-
-
-data ClosureEnv = ClosureEnv
-  { cloTypeEnv :: TEnv
-  , cloVarEnv :: VEnv
-  }
-  deriving (Eq, Show)
 
 
 data Exports = Exports
@@ -318,11 +317,11 @@ data Exports = Exports
 -- environment.  A name lookup on a module
 -- can't search the closure environment, so we
 -- separate them
-data Module = Module ClosureEnv [UniqId] Exports
+data Module = Module (CloEnv Value) [UniqId] Exports
   deriving (Eq, Show)
 
 
-data Closure = Closure UniqId Ty ClosureEnv [UniqId] [Exp CheckedData UniqId]
+data Closure = Closure UniqId Ty (CloEnv Value) [UniqId] [Exp CheckedData UniqId]
   deriving (Eq, Show)
 
 
@@ -367,17 +366,23 @@ data ModuleBinding =
   deriving (Eq, Show)
 
 data TCModule = TCModule
-  { types :: Map.Map UniqId TyCon
-  , vars :: Map.Map UniqId Ty
-  , patFuns :: Map.Map UniqId Ty
+  { types         :: Env TyCon
+  , vars          :: TEnv
+  , patFuns       :: TEnv
+  , closedVars    :: TEnv
+  , closedTys     :: Env TyCon
+  , closedPatFuns :: TEnv
   }
   deriving (Eq, Show)
 
 mtTCModule :: TCModule
 mtTCModule =
-  TCModule { types = Map.empty
-           , vars = Map.empty
-           , patFuns = Map.empty
+  TCModule { types          = mtEnv
+           , vars           = mtEnv
+           , patFuns        = mtEnv
+           , closedVars     = mtEnv
+           , closedTys      = mtEnv
+           , closedPatFuns  = mtEnv
            }
 
 
@@ -394,6 +399,16 @@ addModuleTy mod id tyCon =
 addModulePat :: TCModule -> UniqId -> Ty -> TCModule
 addModulePat mod id ty =
   mod { patFuns = Map.insert id ty (patFuns mod) }
+
+
+addModuleClosedVar :: TCModule -> UniqId -> Ty -> TCModule
+addModuleClosedVar mod id ty =
+  mod { closedVars = Map.insert id ty (closedVars mod) }
+
+
+addModuleClosedTy :: TCModule -> UniqId -> TyCon -> TCModule
+addModuleClosedTy mod id tycon =
+  mod { closedTys = Map.insert id tycon (closedTys mod) }
 
 
 data TyCon =

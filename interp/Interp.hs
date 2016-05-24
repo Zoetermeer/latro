@@ -35,8 +35,7 @@ reportErrorAt a p =
 -- Each new binding occurrence adds the id to the current
 -- module's list of exports
 data InterpEnv = InterpEnv
-  { typeEnv :: TEnv
-  , varEnv  :: VEnv
+  { varEnv  :: VEnv
   , curModule :: Module
   , alphaEnv :: AlphaEnv
   }
@@ -44,10 +43,6 @@ data InterpEnv = InterpEnv
 
 type Eval a = ExceptT Err (State InterpEnv) a
 
-mtClosureEnv :: ClosureEnv
-mtClosureEnv = ClosureEnv { cloTypeEnv = Map.empty
-                          , cloVarEnv = Map.empty
-                          }
 
 mtExports :: Exports
 mtExports = Exports { exportTypes = Map.empty
@@ -57,13 +52,12 @@ mtExports = Exports { exportTypes = Map.empty
 mtInterpEnv :: AlphaEnv -> InterpEnv
 mtInterpEnv alphaEnv =
     InterpEnv
-      { typeEnv = Map.empty
-      , varEnv = Map.empty
+      { varEnv = Map.empty
       , curModule = mod
       , alphaEnv = alphaEnv
       }
   where
-    mod = Module mtClosureEnv [] mtExports
+    mod = Module mtEnv [] mtExports
 
 
 lookupId :: UniqId -> Map.Map UniqId v -> Eval v
@@ -88,20 +82,12 @@ lookupQualIn (Path p qid id) intEnv extractExportEnv _ = do
     _ -> throwError $ ErrInterpFailure $ printf "Can't lookup qualified ID in: %s" $ show v
 
 
--- lookupTyQualIn :: UniqAst QualifiedId -> InterpEnv -> Eval (UniqAst SynTy)
--- lookupTyQualIn id intEnv = lookupQualIn id intEnv exportTypes typeEnv
-
-
 lookupVarQualIn :: TypedAst QualifiedId -> InterpEnv -> Eval Value
 lookupVarQualIn id intEnv = lookupQualIn id intEnv exportVars varEnv
 
 
 lookupVarQual :: TypedAst QualifiedId -> Eval Value
 lookupVarQual id = get >>= lookupVarQualIn id
-
-
--- lookupTyQual :: UniqAst QualifiedId -> Eval (UniqAst SynTy)
--- lookupTyQual id = get >>= lookupTyQualIn id
 
 
 lookupVarId :: UniqId -> Eval Value
@@ -112,18 +98,9 @@ getVarEnv :: Eval VEnv
 getVarEnv = gets varEnv
 
 
-getTyEnv :: Eval TEnv
-getTyEnv = gets typeEnv
-
-
 putVarBinding :: UniqId -> Value -> Eval ()
 putVarBinding id v = do
   modify (\intEnv -> intEnv { varEnv = Map.insert id v (varEnv intEnv) })
-
-
--- putTyBinding :: UniqId -> UniqAst SynTy -> Eval ()
--- putTyBinding id ty = do
---   modify (\\intEnv -> intEnv { typeEnv = Map.insert id ty (typeEnv intEnv) })
 
 
 putModuleVarExport :: UniqId -> Value -> Eval ()
@@ -135,27 +112,15 @@ putModuleVarExport id v = do
               intEnv { curModule = Module cloEnv paramIds exports' })
 
 
--- putModuleTyExport :: UniqId -> UniqAst SynTy -> Eval ()
--- putModuleTyExport id ty = do
---   modify (\\intEnv ->
---             let (Module cloEnv paramIds exports) = curModule intEnv
---                 exports' = exports { exportTypes = Map.insert id ty (exportTypes exports) }
---             in
---               intEnv { curModule = Module cloEnv paramIds exports' })
-
-
 pushNewModuleContext :: Eval InterpEnv
 pushNewModuleContext = do
   curEnv <- get
-  let modCloEnv = ClosureEnv { cloTypeEnv = typeEnv curEnv, cloVarEnv = varEnv curEnv }
-  modify (\intEnv -> intEnv { curModule = Module modCloEnv [] mtExports })
+  modify (\intEnv -> intEnv { curModule = Module (varEnv curEnv) [] mtExports })
   return curEnv
 
 
-getClosureEnv :: Eval ClosureEnv
-getClosureEnv = do
-  curEnv <- get
-  return $ ClosureEnv { cloTypeEnv = typeEnv curEnv, cloVarEnv = varEnv curEnv }
+getClosureEnv :: Eval VEnv
+getClosureEnv = gets varEnv
 
 
 restoreEnv :: InterpEnv -> Eval ()
@@ -330,7 +295,7 @@ evalE (ExpApp _ e argEs) = do
   argVs <- mapM evalE argEs
 
   preApplyInterpEnv <- get
-  put (preApplyInterpEnv { typeEnv = cloTypeEnv fenv, varEnv = cloVarEnv fenv })
+  put (preApplyInterpEnv { varEnv = fenv })
 
   putVarBinding fid fv
   let argVTbl = zip paramIds argVs

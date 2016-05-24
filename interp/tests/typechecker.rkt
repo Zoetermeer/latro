@@ -114,9 +114,98 @@
         add(x, y) { x + y; };
       };
 
-      add(1, 2);
+      M.add(1, 2);
     }
     'Int))
+
+(test-case "it can resolve submodule members of modules in the closure"
+  (check-equal?
+    @typecheck{
+      def M = module {
+        def foo = 42;
+      };
+
+      def M' = module {
+        def bar = M.foo;
+      };
+
+      M'.bar;
+    }
+    'Int))
+
+(test-case "it fails on incorrect qualified paths"
+  (check-match
+    @typecheck{
+      def M = module {
+        def N = module {
+          def foo = 42;
+        };
+      };
+
+      def M' = module {
+        def bar = N.foo;
+      };
+
+      M'.bar;
+    }
+    `(AtPos ,_ (CompilerModule Types) (UnboundUniqIdentifier (Id N ,_)))))
+
+(test-case "it does not extend type name resolution to closures of closed modules"
+  (check-match
+    @typecheck{
+      type String = Char[];
+
+      def M = module { };
+
+      f => fun(M.String) : M.String;
+      f(s) { s; };
+    }
+    `(AtPos (SourcePos ,_ 5 ,_) (CompilerModule Types) (UnboundUniqIdentifier (Id String ,_)))))
+
+(test-case "it does not extend variable name resolution to closures of closed modules"
+  (check-match
+    @typecheck{
+      def foo = 42;
+
+      def M = module {
+        def bar = foo;
+      };
+
+      M.foo + M.bar;
+    }
+    `(AtPos (SourcePos ,_ 7 ,_) (CompilerModule Types) (UnboundUniqIdentifier (Id foo ,_)))))
+
+(test-case "it can resolve pattern names in the module closure"
+  (check-equal?
+    @typecheck{
+      type A = | Foo Int | Bar Int;
+
+      def M = module {
+        def f = fun(a) {
+          switch (a) {
+            case Foo(x) -> x;
+            case _ -> 0;
+          };
+        };
+      };
+
+      M.f(Foo(43));
+    }
+    'Int))
+
+(test-case "does not re-export pattern names from the module closure"
+  (check-match
+    @typecheck{
+      type A = | Foo Int | Bar Int;
+
+      def M = module { };
+
+      switch (Foo(42)) {
+        case M.Foo(x) -> x;
+        case _ -> 0;
+      };
+    }
+    `(AtPos (SourcePos ,_ 6 ,_) (CompilerModule Types) (UnboundUniqIdentifier (Id Foo ,_)))))
 
 (test-case "it checks expressions with module-binding components"
   (check-equal?

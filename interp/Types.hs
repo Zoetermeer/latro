@@ -43,8 +43,8 @@ data TCEnv = TCEnv
   deriving (Eq)
 
 
-mtEnv :: AlphaEnv -> TCEnv
-mtEnv alphaEnv =
+mtTCEnv :: AlphaEnv -> TCEnv
+mtTCEnv alphaEnv =
   TCEnv
     { curModule = mtTCModule
     , varEnv = Map.empty
@@ -100,8 +100,13 @@ newContextWith fupdate = do
 
 
 pushNewModuleContext :: Checked TCEnv
-pushNewModuleContext =
-  newContextWith (\tcEnv -> tcEnv { curModule = mtTCModule })
+pushNewModuleContext = do
+  curMod <- gets curModule
+  let mod = mtTCModule { closedVars     = vars curMod
+                       , closedTys      = types curMod
+                       , closedPatFuns  = patFuns curMod
+                       }
+  newContextWith (\tcEnv -> tcEnv { curModule = mod })
 
 
 -- A new var env needs to close over all
@@ -268,45 +273,45 @@ lookupPoly :: UniqId -> Checked (Maybe Ty)
 lookupPoly id = envLookup polyEnv id
 
 
-lookupTyIn :: TCModule -> UniqId -> Checked TyCon
-lookupTyIn mod id =
-  hoistEither $ maybeToEither (ErrUnboundUniqIdentifier id) $ Map.lookup id $ types mod
+lookupTyIn :: Env TyCon -> UniqId -> Checked TyCon
+lookupTyIn table id =
+  hoistEither $ maybeToEither (ErrUnboundUniqIdentifier id) $ Map.lookup id table
 
 
-lookupVarIn :: TCModule -> UniqId -> Checked Ty
-lookupVarIn mod id =
-  hoistEither $ maybeToEither (ErrUnboundUniqIdentifier id) $ Map.lookup id $ vars mod
+lookupVarIn :: TEnv -> UniqId -> Checked Ty
+lookupVarIn table id =
+  hoistEither $ maybeToEither (ErrUnboundUniqIdentifier id) $ Map.lookup id table
 
 
-lookupPatIn :: TCModule -> UniqId -> Checked Ty
-lookupPatIn mod id =
-  hoistEither $ maybeToEither (ErrUnboundUniqIdentifier id) $ Map.lookup id $ patFuns mod
+lookupPatIn :: TEnv -> UniqId -> Checked Ty
+lookupPatIn table id =
+  hoistEither $ maybeToEither (ErrUnboundUniqIdentifier id) $ Map.lookup id table
 
 
-lookupPat :: UniqAst QualifiedId -> Checked Ty
-lookupPat (Id p id) = do
+lookupPatQual :: UniqAst QualifiedId -> Checked Ty
+lookupPatQual (Id p id) = do
   curMod <- gets curModule
-  lookupPatIn curMod id `reportErrorAt` p
+  lookupPatIn (patFuns curMod `Map.union` closedPatFuns curMod) id `reportErrorAt` p
 
-lookupPat (Path p qid id) = do
-  modTy <- lookupQual qid `reportErrorAt` (nodeData qid)
+lookupPatQual (Path p qid id) = do
+  modTy <- lookupVarQual qid `reportErrorAt` (nodeData qid)
   case modTy of
     TyApp (TyConModule _ mod) _ ->
-      lookupPatIn mod id `reportErrorAt` p
+      lookupPatIn (patFuns mod) id `reportErrorAt` p
     _ -> throwError (ErrInvalidModulePath qid) `reportErrorAt` (nodeData qid)
 
 
 lookupTy :: UniqId -> Checked TyCon
 lookupTy id = do
   curMod <- gets curModule
-  lookupTyIn curMod id
+  lookupTyIn ((types curMod) `Map.union` (closedTys curMod)) id
 
 
-lookupQual :: UniqAst QualifiedId -> Checked Ty
-lookupQual (Id p id) = lookupVar id
-lookupQual (Path p qid id) = do
-  v <- lookupQual qid
-  case v of
+lookupVarQual :: UniqAst QualifiedId -> Checked Ty
+lookupVarQual (Id p id) = lookupVar id
+lookupVarQual (Path p qid id) = do
+  innerTy <- lookupVarQual qid
+  case innerTy of
     TyApp (TyConModule _ mod) _ ->
       hoistEither $ maybeToEither (ErrUndefinedMember p id) $ Map.lookup id $ vars mod
     TyApp (TyConStruct fieldNames) fTys ->
@@ -320,7 +325,7 @@ tcQualId (Path p qid id) = do
   (qid', innerTy) <- tcQualId qid
   case innerTy of
     TyApp (TyConModule _ mod) _ ->
-      do ty <- lookupVarIn mod id
+      do ty <- lookupVarIn (vars mod) id
          return (Path (OfTy p ty) qid' id, ty)
     TyApp (TyConStruct fieldNames) fTys ->
       do fIndex <- hoistEither $ maybeToEither (ErrUndefinedMember p id) $ elemIndex id fieldNames
@@ -329,12 +334,12 @@ tcQualId (Path p qid id) = do
 
 
 lookupTyQual :: UniqAst QualifiedId -> Checked TyCon
-lookupTyQual (Id _ id) = lookupTy id
+lookupTyQual (Id p id) = lookupTy id `reportErrorAt` p
 lookupTyQual (Path p qid id) = do
-  ty <- lookupQual qid
+  ty <- lookupVarQual qid
   case ty of
-    TyApp (TyConModule _ mod) _ -> lookupTyIn mod id
-    _ -> throwError $ ErrInvalidModulePath qid
+    TyApp (TyConModule _ mod) _ -> lookupTyIn (types mod) id `reportErrorAt` p
+    _ -> (throwError $ ErrInvalidModulePath qid) `reportErrorAt` p
 
 
 lookupVar :: UniqId -> Checked Ty
@@ -782,9 +787,7 @@ tcPatExp (PatExpTuple p es) = do
   return (ty, PatExpTuple (OfTy p ty) es')
 
 tcPatExp (PatExpAdt p qid es) = do
-  -- curMod <- gets curModule
-  patFunTy <- lookupPat qid
-  -- patFunTy <- lookupPatIn curMod id
+  patFunTy <- lookupPatQual qid
   (qid', _) <- tcQualId qid
   (eTys, es') <- mapAndUnzipM tcPatExp es
   retTyMeta@(TyMeta retTyMetaId) <- freshMeta
@@ -890,8 +893,8 @@ tc (ExpNot p e) = do
 tc (ExpMemberAccess p e id) = do
   (eTy, e') <- tc e
   case eTy of
-    TyApp (TyConModule tyParamIds mod) [] ->
-      do ty <- lookupVarIn mod id `reportErrorAt` p
+    TyApp (TyConModule _ mod) [] ->
+      do ty <- lookupVarIn (vars mod) id `reportErrorAt` p
          ty' <- instantiate ty
          return (ty, ExpMemberAccess (OfTy p ty) e' id)
     _ -> throwError $ ErrNotImplemented "Failed member access"
@@ -1095,6 +1098,6 @@ tcCompUnit (CompUnit p es) = do
 
 typeCheck :: UniqAst CompUnit -> AlphaEnv -> Either Err (TypedAst CompUnit, AlphaEnv)
 typeCheck cu aEnv = do
-  (tyResult, tcEnv) <- return $ runState (runExceptT (tcCompUnit cu)) $ mtEnv aEnv
+  (tyResult, tcEnv) <- return $ runState (runExceptT (tcCompUnit cu)) $ mtTCEnv aEnv
   (ty, cu') <- tyResult
   return (cu', alphaEnv tcEnv)
