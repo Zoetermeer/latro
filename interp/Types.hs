@@ -1016,13 +1016,13 @@ tc (ExpFun p paramIds bodyEs) = do
 tc (ExpMakeAdt p synTy i es) = throwError $ ErrNotImplemented "tc for MakeAdt"
 
 tc (ExpStruct p strSynTy@(SynTyRef pSty qid _) fieldInitEs) = do
+  ty <- tcTy strSynTy
   sorted <- sortByM (\a@(aId, _) b@(bId, _) -> do
                         aInd <- lookupFieldIndex aId `reportErrorAt` p
                         bInd <- lookupFieldIndex bId `reportErrorAt` p
                         return $ compare aInd bInd)
                     fieldInitEs
   let initEs = (snd . unzip) sorted
-  ty <- tcTy strSynTy
   (qid', ctorTy) <- tcQualId qid `reportErrorAt` (nodeData qid)
   (_, initEs') <- tcEs initEs
   return (ty, ExpApp (OfTy p ty) (ExpRef (OfTy p ctorTy) qid') initEs')
