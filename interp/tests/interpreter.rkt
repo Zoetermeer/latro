@@ -103,15 +103,20 @@
 (test-case "it does not add bindings introduced in subexpressions to the module export env"
   (check-match
     @interp{
-      module {
+      module m {
         if (True) {
           def x = 42;
         } else {
           ();
         };
       };
+
+      m;
     }
-    '(Module (Closure () ()) () (Exports () ()))))
+    `(Module
+       (CloEnv ())
+       (Params ())
+       (Exports ()))))
 
 (test-case "it evaluates non-literals in the test position"
   (check-equal?
@@ -142,7 +147,7 @@
 
       f;
     }
-    `(Fun (Id f ,_) (Closure () ()))))
+    `(Fun (Id f ,_) (CloEnv ()))))
 
 (test-case "it returns function values with closures"
   (check-match
@@ -152,36 +157,32 @@
 
       f;
     }
-    `(Fun (Id f ,_) (Closure () (((Id v ,_) 1))))))
+    `(Fun (Id f ,_) (CloEnv ((Id v ,_))))))
 
 (test-case "it returns module values"
   (check-match
     @interp{
-      def m = module {}; m;
+      module m {}; m;
     }
     `(Module
-       (Closure () ())
-       ()
-       (Exports
-         ()
-         ()))))
+       (CloEnv ())
+       (Params ())
+       (Exports ()))))
 
 (test-case "it adds definitions to module exports"
   (check-match
     @interp{
-      def m = module { def v = 42; }; m;
+      module m { def v = 42; }; m;
     }
     `(Module
-       (Closure () ())
-       ()
-       (Exports
-         ()
-         (((Id v ,_) 42))))))
+       (CloEnv ())
+       (Params ())
+       (Exports ((Id v ,_))))))
 
 (test-case "it applies functions on modules with multiple decs"
   (check-equal?
     @interp{
-      def m = module {
+      module m {
         def f = fun() { 42; };
         def g = fun() { 43; };
       };
@@ -193,7 +194,7 @@
 (test-case "it returns values defined in modules"
   (check-equal?
     @interp{
-      def m = module { def v = 42; };
+      module m { def v = 42; };
       m.v;
     }
     42))
@@ -201,7 +202,7 @@
 (test-case "it can apply module-exported functions"
   (check-equal?
     @interp{
-      def m = module {
+      module m {
         f => fun() : Int;
         f() { 42; };
       };
@@ -212,8 +213,8 @@
 (test-case "it can apply module-exported functions occurring after a nested module dec"
   (check-equal?
     @interp{
-      def m = module {
-        def n = module { };
+      module m {
+        module n { };
 
         f => fun() : Int;
         f() { 42; };
@@ -225,11 +226,11 @@
 (test-case "it can apply module-exported functions occurring before a nested module dec"
   (check-equal?
     @interp{
-      def m = module {
+      module m {
         f => fun() : Int;
         f() { 42; };
 
-        def n = module { };
+         module n { };
       };
       m.f();
     }
@@ -238,8 +239,8 @@
 (test-case "it returns values defined in nested modules"
   (check-equal?
     @interp{
-      def a = module {
-        def b = module {
+      module a {
+        module b {
           def v = 42;
         };
       };
@@ -269,7 +270,7 @@
 (test-case "it correctly shadows bindings in function bodies"
   (check-equal?
     @interp{
-      def m = module { };
+      module m { };
       f => fun(Int) : Int;
       f(m) { m; };
       f(42);
@@ -289,26 +290,26 @@
 (test-case "it does not add locals in function bodies to the module export env"
   (check-match
     @interp{
-      module {
+      module m {
         f => fun() : Int;
         f() {
           def x = 42;
           x;
         };
       };
+
+      m;
     }
     `(Module
-       (Closure () ())
-       ()
-       (Exports
-         ()
-         (((Id f ,_) (Fun ,_ ,_)))))))
+       (CloEnv ())
+       (Params ())
+       (Exports ((Id f ,_))))))
 
 (test-case "it returns nested module values"
   (check-match
     @interp{
-      def m = module {
-        def m' = module {
+      module m {
+        module m' {
           g => fun() : Int;
           g() { 43; };
         };
@@ -320,17 +321,15 @@
       m.m';
     }
     `(Module
-       (Closure () ())
-       ()
-       (Exports
-         ()
-         (((Id g ,_) (Fun ,_ ,_)))))))
+       (CloEnv ())
+       (Params ())
+       (Exports ((Id g ,_))))))
 
 (test-case "it resolves functions on nested modules"
   (check-equal?
     @interp{
-      def m = module {
-        def m' = module {
+      module m {
+        module m' {
           g => fun() : Int;
           g() { 43; };
         };
@@ -346,8 +345,8 @@
 (test-case "it evaluates functions with compound bodies on nested modules"
   (check-equal?
     @interp{
-      def m = module {
-        def m1 = module {
+      module m {
+        module m1 {
           g => fun(Int, Int) : Int;
           g(x, y) { y + x; };
         };
@@ -380,8 +379,8 @@
 (test-case "it does not allow nested modules to escape the local env"
   (check-match
     @interp{
-      def m = module {
-        def m1 = module {
+      module m {
+        module m1 {
           g => fun(Int, Int) : Int;
           g(x, y) {
             y + x;
@@ -396,11 +395,11 @@
 (test-case "it does not capture id's in lexical scope for modules as exports"
   (check-match
     @interp{
-      def m = module {
+      module m {
         f => fun() : Int;
         f() { 42; };
 
-        def n = module { };
+        module n { };
       };
 
       m.n.f();
@@ -430,9 +429,9 @@
 (test-case "it resolves member accesses on captured modules"
   (check-equal?
     @interp{
-      def m = module {
-        def n = module {
-          def o = module {
+      module m {
+        module n {
+          module o {
             def v = 42;
           };
         };
@@ -448,7 +447,7 @@
 (test-case "it evaluates accesses on module-level scalars"
   (check-equal?
     @interp{
-      def m = module {
+      module m {
         def v = 6;
       };
 
@@ -459,41 +458,31 @@
 (test-case "it can access prior bindings in a module closure"
   (check-match
     @interp{
-      def m = module { };
+      module m { };
       f => fun() : Int;
       f() { 1; };
 
-      def n = module {
+      module n {
         def v = 2;
       };
 
       n;
     }
     `(Module
-      (Closure
-       ()
-       (((Id f ,fid) (Fun (Id f ,fid) (Closure () (((Id m ,mid) ,_)))))
-        ((Id m ,mid) (Module (Closure () ()) () (Exports () ())))))
-      ()
-      (Exports () (((Id v ,_) 2))))))
+      (CloEnv ((Id f ,_) (Id m ,_)))
+      (Params ())
+      (Exports ((Id v ,_))))))
 
 (test-case "it evaluates accesses on nested-module-level scalars"
   (check-equal?
     @interp{
-      def m = module {
-        def n = module {
+      module m {
+        module n {
           def v = 6;
         };
       };
 
       m.n.v;
-    }
-    6))
-
-(test-case "it evaluates accesses on inline modules"
-  (check-equal?
-    @interp{
-      module { def v = 6; }.v;
     }
     6))
 
@@ -564,7 +553,7 @@
 (test-case "it evaluates module-exported struct types"
   (check-equal?
     @interp{
-      def Geometry = module {
+      module Geometry {
         type Point = struct {
           Int X;
           Int Y;
@@ -585,25 +574,10 @@
     }
     4))
 
-(test-case "it does not allow module-exported type bindings to escape"
+(test-case "it exports algebraic data type constructors"
   (check-match
     @interp{
-      def Geometry = module {
-        type Point = struct {
-          Int X;
-          Int Y;
-        };
-      };
-
-      def p = Point { X = 0; Y = 0; };
-      p;
-    }
-    `(UnboundUniqIdentifier (Id Point ,_))))
-
-(test-case "it evaluates algebraic data type definitions"
-  (check-match
-    @interp{
-      def Prims = module {
+      module Prims {
         type IntOption =
           | Just Int
           | None
@@ -612,12 +586,10 @@
       Prims;
     }
     `(Module
-       (Closure () ())
-       ()
+       (CloEnv ())
+       (Params ())
        (Exports
-         ()
-         (((Id Just ,_) ,_)
-          ((Id None ,_) ,_))))))
+         ((Id Just ,_) (Id None ,_))))))
 
 (test-case "it constructs ADT instances"
   (check-match
@@ -634,7 +606,7 @@
 (test-case "it scopes ADT defs/ctors to module exports"
   (check-match
     @interp{
-      def m = module {
+      module m {
         type IntOption =
           | Just Int
           | None
@@ -884,7 +856,7 @@
 (test-case "can encode a module with common list operations"
   (check-equal?
     @typecheck{
-      def IntList = module {
+      module IntList {
         type t = Int[];
         type BoolList = Bool[];
 
@@ -929,7 +901,7 @@
     @interp{
       fun(x, y) { x + y; };
     }
-    `(Fun ,_ (Closure () ()))))
+    `(Fun ,_ (CloEnv ()))))
 
 (test-case "it evaluates anonymous function application"
   (check-equal?
@@ -951,7 +923,7 @@
         };
       };
 
-      def Lists = module {
+      module Lists {
         Map<a, b> => fun(fun(a) : b, a[]) : b[];
         Map(_, []) { []; }
         Map(f, x::xs) {

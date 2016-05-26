@@ -97,7 +97,7 @@
 (test-case "it checks module-value accesses"
   (check-equal?
     @typecheck{
-      def M = module {
+      module M {
         def v = 42;
       };
 
@@ -109,7 +109,7 @@
   (check-equal?
     @typecheck{
       type Foo = Int;
-      def M = module {
+      module M {
         add => fun(Foo, Int) : Int;
         add(x, y) { x + y; };
       };
@@ -121,11 +121,11 @@
 (test-case "it can resolve submodule members of modules in the closure"
   (check-equal?
     @typecheck{
-      def M = module {
+      module M {
         def foo = 42;
       };
 
-      def M' = module {
+      module M' {
         def bar = M.foo;
       };
 
@@ -136,13 +136,13 @@
 (test-case "it fails on incorrect qualified paths"
   (check-match
     @typecheck{
-      def M = module {
-        def N = module {
+      module M {
+        module N {
           def foo = 42;
         };
       };
 
-      def M' = module {
+      module M' {
         def bar = N.foo;
       };
 
@@ -155,7 +155,7 @@
     @typecheck{
       type String = Char[];
 
-      def M = module { };
+      module M { };
 
       f => fun(M.String) : M.String;
       f(s) { s; };
@@ -167,7 +167,7 @@
     @typecheck{
       def foo = 42;
 
-      def M = module {
+      module M {
         def bar = foo;
       };
 
@@ -180,7 +180,7 @@
     @typecheck{
       type A = | Foo Int | Bar Int;
 
-      def M = module {
+      module M {
         def f = fun(a) {
           switch (a) {
             case Foo(x) -> x;
@@ -198,7 +198,7 @@
     @typecheck{
       type A = | Foo Int | Bar Int;
 
-      def M = module { };
+      module M { };
 
       switch (Foo(42)) {
         case M.Foo(x) -> x;
@@ -207,10 +207,25 @@
     }
     `(AtPos (SourcePos ,_ 6 ,_) (CompilerModule Types) (UnboundUniqIdentifier (Id Foo ,_)))))
 
+(test-case "it does not allow module-exported type bindings to escape"
+  (check-match
+    @typecheck{
+      module Geometry {
+        type Point = struct {
+          Int X;
+          Int Y;
+        };
+      };
+
+      def p = Point { X = 0; Y = 0; };
+      p;
+    }
+    `(AtPos (SourcePos ,_ 8 ,_) (CompilerModule Types) (UnboundUniqIdentifier (Id Point ,_)))))
+
 (test-case "it checks expressions with module-binding components"
   (check-equal?
     @typecheck{
-      def M = module {
+      module M {
         def v = 42;
       };
 
@@ -221,7 +236,7 @@
 (test-case "it infers qualified-reference function application"
   (check-equal?
     @typecheck{
-      def M = module {
+      module M {
         def f = fun(x) { x; };
       };
 
@@ -901,7 +916,7 @@
 (test-case "it does not allow pattern bindings to escape modules"
   (check-match
     @typecheck{
-      def Opt = module {
+      module Opt {
         type t<a> = | Some a | None;
 
         def GetOne = fun() { Some(42); };
@@ -917,7 +932,7 @@
 (test-case "it checks qualified ADT patterns"
   (check-equal?
     @typecheck{
-      def Opt = module {
+      module Opt {
         type t<a> = | Some a | None;
 
         def GetOne = fun() { Some(42); };
@@ -1033,7 +1048,7 @@
 (test-case "checks a module with common list operations"
   (check-equal?
     @typecheck{
-      def IntList = module {
+      module IntList {
         type t = Int[];
         type BoolList = Bool[];
 

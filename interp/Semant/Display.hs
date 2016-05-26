@@ -297,13 +297,13 @@ instance (Sexpable a, Sexpable id) => Sexpable (TyAnn a id) where
 
 
 sexpOfMap :: (Sexpable k, Sexpable v) => Map.Map k v -> Sexp
-sexpOfMap m = List $ map (\(k, v) -> List [ sexp k, sexp v]) $ Map.toList m
+-- sexpOfMap m = List $ map (\\(k, v) -> List [ sexp k, sexp v]) $ Map.toList m
+sexpOfMap m = toSexpList $ Map.keys m
 
 
 instance Sexpable Exports where
   sexp (Exports { exportTypes, exportVars }) =
     List  [ Symbol "Exports"
-          , sexpOfMap exportTypes
           , sexpOfMap exportVars
           ]
 
@@ -311,8 +311,8 @@ instance Sexpable Exports where
 instance Sexpable Module where
   sexp (Module cloEnv paramIds exports) =
     List  [ Symbol "Module"
-          , sexpOfMap cloEnv
-          , toSexpList paramIds
+          , List [ Symbol "CloEnv", sexpOfMap cloEnv ]
+          , List [ Symbol "Params", toSexpList paramIds ]
           , sexp exports
           ]
 
@@ -321,7 +321,7 @@ instance Sexpable Closure where
   sexp (Closure id _ cloEnv _ _) =
     List  [ Symbol "Fun"
           , sexp id
-          , sexpOfMap cloEnv
+          , List [ Symbol "CloEnv", sexpOfMap cloEnv ]
           ]
 
 

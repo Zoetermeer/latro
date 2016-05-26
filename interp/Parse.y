@@ -86,7 +86,16 @@ ZeroOrMoreModuleLevelExps : ModuleLevelExp { [$1] }
 OneOrMoreModuleLevelExps : ModuleLevelExp { [$1] }
                          | OneOrMoreModuleLevelExps ModuleLevelExp { $1 ++ [$2] }
 
+ModuleLevelExp : AnnDecExp { $1 }
+               | InterfaceDecExp ';' { $1 }
+               | TypeDec ';' { ExpTypeDec (nodeData $1) $1 }
+               | ModuleDec ';' { $1 }
+               | ExpT { $1 }
+
 ExpT : Exp ';'  { $1 }
+
+ModuleDec : module id ModuleParamList '{' ZeroOrMoreModuleLevelExps '}'
+  { ExpAssign (pos $1) (PatExpId (pos $2) (tokValue $2)) (ExpModule (pos $4) $3 $5) }
 
 TupleRestExps : ',' Exp { [$2] }
               | TupleRestExps ',' Exp { $1 ++ [$3] }
@@ -139,10 +148,7 @@ ModuleParamList : '(' ')' { [] }
                 | '(' CommaSeparatedIds ')' { $2 }
                 | {- empty -} { [] }
 
-ModuleExp : module ModuleParamList '{' ZeroOrMoreModuleLevelExps'}'  { ExpModule (pos $1) $2 $4 }
-
 AtomExp : '(' Exp ')' { $2 }
-        | ModuleExp { $1 }
         | '(' ')' { ExpUnit (pos $1) }
         | '(' Exp TupleRestExps ')' { ExpTuple (pos $1) ($2:$3) }
         | ListExp { $1 }
@@ -184,8 +190,7 @@ Exp : '!' ConsExp { ExpNot (pos $1) $2 }
     | switch '(' Exp ')' '{' CaseClauses '}' { ExpSwitch (pos $1) $3 $6 }
     | cond '{' CondCaseClauses '}' { ExpCond (pos $1) $3 }
 
-AnnDefExp : id '=' ModuleExp { AnnDefModule (pos $1) (tokValue $1) $3 }
-          | FunDef { AnnDefFun (nodeData $1) $1 }
+AnnDefExp : FunDef { AnnDefFun (nodeData $1) $1 }
 
 AnnDefs : AnnDefExp { [$1] }
         | AnnDefs AnnDefExp { $1 ++ [$2] }
@@ -202,11 +207,6 @@ TyAnns : TyAnn { [$1] }
        | TyAnns TyAnn { $1 ++ [$2] }
 
 InterfaceDecExp: interface id TyParams '{' TyAnns '}' { ExpInterfaceDec (pos $1) (tokValue $2) $3 $5 }
-
-ModuleLevelExp : AnnDecExp { $1 }
-               | InterfaceDecExp ';' { $1 }
-               | TypeDec ';' { ExpTypeDec (nodeData $1) $1 }
-               | ExpT { $1 }
 
 CaseClauses : CaseClause { [$1] }
             | CaseClauses CaseClause { $1 ++ [$2] }
