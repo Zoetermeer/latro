@@ -570,7 +570,7 @@
         B = Geometry.Point { X = 3; Y = 4; };
       };
 
-      Y(B(l));
+      Geometry.Y(Geometry.B(l));
     }
     4))
 

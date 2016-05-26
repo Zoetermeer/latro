@@ -372,6 +372,7 @@ data TCModule = TCModule
   , closedVars    :: TEnv
   , closedTys     :: Env TyCon
   , closedPatFuns :: TEnv
+  , fieldIndices  :: Env Int
   }
   deriving (Eq, Show)
 
@@ -383,6 +384,7 @@ mtTCModule =
            , closedVars     = mtEnv
            , closedTys      = mtEnv
            , closedPatFuns  = mtEnv
+           , fieldIndices   = mtEnv
            }
 
 

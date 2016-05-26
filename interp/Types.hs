@@ -38,7 +38,6 @@ data TCEnv = TCEnv
   , polyEnv :: Map.Map UniqId Ty
   , metaEnv :: Map.Map UniqId Ty
   , inTopLevelScope :: Bool
-  , fieldIndices :: Map.Map UniqId Int
   }
   deriving (Eq)
 
@@ -52,7 +51,6 @@ mtTCEnv alphaEnv =
     , polyEnv = Map.empty
     , metaEnv = Map.empty
     , inTopLevelScope = True
-    , fieldIndices = Map.empty
     }
 
 showHum :: Show v => Map.Map UniqId v -> String
@@ -87,8 +85,8 @@ tracePolyEnv = do
 traceFieldIndices :: Checked ()
 traceFieldIndices = do
   traceM "Field indices:  "
-  fieldIndices <- gets fieldIndices
-  traceM $ showHum fieldIndices
+  curMod <- gets curModule
+  traceM $ showHum $ fieldIndices curMod
 
 
 -- Convenience methods for manipulating the environment
@@ -180,7 +178,9 @@ bindMeta id ty = do
 
 bindFieldIndex :: UniqId -> Int -> Checked ()
 bindFieldIndex id ind = do
-  modify (\tcEnv -> tcEnv { fieldIndices = Map.insert id ind (fieldIndices tcEnv) })
+  curMod <- gets curModule
+  let indices = fieldIndices curMod
+  modify (\tcEnv -> tcEnv { curModule = curMod { fieldIndices = Map.insert id ind indices } })
 
 
 mtApp :: TyCon -> Ty
@@ -223,6 +223,12 @@ freshMeta = do
   return $ TyMeta $ UniqId n $ printf "meta@%i" n
 
 
+lookupOrFail :: Map.Map UniqId a -> UniqId -> Checked a
+lookupOrFail table id =
+  let result = Map.lookup id table
+  in do hoistEither $ maybeToEither (ErrUnboundUniqIdentifier id) result
+
+
 envLookup :: (TCEnv -> Map.Map UniqId a) -> UniqId -> Checked (Maybe a)
 envLookup getTable id = do
   table <- gets getTable
@@ -235,8 +241,15 @@ envLookupOrFail getTable id = do
   hoistEither $ maybeToEither (ErrUnboundUniqIdentifier id) result
 
 
-lookupFieldIndex :: UniqId -> Checked Int
-lookupFieldIndex id = envLookupOrFail fieldIndices id
+lookupFieldIndex :: UniqAst QualifiedId -> UniqId -> Checked Int
+lookupFieldIndex tyId id = do
+  mod <- case tyId of
+          Path _ qid _ -> do modTy <- lookupVarQual qid `reportErrorAt` (nodeData qid)
+                             case modTy of
+                               TyApp (TyConModule _ mod) _ -> return mod
+                               _ -> throwError (ErrInvalidModulePath qid) `reportErrorAt` (nodeData qid)
+          _ -> gets curModule
+  lookupOrFail (fieldIndices mod) id
 
 
 lookupMeta :: UniqId -> Checked (Maybe Ty)
@@ -1018,8 +1031,8 @@ tc (ExpMakeAdt p synTy i es) = throwError $ ErrNotImplemented "tc for MakeAdt"
 tc (ExpStruct p strSynTy@(SynTyRef pSty qid _) fieldInitEs) = do
   ty <- tcTy strSynTy
   sorted <- sortByM (\a@(aId, _) b@(bId, _) -> do
-                        aInd <- lookupFieldIndex aId `reportErrorAt` p
-                        bInd <- lookupFieldIndex bId `reportErrorAt` p
+                        aInd <- lookupFieldIndex qid aId
+                        bInd <- lookupFieldIndex qid bId
                         return $ compare aInd bInd)
                     fieldInitEs
   let initEs = (snd . unzip) sorted
