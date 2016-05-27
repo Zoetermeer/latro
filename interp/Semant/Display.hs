@@ -222,13 +222,30 @@ instance (Sexpable a, Sexpable id) => Sexpable (Exp a id) where
           , sexp e
           ]
   sexp (ExpTypeDec d tyDec) = List [ Symbol "ExpTypeDec", sexp d, sexp tyDec ]
-  sexp (ExpAnnDec d id tyParamIds ty annDefs) =
-    List  [ Symbol "ExpAnnDec"
+  sexp (ExpTyAnn (TyAnn d id tyParamIds synTy)) =
+    List  [ Symbol "ExpTyAnn"
           , sexp d
           , sexp id
           , toSexpList tyParamIds
-          , sexp ty
-          , toSexpList annDefs
+          , sexp synTy
+          ]
+  sexp (ExpWithAnn tyAnn e) =
+    List  [ Symbol "ExpWithAnn"
+          , sexp tyAnn
+          , sexp e
+          ]
+  sexp (ExpFunDef (FunDefFun d id argPatEs bodyEs)) =
+    List  [ Symbol "ExpFunDef"
+          , sexp d
+          , sexp id
+          , toSexpList argPatEs
+          , toSexpList bodyEs
+          ]
+  sexp (ExpFunDefClauses d id funDefs) =
+    List  [ Symbol "ExpFunDefClauses"
+          , sexp d
+          , sexp id
+          , toSexpList funDefs
           ]
   sexp (ExpInterfaceDec d id tyParamIds tyAnns) =
     List  [ Symbol "ExpInterfaceDec"

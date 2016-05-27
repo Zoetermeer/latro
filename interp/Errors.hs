@@ -32,6 +32,7 @@ data Err =
   | ErrTooManyModuleDefs UniqId
   | ErrNoModuleDefInModuleDec UniqId
   | ErrMultipleDefsInSimpleAnnDec UniqId
+  | ErrNoBindingAfterTyAnn RawId
   | ErrCircularType Ty
   | ErrPartialTyConApp (QualifiedId SourcePos UniqId) TyCon [Ty]
   | ErrInvalidModulePath (QualifiedId SourcePos UniqId)

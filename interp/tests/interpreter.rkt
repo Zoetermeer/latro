@@ -143,7 +143,7 @@
 (test-case "it returns function values"
   (check-match
     @interp{
-      def f = fun() { 42; };
+      fun f() = 42;
 
       f;
     }
@@ -153,11 +153,22 @@
   (check-match
     @interp{
       def v = 1;
-      def f = fun() { v; };
+      fun f() = v;
 
       f;
     }
     `(Fun (Id f ,_) (CloEnv ((Id v ,_))))))
+
+(test-case "it evaluates the shorthand syntax for single-expression function bodies"
+  (check-equal?
+    @typecheck{
+      weird => fun(Int, Int) : Int;
+      fun weird(0, 0) = 100;
+      fun weird(x, y) = x + y;
+
+      weird(1, 2);
+    }
+    'Int))
 
 (test-case "it returns module values"
   (check-match
@@ -183,8 +194,8 @@
   (check-equal?
     @interp{
       module m {
-        def f = fun() { 42; };
-        def g = fun() { 43; };
+        fun f() = 42;
+        fun g() = 43;
       };
 
       m.g();
@@ -204,7 +215,7 @@
     @interp{
       module m {
         f => fun() : Int;
-        f() { 42; };
+        fun f() = 42;
       };
       m.f();
     }
@@ -217,7 +228,7 @@
         module n { };
 
         f => fun() : Int;
-        f() { 42; };
+        fun f() = 42;
       };
       m.f();
     }
@@ -228,7 +239,7 @@
     @interp{
       module m {
         f => fun() : Int;
-        f() { 42; };
+        fun f() = 42;
 
          module n { };
       };
@@ -253,7 +264,7 @@
   (check-equal?
     @interp{
       f => fun() : Int;
-      f() { 42; };
+      fun f() = 42;
       f();
     }
     42))
@@ -262,7 +273,7 @@
   (check-equal?
     @interp{
       f => fun(Int) : Int;
-      f(x) { x; };
+      fun f(x) = x;
       f(42);
     }
     42))
@@ -272,7 +283,7 @@
     @interp{
       module m { };
       f => fun(Int) : Int;
-      f(m) { m; };
+      fun f(m) = m;
       f(42);
     }
     42))
@@ -282,7 +293,7 @@
     @interp{
       def v = 42;
       f => fun() : Int;
-      f() { v; };
+      fun f() = v;
       f();
     }
     42))
@@ -292,7 +303,7 @@
     @interp{
       module m {
         f => fun() : Int;
-        f() {
+        fun f() {
           def x = 42;
           x;
         };
@@ -311,11 +322,11 @@
       module m {
         module m' {
           g => fun() : Int;
-          g() { 43; };
+          fun g() { 43; };
         };
 
         f => fun() : Int;
-        f() { 42; };
+        fun f() { 42; };
       };
 
       m.m';
@@ -331,11 +342,11 @@
       module m {
         module m' {
           g => fun() : Int;
-          g() { 43; };
+          fun g() = 43;
         };
 
         f => fun() : Int;
-        f() { 42; };
+        fun f() = 42;
       };
 
       m.m'.g();
@@ -348,11 +359,11 @@
       module m {
         module m1 {
           g => fun(Int, Int) : Int;
-          g(x, y) { y + x; };
+          fun g(x, y) { y + x; };
         };
 
         f => fun() : Int;
-        f() { 42; };
+        fun f() = 42;
       };
 
       m.m1.g(m.f(), 1);
@@ -363,12 +374,12 @@
   (check-equal?
     @interp{
       f => fun(fun(Int) : Int, Int) : Int;
-      f(g, x) {
+      fun f(g, x) {
         g(10) + x;
       };
 
       h => fun(Int) : Int;
-      h(x) {
+      fun h(x) {
         x + 1;
       };
 
@@ -382,7 +393,7 @@
       module m {
         module m1 {
           g => fun(Int, Int) : Int;
-          g(x, y) {
+          fun g(x, y) {
             y + x;
           };
         };
@@ -397,7 +408,7 @@
     @interp{
       module m {
         f => fun() : Int;
-        f() { 42; };
+        fun f() = 42;
 
         module n { };
       };
@@ -410,7 +421,7 @@
   (check-equal?
     @interp{
       f => fun(Int) : Int;
-      f(x) {
+      fun f(x) {
         def isZero = switch (x) {
           case 0 -> True;
           case _ -> False;
@@ -437,7 +448,7 @@
         };
 
         f => fun() : Int;
-        f() { n.o.v; };
+        fun f() = n.o.v;
       };
 
       m.f();
@@ -460,7 +471,7 @@
     @interp{
       module m { };
       f => fun() : Int;
-      f() { 1; };
+      fun f() = 1;
 
       module n {
         def v = 2;
@@ -647,7 +658,7 @@
   (check-equal?
     @interp{
       f => fun((Int, Bool)) : (Int, Bool);
-      f(pair) { pair; };
+      fun f(pair) = pair;
 
       f((5, False));
     }
@@ -679,7 +690,7 @@
   (check-equal?
     @interp{
       f => fun(Int, Int) : Int[];
-      f(x, y) {
+      fun f(x, y) {
         x :: y :: [3, 4, 5];
       };
 
@@ -776,8 +787,8 @@
   (check-equal?
     @interp{
       IsZero => fun(Int) : Bool;
-      IsZero(0) { True; }
-      IsZero(_) { False; };
+      fun IsZero(0) = True;
+      fun IsZero(_) = False;
 
       (IsZero(1), IsZero(0));
     }
@@ -787,10 +798,10 @@
   (check-equal?
     @interp{
       Fst => fun((Int, Bool)) : Int;
-      Fst((a, _)) { a; };
+      fun Fst((a, _)) = a;
 
       Snd => fun((Int, Bool)) : Bool;
-      Snd((_, b)) { b; };
+      fun Snd((_, b)) = b;
 
       def v = (42, False);
       (Snd(v), Fst(v));
@@ -801,7 +812,7 @@
   (check-match
     @interp{
       IsZero => fun(Int) : Bool;
-      IsZero(0) { True; };
+      fun IsZero(0) = True;
 
       IsZero(1);
     }
@@ -844,8 +855,8 @@
       type IntOption = | Some Int | None ;
 
       IsSome => fun(IntOption) : Bool;
-      IsSome(Some(_)) { True; }
-      IsSome(_) { False; };
+      fun IsSome(Some(_)) = True;
+      fun IsSome(_) = False;
 
       def s = Some(42);
       def Some(v) = s;
@@ -862,15 +873,15 @@
 
 
         Concat => fun(t, t) : t;
-        Concat(xs, []) { xs; }
-        Concat([], ys) { ys; }
-        Concat(x::xs, ys) {
+        fun Concat(xs, []) = xs;
+        fun Concat([], ys) = ys;
+        fun Concat(x::xs, ys) {
           x :: Concat(xs, ys);
         };
 
         Map => fun(fun(Int) : Bool, t) : BoolList;
-        Map(f, []) { []; }
-        Map(f, x::xs) {
+        fun Map(f, []) = [];
+        fun Map(f, x::xs) {
           f(x) :: Map(f, xs);
         };
       };
@@ -887,10 +898,10 @@
   (check-equal?
     @interp{
       GetTwoOrLess => fun(Int) : Int;
-      GetTwoOrLess(0) { 0; }
-      GetTwoOrLess(1) { 1; }
-      GetTwoOrLess(2) { 2; }
-      GetTwoOrLess(x) { GetTwoOrLess(x - 1); };
+      fun GetTwoOrLess(0) = 0;
+      fun GetTwoOrLess(1) = 1;
+      fun GetTwoOrLess(2) = 2;
+      fun GetTwoOrLess(x) = GetTwoOrLess(x - 1);
 
       (GetTwoOrLess(1), GetTwoOrLess(4));
     }
@@ -914,7 +925,7 @@
   (check-equal?
     @interp{
       IsEven => fun(Int) : Bool;
-      IsEven(x) {
+      fun IsEven(x) {
         switch (x) {
           case 0 -> True;
           case 1 -> False;
@@ -925,8 +936,8 @@
 
       module Lists {
         Map<a, b> => fun(fun(a) : b, a[]) : b[];
-        Map(_, []) { []; }
-        Map(f, x::xs) {
+        fun Map(_, []) { []; }
+        fun Map(f, x::xs) {
           f(x) :: Map(f, xs);
         };
       };
@@ -941,8 +952,8 @@
       type String = Char[];
 
       len => fun(String) : Int;
-      len("") { 0; }
-      len(c::cs) { 1 + len(cs); };
+      fun len("") { 0; }
+      fun len(c::cs) { 1 + len(cs); };
 
       len("hello");
     }

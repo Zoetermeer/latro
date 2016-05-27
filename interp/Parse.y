@@ -86,11 +86,10 @@ ZeroOrMoreModuleLevelExps : ModuleLevelExp { [$1] }
 OneOrMoreModuleLevelExps : ModuleLevelExp { [$1] }
                          | OneOrMoreModuleLevelExps ModuleLevelExp { $1 ++ [$2] }
 
-ModuleLevelExp : AnnDecExp { $1 }
-               | InterfaceDecExp ';' { $1 }
+ModuleLevelExp : InterfaceDecExp ';' { $1 }
                | TypeDec ';' { ExpTypeDec (nodeData $1) $1 }
                | ModuleDec ';' { $1 }
-               | ExpT { $1 }
+               | ExpOrAssign ';' { $1 }
 
 ExpT : Exp ';'  { $1 }
 
@@ -153,7 +152,7 @@ AtomExp : '(' Exp ')' { $2 }
         | '(' Exp TupleRestExps ')' { ExpTuple (pos $1) ($2:$3) }
         | ListExp { $1 }
         | QualifiedId '{' StructFieldInitializers '}' { ExpStruct (nodeData $1) (SynTyRef (nodeData $1) $1 []) $3 }
-        | fun '(' CommaSeparatedIds ')' '{' ZeroOrMoreExps '}' { ExpFun (pos $1) $3 $6 }
+        | fun '(' CommaSeparatedIds ')' FunBody { ExpFun (pos $1) $3 $5 }
         | num { ExpNum (pos $1) (tokValue $1) }
         | True { ExpBool (pos $1) True }
         | False { ExpBool (pos $1) False }
@@ -184,23 +183,28 @@ ConsExp : SubExp '::' ConsExp { ExpCons (nodeData $1) $1 $3 }
 
 Exp : '!' ConsExp { ExpNot (pos $1) $2 }
     | ConsExp { $1 }
-    | import QualifiedId { ExpImport (pos $1) $2 }
-    | def PatExp '=' Exp { ExpAssign (pos $1) $2 $4 }
     | if '(' Exp ')' '{' ZeroOrMoreExps '}' else '{' ZeroOrMoreExps '}' { ExpIfElse (pos $1) $3 $6 $10 }
     | switch '(' Exp ')' '{' CaseClauses '}' { ExpSwitch (pos $1) $3 $6 }
     | cond '{' CondCaseClauses '}' { ExpCond (pos $1) $3 }
 
-AnnDefExp : FunDef { AnnDefFun (nodeData $1) $1 }
+ExpOrAssign : def PatExp '=' Exp { ExpAssign (pos $1) $2 $4 }
+            | FunDef { ExpFunDef $1 }
+            | TyAnn { ExpTyAnn $1 }
+            | import QualifiedId { ExpImport (pos $1) $2 }
+            | Exp { $1 }
 
-AnnDefs : AnnDefExp { [$1] }
-        | AnnDefs AnnDefExp { $1 ++ [$2] }
+ExpOrAssigns : ExpOrAssign ';' { [$1] }
+             | ExpOrAssigns ExpOrAssign ';' { $1 ++ [$2] }
+
+FunDef : fun id '(' PatExpList ')' FunBody { FunDefFun (pos $1) (tokValue $2) $4 $6 }
+
+FunBody : '{' ExpOrAssigns '}' { $2 }
+        | '=' Exp { [$2] }
 
 TyParams : '<' CommaSeparatedIds '>' { $2 }
          | {- empty -} { [] }
 
-AnnDecExp : id TyParams '=>' Ty ';' AnnDefs ';' { ExpAnnDec (pos $1) (tokValue $1) $2 $4 $6 }
-
-TyAnn : id TyParams '=>' Ty ';' { TyAnn (pos $1) (tokValue $1) $2 $4 }
+TyAnn : id TyParams '=>' Ty { TyAnn (pos $1) (tokValue $1) $2 $4 }
 
 
 TyAnns : TyAnn { [$1] }
@@ -238,12 +242,6 @@ AdtAlternative : '|' id Tys { AdtAlternative (pos $1) (tokValue $2) 0 $3 }
 Tys : Ty { [$1] }
     | Tys Ty { $1 ++ [$2] }
     | {- empty -} { [] }
-
-FunDefs : FunDef  { [$1] }
-        | FunDefs FunDef { $1 ++ [$2] }
-
-FunDef : InstancePat id '(' PatExpList ')' '{' OneOrMoreExps '}' { FunDefInstFun (nodeData $1) $1 (tokValue $2) $4 $7 }
-       | id '(' PatExpList ')' '{' OneOrMoreExps '}' { FunDefFun (pos $1) (tokValue $1) $3 $6 }
 
 InstancePat : '(' PatExp ')' '.'  { $2 }
 

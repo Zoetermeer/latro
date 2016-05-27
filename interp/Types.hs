@@ -1047,6 +1047,42 @@ tc (ExpTypeDec p tyDec) =
     exportTy id tycon
     return (tyUnit, ExpBegin (OfTy p tyUnit) es)
 
+tc (ExpFunDef (FunDefFun p id paramPatEs bodyEs)) = do
+    paramMetas <- mapM (\_ -> freshMeta) paramIds
+    bodyTyMeta <- freshMeta
+    let paramsAndTys = zip paramIds paramMetas
+        fty = TyApp TyConArrow $ paramMetas ++ [bodyTyMeta]
+    oldVarEnv <- markVarEnv
+    mapM_ (uncurry bindVar) paramsAndTys
+    bindVar id fty
+    (bodyTy, bodyEs') <- tcEs bodyEs
+    unify bodyTyMeta bodyTy
+    restoreVarEnv oldVarEnv
+    fty' <- generalize fty
+    bindVar id fty'
+    patEMeta <- freshMeta
+    let paramPatEs' = map (\(paramId, paramTy) -> PatExpId (OfTy p paramTy) paramId) paramsAndTys
+    return (tyUnit, ExpFunDef (FunDefFun (OfTy p fty') id paramPatEs' bodyEs'))
+  where
+    paramIds = map (\(PatExpId _ id) -> id) paramPatEs
+
+tc (ExpWithAnn (TyAnn _ id tyParamIds synTy) e) = do
+  oldMetaEnv <- markMetaEnv
+  mapM_ (\tyParamId -> exportTy tyParamId $ TyConTyVar tyParamId) tyParamIds
+  givenTy <- tcTy synTy
+  let givenTy' = case tyParamIds of
+                  [] -> givenTy
+                  _  -> TyPoly tyParamIds givenTy
+  (_, e') <- tc e
+  inferredTy <- lookupVar id `reportErrorAt` (nodeData e)
+  givenTy'' <- instantiate givenTy'
+  inferredTy' <- instantiate inferredTy
+  ty <- unify givenTy'' inferredTy' `reportErrorAt` (nodeData e)
+
+  restoreMetaEnv oldMetaEnv
+  generalize ty >>= bindVar id
+  return (ty, e')
+
 -- Note that `annDefs` here will never contain
 -- more than one element, because function definitions
 -- are desugared during alpha-conversion.
@@ -1057,28 +1093,28 @@ tc (ExpTypeDec p tyDec) =
 -- Alpha-conversion guarantees that all definitions
 -- have matching arity, but doesn't check arity
 -- against the type annotation.
-tc (ExpAnnDec p decId tyParamIds synTy [AnnDefFun annP (FunDefFun funP defId paramPats bodyEs)]) = do
-  if decId == defId
-  then
-    let paramIds = map (\(PatExpId _ id) -> id) paramPats
-        asnE = ExpAssign p (PatExpId p defId) $ ExpFun funP paramIds bodyEs
-        (SynTyArrow _ paramSynTys retSynTy) = synTy
-    in do oldMetaEnv <- markMetaEnv
-          mapM_ (\tyParamId -> exportTy tyParamId $ TyConTyVar tyParamId) tyParamIds
-          givenTy <- tcTy synTy
-          let givenTy' = case tyParamIds of
-                            [] -> givenTy
-                            _ -> TyPoly tyParamIds givenTy
-          (_, asnE') <- tc asnE
-          inferredTy <- lookupVar defId
-          givenTy'' <- instantiate givenTy'
-          inferredTy' <- instantiate inferredTy
-          funTy <- unify givenTy'' inferredTy' `reportErrorAt` p
-          restoreMetaEnv oldMetaEnv
-          generalize funTy >>= bindVar defId
-          return (tyUnit, asnE')
-  else
-    throwError $ ErrFunDefIdMismatch decId defId
+-- tc (ExpAnnDec p decId tyParamIds synTy [AnnDefFun annP (FunDefFun funP defId paramPats bodyEs)]) = do
+--   if decId == defId
+--   then
+--     let paramIds = map (\\(PatExpId _ id) -> id) paramPats
+--         asnE = ExpAssign p (PatExpId p defId) $ ExpFun funP paramIds bodyEs
+--         (SynTyArrow _ paramSynTys retSynTy) = synTy
+--     in do oldMetaEnv <- markMetaEnv
+--           mapM_ (\\tyParamId -> exportTy tyParamId $ TyConTyVar tyParamId) tyParamIds
+--           givenTy <- tcTy synTy
+--           let givenTy' = case tyParamIds of
+--                             [] -> givenTy
+--                             _ -> TyPoly tyParamIds givenTy
+--           (_, asnE') <- tc asnE
+--           inferredTy <- lookupVar defId
+--           givenTy'' <- instantiate givenTy'
+--           inferredTy' <- instantiate inferredTy
+--           funTy <- unify givenTy'' inferredTy' `reportErrorAt` p
+--           restoreMetaEnv oldMetaEnv
+--           generalize funTy >>= bindVar defId
+--           return (tyUnit, asnE')
+--   else
+--     throwError $ ErrFunDefIdMismatch decId defId
 
 tc (ExpIfElse p testE thenEs elseEs) = do
   oldVarEnv <- markVarEnv

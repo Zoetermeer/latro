@@ -4,6 +4,7 @@ import Common
 import Control.Monad.Except
 import Control.Monad.State
 import Data.List (all, find, nub)
+import Debug.Trace
 import Errors
 import Prelude hiding (lookup)
 import Semant
@@ -261,38 +262,38 @@ desugarCond :: RawAst Exp -> RawAst Exp
 desugarCond (ExpCond p clauses) = desugarCondClauses p clauses
 
 
-convertAnnDec :: RawAst Exp -> AlphaConverted (UniqAst Exp)
-convertAnnDec (ExpAnnDec p id tyParamIds ty annDefs) = do
-  id' <- freshM id
-  tyParamIds' <- mapM freshM tyParamIds
-  ty' <- convertTy ty
-  case ty' of
-    (SynTyModule _ _ _)
-      | length annDefs /= 1 ->
-        throwError $ ErrTooManyModuleDefs id'
-      | not $ all isAnnDefModule annDefs ->
-        throwError $ ErrNoModuleDefInModuleDec id'
-      | otherwise ->
-        let (AnnDefModule pInner defId defE) = head annDefs
-        in do
-          defId' <- lookup defId
-          defE' <- convert defE
-          return $ ExpAnnDec p id' tyParamIds' ty' [AnnDefModule pInner defId' defE']
-    (SynTyArrow _ _ _)
-      | not $ all isAnnDefFun annDefs ->
-        throwError $ ErrNonFunDefsInFunDec id'
-      | otherwise ->
-        let funDefs = map (\(AnnDefFun _ funDef) -> funDef) annDefs
-        in do funDef' <- (liftM fst) $ desugarFunDefs id' funDefs
-              return $ ExpAnnDec p id' tyParamIds' ty' [AnnDefFun (nodeData funDef') funDef']
-    _
-      | length annDefs /= 1 ->
-        throwError $ ErrMultipleDefsInSimpleAnnDec id'
-      | otherwise ->
-        let (AnnDefExp pInner e) = head annDefs
-        in do e' <- convert e
-              return $ ExpAnnDec p id' tyParamIds' ty' [AnnDefExp pInner e']
-
+-- convertAnnDec :: RawAst Exp -> AlphaConverted (UniqAst Exp)
+-- convertAnnDec (ExpAnnDec p id tyParamIds ty annDefs) = do
+--   id' <- freshM id
+--   tyParamIds' <- mapM freshM tyParamIds
+--   ty' <- convertTy ty
+--   case ty' of
+--     (SynTyModule _ _ _)
+--       | length annDefs /= 1 ->
+--         throwError $ ErrTooManyModuleDefs id'
+--       | not $ all isAnnDefModule annDefs ->
+--         throwError $ ErrNoModuleDefInModuleDec id'
+--       | otherwise ->
+--         let (AnnDefModule pInner defId defE) = head annDefs
+--         in do
+--           defId' <- lookup defId
+--           defE' <- convert defE
+--           return $ ExpAnnDec p id' tyParamIds' ty' [AnnDefModule pInner defId' defE']
+--     (SynTyArrow _ _ _)
+--       | not $ all isAnnDefFun annDefs ->
+--         throwError $ ErrNonFunDefsInFunDec id'
+--       | otherwise ->
+--         let funDefs = map (\\(AnnDefFun _ funDef) -> funDef) annDefs
+--         in do funDef' <- (liftM fst) $ desugarFunDefs id' funDefs
+--               return $ ExpAnnDec p id' tyParamIds' ty' [AnnDefFun (nodeData funDef') funDef']
+--     _
+--       | length annDefs /= 1 ->
+--         throwError $ ErrMultipleDefsInSimpleAnnDec id'
+--       | otherwise ->
+--         let (AnnDefExp pInner e) = head annDefs
+--         in do e' <- convert e
+--               return $ ExpAnnDec p id' tyParamIds' ty' [AnnDefExp pInner e']
+-- 
 
 convert :: RawAst Exp -> AlphaConverted (UniqAst Exp)
 convert (ExpAdd p a b) = convertBin ExpAdd p a b
@@ -313,13 +314,24 @@ convert (ExpApp p ratorE randEs) = do
   randEs' <- mapM convert randEs
   return $ ExpApp p ratorE' randEs'
 
+convert (ExpFunDef (FunDefFun p id argPatEs bodyEs)) = do
+  id' <- freshM id
+  argPatEs' <- mapM convertPatExp argPatEs
+  bodyEs' <- mapM convert bodyEs
+  return $ ExpFunDef $ FunDefFun p id' argPatEs' bodyEs'
+
+convert (ExpFunDefClauses p id funDefs) = do
+  id' <- freshM id
+  funDef <- (liftM fst) $ desugarFunDefs id' funDefs
+  return $ ExpFunDef funDef
+
 -- Function bindings must be done early
 -- for recursive applications
-convert (ExpAssign p patExp (ExpFun pInner paramIds bodyEs)) = do
-  patExp' <- convertPatExp patExp
-  paramIds' <- mapM freshM paramIds
-  bodyEs' <- mapM convert bodyEs
-  return $ ExpAssign p patExp' $ ExpFun pInner paramIds' bodyEs'
+-- convert (ExpAssign p patExp (ExpFun pInner paramIds bodyEs)) = do
+--   patExp' <- convertPatExp patExp
+--   paramIds' <- mapM freshM paramIds
+--   bodyEs' <- mapM convert bodyEs
+--   return $ ExpAssign p patExp' $ ExpFun pInner paramIds' bodyEs'
 
 convert (ExpAssign p patExp e) = do
   e' <- convert e
@@ -338,7 +350,27 @@ convert (ExpTypeDec p (TypeDecAdt pInner id tyParamIds alts)) = do
   alts' <- mapMi convertAdtAlternative alts
   return $ ExpTypeDec p $ TypeDecAdt pInner id' tyParamIds' alts'
 
-convert expAnnDec@(ExpAnnDec _ _ _ _ _) = convertAnnDec expAnnDec
+convert (ExpTyAnn (TyAnn _ id _ _)) =
+  throwError $ ErrInterpFailure $ "ExpTyAnn " ++ show id ++ " not removed before alpha-conversion!"
+
+convert (ExpWithAnn (TyAnn p aid tyParamIds synTy) e) = do
+  aid' <- freshM aid
+  tyParamIds' <- mapM freshM tyParamIds
+  synTy' <- convertTy synTy
+  let tyAnn = TyAnn p aid' tyParamIds' synTy'
+  case e of
+    ExpFunDef (FunDefFun fp fid argPatEs bodyEs) ->
+      do argPatEs' <- mapM convertPatExp argPatEs
+         bodyEs' <- mapM convert bodyEs
+         let e' = ExpFunDef (FunDefFun fp aid' argPatEs' bodyEs')
+         return $ ExpWithAnn tyAnn e'
+    ExpFunDefClauses p id funDefs ->
+      do funDef <- (liftM fst) $ desugarFunDefs aid' funDefs
+         return $ ExpWithAnn tyAnn $ ExpFunDef funDef
+    ExpAssign ep (PatExpId pp pid) e ->
+      do e' <- convert e
+         return $ ExpWithAnn tyAnn $ ExpAssign ep (PatExpId pp aid') e'
+    _ -> throwError $ ErrInterpFailure $ "in convert ExpWithAnn: " ++ show e
 
 convert (ExpInterfaceDec p id tyParamIds memberTyAnns) = do
   id' <- freshM id
@@ -393,8 +425,68 @@ convert (ExpRef p qid) = do
   return $ ExpRef p qid'
 
 
+collectFunDefs :: RawId -> [RawAst Exp] -> ([RawAst FunDef], [RawAst Exp])
+collectFunDefs _ [] = ([], [])
+collectFunDefs id (eFunDef@(ExpFunDef funDef@(FunDefFun _ fid _ _)) : es)
+  | id == fid =
+    let (funDefs, es') = collectFunDefs id es
+    in (funDef : funDefs, es')
+  | otherwise = ([], eFunDef : es)
+
+collectFunDefs _ es = ([], es)
+
+
+collapseBindingExp :: RawId -> [RawAst Exp] -> Either Err (RawAst Exp, [RawAst Exp])
+collapseBindingExp id (e@(ExpAssign _ (PatExpId _ pid) _) : es)
+  | id == pid = return (e, es)
+  | otherwise = throwError $ ErrNoBindingAfterTyAnn id
+
+collapseBindingExp id _ = throwError $ ErrNoBindingAfterTyAnn id
+
+
+collapseEs :: [RawAst Exp] -> Either Err [RawAst Exp]
+collapseEs [] = return []
+collapseEs ((ExpTyAnn tyAnn@(TyAnn ap aid _ synTy)):es) =
+  case synTy of
+    SynTyArrow _ _ _ ->
+      let (funDefs, es') = collectFunDefs aid es
+          eFunDef = ExpFunDefClauses ap aid funDefs
+      in if null funDefs
+           then throwError $ ErrNoBindingAfterTyAnn aid
+           else do es'' <- collapseEs es'
+                   return ((ExpWithAnn tyAnn eFunDef) : es'')
+    _ ->
+      do (e, es') <- collapseBindingExp aid es
+         es'' <- collapseEs es'
+         return ((ExpWithAnn tyAnn e) : es'')
+
+collapseEs ((ExpFunDef funDef@(FunDefFun p fid _ _)) : es) =
+  let (funDefs, es') = collectFunDefs fid es
+      eFunDef = ExpFunDefClauses p fid (funDef : funDefs)
+  in do es'' <- collapseEs es'
+        return (eFunDef : es'')
+
+collapseEs (e : es) = do
+  e' <- collapse e
+  es' <- collapseEs es
+  return (e' : es')
+
+
+collapse :: RawAst Exp -> Either Err (RawAst Exp)
+collapse (ExpAssign p patE e) = do
+  e' <- collapse e
+  return $ ExpAssign p patE e'
+
+collapse (ExpModule p paramIds bodyEs) = do
+  bodyEs' <- collapseEs bodyEs
+  return $ ExpModule p paramIds bodyEs'
+
+collapse e = return e
+
+
 alphaConvert :: RawAst CompUnit -> Either Err (UniqAst CompUnit, AlphaEnv)
 alphaConvert (CompUnit pos exps) = do
-  let (eithExps, alphaEnv) = runState (runExceptT $ mapM convert exps) (AlphaEnv 1 [])
+  collapsedEs <- collapseEs exps
+  let (eithExps, alphaEnv) = runState (runExceptT $ mapM convert collapsedEs) (AlphaEnv 1 [])
   exps' <- eithExps
   return (CompUnit pos exps', alphaEnv)

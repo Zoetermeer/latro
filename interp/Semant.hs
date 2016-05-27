@@ -84,6 +84,27 @@ instance AstNode CondCaseClause where
   nodeData (CondCaseClauseWildcard d _) = d
 
 
+data TyAnn a id = TyAnn a id [id] (SynTy a id)
+  deriving (Eq, Show)
+
+
+instance AstNode TyAnn where
+  nodeData (TyAnn d _ _ _) = d
+
+
+data FunDef a id =
+    FunDefFun a id [PatExp a id] [Exp a id]
+  | FunDefInstFun a (PatExp a id) id [PatExp a id] [Exp a id]
+  deriving (Eq, Show)
+
+
+instance AstNode FunDef where
+  nodeData fd =
+    case fd of
+      FunDefFun d _ _ _ -> d
+      FunDefInstFun d _ _ _ _ -> d
+
+
 data Exp a id =
     ExpAdd a (Exp a id) (Exp a id)
   | ExpSub a (Exp a id) (Exp a id)
@@ -96,7 +117,10 @@ data Exp a id =
   | ExpImport a (QualifiedId a id)
   | ExpAssign a (PatExp a id) (Exp a id)
   | ExpTypeDec a (TypeDec a id)
-  | ExpAnnDec a id [id] (SynTy a id) [AnnDef a id]
+  | ExpTyAnn (TyAnn a id)
+  | ExpWithAnn (TyAnn a id) (Exp a id)
+  | ExpFunDef (FunDef a id)
+  | ExpFunDefClauses a id [FunDef a id]
   | ExpInterfaceDec a id [id] [TyAnn a id]
   | ExpModule a [id] [Exp a id]
   | ExpStruct a (SynTy a id) [(id, Exp a id)]
@@ -133,7 +157,9 @@ instance AstNode Exp where
       ExpImport d _ -> d
       ExpAssign d _ _ -> d
       ExpTypeDec d _ -> d
-      ExpAnnDec d _ _ _ _ -> d
+      ExpTyAnn (TyAnn d _ _ _) -> d
+      ExpWithAnn _ e -> nodeData e
+      ExpFunDef (FunDefFun d _ _ _) -> d
       ExpInterfaceDec d _ _ _ -> d
       ExpModule d _ _ -> d
       ExpStruct d _ _ -> d
@@ -152,14 +178,6 @@ instance AstNode Exp where
       ExpRef d _ -> d
       ExpUnit d -> d
       ExpFail d _ -> d
-
-
-data TyAnn a id = TyAnn a id [id] (SynTy a id)
-  deriving (Eq, Show)
-
-
-instance AstNode TyAnn where
-  nodeData (TyAnn d _ _ _) = d
 
 
 data AnnDef a id =
@@ -248,19 +266,6 @@ instance AstNode SynTy where
       SynTyTuple d _ -> d
       SynTyList d _ -> d
       SynTyRef d _ _ -> d
-
-
-data FunDef a id =
-    FunDefFun a id [PatExp a id] [Exp a id]
-  | FunDefInstFun a (PatExp a id) id [PatExp a id] [Exp a id]
-  deriving (Eq, Show)
-
-
-instance AstNode FunDef where
-  nodeData fd =
-    case fd of
-      FunDefFun d _ _ _ -> d
-      FunDefInstFun d _ _ _ _ -> d
 
 
 data UniqId =

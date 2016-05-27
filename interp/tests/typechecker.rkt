@@ -111,7 +111,7 @@
       type Foo = Int;
       module M {
         add => fun(Foo, Int) : Int;
-        add(x, y) { x + y; };
+        fun add(x, y) = x + y;
       };
 
       M.add(1, 2);
@@ -158,7 +158,7 @@
       module M { };
 
       f => fun(M.String) : M.String;
-      f(s) { s; };
+      fun f(s) { s; };
     }
     `(AtPos (SourcePos ,_ 5 ,_) (CompilerModule Types) (UnboundUniqIdentifier (Id String ,_)))))
 
@@ -506,7 +506,7 @@
 (test-case "it checks recursive functions"
   (check-equal?
     @typecheck{
-      def inf = fun(x) { 1 + inf(x); };
+      fun inf(x) { 1 + inf(x); };
       inf(3);
     }
     'Int))
@@ -514,7 +514,7 @@
 (test-case "it checks recursive functions with conditions"
   (check-equal?
     @typecheck{
-      def f = fun(x, runForever) {
+      fun f(x, runForever) {
         if (runForever) {
           f(x, runForever);
         } else {
@@ -529,7 +529,7 @@
 (test-case "it checks switch expressions"
   (check-equal?
     @typecheck{
-      def len = fun(xs) {
+      fun len(xs) {
         switch (xs) {
           case [] -> 0;
           case a::as -> 1 + len(as);
@@ -597,7 +597,7 @@
 (test-case "it checks switches in function bodies"
   (check-equal?
     @typecheck{
-      def len = fun(ls) {
+      fun len(ls) {
         switch (ls) {
           case [] -> 0;
           case x::xs -> 1 + len(xs);
@@ -625,8 +625,8 @@
   (check-equal?
     @typecheck{
       weird => fun(Int, Int) : Int;
-      weird(0, 0) { 100; }
-      weird(x, y) { x + y; };
+      fun weird(0, 0) = 100;
+      fun weird(x, y) { x + y; };
 
       weird(1, 2);
     }
@@ -636,7 +636,7 @@
   (check-match
     @typecheck{
       add => fun(Int, Int) : Int;
-      add(x, y) { False; };
+      fun add(x, y) = False;
     }
     `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
 
@@ -644,7 +644,7 @@
   (check-equal?
     @typecheck{
       f<a> => fun(a) : a;
-      f(x) { x; };
+      fun f(x) = x;
 
       f(42);
     }
@@ -654,8 +654,8 @@
   (check-equal?
     @typecheck{
       len<a> => fun(a[]) : Int;
-      len([]) { 0; }
-      len(x::xs) { 1 + len(xs); };
+      fun len([]) = 0;
+      fun len(x::xs) { 1 + len(xs); };
 
       len([1, 2]);
     }
@@ -665,8 +665,8 @@
   (check-match
     @typecheck{
       len<a> => fun(a[]) : Int;
-      len([]) { 0; }
-      len(x::xs) { 1 + len(xs); };
+      fun len([]) = 0;
+      fun len(x::xs) { 1 + len(xs); };
 
       len(3);
     }
@@ -767,7 +767,7 @@
       type A = | Foo Int | Bar Int Bool;
 
       f => fun(A) : A;
-      f(v) { v; };
+      fun f(v) = v;
 
       f(Bar(1, False));
     }
@@ -951,11 +951,11 @@
       type Opt<a> = | Some a | None;
 
       isSome<a> => fun(Opt<a>) : Bool;
-      isSome(Some(_)) { True; }
-      isSome(_) { False; };
+      fun isSome(Some(_)) = True;
+      fun isSome(_) = False;
 
       isNone<a> => fun(Opt<a>) : Bool;
-      isNone(o) { !isSome(o); };
+      fun isNone(o) { !isSome(o); };
 
       (isNone(Some(42)), isSome(Some(True)));
     }
@@ -967,7 +967,7 @@
       type Opt<a> = | Some a | None;
 
       unwrap<a> => fun(Opt<a>) : a;
-      unwrap(Some(x)) { x; };
+      fun unwrap(Some(x)) = x;
 
       unwrap(Some("hello"));
       unwrap(Some(42));
@@ -1017,7 +1017,7 @@
         | Leaf a
         ;
 
-      def sizeImp = fun(tree) {
+      fun sizeImp(tree) {
         switch (tree) {
           case Leaf(_) -> 1;
           case Node(_, left, right) ->
@@ -1026,8 +1026,8 @@
       };
 
       sizeExp<a> => fun(BTree<a>) : Int;
-      sizeExp(Leaf(_)) { 1; }
-      sizeExp(Node(_, left, right)) {
+      fun sizeExp(Leaf(_)) = 1;
+      fun sizeExp(Node(_, left, right)) {
         1 + sizeImp(left) + sizeImp(right);
       };
 
@@ -1054,15 +1054,15 @@
 
 
         Concat => fun(t, t) : t;
-        Concat(xs, []) { xs; }
-        Concat([], ys) { ys; }
-        Concat(x::xs, ys) {
+        fun Concat(xs, []) { xs; };
+        fun Concat([], ys) { ys; };
+        fun Concat(x::xs, ys) {
           x :: Concat(xs, ys);
         };
 
         Map => fun(fun(Int) : Bool, t) : BoolList;
-        Map(f, []) { []; }
-        Map(f, x::xs) {
+        fun Map(f, []) { []; };
+        fun Map(f, x::xs) {
           f(x) :: Map(f, xs);
         };
       };
@@ -1081,10 +1081,10 @@
       type t<k, v> = (k, v)[];
 
       insert<k, v> => fun(t<k, v>, k, v) : t<k, v>;
-      insert(map, key, val) { (key, val) :: map; };
+      fun insert(map, key, val) { (key, val) :: map; };
 
       present<k, v> => fun(t<k, v>, k) : Bool;
-      present(_, _) { False; };
+      fun present(_, _) = False;
 
       def m = [(1, "hello")];
       present(m, 3);
@@ -1096,8 +1096,8 @@
     @typecheck{
       type t<k, v> = (k, v)[];
 
-      def insert = fun(map, key, val) { (key, val) :: map; };
-      def present = fun(m, k) { False; };
+      fun insert(map, key, val) { (key, val) :: map; };
+      fun present(m, k) = False;
 
       def m = [(1, "hello")];
       present(m, 3);
