@@ -98,13 +98,13 @@ getVarEnv :: Eval VEnv
 getVarEnv = gets varEnv
 
 
-putVarBinding :: UniqId -> Value -> Eval ()
-putVarBinding id v = do
+bindVar :: UniqId -> Value -> Eval ()
+bindVar id v = do
   modify (\intEnv -> intEnv { varEnv = Map.insert id v (varEnv intEnv) })
 
 
-putModuleVarExport :: UniqId -> Value -> Eval ()
-putModuleVarExport id v = do
+exportVar :: UniqId -> Value -> Eval ()
+exportVar id v = do
   modify (\intEnv ->
             let (Module cloEnv paramIds exports) = curModule intEnv
                 exports' = exports { exportVars = Map.insert id v (exportVars exports) }
@@ -217,8 +217,8 @@ evalPatExp (PatExpListCons _ eHd eTl) (ValueList (v:vs)) = do
   return ()
 
 evalPatExp (PatExpId _ id) v = do
-  putVarBinding id v
-  putModuleVarExport id v
+  bindVar id v
+  exportVar id v
   return ()
 
 
@@ -275,8 +275,8 @@ evalE (ExpFunDef (FunDefFun (OfTy p ty) funId argPatEs bodyEs)) =
       ef = ExpFun (OfTy p ty) paramIds bodyEs
   in do cloEnv <- getClosureEnv
         let f = ValueFun $ Closure funId ty cloEnv paramIds bodyEs
-        putVarBinding funId f
-        putModuleVarExport funId f
+        bindVar funId f
+        exportVar funId f
         return ValueUnit
 
 evalE (ExpAssign _ patE@(PatExpId _ funId) ef@(ExpFun _ _ _)) = do
@@ -306,9 +306,9 @@ evalE (ExpApp _ e argEs) = do
   preApplyInterpEnv <- get
   put (preApplyInterpEnv { varEnv = fenv })
 
-  putVarBinding fid fv
+  bindVar fid fv
   let argVTbl = zip paramIds argVs
-  mapM_ (\(paramId, paramV) -> putVarBinding paramId paramV) argVTbl
+  mapM_ (\(paramId, paramV) -> bindVar paramId paramV) argVTbl
   retV <- evalEs bodyEs
 
   restoreEnv preApplyInterpEnv
