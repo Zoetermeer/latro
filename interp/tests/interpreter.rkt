@@ -23,7 +23,7 @@
   (check-equal?
     @interp{
       f => fun(Int) : Int;
-      f(x) { x; };
+      fun f(x) = x;
 
       3 + f(4);
     }
@@ -77,7 +77,7 @@
 (test-case "it does not allow bindings to escape the test exp of an if/else"
   (check-match
     @interp{
-      if (switch (def x = 42) { case _ -> True; }) {
+      if (if (True) { def x = 42; True; } else { False; }) {
         x;
       } else {
         x;
@@ -88,7 +88,7 @@
 (test-case "it does not allow argument bindings to escape"
   (check-match
     @typecheck{
-      def f = fun(x, runForever) {
+      fun f(x, runForever) {
         if (runForever) {
           f(x, runForever);
         } else {
@@ -936,7 +936,7 @@
 
       module Lists {
         Map<a, b> => fun(fun(a) : b, a[]) : b[];
-        fun Map(_, []) { []; }
+        fun Map(_, []) = [];
         fun Map(f, x::xs) {
           f(x) :: Map(f, xs);
         };
@@ -952,7 +952,7 @@
       type String = Char[];
 
       len => fun(String) : Int;
-      fun len("") { 0; }
+      fun len("") = 0;
       fun len(c::cs) { 1 + len(cs); };
 
       len("hello");

@@ -183,7 +183,7 @@ ConsExp : SubExp '::' ConsExp { ExpCons (nodeData $1) $1 $3 }
 
 Exp : '!' ConsExp { ExpNot (pos $1) $2 }
     | ConsExp { $1 }
-    | if '(' Exp ')' '{' ZeroOrMoreExps '}' else '{' ZeroOrMoreExps '}' { ExpIfElse (pos $1) $3 $6 $10 }
+    | if '(' Exp ')' '{' ExpOrAssigns '}' else '{' ExpOrAssigns '}' { ExpIfElse (pos $1) $3 $6 $10 }
     | switch '(' Exp ')' '{' CaseClauses '}' { ExpSwitch (pos $1) $3 $6 }
     | cond '{' CondCaseClauses '}' { ExpCond (pos $1) $3 }
 

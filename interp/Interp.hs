@@ -270,6 +270,15 @@ evalE (ExpStruct (OfTy _ ty) _ fieldInits) = do
   fieldInitVs <- mapM (\(id, e) -> do { v <- evalE e; return (id, v) }) fieldInits
   return $ ValueStruct $ Struct ty fieldInitVs
 
+evalE (ExpFunDef (FunDefFun (OfTy p ty) funId argPatEs bodyEs)) =
+  let paramIds = map (\(PatExpId _ paramId) -> paramId) argPatEs
+      ef = ExpFun (OfTy p ty) paramIds bodyEs
+  in do cloEnv <- getClosureEnv
+        let f = ValueFun $ Closure funId ty cloEnv paramIds bodyEs
+        putVarBinding funId f
+        putModuleVarExport funId f
+        return ValueUnit
+
 evalE (ExpAssign _ patE@(PatExpId _ funId) ef@(ExpFun _ _ _)) = do
   (ValueFun (Closure _ ty cloEnv paramIds bodyEs)) <- evalE ef
   let recF = ValueFun $ Closure funId ty cloEnv paramIds bodyEs

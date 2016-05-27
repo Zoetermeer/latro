@@ -4,7 +4,6 @@ import Common
 import Control.Monad.Except
 import Control.Monad.State
 import Data.List (all, find, nub)
-import Debug.Trace
 import Errors
 import Prelude hiding (lookup)
 import Semant
