@@ -8,54 +8,48 @@ type Maybe<a> =
   | Nothing
   ;
 
-lt => fun(Int, Int) : Bool;
-lt(0, 0) { False; }
-lt(0, _) { True; }
-lt(_, 0) { False; }
-lt(a, b) {
+fun lt(0, 0) = False;
+fun lt(0, _) = True;
+fun lt(_, 0) = False;
+fun lt(a, b) {
   lt(a - 1, b - 1);
 };
 
-leq => fun(Int, Int) : Bool;
-leq(0, 0) { True; }
-leq(0, _) { True; }
-leq(_, 0) { False; }
-leq(a, b) {
+fun leq(0, 0) = True;
+fun leq(0, _) = True;
+fun leq(_, 0) = False;
+fun leq(a, b) {
   leq(a - 1, b - 1);
 };
 
 def gt = fun(a, b) { !(leq(a, b)); };
 def geq = fun(a, b) { !(lt(a, b)); };
 
-and => fun(Bool, Bool) : Bool;
-and(True, True) { True; }
-and(True, _) { False; }
-and(_, _) { False; };
+fun and(True, True) = True;
+fun and(True, _) = False;
+fun and(_, _) = False;
 
-def List = module {
-  length<a> => fun(a[]) : Int;
-  length([]) { 0; }
-  length(x::xs) { 1 + length(xs); };
+module List {
+  fun length([]) = 0;
+  fun length(x::xs) = 1 + length(xs);
 
-  append<a> => fun(a[], a[]) : a[];
-  append([], bs) { bs; }
-  append(as, []) { as; }
-  append(a::as, bs) {
+  fun append([], bs) = bs;
+  fun append(as, []) = as;
+  fun append(a::as, bs) {
     a :: append(as, bs);
   };
 
-  elem<a> => fun(a[], Int) : Maybe<a>;
-  elem([], _) { Nothing(); }
-  elem(x::_, 0) { Just(x); }
-  elem(_::xs, n) { elem(xs, n - 1); };
+  fun atIndex([], _) = Nothing();
+  fun atIndex(x::_, 0) = Just(x);
+  fun atIndex(_::xs, n) = atIndex(xs, n - 1);
 };
 
-def Str = module {
+module Str {
   splitAt => fun(String, Int) : (String, String);
-  splitAt(s, 0) { (s, ""); }
-  splitAt("", _) { ("", ""); }
-  splitAt(c::cs, 1) { ([c], cs); }
-  splitAt(c::cs, n) {
+  fun splitAt(s, 0) = (s, "");
+  fun splitAt("", _) = ("", "");
+  fun splitAt(c::cs, 1) = ([c], cs);
+  fun splitAt(c::cs, n) {
     def (a, b) = splitAt(cs, n - 1);
     (c :: a, b);
   };
@@ -69,27 +63,27 @@ type Rope =
 
 
 length' => fun(Rope) : Int;
-length'(Leaf(string)) { List.length(string); }
-length'(Node(weight, _, _)) { weight; };
+fun length'(Leaf(string)) = List.length(string);
+fun length'(Node(weight, _, _)) = weight;
 
 
 concat' => fun(Rope, Rope) : Rope;
-concat'(r1, r2) {
+fun concat'(r1, r2) {
   def weight = length'(r1) + length'(r2);
   Node(weight, r1, r2);
 };
 
 
 delete => fun(Rope, Int, Int) : Rope;
-delete(Leaf(string), i, j) {
+fun delete(Leaf(string), i, j) {
   def (s1, tmp) = Str.splitAt(string, i);
   def (_, s2)   = Str.splitAt(tmp, j - i);
   def weight    = List.length(List.append(s1, s2));
 
   Node(weight, Leaf(s1), Leaf(s2));
-}
+};
 
-delete(Node(weight, left, right), i, j) {
+fun delete(Node(weight, left, right), i, j) {
   def llen = length'(left);
   def w = weight - (j - i);
 
@@ -103,8 +97,8 @@ delete(Node(weight, left, right), i, j) {
 
 
 index => fun(Rope, Int) : Maybe<Char>;
-index(Leaf(string), n) { List.elem(string, n); }
-index(Node(weight, left, right), n) {
+fun index(Leaf(string), n) = List.atIndex(string, n);
+fun index(Node(weight, left, right), n) {
   cond {
     case lt(n, length'(left)) -> index(left, n);
     case _                    -> index(right, n - length'(left));
@@ -113,16 +107,16 @@ index(Node(weight, left, right), n) {
 
 
 insert => fun(Rope, Int, String) : Rope;
-insert(Leaf(oldString), n, newString) {
+fun insert(Leaf(oldString), n, newString) {
   def (s1, s3) = Str.splitAt(oldString, n);
   def s2       = newString;
   def w1       = List.length(List.append(List.append(s1, s2), s3));
   def w2       = List.length(List.append(s1, s2));
 
   Node(w1, Node(w2, Leaf(s1), Leaf(s2)), Leaf(s3));
-}
+};
 
-insert(Node(weight, left, right), n, string) {
+fun insert(Node(weight, left, right), n, string) {
   def w1 = weight + List.length(string);
   def w2 = length'(right) + List.length(string);
 
@@ -135,14 +129,14 @@ insert(Node(weight, left, right), n, string) {
 
 
 substring => fun(Rope, Int, Int) : Maybe<String>;
-substring(Leaf(string), i, j) {
+fun substring(Leaf(string), i, j) {
   def (_, tmp) = Str.splitAt(string, i);
   def (s, _)   = Str.splitAt(tmp, j - i);
 
   Just(s);
-}
+};
 
-substring(Node(_, left, right), i, j) {
+fun substring(Node(_, left, right), i, j) {
   def llen = length'(left);
 
   cond {
@@ -154,8 +148,8 @@ substring(Node(_, left, right), i, j) {
 
 
 toString => fun(Rope) : String;
-toString(Leaf(string)) { string; }
-toString(Node(_, left, right)) { List.append(toString(left), toString(right)); };
+fun toString(Leaf(string)) = string;
+fun toString(Node(_, left, right)) = List.append(toString(left), toString(right));
 
 def leaf = Leaf("hello");
 delete(leaf, 1, 4);

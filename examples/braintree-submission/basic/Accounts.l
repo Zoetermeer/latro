@@ -5,56 +5,58 @@ type Maybe<a> =
   | None
   ;
 
-def Num = module {
-  def add = fun(x, y) { x + y; };
-  def sub = fun(x, y) { x - y; };
+module Num {
+  fun add(x, y) = x + y;
+  fun sub(x, y) = x - y;
 
+  //This is impossible to implement right now in pure Latro
   read => fun(String) : Int;
-  read(_) { 0; };
+  fun read(_) = 0;
 };
 
-def List = module {
-  append<a> => fun(a[], a[]) : a[];
-  append([], bs) { bs; }
-  append(as, []) { as; }
-  append(a::as, bs) {
+module List {
+  fun append([], bs) = bs;
+  fun append(as, []) = as;
+  fun append(a::as, bs) {
     a :: append(as, bs);
   };
 
-  reverse<a> => fun(a[]) : a[];
-  reverse([]) { []; }
-  reverse(x::xs) {
-    append(reverse(xs), [x]);
-  };
+  fun reverse([]) = [];
+  fun reverse(x::xs) = append(reverse(xs), [x]);
 };
 
-def Str = module {
+module Chars {
+  toString => fun(Char) : String;
+  fun toString(c) = [c];
+};
+
+module Strings {
   words' => fun(String, String) : String[];
-  words'("", s) { [List.reverse(s)]; }
-  words'(c::cs, s) {
-    switch ([c]) {
+  fun words'("", s) = [List.reverse(s)];
+  fun words'(c::cs, s) {
+    switch (Chars.toString(c)) {
       case " " -> List.reverse(s) :: words'(cs, "");
       case _ -> words'(cs, c :: s);
     };
   };
 
-  def words = fun(s) { words'(s, ""); };
+  fun words(s) { words'(s, ""); };
 };
 
-def Map = module {
+module Map {
   type t<k, v> = (k, v)[];
 
   insert<k, v> => fun(t<k, v>, k, v) : t<k, v>;
-  insert(map, key, val) { (key, val) :: map; };
+  fun insert(map, key, val) { (key, val) :: map; };
 
   update<k, v> => fun(t<k, v>, k, v) : t<k, v>;
-  update(map, key, val) { insert(map, key, val); };
+  fun update(map, key, val) { insert(map, key, val); };
 
   find<k, v> => fun(t<k, v>, k) : Maybe<v>;
-  find(_, _) { None(); };
+  fun find(_, _) { None(); };
 };
 
-def Accounts = module {
+module Accounts {
   type Username = String;
   type CardNumber = String;
   type Amount = Int;
@@ -75,7 +77,7 @@ def Accounts = module {
   type Ledger = Map.t<Username, Amount>;
 
   applyBalanceCharge => fun(Ledger, Username, Amount, fun(Amount, Amount) : Amount) : Ledger;
-  applyBalanceCharge(ledger, name, amount, f) {
+  fun applyBalanceCharge(ledger, name, amount, f) {
     switch (Map.find(ledger, name)) {
       case Some(balance) -> Map.update(ledger, name, f(balance, amount));
       case _ -> ledger;
@@ -83,24 +85,24 @@ def Accounts = module {
   };
 
   executeCommand => fun(Ledger, Command) : Ledger;
-  executeCommand(ledger, Add(name, cardNumber, balance)) {
+  fun executeCommand(ledger, Add(name, cardNumber, balance)) {
     Map.insert(ledger, name, balance);
-  }
+  };
 
-  executeCommand(ledger, Charge(name, amount)) {
+  fun executeCommand(ledger, Charge(name, amount)) {
     applyBalanceCharge(ledger, name, amount, Num.sub);
-  }
+  };
 
-  executeCommand(ledger, Credit(name, amount)) {
+  fun executeCommand(ledger, Credit(name, amount)) {
     applyBalanceCharge(ledger, name, amount, Num.add);
-  }
+  };
 
-  executeCommand(ledger, _) { ledger; };
+  fun executeCommand(ledger, _) { ledger; };
 
 
   parseCommand => fun(String) : (Command, Bool);
-  parseCommand(s) {
-    switch (Str.words(s)) {
+  fun parseCommand(s) {
+    switch (Strings.words(s)) {
       case ["Add", name, cardNumber, amount] -> (Add(name, cardNumber, Num.read(amount)), False);
       case ["Charge", name, amount] -> (Charge(name, Num.read(amount)), False);
       case ["Credit", name, amount] -> (Credit(name, Num.read(amount)), False);
@@ -110,8 +112,8 @@ def Accounts = module {
 
 
   processCommands => fun(Ledger, String[]) : Ledger;
-  processCommands(ledger, []) { ledger; }
-  processCommands(ledger, line::lines) {
+  fun processCommands(ledger, []) = ledger;
+  fun processCommands(ledger, line::lines) {
     def (cmd, shouldQuit) = parseCommand(line);
     processCommands(executeCommand(ledger, cmd), lines);
   };
