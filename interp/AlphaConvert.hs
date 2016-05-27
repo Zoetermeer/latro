@@ -459,11 +459,13 @@ collapseEs ((ExpTyAnn tyAnn@(TyAnn ap aid _ synTy)):es) =
          es'' <- collapseEs es'
          return ((ExpWithAnn tyAnn e) : es'')
 
-collapseEs ((ExpFunDef funDef@(FunDefFun p fid _ _)) : es) =
+collapseEs (ExpFunDef (FunDefFun p fid argPatEs bodyEs) : es) = do
+  bodyEs' <- collapseEs bodyEs
   let (funDefs, es') = collectFunDefs fid es
+      funDef = FunDefFun p fid argPatEs bodyEs'
       eFunDef = ExpFunDefClauses p fid (funDef : funDefs)
-  in do es'' <- collapseEs es'
-        return (eFunDef : es'')
+  es'' <- collapseEs es'
+  return (eFunDef : es'')
 
 collapseEs (e : es) = do
   e' <- collapse e
@@ -475,6 +477,10 @@ collapse :: RawAst Exp -> Either Err (RawAst Exp)
 collapse (ExpAssign p patE e) = do
   e' <- collapse e
   return $ ExpAssign p patE e'
+
+collapse (ExpFunDef (FunDefFun p id argPatEs bodyEs)) = do
+  bodyEs' <- collapseEs bodyEs
+  return $ ExpFunDef $ FunDefFun p id argPatEs bodyEs'
 
 collapse (ExpModule p paramIds bodyEs) = do
   bodyEs' <- collapseEs bodyEs

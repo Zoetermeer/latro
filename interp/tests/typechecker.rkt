@@ -632,6 +632,40 @@
     }
     'Int))
 
+(test-case "it checks annotations on variable bindings"
+  (check-equal?
+    @typecheck{
+      v => Int;
+      def v = 42;
+
+      v;
+    }
+    'Int))
+
+(test-case "it checks annotations on variable bindings involving custom type aliases"
+  (check-equal?
+    @typecheck{
+      type String = Char[];
+      s => String;
+      def s = "hello world";
+
+      s;
+    }
+    '(App List (Char))))
+
+(test-case "it checks annotations on variable bindings in functions"
+  (check-equal?
+    @typecheck{
+      fun f() {
+        x => Int;
+        def x = 1;
+        x + 2;
+      };
+
+      f();
+    }
+    'Int))
+
 (test-case "it fails if annotations don't match inferred types (monomorphic)"
   (check-match
     @typecheck{
