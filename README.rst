@@ -4,7 +4,7 @@ Latro
 
 :Author: James Swaine <james.swaine@gmail.com>
 
-Latro is a general-purpose functional programming language designed
+Latro is a statically-typed, general-purpose functional programming language designed
 to make people more productive.  It does not attempt to include every
 esoteric language feature, or bury you in cryptic discourse on
 bleeding-edge type theory.  The goal is to blend some of the core
@@ -151,7 +151,7 @@ Yields the list ``[3, 4, 5]``.  We can also use the cons operator to destructure
   def x::_ = ls;
   x;
 
-Yields the list ``[2, 3, 4, 5]``.  Notice also that we can use the wildcard pattern
+Yields the integer ``1``.  Notice also that we can use the wildcard pattern
 (``_``) in places where we wish to ignore certain parts of a value.
 
 Patterns can be used to do arbitrary traversals on a complex value:
@@ -174,6 +174,25 @@ patterns are typechecked to eliminate simple mistakes).  This program:
 
 Results in a runtime exception because the right-hand side only contains two elements,
 not three.
+
+In Latro, all ``def`` bindings are pattern bindings -- the
+``def x = v`` form is really just a simple case using an "id pattern",
+which binds to anything in the same way as it does in the list-deconstruction
+examples above.
+
+Latro supports a ``switch`` expression that is much more powerful than
+those of the same name found in languages like C#: each case can use 
+arbitrary patterns on the test expression.
+
+.. code:: ocaml
+
+  switch (([1, 2], [3, 4])) {
+    case (_, [a, b, c]) -> a + b + c;
+    case ([a, b], [c, 5]) -> a + b + c;
+    case ([a, b], [_, c]) -> a + b + c;
+    case _ -> 0;
+  };
+  // 7
 
 Functions
 ---------
@@ -238,6 +257,18 @@ The compiler will complain if we try to implement Fibonacci using this form:
       case n -> fib(n - 1) + fib(n - 2); // ERROR: Unbound identifier 'fib'!
     };
   };
+
+Closures
+--------
+
+All functions *close* over bindings in their surrounding scope, e.g.:
+
+::
+
+  fun adder(x) = fun(y) = x + y;
+  def add5 = adder(5);
+  
+  add5(6); // 11
 
 Algebraic data types
 --------------------
@@ -309,6 +340,26 @@ Like ADT's, structure types can be polymorphic:
   def p1 = Person { Name = "john", Age = 42; CustomData = False; };
   def p2 = Person { Name = "jim", Age = 41, CustomData = [1, 2, 3]; };
 
+Recursive types
+---------------
+
+Like functions, type definitions can be recursive (they can contain
+subcomponents of the same type as the type definition itself).  Here's a
+simple binary-tree implementation:
+
+.. code:: ocaml
+
+  type BTree<a> =
+    | Node a BTree<a> BTree<a>
+    | Leaf a
+    ;
+  
+  fun size(Leaf(_)) = 1;
+  fun size(Node(_, left, right)) =
+    1 + size(left) + size(right);
+  
+  size(Node("a", Leaf("b"), Leaf("c"))); // 3
+
 Modules
 -------
 
@@ -348,6 +399,68 @@ Modules can also be arbitrarily nested:
 Submodules can refer to all of the types and/or values defined 
 in parent modules directly, as the ``ExtraStringStuff`` module
 refers directly to the type ``t`` above.
+
+**Modules and the toplevel**
+
+*Note that the implementation of rules outlined in this section is work-in-progress,
+so code examples that currently work may violate these rules and may
+break once that work is completed.*
+
+Modules follow special scoping rules depending on their definition context.
+The "top level" of any Latro code file is not a module; modules must be explicitly
+defined.  Any such module that is defined directly at the top level will not
+close over other bindings at the top level (though it will have access to other
+modules defined at the same level).  Submodules, however, *do* close over all
+bindings introduced in parent modules.
+
+Note that by "close over" we mean that outer bindings will be available inside
+a module; however these bindings will *not* be exported by the module itself
+(similar to how function closures have outer bindings available in the body, although
+these bindings do not manifest themselves as formal parameters).
+
+The rationale for this is that while we want to allow arbitrary code at the
+toplevel for writing scripts and small examples, in larger code we want to confine
+all code to modules.  We wish to prevent arbitrary side effects from occurring
+when importing some other code file that may occur in toplevel code.
+
+Modules are a critical language feature that allow grouping of code into
+*namespaces*.  A module/namespace definition need not be confined to a single
+code file or definition; modules are "open" in the sense that we can reopen
+a module later to add bindings to it.
+
+.. code:: scala
+
+  module M {
+    def foo = 42;
+  };
+  
+  module M {
+    def bar = 43;
+  };
+  
+  M.bar + M.foo;
+
+Module names are resolved using *qualified identifiers* or paths, where a
+path is a sequence of module names separated by dots (``.``).  Resolution applies
+to the module-reopening semantics, so that a submodule opening will not extend
+some other toplevel module with the same name:
+
+.. code:: scala
+
+  module M {
+    def foo = 42;
+  };
+  
+  module N {
+    module M {
+      def bar = 43;
+    };
+  };
+  
+  M.bar + M.foo; // ERROR: Unbound identifier 'bar'!
+
+This code does not compile because ``bar`` is defined on the module
+``N.M``, not ``M``.
 
 Examples
 ========
