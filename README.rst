@@ -52,6 +52,11 @@ Additionally, we can write string literals using the familiar double-quoted
 syntax, e.g. ``"hello world"``.  The type of a string literal is ``Char[]``
 (a list of characters).
 
+Latro also offers a sixth built-in type, ``Unit``, expressed with the 
+literal ``()``.  This type is conceptually similar to ``void`` in C-style
+languages, and is mostly useful in situations involving code with side
+effects.
+
 Latro can infer the types of variables and functions, but we can also "fix"
 the type of a value using an annotation:
 
@@ -99,6 +104,22 @@ No language would be complete without variable bindings.  We define these using
 
 Note that in sequences of expressions, we use the semicolon (``;``) as a delimiter as
 in C-family languages.
+
+"Rebinding" is not currently permitted.  Value bindings are fixed upon definition.  Consider:
+
+.. code:: ocaml
+
+  def x = 42;
+  x = 43; // ERROR
+
+The idiomatic way to do something like this is to define a new binding:
+
+.. code:: ocaml
+
+  def x = 42;
+  def x' = 43;
+  
+  x'; // 43
 
 Conditionals
 ------------
@@ -238,6 +259,28 @@ by the type inference engine (or just to be clearer about a function's prototype
   fun fib(1) = 1;
   fun fib(n) = fib(n - 1) + fib(n - 2);
 
+Clauses are a nice, declarative way of expressing functions as sets of
+rules.  As another example, we could define a set of common boolean operations
+clearly:
+
+::
+
+  fun or(_, True) = True;
+  fun or(True, _) = True;
+  fun or(_, _) = False;
+  
+  fun and(True, True) = True;
+  fun and(_, _) = False;
+  
+  fun xor(False, False) = False;
+  fun xor(True, False) = True;
+  fun xor(False, True) = True;
+  fun xor(_, _) = False;
+
+Note also that clauses are evaluated *in order*, so the ``xor`` example is
+correct as the ``xor(_, _)`` case is guaranteed to only operate on cases
+where both values are ``True``.
+
 Functions can also be bound using the familiar ``def`` syntax, although functions
 defined in this way will not have their names bound in the body (so they cannot
 be recursive):
@@ -246,6 +289,8 @@ be recursive):
 
   def f = fun(x) = x;
 
+This is equivalent to binding a name to an anonymous function -- and anonymous functions
+obviously have no name with which to refer to themselves.
 The compiler will complain if we try to implement Fibonacci using this form:
 
 .. code:: ocaml
@@ -299,10 +344,6 @@ We can deconstruct ADT values in any place where we can use patterns:
     | Some a
     | None
     ;
-  
-  fun or(True, True) = True;
-  fun or(True, _) = True;
-  fun or(_, _) = False;
   
   fun isSome(Some(_)) = True;
   fun isSome(_) = False;
@@ -534,6 +575,28 @@ For example, here's an example test from the interpreter suite:
 Here's a full-blown example -- the `test suite for the typechecker`_.
 
 .. _test suite for the typechecker: https://github.com/Zoetermeer/L/blob/master/interp/tests/typechecker.rkt
+
+Roadmap
+=======
+
+As mentioned, Latro is still in the experimental/pre-alpha stage and is *not* suitable
+for use in real-world scenarios.  All features are subject to change.  There are a number of
+non-trivial enhancements planned for the language:
+
+  - Go-style post-hoc instance function definitions
+  - Parameterized, higher-order modules (ML-style functors)
+  - Support for ad hoc polymorphism via protocols.  Protocols will be
+    fused with the module system similar to the approach being taken in the work
+    on `OCaml implicit modules`_, which is a derivative of the implicit semantics
+    in Scala.
+  - Custom operator definitions with fixity directives
+  - Separate compilation
+  - Support for runtime type reflection, with reification
+  - Runtime system with garbage collecition
+  - Cross-platform binary compilation using an LLVM backend
+  - Go-style compilation and package ecosystem
+
+.. _Ocaml implicit modules: https://github.com/Zoetermeer/latro/blob/master/papers/module-systems/modular-implicits-ocaml.pdf
 
 License
 =======
