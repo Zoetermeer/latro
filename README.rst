@@ -5,11 +5,16 @@ Latro
 :Author: James Swaine <james.swaine@gmail.com>
 
 Latro is a general-purpose functional programming language designed
-to make people more productive.
+to make people more productive.  It does not attempt to include every
+esoteric language feature, or bury you in cryptic discourse on
+bleeding-edge type theory.  The goal is to blend some of the core
+ideas of functional programming into a clear, concise syntax that
+will appear familiar to people more accustomed to popular languages
+like Ruby, Java, and Go -- and bundle it in an easy-to-use 
+build/package ecosystem.
 
 .. contents::
 
-.. _Re2: https://github.com/google/re2/wiki/Syntax
 
 Overview
 ========
