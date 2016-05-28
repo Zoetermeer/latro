@@ -598,6 +598,13 @@ non-trivial enhancements planned for the language:
 
 .. _Ocaml implicit modules: https://github.com/Zoetermeer/latro/blob/master/papers/module-systems/modular-implicits-ocaml.pdf
 
+Contributing
+============
+
+At this early stage, I am not currently accepting pull requests.  However, I would love to garner
+feedback on the language model and design -- so please feel free to open an issue or send me a note
+on what you think!
+
 License
 =======
 
