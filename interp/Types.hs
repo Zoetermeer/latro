@@ -1083,39 +1083,6 @@ tc (ExpWithAnn (TyAnn _ id tyParamIds synTy) e) = do
   generalize ty >>= bindVar id
   return (ty, e')
 
--- Note that `annDefs` here will never contain
--- more than one element, because function definitions
--- are desugared during alpha-conversion.
--- We are guaranteed to have a function definition of the form:
---
--- id(id1, ..., idN) { e1; ...; eN; }
---
--- Alpha-conversion guarantees that all definitions
--- have matching arity, but doesn't check arity
--- against the type annotation.
--- tc (ExpAnnDec p decId tyParamIds synTy [AnnDefFun annP (FunDefFun funP defId paramPats bodyEs)]) = do
---   if decId == defId
---   then
---     let paramIds = map (\\(PatExpId _ id) -> id) paramPats
---         asnE = ExpAssign p (PatExpId p defId) $ ExpFun funP paramIds bodyEs
---         (SynTyArrow _ paramSynTys retSynTy) = synTy
---     in do oldMetaEnv <- markMetaEnv
---           mapM_ (\\tyParamId -> exportTy tyParamId $ TyConTyVar tyParamId) tyParamIds
---           givenTy <- tcTy synTy
---           let givenTy' = case tyParamIds of
---                             [] -> givenTy
---                             _ -> TyPoly tyParamIds givenTy
---           (_, asnE') <- tc asnE
---           inferredTy <- lookupVar defId
---           givenTy'' <- instantiate givenTy'
---           inferredTy' <- instantiate inferredTy
---           funTy <- unify givenTy'' inferredTy' `reportErrorAt` p
---           restoreMetaEnv oldMetaEnv
---           generalize funTy >>= bindVar defId
---           return (tyUnit, asnE')
---   else
---     throwError $ ErrFunDefIdMismatch decId defId
-
 tc (ExpIfElse p testE thenEs elseEs) = do
   oldVarEnv <- markVarEnv
   (testTy, testE') <- tc testE

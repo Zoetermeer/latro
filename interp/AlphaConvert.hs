@@ -261,39 +261,6 @@ desugarCond :: RawAst Exp -> RawAst Exp
 desugarCond (ExpCond p clauses) = desugarCondClauses p clauses
 
 
--- convertAnnDec :: RawAst Exp -> AlphaConverted (UniqAst Exp)
--- convertAnnDec (ExpAnnDec p id tyParamIds ty annDefs) = do
---   id' <- freshM id
---   tyParamIds' <- mapM freshM tyParamIds
---   ty' <- convertTy ty
---   case ty' of
---     (SynTyModule _ _ _)
---       | length annDefs /= 1 ->
---         throwError $ ErrTooManyModuleDefs id'
---       | not $ all isAnnDefModule annDefs ->
---         throwError $ ErrNoModuleDefInModuleDec id'
---       | otherwise ->
---         let (AnnDefModule pInner defId defE) = head annDefs
---         in do
---           defId' <- lookup defId
---           defE' <- convert defE
---           return $ ExpAnnDec p id' tyParamIds' ty' [AnnDefModule pInner defId' defE']
---     (SynTyArrow _ _ _)
---       | not $ all isAnnDefFun annDefs ->
---         throwError $ ErrNonFunDefsInFunDec id'
---       | otherwise ->
---         let funDefs = map (\\(AnnDefFun _ funDef) -> funDef) annDefs
---         in do funDef' <- (liftM fst) $ desugarFunDefs id' funDefs
---               return $ ExpAnnDec p id' tyParamIds' ty' [AnnDefFun (nodeData funDef') funDef']
---     _
---       | length annDefs /= 1 ->
---         throwError $ ErrMultipleDefsInSimpleAnnDec id'
---       | otherwise ->
---         let (AnnDefExp pInner e) = head annDefs
---         in do e' <- convert e
---               return $ ExpAnnDec p id' tyParamIds' ty' [AnnDefExp pInner e']
--- 
-
 convert :: RawAst Exp -> AlphaConverted (UniqAst Exp)
 convert (ExpAdd p a b) = convertBin ExpAdd p a b
 convert (ExpSub p a b) = convertBin ExpSub p a b
@@ -323,14 +290,6 @@ convert (ExpFunDefClauses p id funDefs) = do
   id' <- freshM id
   funDef <- (liftM fst) $ desugarFunDefs id' funDefs
   return $ ExpFunDef funDef
-
--- Function bindings must be done early
--- for recursive applications
--- convert (ExpAssign p patExp (ExpFun pInner paramIds bodyEs)) = do
---   patExp' <- convertPatExp patExp
---   paramIds' <- mapM freshM paramIds
---   bodyEs' <- mapM convert bodyEs
---   return $ ExpAssign p patExp' $ ExpFun pInner paramIds' bodyEs'
 
 convert (ExpAssign p patExp e) = do
   e' <- convert e
