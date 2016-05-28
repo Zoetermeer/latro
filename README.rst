@@ -55,14 +55,14 @@ syntax, e.g. ``"hello world"``.  The type of a string literal is ``Char[]``
 Latro can infer the types of variables and functions, but we can also "fix"
 the type of a value using an annotation:
 
-::
+.. code:: ocaml
 
   f => fun(Int, Bool) : Bool;
   fun f(i, b) = b;
 
 If we were to omit the annotation from above, like so:
 
-::
+.. code:: ocaml
 
   fun f(i, b) = b;
 
@@ -84,14 +84,14 @@ We can yield the negation of a ``Bool`` with the ``!`` operator: ``!False``.
 
 Lists can be constructed using the right-associative cons operator ``::``
 
-::
+.. code:: ocaml
 
-  1 :: 2 :: [3, 4, 5]  // [1, 2, 3, 4, 5[
+  1 :: 2 :: [3, 4, 5]  // [1, 2, 3, 4, 5]
 
 No language would be complete without variable bindings.  We define these using
 ``def``:
 
-::
+.. code:: ocaml
 
   def x = 42;
   def y = 43;
@@ -105,7 +105,7 @@ Conditionals
 
 Latro offers two main forms of conditionals: ``if``/``then``/``else`` and ``cond``.
 
-::
+.. code:: ocaml
 
   def v = if (True) { 42; } else { 43; };
   v; // 42
@@ -115,7 +115,7 @@ The ``else`` is required, and both branches of a conditional must be of the same
 To avoid the hassle of writing complex sequences of ``if`` expressions, we can use
 the ``cond`` form:
 
-::
+.. code:: ocaml
 
   def b1 = True;
   def b2 = False;
@@ -137,7 +137,7 @@ In any binding using ``def`` (and also in function arguments, as we will see) we
 *patterns* to destructure a value and introduce new bindings for its subcomponents.
 For example, we may want to bind elements of a list:
 
-::
+.. code:: ocaml
 
   def ls = [1, 2, 3, 4, 5];
   def [_, _, x, y, z] = ls;
@@ -145,7 +145,7 @@ For example, we may want to bind elements of a list:
 
 Yields the list ``[3, 4, 5]``.  We can also use the cons operator to destructure:
 
-::
+.. code:: ocaml
 
   def ls = [1, 2, 3, 4, 5];
   def x::_ = ls;
@@ -156,7 +156,7 @@ Yields the list ``[2, 3, 4, 5]``.  Notice also that we can use the wildcard patt
 
 Patterns can be used to do arbitrary traversals on a complex value:
 
-::
+.. code:: ocaml
 
   def ls = [[(1, 2)], [(3, 4), (5, 6)]];
   def [[(x, _)], (_, y) :: _] = ls;
@@ -168,7 +168,7 @@ Note that patterns on ``def`` bindings can be unsafe, because the value on the
 right-hand side of the binding may not match exactly the pattern used (although
 patterns are typechecked to eliminate simple mistakes).  This program:
 
-::
+.. code:: ocaml
 
   def [x, y, z] = [1, 2];
 
@@ -180,20 +180,20 @@ Functions
 
 Functions can be defined and used in several different ways.  We can make anonymous ones:
 
-::
+.. code:: ocaml
 
   (fun(x) = x)(42); // 42
 
 Or bind them to names:
 
-::
+.. code:: ocaml
 
   fun add1(x) = x + 1;
   add1(2); // 3
 
 They can also use a long-form "block" for the body:
 
-::
+.. code:: ocaml
 
   fun add1AndMultBy3(x) {
     (x + 1) * 3;
@@ -203,7 +203,7 @@ Function definitions also support a powerful "clause" definition style,
 in which we can define alternative implementations with patterns on arguments.
 For example, here is the Fibonacci sequence in Latro:
 
-::
+.. code:: ocaml
 
   fun fib(0) = 0;
   fun fib(1) = 1;
@@ -212,7 +212,7 @@ For example, here is the Fibonacci sequence in Latro:
 As shown above, we can annotate functions with types to avoid over-generalizing
 by the type inference engine (or just to be clearer about a function's prototype):
 
-::
+.. code:: ocaml
 
   fib => fun(Int) : Int;
   fun fib(0) = 0;
@@ -223,13 +223,13 @@ Functions can also be bound using the familiar ``def`` syntax, although function
 defined in this way will not have their names bound in the body (so they cannot
 be recursive):
 
-::
+.. code:: ocaml
 
   def f = fun(x) = x;
 
 The compiler will complain if we try to implement Fibonacci using this form:
 
-::
+.. code:: ocaml
 
   def fib = fun(x) {
     switch (x) {
@@ -246,7 +246,7 @@ Latro supports *algebraic data types*, also known as "sum types" or "discriminat
 unions" in functional-programming lexicon.  For example, we could define a type
 of optionals:
 
-::
+.. code:: ocaml
 
   type Option<a> =
     | Some a
@@ -256,13 +256,13 @@ of optionals:
 Doing so gives us constructors for each alternative we can use to build values of
 type ``Option<a>``:
 
-::
+.. code:: ocaml
 
   def v = Some(42); // Option<Int>
 
 We can deconstruct ADT values in any place where we can use patterns:
 
-::
+.. code:: ocaml
 
   type Option<a> =
     | Some a
@@ -287,7 +287,7 @@ Structures
 We can define types that are just records containing an
 arbitrary number of named fields:
 
-::
+.. code:: ocaml
 
   type Person = struct {
     Name Char[];
@@ -298,7 +298,7 @@ arbitrary number of named fields:
 
 Like ADT's, structure types can be polymorphic:
 
-::
+.. code:: ocaml
 
   type Person<a> = struct {
     Name Char[];
@@ -315,7 +315,7 @@ Modules
 Types, values, and functions which are all related in some way can be
 grouped into modules like so:
 
-::
+.. code:: scala
 
   module String {
     type t = Char[];
@@ -332,7 +332,7 @@ string are really just a list of Unicode characters.
 
 Modules can also be arbitrarily nested:
 
-::
+.. code:: scala
 
   module StringStuff {
     type t = Char[];
@@ -352,11 +352,17 @@ refers directly to the type ``t`` above.
 Examples
 ========
 
-A few more sophisticated examples can be found in the examples directory:
+A few more sophisticated examples can be found in the examples directory.
+All of the examples work on the latest version of Latro at HEAD.
 
-  - Braintree code submission
-  - Rope data structure implementation
-  - Basic string-utilities module implementation
+  - `Braintree code submission`_
+  - `Rope data structure implementation`_
+  - `Basic string-utilities module implementation`_
+  
+.. _Braintree code submission: https://github.com/Zoetermeer/L/blob/master/examples/braintree-submission/basic/Accounts.l
+.. _Rope data structure implementation: https://github.com/Zoetermeer/L/blob/master/examples/rope/rope.l
+.. _Basic string-utilities module implementation: https://github.com/Zoetermeer/L/blob/master/examples/string/string.l
+
 
 Building/running the interpreter
 ================================
@@ -395,7 +401,7 @@ such that S-expressions are read into a Racket test harness.
 
 For example, here's an example test from the interpreter suite:
 
-::
+.. code:: scheme
 
   (test-case "it evaluates ADT argument patterns"
     (check-equal?
@@ -411,3 +417,9 @@ For example, here's an example test from the interpreter suite:
         (IsSome(None()), IsSome(s), v);
       }
       '(Tuple (False True 42))))
+
+Here's a full-blown example -- the `test suite for the typechecker`_.
+
+.. _test suite for the typechecker: https://github.com/Zoetermeer/L/blob/master/interp/tests/typechecker.rkt
+
+
