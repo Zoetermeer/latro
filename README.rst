@@ -69,7 +69,7 @@ If we were to omit the annotation from above, like so:
 Latro would infer the type of this function to be a polymorphic one returning
 its second argument: ``fun<a, b>(a, b) : b``.
 
-Sometimes we may want to define _type aliases_ for types to give them special 
+Sometimes we may want to define *type aliases* for types to give them special 
 meaning; for example, we may want to define a name ``String`` that really
 just represents the type ``Char[]``.  We will see how to do this in a
 subsequent section.
