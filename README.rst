@@ -16,11 +16,6 @@ build/package ecosystem.
 .. contents::
 
 
-Overview
-========
-
-Overview here
-
 Quick language guide
 ====================
 
