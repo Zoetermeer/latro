@@ -1,6 +1,4 @@
-=====
-Latro
-=====
+.. image:: ./latro.png
 
 :Author: James Swaine <james.swaine@gmail.com>
 
