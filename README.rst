@@ -24,7 +24,7 @@ incorporated into a broader guide, complete with reference material.
 Built-in types and literal expressions
 --------------------------------------
 
-The language supports five basic types out of the box:
+The language supports six basic types out of the box:
 integers, booleans, characters, singly-linked lists,
 tuples containing an arbitrary number of components, and functions.  We write
 these types in annotations like so:
@@ -45,17 +45,19 @@ Literal values for each of the built-in types can be written directly, e.g:
   - ``'m'`` is a ``Char`` representing the character ``m``
   - ``[1, 2, 3]`` is an ``Int[]`` with 3 elements
   - ``(1, True)`` is a ``(Int, Bool)`` tuple
+  - ``fun(x) = x`` is the identity function (its type is ``fun<a>(a) : a``)
 
 Additionally, we can write string literals using the familiar double-quoted
 syntax, e.g. ``"hello world"``.  The type of a string literal is ``Char[]``
-(a list of characters).
+(a list of Unicode characters).
 
-Latro also offers a sixth built-in type, ``Unit``, expressed with the 
+Latro also offers a seventh built-in type, ``Unit``, expressed with the 
 literal ``()``.  This type is conceptually similar to ``void`` in C-style
 languages, and is mostly useful in situations involving code with side
 effects.
 
-Latro can infer the types of variables and functions, but we can also "fix"
+Latro can infer the types of variables and functions, so in most situations it
+is not necessary to write down the types of variables and functions.  However, we can "fix"
 the type of a value using an annotation:
 
 .. code:: ocaml
@@ -70,7 +72,7 @@ If we were to omit the annotation from above, like so:
   fun f(i, b) = b;
 
 Latro would infer the type of this function to be a polymorphic one returning
-its second argument: ``fun<a, b>(a, b) : b``.
+its second argument: ``fun<t1, t2>(t1, t2) : t1``.
 
 Sometimes we may want to define *type aliases* for types to give them special 
 meaning; for example, we may want to define a name ``String`` that really
@@ -145,7 +147,8 @@ the ``cond`` form:
   }; // 43
 
 Note that we can use arbitrary expressions and/or functions in the test
-expression for a ``case``.  The compiler will not verify exhaustiveness for a ``cond``,
+expression for a ``case``, as long as each test expression is of type ``Bool``.
+The compiler will not verify exhaustiveness for a ``cond``,
 so we may end up with a runtime exception if we don't include an explicit catch-all case
 (e.g. ``case _ -> ...``).
 
@@ -258,8 +261,8 @@ by the type inference engine (or just to be clearer about a function's prototype
   fun fib(n) = fib(n - 1) + fib(n - 2);
 
 Clauses are a nice, declarative way of expressing functions as sets of
-rules.  As another example, we could define a set of common boolean operations
-clearly:
+rules.  As another example, we could define a set of common boolean operations,
+where each function definition looks very much like a truth table:
 
 ::
 
@@ -277,7 +280,24 @@ clearly:
 
 Note also that clauses are evaluated *in order*, so the ``xor`` example is
 correct as the ``xor(_, _)`` case is guaranteed to only operate on cases
-where both values are ``True``.
+where both values are ``True``.  A function defined as multiple clauses
+is really just syntactic sugar for a single definition with a ``switch``
+as the body, where the value being examined is just a tuple containing
+the function arguments; for example, the ``xor`` function is desugared to look something
+like the following:
+
+.. code:: ocaml
+
+  fun xor(a, b) {
+    def args = (a, b);
+    switch (args) {
+      case (False, False) -> False;
+      case (True, False) -> True;
+      case (False, True) -> True;
+      case (_, _) -> False;
+      case _ -> fail("Inexhaustive pattern clauses in function 'xor'!");
+    };
+  };
 
 Functions can also be bound using the familiar ``def`` syntax, although functions
 defined in this way will not have their names bound in the body (so they cannot
@@ -312,6 +332,38 @@ All functions *close* over bindings in their surrounding scope, e.g.:
   def add5 = adder(5);
   
   add5(6); // 11
+  
+Instance functions
+------------------
+
+We can "decorate" types with functions that can be called as if they
+are members of values directly, using dot notation (``.``).  We do so
+using Go-style post-hoc instance function definitions:
+
+.. code:: ocaml
+
+  fun ([]).length() = 0;
+  fun (x::xs).length() = 1 + xs.length();
+
+Notice that we may use patterns and clauses to destructure values of the instance
+value, just as we do for arguments in regular function clauses -- and
+in doing so we allow the compiler to infer the allowed type of instances
+for which this function will be defined.  Here we have defined 
+an instance function ``length`` for lists with any element type.  We
+could clarify the type of this function with an annotation:
+
+.. code:: ocaml
+
+  length<a> => fun(a[])() : Int;
+  fun ([]).length() = 0;
+  fun (x::xs).length() = 1 + xs.length();
+
+We can call this function on any list:
+
+.. code:: ocaml
+
+  [1, 2, 3].length() // 3
+
 
 Algebraic data types
 --------------------
@@ -334,7 +386,8 @@ type ``Option<a>``:
 
   def v = Some(42); // Option<Int>
 
-We can deconstruct ADT values in any place where we can use patterns:
+We can deconstruct ADT values in any place where we can use patterns, using
+the name of a constructor:
 
 .. code:: ocaml
 
@@ -343,13 +396,35 @@ We can deconstruct ADT values in any place where we can use patterns:
     | None
     ;
   
-  fun isSome(Some(_)) = True;
-  fun isSome(_) = False;
+  fun (Some(_)).isPresent() = True;
+  fun (_).isPresent() = False;
   
   def a = Some(False);
   def Some(x) = a;
   
-  or(x, isSome(a)); // True
+  or(x, a.isPresent()); // True
+
+We might use this particular ADT to define some useful operations on lists:
+
+.. code:: ocaml
+
+  type Option<a> =
+    | Some a
+    | None
+    ;
+  
+  fun ([]).head() = None();
+  fun (x::_).head() = Some(x);
+  
+  fun ([]).tail() = None();
+  fun (_::xs).tail() = Some(xs);
+  
+  [1, 2, 3].head(); // Some(1)
+  ["hello", "world"].tail(); // Some(["world"])
+  
+  "hello".head(); // Some("h")
+  "hello".tail(); // Some("ello")
+  
 
 Structures
 ----------
@@ -418,7 +493,7 @@ grouped into modules like so:
   String.len("hello world"); // 11
 
 Note also here we are using a list pattern on strings, which works because
-string are really just a list of Unicode characters.
+strings are really just a list of Unicode characters.
 
 Modules can also be arbitrarily nested:
 
