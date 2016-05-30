@@ -1139,7 +1139,7 @@
     'Bool))
 
 (test-case "it checks instance function application"
-  (check-match
+  (check-equal?
     @typecheck{
       fun (True).isTrue() = True;
       fun (_).isFalse() = False;
@@ -1147,3 +1147,23 @@
       True.isFalse();
     }
     'Bool))
+
+(test-case "it checks instance functions on polymorphic types"
+  (check-equal?
+    @typecheck{
+      fun ([]).isEmpty() = True;
+      fun (x::xs).isEmpty() = False;
+
+      ([].isEmpty(), [1, 2].isEmpty(), "hello".isEmpty());
+    }
+    '(App Tuple (Bool Bool Bool))))
+
+(test-case "it rejects instance function application on incorrect instance types"
+  (check-match
+    @typecheck{
+      fun ([]).isEmpty() = True;
+      fun (x::xs).isEmpty() = False;
+
+      23.isEmpty();
+    }
+    `(CantUnify (Expected (App List ,_)) (Got Int))))

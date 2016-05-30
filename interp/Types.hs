@@ -923,6 +923,7 @@ tc (ExpMemberAccess p e id) = do
          return (ty, ExpMemberAccess (OfTy p ty) e' id)
     instTy ->
       do curMod <- gets curModule
+         metaEnv <- markMetaEnv
          instFunTy <- lookupVarIn (vars curMod) id `reportErrorAt` p
          instMeta <- freshMeta
          funMeta <- freshMeta
@@ -930,6 +931,7 @@ tc (ExpMemberAccess p e id) = do
          instFunTy' <- instantiate instFunTy
          let (TyInstFun instTy funTy) = instFunTy'
          unify instTy eTy
+         restoreMetaEnv metaEnv
          return (funTy, ExpMemberAccess (OfTy p instFunTy') e' id)
 
 tc (ExpApp p ratorE randEs) = do
