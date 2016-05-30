@@ -582,11 +582,9 @@ Examples
 A few more sophisticated examples can be found in the examples directory.
 All of the examples work on the latest version of Latro at HEAD.
 
-  - `Braintree code submission`_
   - `Rope data structure implementation`_
   - `Basic string-utilities module implementation`_
   
-.. _Braintree code submission: https://github.com/Zoetermeer/L/blob/master/examples/braintree-submission/basic/Accounts.l
 .. _Rope data structure implementation: https://github.com/Zoetermeer/L/blob/master/examples/rope/rope.l
 .. _Basic string-utilities module implementation: https://github.com/Zoetermeer/L/blob/master/examples/string/string.l
 
@@ -624,7 +622,9 @@ Running the tests
 
 Latro already has an extensive test suite.  The tests are built in a slightly unorthodox way: the
 interpreter executable prints its answers in an S-expression format, and tests are written in Racket
-such that S-expressions are read into a Racket test harness.
+such that S-expressions are read into a Racket test harness.  We do this because AST's and
+types can get quite verbose, and trees annotated with things like source locations and
+uniqueness markers are much easier to assert on using Racket's ``check-match``.
 
 For example, here's an example test from the interpreter suite:
 
@@ -656,7 +656,6 @@ As mentioned, Latro is still in the experimental/pre-alpha stage and is *not* su
 for use in real-world scenarios.  All features are subject to change.  There are a number of
 non-trivial enhancements planned for the language:
 
-  - Go-style post-hoc instance function definitions
   - Parameterized, higher-order modules (ML-style functors)
   - Support for ad hoc polymorphism via protocols.  Protocols will be
     fused with the module system similar to the approach being taken in the work
