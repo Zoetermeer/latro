@@ -188,6 +188,12 @@ funDefToCaseClause (FunDefFun p _ argPatEs bodyEs) = do
   bodyEs' <- mapM convert bodyEs
   return $ CaseClause p tupPat' bodyEs'
 
+funDefToCaseClause (FunDefInstFun p instPatE _ argPatEs bodyEs) = do
+  let tupPat = PatExpTuple p $ instPatE : argPatEs
+  tupPat' <- convertPatExp tupPat
+  bodyEs' <- mapM convert bodyEs
+  return $ CaseClause p tupPat' bodyEs'
+
 
 -- The rule is as follows (with this particular
 -- example for a 3-arity function):
@@ -208,17 +214,33 @@ funDefToCaseClause (FunDefFun p _ argPatEs bodyEs) = do
 --      not already occurring in the environment.
 --    * BODY1' = alphaConvert BODY1 (alphaEnv + ID1, ID2, ID3)
 --    * BODY2' = alphaConvert BODY2 (alphaEnv + ID1, ID2, ID3)
+funDefArity :: RawAst FunDef -> Int
+funDefArity (FunDefFun _ _ patEs _) = length patEs
+funDefArity (FunDefInstFun _ _ _ patEs _) = length patEs
+
+
 desugarFunDefs :: UniqId -> [RawAst FunDef] -> AlphaConverted (UniqAst FunDef, [UniqId])
 desugarFunDefs fid funDefs =
-  let paramsLen = nub $ map (\(FunDefFun _ _ patEs _) -> length patEs) funDefs
-      startP = nodeData $ head funDefs
+  let arities = nub $ map funDefArity funDefs
+      headFunDef = head funDefs
+      startP = nodeData headFunDef
   in
-    case paramsLen of
+    case arities of
       [len] -> do
         paramIds <- mapM (\_ -> freshM "arg") $ replicate len ()
-        let argsTup = ExpTuple startP $ map (\paramId -> ExpRef startP (Id startP paramId)) paramIds
         cases <- mapM funDefToCaseClause funDefs
-        return (FunDefFun startP fid (map (PatExpId startP) paramIds) [ExpSwitch startP argsTup cases], paramIds)
+        let paramRefs = map (\paramId -> ExpRef startP (Id startP paramId)) paramIds
+            paramPats = map (PatExpId startP) paramIds
+        case headFunDef of
+          FunDefFun _ _ argPatEs bodyEs ->
+            let argsTup = ExpTuple startP paramRefs
+            in
+              return (FunDefFun startP fid paramPats [ExpSwitch startP argsTup cases], paramIds)
+          FunDefInstFun _ instPatE _ argPatEs bodyEs ->
+            do instId <- freshM "this"
+               let instRef = ExpRef startP (Id startP instId)
+                   argsTup = ExpTuple startP (instRef : paramRefs)
+               return (FunDefInstFun startP (PatExpId startP instId) fid paramPats [ExpSwitch startP argsTup cases], paramIds)
       _ ->
         throwError $ ErrFunDefArityMismatch fid
 
@@ -285,6 +307,13 @@ convert (ExpFunDef (FunDefFun p id argPatEs bodyEs)) = do
   argPatEs' <- mapM convertPatExp argPatEs
   bodyEs' <- mapM convert bodyEs
   return $ ExpFunDef $ FunDefFun p id' argPatEs' bodyEs'
+
+convert (ExpFunDef (FunDefInstFun p instPatE id argPatEs bodyEs)) = do
+  id' <- freshM id
+  instPatE' <- convertPatExp instPatE
+  argPatEs' <- mapM convertPatExp argPatEs
+  bodyEs' <- mapM convert bodyEs
+  return $ ExpFunDef $ FunDefInstFun p instPatE' id' argPatEs' bodyEs'
 
 convert (ExpFunDefClauses p id funDefs) = do
   id' <- freshM id
@@ -367,10 +396,10 @@ convert (ExpList p es) = do
   es' <- mapM convert es
   return $ ExpList p es'
 
-convert (ExpFun p paramIds bodyEs) = do
-  paramIds' <- mapM (\id -> freshM id) paramIds
+convert (ExpFun p argPatEs bodyEs) = do
+  argPatEs' <- mapM convertPatExp argPatEs
   bodyEs' <- mapM convert bodyEs
-  return $ ExpFun p paramIds' bodyEs'
+  return $ ExpFun p argPatEs' bodyEs'
 
 convert (ExpNum p s) = return $ ExpNum p s
 convert (ExpBool p b) = return $ ExpBool p b
@@ -392,6 +421,17 @@ collectFunDefs id (eFunDef@(ExpFunDef funDef@(FunDefFun _ fid _ _)) : es)
   | otherwise = ([], eFunDef : es)
 
 collectFunDefs _ es = ([], es)
+
+
+collectInstFunDefs :: RawId -> [RawAst Exp] -> ([RawAst FunDef], [RawAst Exp])
+collectInstFunDefs _ [] = ([], [])
+collectInstFunDefs id (eFunDef@(ExpFunDef funDef@(FunDefFun _ fid _ _)) : es)
+  | id == fid =
+    let (funDefs, es') = collectInstFunDefs id es
+    in (funDef : funDefs, es')
+  | otherwise = ([], eFunDef : es)
+
+collectInstFunDefs _ es = ([], es)
 
 
 collapseBindingExp :: RawId -> [RawAst Exp] -> Either Err (RawAst Exp, [RawAst Exp])
@@ -422,6 +462,14 @@ collapseEs (ExpFunDef (FunDefFun p fid argPatEs bodyEs) : es) = do
   bodyEs' <- collapseEs bodyEs
   let (funDefs, es') = collectFunDefs fid es
       funDef = FunDefFun p fid argPatEs bodyEs'
+      eFunDef = ExpFunDefClauses p fid (funDef : funDefs)
+  es'' <- collapseEs es'
+  return (eFunDef : es'')
+
+collapseEs (ExpFunDef (FunDefInstFun p instPatE fid argPatEs bodyEs) : es) = do
+  bodyEs' <- collapseEs bodyEs
+  let (funDefs, es') = collectInstFunDefs fid es
+      funDef = FunDefInstFun p instPatE fid argPatEs bodyEs'
       eFunDef = ExpFunDefClauses p fid (funDef : funDefs)
   es'' <- collapseEs es'
   return (eFunDef : es'')

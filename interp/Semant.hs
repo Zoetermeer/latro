@@ -131,7 +131,7 @@ data Exp a id =
   | ExpSwitch a (Exp a id) [CaseClause a id]
   | ExpCond a [CondCaseClause a id]
   | ExpList a [Exp a id]
-  | ExpFun a [id] [Exp a id]
+  | ExpFun a [PatExp a id] [Exp a id]
   | ExpNum a String
   | ExpBool a Bool
   | ExpString a String
@@ -363,6 +363,7 @@ data Ty =
   | TyVar TyVarId
   | TyMeta TyVarId
   | TyRef (QualifiedId SourcePos UniqId) -- Only for recursive type definitions
+  | TyInstFun Ty Ty
   deriving (Eq, Show)
 
 data ModuleBinding =

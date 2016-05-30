@@ -272,7 +272,7 @@ evalE (ExpStruct (OfTy _ ty) _ fieldInits) = do
 
 evalE (ExpFunDef (FunDefFun (OfTy p ty) funId argPatEs bodyEs)) =
   let paramIds = map (\(PatExpId _ paramId) -> paramId) argPatEs
-      ef = ExpFun (OfTy p ty) paramIds bodyEs
+      ef = ExpFun (OfTy p ty) argPatEs bodyEs
   in do cloEnv <- getClosureEnv
         let f = ValueFun $ Closure funId ty cloEnv paramIds bodyEs
         bindVar funId f
@@ -314,10 +314,11 @@ evalE (ExpApp _ e argEs) = do
   restoreEnv preApplyInterpEnv
   return retV
 
-evalE (ExpFun (OfTy _ ty) paramIds bodyEs) = do
-  cloEnv <- getClosureEnv
-  newId <- freshId
-  return $ ValueFun $ Closure newId ty cloEnv paramIds bodyEs
+evalE (ExpFun (OfTy _ ty) argPatEs bodyEs) = do
+    cloEnv <- getClosureEnv
+    newId <- freshId
+    return $ ValueFun $ Closure newId ty cloEnv paramIds bodyEs
+  where paramIds = map (\(PatExpId _ paramId) -> paramId) argPatEs
 
 evalE (ExpMemberAccess (OfTy p _) e id) = do
   v <- evalE e

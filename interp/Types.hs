@@ -504,11 +504,11 @@ subst ty = do
         Just ty -> subst ty
         _ -> return meta
 
-    (TyApp (TyConTyFun [] tyRef@(TyRef _)) []) -> do
+    TyApp (TyConTyFun [] tyRef@(TyRef _)) [] -> do
       tyRef' <- subst tyRef
       return tyRef'
 
-    (TyApp tyCon@(TyConTyFun tyParamIds ty) tyArgs)
+    TyApp tyCon@(TyConTyFun tyParamIds ty) tyArgs
       | length tyParamIds == length tyArgs ->
         do mapM_ (uncurry bindPoly) $ zip tyParamIds tyArgs
            subst ty >>= subst
@@ -516,7 +516,7 @@ subst ty = do
         do madeUpId <- freshId
            throwError $ ErrPartialTyConApp (Id (SourcePos "" 0 0) madeUpId) tyCon tyArgs
 
-    (TyApp tyCon tyArgs) -> do
+    TyApp tyCon tyArgs -> do
       tyCon' <- substTyCon tyCon
       tyArgs' <- mapM subst tyArgs
       return $ TyApp tyCon' tyArgs'
@@ -531,10 +531,15 @@ subst ty = do
       ty' <- subst ty
       return $ TyPoly tyParamIds ty'
 
-    (TyRef (Id _ id)) -> do
+    TyRef (Id _ id) -> do
       tyCon <- lookupTy id
       tyCon' <- substTyCon tyCon
       return $ TyApp tyCon' []
+
+    TyInstFun instTy funTy -> do
+      instTy' <- subst instTy
+      funTy' <- subst funTy
+      return $ TyInstFun instTy' funTy'
 
   return ty'
 
@@ -623,6 +628,11 @@ unify tya tyb = do
       tyb <- lookupTyQual qid
       unify ty $ TyApp tyb []
 
+    (TyInstFun instTyA funTyA, TyInstFun instTyB funTyB) -> do
+      instTy <- unify instTyA instTyB
+      funTy <- unify funTyA funTyB
+      return $ TyInstFun instTy funTy
+
     (ta, tb) -> unifyFail ta tb
 
   return ty
@@ -689,7 +699,8 @@ makeAdtCtor (AdtAlternative p ctorId ctorInd synTys) adtTy ctorTy argTys = do
   let paramDs = map (\(paramId, synTy, ty) -> (paramId, nodeData synTy, ty))
                     $ zip3 paramIds synTys argTys
       paramRefs = map (\(paramId, pp, pty) -> (ExpRef (OfTy pp pty) (Id (OfTy pp pty) paramId))) paramDs
-      ctorFun = ExpFun (OfTy p ctorTy) paramIds [ExpMakeAdt (OfTy p adtTy) ctorId ctorInd paramRefs]
+      argPatEs = map (\(paramId, paramTy) -> PatExpId (OfTy p paramTy) paramId) $ zip paramIds argTys
+      ctorFun = ExpFun (OfTy p ctorTy) argPatEs [ExpMakeAdt (OfTy p adtTy) ctorId ctorInd paramRefs]
   return $ ExpAssign (OfTy p tyUnit) (PatExpId (OfTy p ctorTy) ctorId) ctorFun
 
 
@@ -749,7 +760,7 @@ tcTyDec (TypeDecTy p id tyParamIds (SynTyStruct _ fields)) =
                                   (PatExpId (OfTy p getterTy) fName)
                                   (ExpFun
                                     (OfTy p getterTy)
-                                    [paramId]
+                                    [PatExpId (OfTy p adtTy) paramId]
                                     [ExpGetAdtField (OfTy p adtTy) (ExpRef (OfTy p adtTy) (Id (OfTy p adtTy) paramId)) index]))
                 (zip fieldNames fieldTys)
     return (adtTyCon, es ++ getters)
@@ -910,7 +921,16 @@ tc (ExpMemberAccess p e id) = do
       do ty <- lookupVarIn (vars mod) id `reportErrorAt` p
          ty' <- instantiate ty
          return (ty, ExpMemberAccess (OfTy p ty) e' id)
-    _ -> throwError $ ErrNotImplemented "Failed member access"
+    instTy ->
+      do curMod <- gets curModule
+         instFunTy <- lookupVarIn (vars curMod) id `reportErrorAt` p
+         instMeta <- freshMeta
+         funMeta <- freshMeta
+         unify (TyInstFun instMeta funMeta) instFunTy
+         instFunTy' <- instantiate instFunTy
+         let (TyInstFun instTy funTy) = instFunTy'
+         unify instTy eTy
+         return (funTy, ExpMemberAccess (OfTy p instFunTy') e' id)
 
 tc (ExpApp p ratorE randEs) = do
   (fty, ratorE') <- tc ratorE
@@ -955,27 +975,30 @@ tc (ExpModule p paramIds es) = do
 -- representing the return type.
 -- We also prohibit pattern-match bindings
 -- for functions here (require simple identifier patterns)
-tc (ExpAssign p patE (ExpFun funP paramIds bodyEs)) =
-  case patE of
-    PatExpId patP id -> do
-      paramMetas <- mapM (\_ -> freshMeta) paramIds
-      bodyTyMeta <- freshMeta
-      let paramsAndTys = zip paramIds paramMetas
-          fty = TyApp TyConArrow $ paramMetas ++ [bodyTyMeta]
-      oldVarEnv <- markVarEnv
-      mapM_ (uncurry bindVar) paramsAndTys
-      bindVar id fty
-      (bodyTy, bodyEs') <- tcEs bodyEs
-      unify bodyTyMeta bodyTy
-      restoreVarEnv oldVarEnv
-      fty' <- generalize fty
-      bindVar id fty'
-      patEMeta <- freshMeta
-      return (tyUnit, ExpAssign (OfTy p tyUnit)
-                                (PatExpId (OfTy patP patEMeta) id)
-                                (ExpFun (OfTy funP fty') paramIds bodyEs'))
-    _ ->
-      throwError ErrInvalidFunPattern
+tc (ExpAssign p patE (ExpFun funP paramPatEs bodyEs)) =
+    case patE of
+      PatExpId patP id -> do
+        paramMetas <- mapM (\_ -> freshMeta) paramPatEs
+        bodyTyMeta <- freshMeta
+        let paramsAndTys = zip paramIds paramMetas
+            fty = TyApp TyConArrow $ paramMetas ++ [bodyTyMeta]
+        oldVarEnv <- markVarEnv
+        mapM_ (uncurry bindVar) paramsAndTys
+        -- bindVar id fty
+        (bodyTy, bodyEs') <- tcEs bodyEs
+        unify bodyTyMeta bodyTy
+        restoreVarEnv oldVarEnv
+        fty' <- generalize fty
+        bindVar id fty'
+        patEMeta <- freshMeta
+        let paramPatEs' = map (\(paramId, paramTy) -> PatExpId (OfTy p paramTy) paramId) paramsAndTys
+        return (tyUnit, ExpAssign (OfTy p tyUnit)
+                                  (PatExpId (OfTy patP patEMeta) id)
+                                  (ExpFun (OfTy funP fty') paramPatEs' bodyEs'))
+      _ ->
+        throwError ErrInvalidFunPattern
+  where
+    paramIds = map (\(PatExpId _ id) -> id) paramPatEs
 
 tc (ExpAssign p patE rhe) = do
   oldVarEnv <- markVarEnv
@@ -1013,18 +1036,19 @@ tc (ExpList p es) = do
   let ty = TyApp TyConList [elemTy]
   return (ty, ExpList (OfTy p ty) es')
 
-tc (ExpFun p paramIds bodyEs) = do
-  paramMetas <- mapM (\_ -> freshMeta) paramIds
+tc (ExpFun p argPatEs bodyEs) = do
+  paramMetas <- mapM (\_ -> freshMeta) argPatEs
   bodyTyMeta <- freshMeta
-  let paramsAndTys = zip paramIds paramMetas
-      fty = TyApp TyConArrow $ paramMetas ++ [bodyTyMeta]
+  -- let paramsAndTys = zip paramIds paramMetas
+  let fty = TyApp TyConArrow $ paramMetas ++ [bodyTyMeta]
   oldVarEnv <- markVarEnv
-  mapM_ (uncurry bindVar) paramsAndTys
+  -- mapM_ (uncurry bindVar) paramsAndTys
+  (_, argPatEs') <- mapAndUnzipM tcPatExp argPatEs
   (bodyTy, bodyEs') <- tcEs bodyEs
   restoreVarEnv oldVarEnv
   unify bodyTyMeta bodyTy `reportErrorAt` p
   fty' <- generalize fty
-  return (fty', ExpFun (OfTy p fty') paramIds bodyEs')
+  return (fty', ExpFun (OfTy p fty') argPatEs' bodyEs')
 
 tc (ExpMakeAdt p synTy i es) = throwError $ ErrNotImplemented "tc for MakeAdt"
 
@@ -1060,10 +1084,32 @@ tc (ExpFunDef (FunDefFun p id paramPatEs bodyEs)) = do
     restoreVarEnv oldVarEnv
     fty' <- generalize fty
     bindVar id fty'
-    patEMeta <- freshMeta
     let paramPatEs' = map (\(paramId, paramTy) -> PatExpId (OfTy p paramTy) paramId) paramsAndTys
     return (tyUnit, ExpFunDef (FunDefFun (OfTy p fty') id paramPatEs' bodyEs'))
   where
+    paramIds = map (\(PatExpId _ id) -> id) paramPatEs
+
+tc (ExpFunDef (FunDefInstFun p instPatE id paramPatEs bodyEs)) = do
+    instMeta <- freshMeta
+    paramMetas <- mapM (\_ -> freshMeta) paramIds
+    bodyTyMeta <- freshMeta
+    let paramsAndTys = zip paramIds paramMetas
+        fty = TyApp TyConArrow $ paramMetas ++ [bodyTyMeta]
+    oldVarEnv <- markVarEnv
+    bindVar instId instMeta
+    mapM_ (uncurry bindVar) paramsAndTys
+    bindVar id fty
+    (bodyTy, bodyEs') <- tcEs bodyEs
+    instTy <- subst instMeta
+    unify bodyTyMeta bodyTy
+    restoreVarEnv oldVarEnv
+    fty' <- generalize fty
+    bindVar id $ TyInstFun instTy fty'
+    let instPatE' = PatExpId (OfTy (nodeData instPatE) instTy) instId
+        paramPatEs' = map (\(paramId, paramTy) -> PatExpId (OfTy p paramTy) paramId) paramsAndTys
+    return (tyUnit, ExpFunDef (FunDefFun (OfTy p fty') id (instPatE' : paramPatEs') bodyEs'))
+  where
+    (PatExpId _ instId) = instPatE
     paramIds = map (\(PatExpId _ id) -> id) paramPatEs
 
 tc (ExpWithAnn (TyAnn _ id tyParamIds synTy) e) = do

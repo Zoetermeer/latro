@@ -1137,3 +1137,13 @@
       present(m, 3);
     }
     'Bool))
+
+(test-case "it checks instance function application"
+  (check-match
+    @typecheck{
+      fun (True).isTrue() = True;
+      fun (_).isFalse() = False;
+
+      True.isFalse();
+    }
+    'Bool))

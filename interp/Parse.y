@@ -147,12 +147,20 @@ ModuleParamList : '(' ')' { [] }
                 | '(' CommaSeparatedIds ')' { $2 }
                 | {- empty -} { [] }
 
+SingleParamFunHeader : fun '(' PatExp ')' { (pos $1, $3) }
+
+MultiParamFunHeader : fun '(' PatExpList ',' PatExp ')' { (pos $1, $3 ++ [$5]) }
+
+FunHeader : SingleParamFunHeader { (fst $1, [snd $1]) }
+          | MultiParamFunHeader { $1 }
+          | fun '(' ')' { (pos $1, []) }
+
 AtomExp : '(' Exp ')' { $2 }
         | '(' ')' { ExpUnit (pos $1) }
         | '(' Exp TupleRestExps ')' { ExpTuple (pos $1) ($2:$3) }
         | ListExp { $1 }
         | QualifiedId '{' StructFieldInitializers '}' { ExpStruct (nodeData $1) (SynTyRef (nodeData $1) $1 []) $3 }
-        | fun '(' CommaSeparatedIds ')' FunBody { ExpFun (pos $1) $3 $5 }
+        | FunHeader FunBody { ExpFun (fst $1) (snd $1) $2 }
         | num { ExpNum (pos $1) (tokValue $1) }
         | True { ExpBool (pos $1) True }
         | False { ExpBool (pos $1) False }
@@ -197,6 +205,7 @@ ExpOrAssigns : ExpOrAssign ';' { [$1] }
              | ExpOrAssigns ExpOrAssign ';' { $1 ++ [$2] }
 
 FunDef : fun id '(' PatExpList ')' FunBody { FunDefFun (pos $1) (tokValue $2) $4 $6 }
+       | SingleParamFunHeader '.' id '(' PatExpList ')' FunBody { FunDefInstFun (fst $1) (snd $1) (tokValue $3) $5 $7 }
 
 FunBody : '{' ExpOrAssigns '}' { $2 }
         | '=' Exp { [$2] }

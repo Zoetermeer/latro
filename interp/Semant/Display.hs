@@ -400,6 +400,7 @@ instance Sexpable Ty where
   sexp (TyVar tyVar) = List [ Symbol "Var", sexp tyVar ]
   sexp (TyMeta id) = List [ Symbol "Meta", sexp id ]
   sexp (TyRef qid) = List [ Symbol "Ref", sexp qid ]
+  sexp (TyInstFun instTy funTy) = List [ Symbol "InstFun", sexp instTy, sexp funTy ]
 
 
 instance Sexpable TCModule where
