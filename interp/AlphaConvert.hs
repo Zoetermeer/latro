@@ -425,7 +425,7 @@ collectFunDefs _ es = ([], es)
 
 collectInstFunDefs :: RawId -> [RawAst Exp] -> ([RawAst FunDef], [RawAst Exp])
 collectInstFunDefs _ [] = ([], [])
-collectInstFunDefs id (eFunDef@(ExpFunDef funDef@(FunDefFun _ fid _ _)) : es)
+collectInstFunDefs id (eFunDef@(ExpFunDef funDef@(FunDefInstFun _ _ fid _ _)) : es)
   | id == fid =
     let (funDefs, es') = collectInstFunDefs id es
     in (funDef : funDefs, es')
