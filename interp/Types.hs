@@ -1071,10 +1071,9 @@ tc (ExpFun p argPatEs bodyEs) = do
   oldVarEnv <- markVarEnv
   (_, argPatEs') <- mapAndUnzipM tcPatExp argPatEs
   (bodyTy, bodyEs') <- tcEs bodyEs
-  restoreVarEnv oldVarEnv
   unify bodyTyMeta bodyTy `reportErrorAt` p
-  fty' <- generalize fty
-  return (fty', ExpFun (OfTy p fty') argPatEs' bodyEs')
+  restoreVarEnv oldVarEnv
+  return (fty, ExpFun (OfTy p fty) argPatEs' bodyEs')
 
 tc (ExpMakeAdt p synTy i es) = throwError $ ErrNotImplemented "tc for MakeAdt"
 
