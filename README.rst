@@ -49,7 +49,8 @@ Literal values for each of the built-in types can be written directly, e.g:
 
 Additionally, we can write string literals using the familiar double-quoted
 syntax, e.g. ``"hello world"``.  The type of a string literal is ``Char[]``
-(a list of Unicode characters).
+(a list of Unicode characters), so ``"latro"`` and
+``['l', 'a', 't', 'r', 'o']`` represent the same value.
 
 Latro also offers a seventh built-in type, ``Unit``, expressed with the 
 literal ``()``.  This type is conceptually similar to ``void`` in C-style
@@ -72,7 +73,7 @@ If we were to omit the annotation from above, like so:
   fun f(i, b) = b;
 
 Latro would infer the type of this function to be a polymorphic one returning
-its second argument: ``fun<t1, t2>(t1, t2) : t1``.
+its second argument: ``fun<t1, t2>(t1, t2) : t2``.
 
 Sometimes we may want to define *type aliases* for types to give them special 
 meaning; for example, we may want to define a name ``String`` that really
@@ -369,38 +370,40 @@ Algebraic data types
 --------------------
 
 Latro supports *algebraic data types*, also known as "sum types" or "discriminated
-unions" in functional-programming lexicon.  For example, we could define a type
-of optionals:
+unions" in functional-programming lexicon.  An ADT is a type of which values can
+take on one (and only one) of several different *alternatives*, where each alternative
+has a name and a set of values.  Latro has no concept of ``null`` or ``nil``, but we might
+use an ADT to represent a value that can be either present or absent:
 
 .. code:: ocaml
 
-  type Option<a> =
-    | Some a
-    | None
+  type Optional<a> =
+    | Present a
+    | Absent
     ;
 
 Doing so gives us constructors for each alternative we can use to build values of
-type ``Option<a>``:
+type ``Optional<a>``:
 
 .. code:: ocaml
 
-  def v = Some(42); // Option<Int>
+  def v = Present(42); // Optional<Int>
 
 We can deconstruct ADT values in any place where we can use patterns, using
 the name of a constructor:
 
 .. code:: ocaml
 
-  type Option<a> =
-    | Some a
-    | None
+  type Optional<a> =
+    | Present a
+    | Absent
     ;
   
-  fun (Some(_)).isPresent() = True;
+  fun (Present(_)).isPresent() = True;
   fun (_).isPresent() = False;
   
-  def a = Some(False);
-  def Some(x) = a;
+  def a = Present(False);
+  def Present(x) = a;
   
   or(x, a.isPresent()); // True
 
@@ -408,22 +411,22 @@ We might use this particular ADT to define some useful operations on lists:
 
 .. code:: ocaml
 
-  type Option<a> =
-    | Some a
-    | None
+  type Optional<a> =
+    | Present a
+    | Absent
     ;
   
-  fun ([]).head() = None();
-  fun (x::_).head() = Some(x);
+  fun ([]).head() = Absent();
+  fun (x::_).head() = Present(x);
   
-  fun ([]).tail() = None();
-  fun (_::xs).tail() = Some(xs);
+  fun ([]).tail() = Absent();
+  fun (_::xs).tail() = Present(xs);
   
-  [1, 2, 3].head(); // Some(1)
-  ["hello", "world"].tail(); // Some(["world"])
+  [1, 2, 3].head(); // Present(1)
+  ["hello", "world"].tail(); // Present(["world"])
   
-  "hello".head(); // Some("h")
-  "hello".tail(); // Some("ello")
+  "hello".head(); // Present("h")
+  "hello".tail(); // Present("ello")
   
 
 Structures
@@ -440,6 +443,14 @@ arbitrary number of named fields:
   };
   
   def p = Person { Name = "john"; Age = 42; };
+
+Each field defined for a struct type also gives us
+an instance function we can use as an accessor:
+
+.. code:: ocaml
+
+  p.Name(); // "john"
+
 
 Like ADT's, structure types can be polymorphic:
 
