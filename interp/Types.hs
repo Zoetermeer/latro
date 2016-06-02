@@ -353,12 +353,12 @@ tcQualId (Path p qid id) = do
          instFunTy  <- lookupVarIn (vars curMod) id `reportErrorAt` p
          instMeta   <- freshMeta
          funMeta    <- freshMeta
-         unify (TyInstFun instMeta funMeta) instFunTy
          instFunTy' <- instantiate instFunTy
-         let (TyInstFun instTy funTy) = instFunTy'
-         unify instTy innerTy
+         instFunTy'' <- unify (TyInstFun innerTy funMeta) instFunTy'
+         let (TyInstFun instTy funTy) = instFunTy''
+         funTy' <- subst funTy
          restoreMetaEnv metaEnv
-         return (Path (OfTy p instFunTy') qid' id, funTy)
+         return (Path (OfTy p instFunTy'') qid' id, funTy')
 
 
 lookupTyQual :: UniqAst QualifiedId -> Checked TyCon
@@ -427,12 +427,16 @@ allMetaIdsInTyCon _ = []
 
 
 allMetaIdsIn :: Ty -> [UniqId]
-allMetaIdsIn (TyApp tyCon tyArgs) =
-  allMetaIdsInTyCon tyCon ++ concat (map allMetaIdsIn tyArgs)
-
-allMetaIdsIn (TyPoly _ ty) = allMetaIdsIn ty
-allMetaIdsIn (TyMeta id) = [id]
-allMetaIdsIn _ = []
+allMetaIdsIn ty =
+  case ty of
+    TyApp tyCon tyArgs ->
+      allMetaIdsInTyCon tyCon ++ concat (map allMetaIdsIn tyArgs)
+    TyPoly _ ty -> allMetaIdsIn ty
+    TyVar _ -> []
+    TyMeta id -> [id]
+    TyRef _ -> []
+    TyInstFun instTy funTy ->
+      (allMetaIdsIn instTy) ++ (allMetaIdsIn funTy)
 
 
 referencedMetaIds :: UniqId -> Checked [UniqId]
@@ -488,6 +492,8 @@ trimUnusedPolyParams (TyPoly tyParamIds ty) =
         TyPoly _ ty -> allTyVarIds ty
         TyVar id -> [id]
         TyMeta id -> []
+        TyRef _ -> []
+        TyInstFun instTy funTy -> (allTyVarIds instTy) ++ (allTyVarIds funTy)
     paramIdSet = Set.fromList tyParamIds
     usedParamIdSet = Set.fromList $ allTyVarIds ty
     tyParamIds' = Set.toList $ Set.intersection paramIdSet usedParamIdSet
@@ -962,14 +968,13 @@ tc (ExpMemberAccess p e id) = do
       do curMod <- gets curModule
          metaEnv <- markMetaEnv
          instFunTy <- lookupVarIn (vars curMod) id `reportErrorAt` p
-         instMeta <- freshMeta
-         funMeta <- freshMeta
-         unify (TyInstFun instMeta funMeta) instFunTy
          instFunTy' <- instantiate instFunTy
-         let (TyInstFun instTy funTy) = instFunTy'
-         unify instTy eTy
+         funMeta <- freshMeta
+         instFunTy'' <- unify instFunTy' (TyInstFun instTy funMeta)
+         let (TyInstFun instTy funTy) = instFunTy''
+         funTy' <- subst funTy
          restoreMetaEnv metaEnv
-         return (funTy, ExpMemberAccess (OfTy p instFunTy') e' id)
+         return (funTy', ExpMemberAccess (OfTy p instFunTy') e' id)
 
 tc (ExpApp p ratorE randEs) = do
   (fty, ratorE') <- tc ratorE
@@ -1142,9 +1147,11 @@ tc (ExpFunDef (FunDefInstFun p instPatE id paramPatEs bodyEs)) = do
     instTy <- subst instMeta
     unify bodyTyMeta bodyTy
     restoreVarEnv oldVarEnv
-    fty' <- generalize fty
-    let instFunTy = TyInstFun instTy fty'
+    -- fty' <- generalize fty
+    -- let instFunTy = TyInstFun instTy fty
+    instFunTy <- generalize $ TyInstFun instTy fty
     bindVar id instFunTy
+    fty' <- generalize fty
     let instPatE' = PatExpId (OfTy (nodeData instPatE) instTy) instId
         paramPatEs' = map (\(paramId, paramTy) -> PatExpId (OfTy p paramTy) paramId) paramsAndTys
     return (tyUnit, ExpFunDef (FunDefFun (OfTy p fty') id (instPatE' : paramPatEs') bodyEs'))
