@@ -2,17 +2,16 @@ module Main where
 
 import AlphaConvert
 import Common
+import Control.Monad
 import Data.Functor.Identity (runIdentity)
 import Errors
 import Errors.Display
-import Language.Sexp
 import Parse (parseExp)
 import qualified Interp
 import Semant
 import Semant.Display
 import Sexpable
 import System.Environment (getArgs)
-import Test.Hspec
 import Text.Printf (printf)
 import qualified Types as T
 
@@ -31,15 +30,28 @@ data CommandResult a =
   | DumpOutput Sexpable.Sexp
   | Error Err
 
+
+instance Functor CommandResult where
+  fmap = liftM
+
+
+instance Applicative CommandResult where
+  pure v = Success v
+
+  (<*>) = ap
+
+  DumpOutput sexp *> _ = DumpOutput sexp
+  _ *> b = b
+
+
 instance Monad CommandResult where
   Success v >>= f = f v
   DumpOutput sexp >>= _ = DumpOutput sexp
   Error err >>= _ = Error err
 
-  DumpOutput sexp >> _ = DumpOutput sexp
-  _ >> b = b
+  (>>) = (*>)
 
-  return v = Success v
+  return = pure
 
 
 data Command a = Command UserSwitch (a -> Sexpable.Sexp) (Either Err a)
