@@ -14,6 +14,26 @@ build/package ecosystem.
 .. contents::
 
 
+What it isn't
+=============
+
+Every language has things that make it great, and also things that
+make it not so great; while I don't like to explain Latro by way of
+criticizing other languages far more powerful and well-established,
+I think it's important to be clear about what this project aims
+*not* to be.
+
+  - A Haskell or ML clone, although it borrows heavily from those
+    languages in some cases
+  - A kitchen-sink language with every possible feature
+  - A "multi-paradigm" language that gives you too many ways of
+    doing the same thing, but combines them in an incomprehensible
+    semantics
+  - A language that pushes the envelope on what is possible with
+    type-level programming.  Languages like Idris, Coq, and Agda
+    can do amazing things, but Latro prefers only features both
+    tractable and useful in a broad range of circumstances.
+
 Quick language guide
 ====================
 
@@ -600,8 +620,8 @@ All of the examples work on the latest version of Latro at HEAD.
 .. _Basic string-utilities module implementation: https://github.com/Zoetermeer/L/blob/master/examples/string/string.l
 
 
-Building/running the interpreter
-================================
+Using the interpreter
+=====================
 
 Latro is a language still in the experimental/pre-alpha stage, and both
 syntax and semantics are rapidly evolving.  You can use the prototype
@@ -612,7 +632,23 @@ The interpreter is implemented in Haskell and can be built using any
 modern compiler for that language (GHC, for example).  All code for the
 interpreter is in the ``interp`` directory.
 
-Running the interpreter:
+Building
+--------
+
+The code in ``interp`` started as a toy interpreter intended for
+playing with semantics, but large parts of it will end up composing
+the front end for the Latro compiler.  The Cabal/Stack plumbing for it
+isn't there yet; I build it with:
+
+::
+
+  $> ghc -o latro Main.hs
+
+Running
+-------
+
+There is no REPL as of yet; the interpreter only operates on
+source files.
 
 ::
 
@@ -627,6 +663,9 @@ Switches:
 -a                    Don't evaluate, just dump an alpha-converted syntax tree.
 -t                    Don't evaluate, just dump a type-annotated syntax tree.
 -tc                   Don't evaluate, just display the type of the last expression in the executed module.
+
+All output is printed in the form of S-expressions, which makes automated
+testing (and debugging) easier (see next section).
 
 Running the tests
 =================
@@ -684,7 +723,7 @@ non-trivial enhancements planned for the language:
 Contributing
 ============
 
-At this early stage, I am not currently accepting pull requests.  However, I would love to garner
+At this early stage, I am unlikely to accept a pull request.  However, I would love to garner
 feedback on the language model and design -- so please feel free to open an issue or send me a note
 on what you think!
 
