@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 module Types where
 
 import AlphaConvert
@@ -14,6 +15,8 @@ import qualified Data.Set as Set
 import Debug.Trace (trace, traceM, traceShowId, traceShowM)
 import Errors
 import Semant
+import Semant.Display
+import Sexpable (showSexp)
 import Text.Printf (printf)
 
 
@@ -344,6 +347,18 @@ tcQualId (Path p qid id) = do
       do fIndex <- hoistEither $ maybeToEither (ErrUndefinedMember p id) $ elemIndex id fieldNames
          let ty = fTys !! fIndex
          return (Path (OfTy p ty) qid' id, ty)
+    _ ->
+      do curMod     <- gets curModule
+         metaEnv    <- markMetaEnv
+         instFunTy  <- lookupVarIn (vars curMod) id `reportErrorAt` p
+         instMeta   <- freshMeta
+         funMeta    <- freshMeta
+         unify (TyInstFun instMeta funMeta) instFunTy
+         instFunTy' <- instantiate instFunTy
+         let (TyInstFun instTy funTy) = instFunTy'
+         unify instTy innerTy
+         restoreMetaEnv metaEnv
+         return (Path (OfTy p instFunTy') qid' id, funTy)
 
 
 lookupTyQual :: UniqAst QualifiedId -> Checked TyCon
@@ -359,7 +374,26 @@ lookupVar :: UniqId -> Checked Ty
 lookupVar id = envLookupOrFail varEnv id
 
 
+occursInTyCon :: Ty -> TyCon -> Bool
+occursInTyCon tyMeta@(TyMeta metaId) tyCon =
+  case tyCon of
+    TyConTyFun _ ty -> occursIn tyMeta ty
+    TyConUnique _ tyCon -> occursInTyCon tyMeta tyCon
+    _ -> False
+
 occursIn :: Ty -> Ty -> Bool
+occursIn tyMeta@(TyMeta metaId) ty =
+  case ty of
+    TyApp tyCon argTys ->
+      (occursInTyCon tyMeta tyCon) || (any (\ty -> occursIn tyMeta ty) argTys)
+    TyPoly _ ty -> occursIn tyMeta ty
+    TyVar _ -> False
+    TyMeta otherMetaId -> metaId == otherMetaId
+    TyRef _ -> False
+    TyInstFun instTy funTy ->
+      (occursIn tyMeta instTy) || (occursIn tyMeta funTy)
+
+
 occursIn _ _ = False
 
 
@@ -463,6 +497,7 @@ trimUnusedPolyParams ty = return ty
 
 generalize :: Ty -> Checked Ty
 generalize ty = do
+  -- traceM $ printf "Generalizing %s" $ showSexp ty
   ty' <- subst ty
   frees <- freeMetas ty'
   tyParamIds <- mapM (\_ -> freshId) frees
@@ -497,6 +532,7 @@ substTyCon tyCon = return tyCon
 
 subst :: Ty -> Checked Ty
 subst ty = do
+  -- traceM $ printf "Substing %s" $ showSexp ty
   ty' <- case ty of
     meta@(TyMeta id) -> do
       maybeTy <- lookupMeta id
@@ -557,6 +593,7 @@ unifyFail a b = do
 
 unify :: Ty -> Ty -> Checked Ty
 unify tya tyb = do
+  -- traceM $ printf "Unifying %s --> %s" (showSexp tya) (showSexp tyb)
   oldPolyEnv <- markPolyEnv
   oldMetaEnv <- markMetaEnv
   ty <- case (tya, tyb) of
@@ -605,7 +642,7 @@ unify tya tyb = do
                                 return ty
             _ ->
               if meta `occursIn` ty
-              then throwError $ ErrCircularType ty
+              then throwError $ ErrCircularType meta ty
               else do
                 bindMeta metaId ty
                 return ty
@@ -1100,13 +1137,14 @@ tc (ExpFunDef (FunDefInstFun p instPatE id paramPatEs bodyEs)) = do
     oldVarEnv <- markVarEnv
     bindVar instId instMeta
     mapM_ (uncurry bindVar) paramsAndTys
-    bindVar id fty
+    bindVar id $ TyInstFun instMeta fty
     (bodyTy, bodyEs') <- tcEs bodyEs
     instTy <- subst instMeta
     unify bodyTyMeta bodyTy
     restoreVarEnv oldVarEnv
     fty' <- generalize fty
-    bindVar id $ TyInstFun instTy fty'
+    let instFunTy = TyInstFun instTy fty'
+    bindVar id instFunTy
     let instPatE' = PatExpId (OfTy (nodeData instPatE) instTy) instId
         paramPatEs' = map (\(paramId, paramTy) -> PatExpId (OfTy p paramTy) paramId) paramsAndTys
     return (tyUnit, ExpFunDef (FunDefFun (OfTy p fty') id (instPatE' : paramPatEs') bodyEs'))

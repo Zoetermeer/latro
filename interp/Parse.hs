@@ -7,8 +7,9 @@ import Errors
 import Lex
 import Semant
 import Control.Applicative(Applicative(..))
+import Control.Monad (ap)
 
--- parser produced by Happy Version 1.19.4
+-- parser produced by Happy Version 1.19.5
 
 data HappyAbsSyn t4 t5 t6 t7 t8 t9 t10 t11 t12 t13 t14 t15 t16 t17 t18 t19 t20 t21 t22 t23 t24 t25 t26 t27 t28 t29 t30 t31 t32 t33 t34 t35 t36 t37 t38 t39 t40 t41 t42 t43 t44 t45 t46 t47 t48 t49 t50 t51 t52 t53 t54 t55 t56 t57 t58 t59 t60 t61 t62 t63 t64 t65 t66 t67 t68
 	= HappyTerminal (Token)
@@ -3833,9 +3834,37 @@ happyError (Token (SourcePos _ line col) t) =
 parseExp :: FilePath -> String -> Either Err (CompUnit SourcePos RawId)
 parseExp filePath input = first (\errMsg -> ErrSyntax errMsg) $ runAlex' parse filePath input
 {-# LINE 1 "templates/GenericTemplate.hs" #-}
+{-# LINE 1 "templates/GenericTemplate.hs" #-}
+{-# LINE 1 "<built-in>" #-}
+{-# LINE 16 "<built-in>" #-}
+{-# LINE 1 "/Applications/ghc-7.10.3.app/Contents/lib/ghc-7.10.3/include/ghcversion.h" #-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+{-# LINE 17 "<built-in>" #-}
+{-# LINE 1 "templates/GenericTemplate.hs" #-}
 -- Id: GenericTemplate.hs,v 1.26 2005/01/14 14:47:22 simonmar Exp 
 
 
+{-# LINE 13 "templates/GenericTemplate.hs" #-}
+
+
+{-# LINE 46 "templates/GenericTemplate.hs" #-}
 
 
 
@@ -3845,10 +3874,10 @@ parseExp filePath input = first (\errMsg -> ErrSyntax errMsg) $ runAlex' parse f
 
 
 
+{-# LINE 67 "templates/GenericTemplate.hs" #-}
 
 
-
-
+{-# LINE 77 "templates/GenericTemplate.hs" #-}
 
 
 
@@ -3882,6 +3911,7 @@ happyAccept j tk st sts (HappyStk ans _) =
 -- Arrays only: do the next action
 
 
+{-# LINE 155 "templates/GenericTemplate.hs" #-}
 
 -----------------------------------------------------------------------------
 -- HappyState data type (not arrays)

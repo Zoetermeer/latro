@@ -241,6 +241,14 @@ instance (Sexpable a, Sexpable id) => Sexpable (Exp a id) where
           , toSexpList argPatEs
           , toSexpList bodyEs
           ]
+  sexp (ExpFunDef (FunDefInstFun d instPatE id argPatEs bodyEs)) =
+    List  [ Symbol "ExpFunDefInst"
+          , sexp d
+          , sexp instPatE
+          , sexp id
+          , toSexpList argPatEs
+          , toSexpList bodyEs
+          ]
   sexp (ExpFunDefClauses d id funDefs) =
     List  [ Symbol "ExpFunDefClauses"
           , sexp d

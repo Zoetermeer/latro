@@ -33,7 +33,7 @@ data Err =
   | ErrNoModuleDefInModuleDec UniqId
   | ErrMultipleDefsInSimpleAnnDec UniqId
   | ErrNoBindingAfterTyAnn RawId
-  | ErrCircularType Ty
+  | ErrCircularType Ty Ty
   | ErrPartialTyConApp (QualifiedId SourcePos UniqId) TyCon [Ty]
   | ErrInvalidModulePath (QualifiedId SourcePos UniqId)
   | ErrInferenceFail (Map.Map UniqId Ty) Ty Ty

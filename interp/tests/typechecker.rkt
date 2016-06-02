@@ -1158,12 +1158,59 @@
     }
     '(App Tuple (Bool Bool Bool))))
 
-(test-case "it rejects instance function application on incorrect instance types"
+(test-case "it does not allow instance functions to be applied like regular ones"
   (check-match
     @typecheck{
       fun ([]).isEmpty() = True;
       fun (x::xs).isEmpty() = False;
 
+      isEmpty();
+    }
+    `(AtPos
+       ,_
+       (CompilerModule Types)
+       (CantUnify
+         (Expected (InstFun (App List ((Meta ,_))) (App Arrow (Bool))))
+         (Got (App Arrow ,_))))))
+
+(test-case "it rejects instance function application on incorrect instance types"
+  (check-match
+    @typecheck{
+      fun ([]).isEmpty() = True;
+      fun (_::_).isEmpty() = False;
+
       23.isEmpty();
     }
     `(CantUnify (Expected (App List ,_)) (Got Int))))
+
+(test-case "it checks recursive instance functions"
+  (check-equal?
+    @typecheck{
+      fun ([]).len() = 0;
+      fun (x::xs).len() = 1 + xs.len();
+
+      [1, 2, 3].len();
+    }
+    'Int))
+
+(test-case "it rejects ill-typed recursive instance function applications"
+  (check-match
+    @typecheck{
+      fun ([]).len() = 0;
+      fun (x::xs).len() = 1 + x.len();
+
+      [1, 2, 3].len();
+    }
+    `(AtPos
+       (SourcePos ,_ 2 ,_)
+       (CompilerModule Types)
+       (CircularType (Meta ,metaId) (App List ((Meta ,metaId)))))))
+
+(test-case "it checks polymorphic instance functions"
+  (check-equal?
+    @typecheck{
+      fun (x).id() = x;
+      def v = False;
+      (42.id(), v.id());
+    }
+    '(App Tuple (Int Bool))))

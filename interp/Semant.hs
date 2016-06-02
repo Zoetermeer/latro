@@ -160,6 +160,7 @@ instance AstNode Exp where
       ExpTyAnn (TyAnn d _ _ _) -> d
       ExpWithAnn _ e -> nodeData e
       ExpFunDef (FunDefFun d _ _ _) -> d
+      ExpFunDef (FunDefInstFun d _ _ _ _) -> d
       ExpInterfaceDec d _ _ _ -> d
       ExpModule d _ _ -> d
       ExpStruct d _ _ -> d

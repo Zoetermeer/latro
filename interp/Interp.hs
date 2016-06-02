@@ -1,4 +1,4 @@
-{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE FlexibleContexts, NamedFieldPuns #-}
 module Interp where
 
 import AlphaConvert hiding (lookup)

@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 module Common where
 
 import Control.Monad.Except

@@ -126,6 +126,12 @@ instance Sexpable Err where
           , sexp id
           ]
 
+  sexp (ErrCircularType tya tyb) =
+    List  [ Symbol "CircularType"
+          , sexp tya
+          , sexp tyb
+          ]
+
   sexp (ErrPartialTyConApp id tyCon tyArgs) =
     List  [ Symbol "PartialTyConApp"
           , sexp id
