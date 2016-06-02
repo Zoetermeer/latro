@@ -1005,20 +1005,6 @@ tc (ExpModule p paramIds es) = do
                 _ -> TyPoly paramIds tyApp
   return (tyApp', ExpModule (OfTy p tyApp') paramIds es')
 
--- If the right-hand side is a function,
--- we must bind the name before typechecking
--- the right-hand side (otherwise recursive
--- applications will fail)
--- We do this by binding the name in the
--- var environment to the type:
---
--- App(Arrow, [meta1, ..., metaN])
---
--- Where meta1 ... meta(N-1) are (fresh) metavariables
--- for parameters, and metaN is a fresh metavariable
--- representing the return type.
--- We also prohibit pattern-match bindings
--- for functions here (require simple identifier patterns)
 tc (ExpAssign p patE (ExpFun funP paramPatEs bodyEs)) =
     case patE of
       PatExpId patP id -> do
@@ -1028,7 +1014,6 @@ tc (ExpAssign p patE (ExpFun funP paramPatEs bodyEs)) =
             fty = TyApp TyConArrow $ paramMetas ++ [bodyTyMeta]
         oldVarEnv <- markVarEnv
         mapM_ (uncurry bindVar) paramsAndTys
-        -- bindVar id fty
         (bodyTy, bodyEs') <- tcEs bodyEs
         unify bodyTyMeta bodyTy
         restoreVarEnv oldVarEnv
@@ -1049,7 +1034,6 @@ tc (ExpAssign p patE rhe) = do
   (rheTy, rhe') <- tc rhe
   (patTy, patE') <- tcPatExp patE
   unify patTy rheTy `reportErrorAt` p
-  -- restoreVarEnv oldVarEnv
   rheTy' <- generalize rheTy
   addBindingsForPat patE rheTy'
   return (tyUnit, ExpAssign (OfTy p tyUnit) patE' rhe')
@@ -1083,10 +1067,8 @@ tc (ExpList p es) = do
 tc (ExpFun p argPatEs bodyEs) = do
   paramMetas <- mapM (\_ -> freshMeta) argPatEs
   bodyTyMeta <- freshMeta
-  -- let paramsAndTys = zip paramIds paramMetas
   let fty = TyApp TyConArrow $ paramMetas ++ [bodyTyMeta]
   oldVarEnv <- markVarEnv
-  -- mapM_ (uncurry bindVar) paramsAndTys
   (_, argPatEs') <- mapAndUnzipM tcPatExp argPatEs
   (bodyTy, bodyEs') <- tcEs bodyEs
   restoreVarEnv oldVarEnv
@@ -1115,6 +1097,19 @@ tc (ExpTypeDec p tyDec) =
     exportTy id tycon
     return (tyUnit, ExpBegin (OfTy p tyUnit) es)
 
+-- We must bind the name before typechecking
+-- the right-hand side (otherwise recursive
+-- applications will fail)
+-- We do this by binding the name in the
+-- var environment to the type:
+--
+-- App(Arrow, [meta1, ..., metaN])
+--
+-- Where meta1 ... meta(N-1) are (fresh) metavariables
+-- for parameters, and metaN is a fresh metavariable
+-- representing the return type.
+-- We also prohibit pattern-match bindings
+-- for functions here (require simple identifier patterns)
 tc (ExpFunDef (FunDefFun p id paramPatEs bodyEs)) = do
     paramMetas <- mapM (\_ -> freshMeta) paramIds
     bodyTyMeta <- freshMeta
@@ -1147,8 +1142,6 @@ tc (ExpFunDef (FunDefInstFun p instPatE id paramPatEs bodyEs)) = do
     instTy <- subst instMeta
     unify bodyTyMeta bodyTy
     restoreVarEnv oldVarEnv
-    -- fty' <- generalize fty
-    -- let instFunTy = TyInstFun instTy fty
     instFunTy <- generalize $ TyInstFun instTy fty
     bindVar id instFunTy
     fty' <- generalize fty
