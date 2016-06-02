@@ -5,6 +5,7 @@
 /interp/lex
 /interp/parse
 /interp/interp
+/interp/latro
 /interp/main
 /interp/Scratch.l
 /interp/test.spar

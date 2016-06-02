@@ -1,9 +1,12 @@
 #lang racket
-(provide interp
+(provide compile!
+         interp
          parse-tree
          alpha-convert
          typecheck
          show-typed-ast)
+
+(define interpreter "latro")
 
 (define (needs-recompile? file depends-on-file)
   (> (file-or-directory-modify-seconds depends-on-file)
@@ -25,7 +28,7 @@
     (when (needs-recompile? parser-module parser-file)
       (system (format "happy ~a" parser-file)))
 
-    (system (format "ghc -o interp ~a" main-module))))
+    (system (format "ghc -o ~a ~a" interpreter main-module))))
 
 (compile!)
 
@@ -39,7 +42,7 @@
       #:exists 'truncate/replace)
     (with-output-to-string
       (λ ()
-        (system (format "./interp ~a ./test.spar" (string-join opts)))))))
+        (system (format "./~a ~a ./test.spar" interpreter (string-join opts)))))))
 
 (define (strip-quotation-marks s) s)
 
