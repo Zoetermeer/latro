@@ -5,14 +5,19 @@ import Control.Monad.Except
 import Data.List
 import Data.Monoid
 import Errors
+import Semant (SourcePos(..))
 
 
 type FailMessage = String
 
+errWithSourcePos :: Err -> String -> SourcePos -> Err
+errWithSourcePos err@(ErrAtPos _ _ _) _ _ = err
+errWithSourcePos err moduleName srcPos = ErrAtPos srcPos moduleName err
+
 -- This annotation is correct but not allowed without FlexibleContexts
 -- reportPosOnFail :: MonadError Err m => m a -> SourcePos -> m a
 reportPosOnFail a moduleName p = do
-  a `catchError` (\err -> throwError $ ErrAtPos p moduleName err)
+  a `catchError` (\err -> throwError $ errWithSourcePos err moduleName p)
 
 withFailPos p moduleName a = reportPosOnFail a moduleName p
 

@@ -1169,9 +1169,17 @@
     `(AtPos
        ,_
        (CompilerModule Types)
-       (CantUnify
-         (Expected (InstFun (App List ((Meta ,_))) (App Arrow (Bool))))
-         (Got (App Arrow ,_))))))
+       (WrongArity ,_ (ExpectedArity 1) (ArgLen 0)))))
+
+(test-case "it checks application of generated instance function lambdas"
+  (check-equal?
+    @typecheck{
+      fun ([]).isEmpty() = True;
+      fun (x::xs).isEmpty() = False;
+
+      isEmpty([])();
+    }
+    'Bool))
 
 (test-case "it rejects instance function application on incorrect instance types"
   (check-match
@@ -1181,7 +1189,7 @@
 
       23.isEmpty();
     }
-    `(CantUnify (Expected (App List ,_)) (Got Int))))
+    `(AtPos (SourcePos ,_ 4 ,_) (CompilerModule Types) (CantUnify (Expected (App List ,_)) (Got Int)))))
 
 (test-case "it checks recursive instance functions"
   (check-equal?
