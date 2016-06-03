@@ -1,4 +1,4 @@
-.. image:: ./latro.png
+.. image:: ./logo.jpg
 
 :Author: James Swaine <james.swaine@gmail.com>
 
