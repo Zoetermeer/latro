@@ -3,14 +3,15 @@ type Maybe<a> =
   | Nothing
   ;
 
-bind<a, b> => fun(Maybe<a>, fun(a) : Maybe<b>) : Maybe<b>;
-fun bind(Nothing(), _) = Nothing();
-fun bind(Just(x), f) = f(x);
+bind<a, b> => fun(Maybe<a>)(fun(a) : Maybe<b>) : Maybe<b>;
+fun (Just(x)).bind(f) = f(x);
+fun (_).bind(_) = Nothing();
 
 fun return(x) = Just(x);
 
 def simulatedInput1 = Just("james");
 def simulatedInput2 = Just("swaine");
 
-
-bind(simulatedInput1, fun(s) = Just(s));
+simulatedInput1.bind(fun(s) {
+  simulatedInput2.bind(return);
+}
