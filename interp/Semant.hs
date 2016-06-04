@@ -136,11 +136,18 @@ data Exp a id =
   | ExpBool a Bool
   | ExpString a String
   | ExpChar a String
-  | ExpRef a (QualifiedId a id)
+  -- | ExpRef a (QualifiedId a id)
+  | ExpRef a id
   | ExpUnit a
   | ExpBegin a [Exp a id]
   | ExpFail a String
   deriving (Eq, Show)
+
+
+qualIdToMemberAcc :: QualifiedId a id -> Exp a id
+qualIdToMemberAcc (Id d id) = ExpRef d id
+qualIdToMemberAcc (Path d qid id) =
+  ExpMemberAccess d (qualIdToMemberAcc qid) id
 
 
 instance AstNode Exp where

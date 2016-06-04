@@ -173,7 +173,7 @@
 
       M.foo + M.bar;
     }
-    `(AtPos (SourcePos ,_ 7 ,_) (CompilerModule Types) (UnboundUniqIdentifier (Id foo ,_)))))
+    `(AtPos (SourcePos ,_ 7 ,_) (CompilerModule Types) (UnboundUniqIdentifier foo))))
 
 (test-case "it can resolve pattern names in the module closure"
   (check-equal?

@@ -229,7 +229,7 @@ desugarFunDefs fid funDefs =
       [len] -> do
         paramIds <- mapM (\_ -> freshM "arg") $ replicate len ()
         cases <- mapM funDefToCaseClause funDefs
-        let paramRefs = map (\paramId -> ExpRef startP (Id startP paramId)) paramIds
+        let paramRefs = map (ExpRef startP) paramIds
             paramPats = map (PatExpId startP) paramIds
         case headFunDef of
           FunDefFun _ _ argPatEs bodyEs ->
@@ -238,7 +238,7 @@ desugarFunDefs fid funDefs =
               return (FunDefFun startP fid paramPats [ExpSwitch startP argsTup cases], paramIds)
           FunDefInstFun _ instPatE _ argPatEs bodyEs ->
             do instId <- freshM "this"
-               let instRef = ExpRef startP (Id startP instId)
+               let instRef = ExpRef startP instId
                    argsTup = ExpTuple startP (instRef : paramRefs)
                return (FunDefInstFun startP (PatExpId startP instId) fid paramPats [ExpSwitch startP argsTup cases], paramIds)
       _ ->
@@ -407,9 +407,9 @@ convert (ExpString p s) = return $ ExpString p s
 convert (ExpChar p s) = return $ ExpChar p s
 convert (ExpUnit p) = return $ ExpUnit p
 convert (ExpFail p msg) = return $ ExpFail p msg
-convert (ExpRef p qid) = do
-  qid' <- convertQualId qid
-  return $ ExpRef p qid'
+convert (ExpRef p id) = do
+  id' <- lookup id
+  return $ ExpRef p id'
 
 
 collectFunDefs :: RawId -> [RawAst Exp] -> ([RawAst FunDef], [RawAst Exp])

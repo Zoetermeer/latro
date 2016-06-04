@@ -348,8 +348,7 @@ tcQualId (Path p qid id) = do
          let ty = fTys !! fIndex
          return (Path (OfTy p ty) qid' id, ty)
     _ ->
-      do (ty, _) <- tc $ ExpApp p (ExpRef p (Id p id)) [ExpRef p qid]
-         return (Path (OfTy p ty) qid' id, ty)
+      throwError (ErrInvalidModulePath qid) `reportErrorAt` p
 
 
 lookupTyQual :: UniqAst QualifiedId -> Checked TyCon
@@ -732,7 +731,7 @@ makeAdtCtor (AdtAlternative p ctorId ctorInd synTys) adtTy ctorTy argTys = do
   paramIds <- mapM (\_ -> freshId) synTys
   let paramDs = map (\(paramId, synTy, ty) -> (paramId, nodeData synTy, ty))
                     $ zip3 paramIds synTys argTys
-      paramRefs = map (\(paramId, pp, pty) -> (ExpRef (OfTy pp pty) (Id (OfTy pp pty) paramId))) paramDs
+      paramRefs = map (\(paramId, pp, pty) -> (ExpRef (OfTy pp pty) paramId)) paramDs
       argPatEs = map (\(paramId, paramTy) -> PatExpId (OfTy p paramTy) paramId) $ zip paramIds argTys
       ctorFun = ExpFun (OfTy p ctorTy) argPatEs [ExpMakeAdt (OfTy p adtTy) ctorId ctorInd paramRefs]
   return $ ExpAssign (OfTy p tyUnit) (PatExpId (OfTy p ctorTy) ctorId) ctorFun
@@ -795,7 +794,7 @@ tcTyDec (TypeDecTy p id tyParamIds (SynTyStruct _ fields)) =
                                   (ExpFun
                                     (OfTy p getterTy)
                                     [PatExpId (OfTy p adtTy) paramId]
-                                    [ExpGetAdtField (OfTy p adtTy) (ExpRef (OfTy p adtTy) (Id (OfTy p adtTy) paramId)) index]))
+                                    [ExpGetAdtField (OfTy p adtTy) (ExpRef (OfTy p adtTy) paramId) index]))
                 (zip fieldNames fieldTys)
     return (adtTyCon, es ++ getters)
 
@@ -917,10 +916,11 @@ tc (ExpFail p msg) = do
   ty <- freshMeta
   return (ty, ExpFail (OfTy p ty) msg)
 
-tc (ExpRef p qid) = do
-  (qid', ty) <- tcQualId qid `reportErrorAt` p
+tc (ExpRef p id) = do
+  -- traceM $ printf "tc ExpRef %s" $ show id
+  ty <- lookupVar id `reportErrorAt` p
   ty' <- instantiate ty
-  return (ty', ExpRef (OfTy p ty') qid')
+  return (ty', ExpRef (OfTy p ty') id)
 
 tc (ExpString p s) = return (tyStr, ExpString (OfTy p tyStr) s)
 tc (ExpChar p s) = return (tyChar, ExpChar (OfTy p tyChar) s)
@@ -949,14 +949,15 @@ tc (ExpNot p e) = do
   return (tyBool, ExpNot (OfTy p tyBool) e')
 
 tc (ExpMemberAccess p e id) = do
+  -- traceM $ printf "tc ExpMemberAccess %s %s" (show e) (show id)
   (eTy, e') <- tc e
   case eTy of
     TyApp (TyConModule _ mod) [] ->
       do ty <- lookupVarIn (vars mod) id `reportErrorAt` p
          ty' <- instantiate ty
-         return (ty, ExpMemberAccess (OfTy p ty) e' id)
+         return (ty', ExpMemberAccess (OfTy p ty) e' id)
     _ ->
-      tc $ ExpApp p (ExpRef p (Id p id)) [e]
+      tc $ ExpApp p (ExpRef p id) [e]
 
 tc (ExpApp p ratorE randEs) = do
   (fty, ratorE') <- tc ratorE
@@ -1068,8 +1069,9 @@ tc (ExpStruct p strSynTy@(SynTyRef pSty qid _) fieldInitEs) = do
                     fieldInitEs
   let initEs = (snd . unzip) sorted
   (qid', ctorTy) <- tcQualId qid `reportErrorAt` (nodeData qid)
+  let eMemberAccess = qualIdToMemberAcc qid'
   (_, initEs') <- tcEs initEs
-  return (ty, ExpApp (OfTy p ty) (ExpRef (OfTy p ctorTy) qid') initEs')
+  return (ty, ExpApp (OfTy p ty) eMemberAccess initEs')
 
 tc (ExpTypeDec p tyDec) =
   let id = getTypeDecId tyDec

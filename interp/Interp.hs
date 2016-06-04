@@ -291,8 +291,8 @@ evalE (ExpAssign _ patE e) = do
   evalPatExp patE v
   return ValueUnit
 
-evalE (ExpRef (OfTy p _) qid) = do
-  v <- lookupVarQual qid `reportErrorAt` p
+evalE (ExpRef (OfTy p _) id) = do
+  v <- lookupVarId id `reportErrorAt` p
   return v
 
 evalE (ExpUnit _) = return ValueUnit

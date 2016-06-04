@@ -3,7 +3,7 @@ type Maybe<a> =
   | Nothing
   ;
 
-bind<a, b> => fun(Maybe<a>)(fun(a) : Maybe<b>) : Maybe<b>;
+//bind<a, b> => fun(Maybe<a>)(fun(a) : Maybe<b>) : Maybe<b>;
 fun (Just(x)).bind(f) = f(x);
 fun (_).bind(_) = Nothing();
 
@@ -14,4 +14,4 @@ def simulatedInput2 = Just("swaine");
 
 simulatedInput1.bind(fun(s) {
   simulatedInput2.bind(return);
-}
+});

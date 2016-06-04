@@ -415,7 +415,7 @@
 
       m.n.f();
     }
-    `(AtPos ,_ (CompilerModule Types) (UnboundUniqIdentifier (Id f ,_)))))
+    `(AtPos ,_ (CompilerModule Types) (UnboundUniqIdentifier f))))
 
 (test-case "it evaluates recursive functions"
   (check-equal?
