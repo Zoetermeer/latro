@@ -958,3 +958,23 @@
       len("hello");
     }
     5))
+
+(test-case "it evaluates instance function applications"
+  (check-equal?
+    @interp{
+      fun (True).isTrue() = True;
+      fun (_).isFalse() = False;
+
+      True.isFalse();
+    }
+    'False))
+
+(test-case "it evaluates recursive instance functions"
+  (check-equal?
+    @interp{
+      fun ([]).len() = 0;
+      fun (x::xs).len() = 1 + xs.len();
+
+      [1, 2, 3].len();
+    }
+    3))
