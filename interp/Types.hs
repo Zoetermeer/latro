@@ -20,10 +20,7 @@ import Sexpable (showSexp)
 import Text.Printf (printf)
 
 
-reportErrorAt a p =
-  reportPosOnFail a "Types" p
-
-
+reportErrorAt a = reportPosOnFail a "Types"
 withFailPos' p a = withFailPos p "Types" a
 
 
@@ -57,11 +54,10 @@ mtTCEnv alphaEnv =
     }
 
 showHum :: Show v => Map.Map UniqId v -> String
-showHum map =
+showHum =
   Map.foldlWithKey
     (\str key val -> str ++ "\n" ++ show key ++ " --> " ++ show val)
     ""
-    map
 
 type Checked a = ExceptT Err (State TCEnv) a
 
@@ -124,7 +120,7 @@ restoreVarEnv varEnv =
 
 
 restoreContext :: TCEnv -> Checked ()
-restoreContext tcEnv = put tcEnv
+restoreContext = put
 
 
 putModuleVarBinding :: UniqId -> Ty -> Checked ()
@@ -133,7 +129,7 @@ putModuleVarBinding id ty =
 
 
 exportTy :: UniqId -> TyCon -> Checked ()
-exportTy id tyCon = do
+exportTy id tyCon =
   modify (\tcEnv -> tcEnv { curModule = addModuleTy (curModule tcEnv) id tyCon })
 
 
@@ -141,27 +137,23 @@ bindVar :: UniqId -> Ty -> Checked ()
 bindVar id ty = do
   isTopLevel <- gets inTopLevelScope
   modify (\tcEnv -> tcEnv { varEnv = Map.insert id ty (varEnv tcEnv) })
-  if isTopLevel
-  then putModuleVarBinding id ty
-  else return ()
+  when isTopLevel $ putModuleVarBinding id ty
 
 
 bindVarIfNotBound :: UniqId -> Ty -> Checked ()
 bindVarIfNotBound id ty = do
   isTopLevel <- gets inTopLevelScope
   modify (\tcEnv -> tcEnv { varEnv = Map.insertWith (\new old -> old) id ty (varEnv tcEnv) })
-  if isTopLevel
-  then putModuleVarBinding id ty
-  else return ()
+  when isTopLevel $ putModuleVarBinding id ty
 
 
 putPatBinding :: UniqId -> Ty -> Checked ()
-putPatBinding id ty = do
+putPatBinding id ty =
   modify (\tcEnv -> tcEnv { curModule = addModulePat (curModule tcEnv) id ty })
 
 
 bindPoly :: UniqId -> Ty -> Checked ()
-bindPoly id ty = do
+bindPoly id ty =
   modify (\tcEnv -> tcEnv { polyEnv = Map.insert id ty (polyEnv tcEnv) })
 
 
@@ -175,7 +167,7 @@ bindMeta id (TyMeta otherMetaId) = do
             in
               tcEnv { metaEnv = metaEnv'' })
 
-bindMeta id ty = do
+bindMeta id ty =
   modify (\tcEnv -> tcEnv { metaEnv = Map.insert id ty (metaEnv tcEnv) })
 
 
@@ -229,7 +221,7 @@ freshMeta = do
 lookupOrFail :: Map.Map UniqId a -> UniqId -> Checked a
 lookupOrFail table id =
   let result = Map.lookup id table
-  in do hoistEither $ maybeToEither (ErrUnboundUniqIdentifier id) result
+  in hoistEither $ maybeToEither (ErrUnboundUniqIdentifier id) result
 
 
 envLookup :: (TCEnv -> Map.Map UniqId a) -> UniqId -> Checked (Maybe a)
@@ -247,10 +239,10 @@ envLookupOrFail getTable id = do
 lookupFieldIndex :: UniqAst QualifiedId -> UniqId -> Checked Int
 lookupFieldIndex tyId id = do
   mod <- case tyId of
-          Path _ qid _ -> do modTy <- lookupVarQual qid `reportErrorAt` (nodeData qid)
+          Path _ qid _ -> do modTy <- lookupVarQual qid `reportErrorAt` nodeData qid
                              case modTy of
                                TyApp (TyConModule _ mod) _ -> return mod
-                               _ -> throwError (ErrInvalidModulePath qid) `reportErrorAt` (nodeData qid)
+                               _ -> throwError (ErrInvalidModulePath qid) `reportErrorAt` nodeData qid
           _ -> gets curModule
   lookupOrFail (fieldIndices mod) id
 
@@ -270,7 +262,7 @@ isFreeMeta (TyMeta id) = do
 
 
 markPolyEnv :: Checked (Map.Map UniqId Ty)
-markPolyEnv = gets polyEnv >>= return
+markPolyEnv = gets polyEnv
 
 
 restorePolyEnv :: Map.Map UniqId Ty -> Checked ()
@@ -278,7 +270,7 @@ restorePolyEnv env = modify (\tcEnv -> tcEnv { polyEnv = env })
 
 
 markMetaEnv :: Checked (Map.Map UniqId Ty)
-markMetaEnv = gets metaEnv >>= return
+markMetaEnv = gets metaEnv
 
 
 restoreMetaEnv :: Map.Map UniqId Ty -> Checked ()
@@ -286,7 +278,7 @@ restoreMetaEnv env = modify (\tcEnv -> tcEnv { metaEnv = env })
 
 
 lookupPoly :: UniqId -> Checked (Maybe Ty)
-lookupPoly id = envLookup polyEnv id
+lookupPoly = envLookup polyEnv
 
 
 lookupTyIn :: Env TyCon -> UniqId -> Checked TyCon
@@ -310,17 +302,17 @@ lookupPatQual (Id p id) = do
   lookupPatIn (patFuns curMod `Map.union` closedPatFuns curMod) id `reportErrorAt` p
 
 lookupPatQual (Path p qid id) = do
-  modTy <- lookupVarQual qid `reportErrorAt` (nodeData qid)
+  modTy <- lookupVarQual qid `reportErrorAt` nodeData qid
   case modTy of
     TyApp (TyConModule _ mod) _ ->
       lookupPatIn (patFuns mod) id `reportErrorAt` p
-    _ -> throwError (ErrInvalidModulePath qid) `reportErrorAt` (nodeData qid)
+    _ -> throwError (ErrInvalidModulePath qid) `reportErrorAt` nodeData qid
 
 
 lookupTy :: UniqId -> Checked TyCon
 lookupTy id = do
   curMod <- gets curModule
-  lookupTyIn ((types curMod) `Map.union` (closedTys curMod)) id
+  lookupTyIn (types curMod `Map.union` closedTys curMod) id
 
 
 lookupVarQual :: UniqAst QualifiedId -> Checked Ty
@@ -357,11 +349,11 @@ lookupTyQual (Path p qid id) = do
   ty <- lookupVarQual qid
   case ty of
     TyApp (TyConModule _ mod) _ -> lookupTyIn (types mod) id `reportErrorAt` p
-    _ -> (throwError $ ErrInvalidModulePath qid) `reportErrorAt` p
+    _ -> throwError (ErrInvalidModulePath qid) `reportErrorAt` p
 
 
 lookupVar :: UniqId -> Checked Ty
-lookupVar id = envLookupOrFail varEnv id
+lookupVar = envLookupOrFail varEnv
 
 
 occursInTyCon :: Ty -> TyCon -> Bool
@@ -375,13 +367,13 @@ occursIn :: Ty -> Ty -> Bool
 occursIn tyMeta@(TyMeta metaId) ty =
   case ty of
     TyApp tyCon argTys ->
-      (occursInTyCon tyMeta tyCon) || (any (\ty -> occursIn tyMeta ty) argTys)
+      occursInTyCon tyMeta tyCon || any (occursIn tyMeta) argTys
     TyPoly _ ty -> occursIn tyMeta ty
     TyVar _ -> False
     TyMeta otherMetaId -> metaId == otherMetaId
     TyRef _ -> False
     TyInstFun instTy funTy ->
-      (occursIn tyMeta instTy) || (occursIn tyMeta funTy)
+      occursIn tyMeta instTy || occursIn tyMeta funTy
 
 
 occursIn _ _ = False
@@ -420,13 +412,13 @@ allMetaIdsIn :: Ty -> [UniqId]
 allMetaIdsIn ty =
   case ty of
     TyApp tyCon tyArgs ->
-      allMetaIdsInTyCon tyCon ++ concat (map allMetaIdsIn tyArgs)
+      allMetaIdsInTyCon tyCon ++ concatMap allMetaIdsIn tyArgs
     TyPoly _ ty -> allMetaIdsIn ty
     TyVar _ -> []
     TyMeta id -> [id]
     TyRef _ -> []
     TyInstFun instTy funTy ->
-      (allMetaIdsIn instTy) ++ (allMetaIdsIn funTy)
+      allMetaIdsIn instTy ++ allMetaIdsIn funTy
 
 
 referencedMetaIds :: UniqId -> Checked [UniqId]
@@ -478,12 +470,12 @@ trimUnusedPolyParams (TyPoly tyParamIds ty) =
         _ -> []
     allTyVarIds ty =
       case ty of
-        TyApp tyCon tys -> allTyConVarIds tyCon ++ concat (map allTyVarIds tys)
+        TyApp tyCon tys -> allTyConVarIds tyCon ++ concatMap allTyVarIds tys
         TyPoly _ ty -> allTyVarIds ty
         TyVar id -> [id]
         TyMeta id -> []
         TyRef _ -> []
-        TyInstFun instTy funTy -> (allTyVarIds instTy) ++ (allTyVarIds funTy)
+        TyInstFun instTy funTy -> allTyVarIds instTy ++ allTyVarIds funTy
     paramIdSet = Set.fromList tyParamIds
     usedParamIdSet = Set.fromList $ allTyVarIds ty
     tyParamIds' = Set.toList $ Set.intersection paramIdSet usedParamIdSet
@@ -496,7 +488,7 @@ generalize ty = do
   -- traceM $ printf "Generalizing %s" $ showSexp ty
   ty' <- subst ty
   frees <- freeMetas ty'
-  tyParamIds <- mapM (\_ -> freshId) frees
+  tyParamIds <- mapM (const freshId) frees
   let metasAndTyParamIds = zip frees tyParamIds
   mapM_ (\(metaId, paramId) -> bindMeta metaId $ TyVar paramId)
         metasAndTyParamIds
@@ -512,8 +504,7 @@ instantiate :: Ty -> Checked Ty
 instantiate (TyPoly tyParamIds ty) = do
   mapM_ (\paramId -> do { meta <- freshMeta; bindPoly paramId meta })
         tyParamIds
-  ty' <- subst ty
-  return ty'
+  subst ty
 
 instantiate ty = return ty
 
@@ -527,18 +518,16 @@ substTyCon tyCon = return tyCon
 
 
 subst :: Ty -> Checked Ty
-subst ty = do
+subst ty =
   -- traceM $ printf "Substing %s" $ showSexp ty
-  ty' <- case ty of
+  case ty of
     meta@(TyMeta id) -> do
       maybeTy <- lookupMeta id
       case maybeTy of
         Just ty -> subst ty
         _ -> return meta
 
-    TyApp (TyConTyFun [] tyRef@(TyRef _)) [] -> do
-      tyRef' <- subst tyRef
-      return tyRef'
+    TyApp (TyConTyFun [] tyRef@(TyRef _)) [] -> subst tyRef
 
     TyApp tyCon@(TyConTyFun tyParamIds ty) tyArgs
       | length tyParamIds == length tyArgs ->
@@ -573,8 +562,6 @@ subst ty = do
       funTy' <- subst funTy
       return $ TyInstFun instTy' funTy'
 
-  return ty'
-
 
 -- Helper for type mismatches (we don't want
 -- to expose types with free metavariables to the
@@ -592,7 +579,7 @@ unify tya tyb = do
   -- traceM $ printf "Unifying %s --> %s" (showSexp tya) (showSexp tyb)
   oldPolyEnv <- markPolyEnv
   oldMetaEnv <- markMetaEnv
-  ty <- case (tya, tyb) of
+  case (tya, tyb) of
     (a@(TyApp tyconA tyArgsA), b@(TyApp tyconB tyArgsB))
       | tyconA == tyconB ->
         do mapM_ (uncurry unify) $ zip tyArgsA tyArgsB
@@ -601,18 +588,16 @@ unify tya tyb = do
     (TyApp (TyConTyFun paramVarIds ty) tyArgs, tyb) -> do
       mapM_ (uncurry bindPoly) $ zip paramVarIds tyArgs
       ty' <- subst ty
-      uty <- unify ty' tyb
-      return uty
+      unify ty' tyb
 
     (tya, TyApp (TyConTyFun paramVarIds ty) tyArgs) -> do
       mapM_ (uncurry bindPoly) $ zip paramVarIds tyArgs
       ty' <- subst ty
-      uty <- unify tya ty'
-      return uty
+      unify tya ty'
 
     (TyPoly [] ty, tyb) -> unify ty tyb
 
-    (TyPoly aParamIds aty, (TyPoly bParamIds bty)) ->
+    (TyPoly aParamIds aty, TyPoly bParamIds bty) ->
       let paramIds = zip bParamIds aParamIds
       in do mapM_ (\(bParamId, aParamId) -> bindPoly bParamId $ TyVar aParamId)
                   paramIds
@@ -657,7 +642,7 @@ unify tya tyb = do
       else unifyFail ta tb
 
     (tyRef@(TyRef _), ty) -> unify ty tyRef
-    (ty, (TyRef qid)) -> do
+    (ty, TyRef qid) -> do
       tyb <- lookupTyQual qid
       unify ty $ TyApp tyb []
 
@@ -667,8 +652,6 @@ unify tya tyb = do
       return $ TyInstFun instTy funTy
 
     (ta, tb) -> unifyFail ta tb
-
-  return ty
 
 
 unifyAll :: [Ty] -> Checked Ty
@@ -728,7 +711,7 @@ tcAdtAlt (AdtAlternative _ id _ synTys) = do
 
 makeAdtCtor :: UniqAst AdtAlternative -> Ty -> Ty -> [Ty] -> Checked (TypedAst Exp)
 makeAdtCtor (AdtAlternative p ctorId ctorInd synTys) adtTy ctorTy argTys = do
-  paramIds <- mapM (\_ -> freshId) synTys
+  paramIds <- mapM (const freshId) synTys
   let paramDs = map (\(paramId, synTy, ty) -> (paramId, nodeData synTy, ty))
                     $ zip3 paramIds synTys argTys
       paramRefs = map (\(paramId, pp, pty) -> (ExpRef (OfTy pp pty) paramId)) paramDs
@@ -806,7 +789,7 @@ tcTyDec (TypeDecAdt p id tyParamIds alts) = do
   altNamesTys <- mapM tcAdtAlt alts
   let (names, tys) = unzip altNamesTys
       altsTys = zip alts tys
-      ctorTups = map (\ts -> TyApp TyConTuple ts) tys
+      ctorTups = map (TyApp TyConTuple) tys
       adtTyCon = TyConUnique id $ TyConTyFun tyParamIds $ TyApp (TyConAdt names) ctorTups
   -- Add a function binding for each constructor,
   -- and return a function expression for each one
@@ -830,7 +813,7 @@ tcStructFields tyFields ((fieldId, fieldExp):fieldInitExps) =
         (initExpTy, fieldExp') <- tc fieldExp
         unify matchedTy initExpTy
         (ty, fieldInitExps') <- tcStructFields tyFields fieldInitExps
-        return (ty, ((matchedFieldId, fieldExp') : fieldInitExps'))
+        return (ty, (matchedFieldId, fieldExp') : fieldInitExps')
 
 
 tcPatExp :: UniqAst PatExp -> Checked (Ty, TypedAst PatExp)
@@ -879,19 +862,19 @@ tcPatExp (PatExpWildcard p) = do
 addBindingsForPat :: UniqAst PatExp -> Ty -> Checked ()
 addBindingsForPat (PatExpTuple _ patEs) (TyApp TyConTuple tyArgs) =
   let componentEsTys = zip patEs tyArgs
-  in do mapM_ (uncurry addBindingsForPat) componentEsTys
+  in mapM_ (uncurry addBindingsForPat) componentEsTys
 
 addBindingsForPat (PatExpAdt _ _ es) (TyApp (TyConUnique _ _) argTys) =
   mapM_ (uncurry addBindingsForPat) $ zip es argTys
 
 addBindingsForPat (PatExpList _ elemEs) (TyApp TyConList [tyArg]) =
-  let addBindingsForPatWithTy = (flip addBindingsForPat) tyArg
-  in do mapM_ addBindingsForPatWithTy elemEs
+  let addBindingsForPatWithTy = flip addBindingsForPat tyArg
+  in mapM_ addBindingsForPatWithTy elemEs
 
 addBindingsForPat (PatExpList _ elemEs) (TyPoly [tyParamId] (TyApp TyConList [tyArg])) =
   let elemTy = TyPoly [tyParamId] tyArg
-      addBindingsForPatWithTy = (flip addBindingsForPat) elemTy
-  in do mapM_ addBindingsForPatWithTy elemEs
+      addBindingsForPatWithTy = flip addBindingsForPat elemTy
+  in mapM_ addBindingsForPatWithTy elemEs
 
 addBindingsForPat (PatExpList _ []) (TyMeta _) = return ()
 
@@ -938,7 +921,7 @@ tc (ExpCons p headE listE) = do
   tyListE' <- instantiate tyListE
   listTy <- case tyListE' of
               TyApp TyConList _ ->
-                (unify tyListE' $ TyApp TyConList [tyHeadE]) >>= subst
+                unify tyListE' (TyApp TyConList [tyHeadE]) >>= subst
               _ -> -- Failure case, we unify expecting a (ListOf(<headTy>)) to fail
                 unify (TyApp TyConList [tyHeadE]) tyListE'
   return (listTy, ExpCons (OfTy p listTy) headE' listE')
@@ -968,7 +951,7 @@ tc (ExpApp p ratorE randEs) = do
   let ty = case reverse arrowTys of
               [] -> tyUnit
               retTy:_ -> retTy
-      arity = (length arrowTys) - 1
+      arity = length arrowTys - 1
       argLen = length randEs
   if arity /= argLen
   then throwError (ErrWrongArity ratorE' arity argLen) `reportErrorAt` p
@@ -991,7 +974,7 @@ tc (ExpModule p paramIds es) = do
 tc (ExpAssign p patE (ExpFun funP paramPatEs bodyEs)) =
     case patE of
       PatExpId patP id -> do
-        paramMetas <- mapM (\_ -> freshMeta) paramPatEs
+        paramMetas <- mapM (const freshMeta) paramPatEs
         bodyTyMeta <- freshMeta
         let paramsAndTys = zip paramIds paramMetas
             fty = TyApp TyConArrow $ paramMetas ++ [bodyTyMeta]
@@ -1022,7 +1005,7 @@ tc (ExpAssign p patE rhe) = do
   return (tyUnit, ExpAssign (OfTy p tyUnit) patE' rhe')
 
 tc (ExpTuple p es) = do
-  eMetas <- mapM (\_ -> freshMeta) es
+  eMetas <- mapM (const freshMeta) es
   (tys, es') <- mapAndUnzipM tc es
   ty <- unify (TyApp TyConTuple tys) (TyApp TyConTuple eMetas) `reportErrorAt` p
   return (ty, ExpTuple (OfTy p ty) es')
@@ -1033,7 +1016,7 @@ tc (ExpSwitch p e clauses) = do
     mapAndUnzipM (\(CaseClause cp patE ces) ->
                       do oldVarEnv <- markVarEnv
                          (pty, patE') <- tcPatExp patE
-                         pty' <- unify tyE pty `reportErrorAt` (nodeData patE)
+                         pty' <- unify tyE pty `reportErrorAt` nodeData patE
                          (retTy, ces') <- tcEs ces
                          restoreVarEnv oldVarEnv
                          return (retTy, CaseClause (OfTy cp retTy) patE' ces'))
@@ -1048,7 +1031,7 @@ tc (ExpList p es) = do
   return (ty, ExpList (OfTy p ty) es')
 
 tc (ExpFun p argPatEs bodyEs) = do
-  paramMetas <- mapM (\_ -> freshMeta) argPatEs
+  paramMetas <- mapM (const freshMeta) argPatEs
   bodyTyMeta <- freshMeta
   let fty = TyApp TyConArrow $ paramMetas ++ [bodyTyMeta]
   oldVarEnv <- markVarEnv
@@ -1068,7 +1051,7 @@ tc (ExpStruct p strSynTy@(SynTyRef pSty qid _) fieldInitEs) = do
                         return $ compare aInd bInd)
                     fieldInitEs
   let initEs = (snd . unzip) sorted
-  (qid', ctorTy) <- tcQualId qid `reportErrorAt` (nodeData qid)
+  (qid', ctorTy) <- tcQualId qid `reportErrorAt` nodeData qid
   let eMemberAccess = qualIdToMemberAcc qid'
   (_, initEs') <- tcEs initEs
   return (ty, ExpApp (OfTy p ty) eMemberAccess initEs')
@@ -1094,7 +1077,7 @@ tc (ExpTypeDec p tyDec) =
 -- We also prohibit pattern-match bindings
 -- for functions here (require simple identifier patterns)
 tc (ExpFunDef (FunDefFun p id paramPatEs bodyEs)) = do
-    paramMetas <- mapM (\_ -> freshMeta) paramIds
+    paramMetas <- mapM (const freshMeta) paramIds
     bodyTyMeta <- freshMeta
     let paramsAndTys = zip paramIds paramMetas
         fty = TyApp TyConArrow $ paramMetas ++ [bodyTyMeta]
@@ -1125,10 +1108,10 @@ tc (ExpWithAnn (TyAnn _ id tyParamIds synTy) e) = do
                   [] -> givenTy
                   _  -> TyPoly tyParamIds givenTy
   (_, e') <- tc e
-  inferredTy <- lookupVar id `reportErrorAt` (nodeData e)
+  inferredTy <- lookupVar id `reportErrorAt` nodeData e
   givenTy'' <- instantiate givenTy'
   inferredTy' <- instantiate inferredTy
-  ty <- unify givenTy'' inferredTy' `reportErrorAt` (nodeData e)
+  ty <- unify givenTy'' inferredTy' `reportErrorAt` nodeData e
 
   restoreMetaEnv oldMetaEnv
   generalize ty >>= bindVar id
@@ -1152,7 +1135,7 @@ tc e = throwError $ ErrInterpFailure $ printf "In function tc: %s" $ show e
 tcEs :: [UniqAst Exp] -> Checked (Ty, [TypedAst Exp])
 tcEs [] = return (mtApp TyConUnit, [])
 tcEs es = do
-  (tys, es') <- (liftM unzip) $ mapM tc es
+  (tys, es') <- mapAndUnzipM tc es
   return (last tys, es')
 
 

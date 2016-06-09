@@ -16,7 +16,7 @@ instance Sexpable v => Sexpable (Maybe v) where
 
 -- To satisfy (Sexpable RawId)
 instance Sexpable RawId where
-  sexp s = Symbol s
+  sexp = Symbol
 
 
 instance Sexpable SourcePos where
@@ -48,7 +48,7 @@ instance (Sexpable a, Sexpable id) => Sexpable (SynTy a id) where
   sexp (SynTyChar d) = List [ Symbol "Char", sexp d ]
   sexp (SynTyUnit d) = List [ Symbol "Unit", sexp d ]
   sexp (SynTyArrow d paramTys retTy) =
-    List $ [sexp d] ++ ((intersperse (Symbol "->" )) . map sexp) (paramTys ++ [retTy])
+    List $ sexp d : (intersperse (Symbol "->" ) . map sexp) (paramTys ++ [retTy])
 
   sexp (SynTyModule d paramTys maybeImplTy)  =
     List  [ Symbol "Module"
@@ -327,7 +327,7 @@ sexpOfMap m = toSexpList $ Map.keys m
 
 
 instance Sexpable Exports where
-  sexp (Exports { exportTypes, exportVars }) =
+  sexp Exports { exportTypes, exportVars } =
     List  [ Symbol "Exports"
           , sexpOfMap exportVars
           ]
