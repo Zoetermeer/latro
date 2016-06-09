@@ -41,6 +41,7 @@ import Semant
   '->' { Token _ TokenArrow }
   '=>' { Token _ TokenRocket }
   '::' { Token _ TokenCons }
+  '%(' { Token _ TokenPctLParen }
   '[' { Token _ TokenLBracket }
   ']' { Token _ TokenRBracket }
   '{' { Token _ TokenLBrace }
@@ -72,11 +73,11 @@ import Semant
 
 CompUnit : OneOrMoreModuleLevelExps { CompUnit (firstPos $1) $1 }
 
-OneOrMoreExps : ExpT { [$1] }
-              | OneOrMoreExps ExpT { $1 ++ [$2] }
+OneOrMoreExps : Exp { [$1] }
+              | OneOrMoreExps Exp { $1 ++ [$2] }
 
-ZeroOrMoreExps : ExpT { [$1] }
-               | OneOrMoreExps ExpT { $1 ++ [$2] }
+ZeroOrMoreExps : Exp { [$1] }
+               | OneOrMoreExps Exp { $1 ++ [$2] }
                | {- empty -} { [] }
 
 ZeroOrMoreModuleLevelExps : ModuleLevelExp { [$1] }
@@ -86,12 +87,10 @@ ZeroOrMoreModuleLevelExps : ModuleLevelExp { [$1] }
 OneOrMoreModuleLevelExps : ModuleLevelExp { [$1] }
                          | OneOrMoreModuleLevelExps ModuleLevelExp { $1 ++ [$2] }
 
-ModuleLevelExp : InterfaceDecExp ';' { $1 }
-               | TypeDec ';' { ExpTypeDec (nodeData $1) $1 }
-               | ModuleDec ';' { $1 }
-               | ExpOrAssign ';' { $1 }
-
-ExpT : Exp ';'  { $1 }
+ModuleLevelExp : InterfaceDecExp { $1 }
+               | TypeDec { ExpTypeDec (nodeData $1) $1 }
+               | ModuleDec { $1 }
+               | ExpOrAssign { $1 }
 
 ModuleDec : module id ModuleParamList '{' ZeroOrMoreModuleLevelExps '}'
   { ExpAssign (pos $1) (PatExpId (pos $2) (tokValue $2)) (ExpModule (pos $4) $3 $5) }
@@ -108,7 +107,7 @@ LiteralPatExp : num { PatExpNumLiteral (pos $1) (tokValue $1) }
 TuplePatExpsRest : ',' PatExp { [$2] }
                  | TuplePatExpsRest ',' PatExp { $1 ++ [$3] }
 
-TuplePatExp : '(' PatExp TuplePatExpsRest ')' { PatExpTuple (pos $1) ([$2] ++ $3) }
+TuplePatExp : '%(' PatExp TuplePatExpsRest ')' { PatExpTuple (pos $1) ([$2] ++ $3) }
 
 AdtPatExp : QualifiedId '(' ZeroOrMorePatExps ')' { PatExpAdt (nodeData $1) $1 $3 }
 
@@ -157,7 +156,7 @@ FunHeader : SingleParamFunHeader { (fst $1, [snd $1]) }
 
 AtomExp : '(' Exp ')' { $2 }
         | '(' ')' { ExpUnit (pos $1) }
-        | '(' Exp TupleRestExps ')' { ExpTuple (pos $1) ($2:$3) }
+        | '%(' Exp TupleRestExps ')' { ExpTuple (pos $1) ($2:$3) }
         | ListExp { $1 }
         | QualifiedId '{' StructFieldInitializers '}' { ExpStruct (nodeData $1) (SynTyRef (nodeData $1) $1 []) $3 }
         | FunHeader FunBody { ExpFun (fst $1) (snd $1) $2 }
@@ -201,8 +200,8 @@ ExpOrAssign : def PatExp '=' Exp { ExpAssign (pos $1) $2 $4 }
             | import QualifiedId { ExpImport (pos $1) $2 }
             | Exp { $1 }
 
-ExpOrAssigns : ExpOrAssign ';' { [$1] }
-             | ExpOrAssigns ExpOrAssign ';' { $1 ++ [$2] }
+ExpOrAssigns : ExpOrAssign { [$1] }
+             | ExpOrAssigns ExpOrAssign { $1 ++ [$2] }
 
 FunDef : fun id '(' PatExpList ')' FunBody { FunDefFun (pos $1) (tokValue $2) $4 $6 }
        | SingleParamFunHeader '.' id '(' PatExpList ')' FunBody { FunDefInstFun (fst $1) (snd $1) (tokValue $3) $5 $7 }
@@ -246,7 +245,8 @@ TypeDec : type id TyParams '=' Ty { TypeDecTy (pos $1) (tokValue $2) $3 $5 }
 AdtAlternatives : AdtAlternative  { [$1] }
                 | AdtAlternatives AdtAlternative  { $1 ++ [$2] }
 
-AdtAlternative : '|' id Tys { AdtAlternative (pos $1) (tokValue $2) 0 $3 }
+AdtAlternative : '|' id '(' CommaSeparatedTys ')' { AdtAlternative (pos $1) (tokValue $2) 0 $4 }
+               | '|' id { AdtAlternative (pos $2) (tokValue $2) 0 [] }
 
 Tys : Ty { [$1] }
     | Tys Ty { $1 ++ [$2] }
@@ -265,7 +265,7 @@ CommaSeparatedTys : Ty { [$1] }
 TyTupleRest : ',' Ty { [$2] }
             | TyTupleRest ',' Ty { $1 ++ [$3] }
 
-TyTuple : '(' Ty TyTupleRest ')' { SynTyTuple (pos $1) ($2:$3) }
+TyTuple : '%(' Ty TyTupleRest ')' { SynTyTuple (pos $1) ($2:$3) }
 
 OptionalImpClause : ':' Ty { Just $2 }
                   | {- empty -} { Nothing }
@@ -279,8 +279,6 @@ Ty : Int { SynTyInt (pos $1)  }
    | Unit { SynTyUnit (pos $1) }
    | fun '(' ')' ':' Ty { SynTyArrow (pos $1) [] $5 }
    | fun '(' CommaSeparatedTys ')' ':' Ty { SynTyArrow (pos $1) $3 $6 }
-   | module OptionalImpClause { SynTyModule (pos $1) [] $2 }
-   | module '(' CommaSeparatedTys ')' OptionalImpClause { SynTyModule (pos $1) $3 $5 }
    | interface '{' '}' { SynTyInterface (pos $1) [] }
    | default QualifiedId TyArgs { SynTyDefault (pos $1) $2 $3 }
    | struct '{' TyStructFields '}' { SynTyStruct (pos $1) $3 }

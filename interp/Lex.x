@@ -50,6 +50,7 @@ tokens :-
   "->" { lex' TokenArrow }
   "=>" { lex' TokenRocket }
   "::" { lex' TokenCons }
+  "%(" { lex' TokenPctLParen }
   [\[] { lex' TokenLBracket }
   [\]] { lex' TokenRBracket }
   [\{] { lex' TokenLBrace }
@@ -117,6 +118,7 @@ data TokenClass =
   | TokenArrow
   | TokenRocket
   | TokenCons
+  | TokenPctLParen
   | TokenLBracket
   | TokenRBracket
   | TokenLBrace
@@ -186,6 +188,7 @@ unlex (TokenAssign) = ":="
 unlex (TokenArrow) = "->"
 unlex (TokenRocket) = "=>"
 unlex (TokenCons) = "::"
+unlex (TokenPctLParen) = "%("
 unlex (TokenLBracket) = "["
 unlex (TokenRBracket) = "]"
 unlex (TokenLBrace) = "{"
