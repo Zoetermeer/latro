@@ -227,7 +227,7 @@ desugarFunDefs fid funDefs =
   in
     case arities of
       [len] -> do
-        paramIds <- mapM (\_ -> freshM "arg") $ replicate len ()
+        paramIds <- replicateM len ((\_ -> freshM "arg") ())
         cases <- mapM funDefToCaseClause funDefs
         let paramRefs = map (ExpRef startP) paramIds
             paramPats = map (PatExpId startP) paramIds
@@ -317,7 +317,7 @@ convert (ExpFunDef (FunDefInstFun p instPatE id argPatEs bodyEs)) = do
 
 convert (ExpFunDefClauses p id funDefs) = do
   id' <- freshM id
-  funDef <- (liftM fst) $ desugarFunDefs id' funDefs
+  funDef <- liftM fst $ desugarFunDefs id' funDefs
   return $ ExpFunDef funDef
 
 convert (ExpAssign p patExp e) = do
@@ -352,7 +352,7 @@ convert (ExpWithAnn (TyAnn p aid tyParamIds synTy) e) = do
          let e' = ExpFunDef (FunDefFun fp aid' argPatEs' bodyEs')
          return $ ExpWithAnn tyAnn e'
     ExpFunDefClauses p id funDefs ->
-      do funDef <- (liftM fst) $ desugarFunDefs aid' funDefs
+      do funDef <- liftM fst $ desugarFunDefs aid' funDefs
          return $ ExpWithAnn tyAnn $ ExpFunDef funDef
     ExpAssign ep (PatExpId pp pid) e ->
       do e' <- convert e
@@ -444,19 +444,19 @@ collapseBindingExp id _ = throwError $ ErrNoBindingAfterTyAnn id
 
 collapseEs :: [RawAst Exp] -> Either Err [RawAst Exp]
 collapseEs [] = return []
-collapseEs ((ExpTyAnn tyAnn@(TyAnn ap aid _ synTy)):es) =
+collapseEs (ExpTyAnn tyAnn@(TyAnn ap aid _ synTy) : es) =
   case synTy of
-    SynTyArrow _ _ _ ->
+    SynTyArrow {} ->
       let (funDefs, es') = collectFunDefs aid es
           eFunDef = ExpFunDefClauses ap aid funDefs
       in if null funDefs
            then throwError $ ErrNoBindingAfterTyAnn aid
            else do es'' <- collapseEs es'
-                   return ((ExpWithAnn tyAnn eFunDef) : es'')
+                   return (ExpWithAnn tyAnn eFunDef : es'')
     _ ->
       do (e, es') <- collapseBindingExp aid es
          es'' <- collapseEs es'
-         return ((ExpWithAnn tyAnn e) : es'')
+         return (ExpWithAnn tyAnn e : es'')
 
 collapseEs (ExpFunDef (FunDefFun p fid argPatEs bodyEs) : es) = do
   bodyEs' <- collapseEs bodyEs

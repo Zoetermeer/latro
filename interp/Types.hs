@@ -21,7 +21,7 @@ import Text.Printf (printf)
 
 
 reportErrorAt a = reportPosOnFail a "Types"
-withFailPos' p a = withFailPos p "Types" a
+withFailPos' p = withFailPos p "Types"
 
 
 traceIt :: Show a => a -> a
