@@ -198,7 +198,7 @@ Patterns can be used to do arbitrary traversals on a complex value:
 
 .. code:: ocaml
 
-  def ls = [[(1, 2)], [(3, 4), (5, 6)]]
+  def ls = [[%(1, 2)], [%(3, 4), %(5, 6)]]
   def [[%(x, _)], %(_, y) :: _] = ls
   x + y
 
@@ -226,10 +226,10 @@ arbitrary patterns on the test expression.
 
 .. code:: ocaml
 
-  switch (([1, 2], [3, 4])) {
-    case (_, [a, b, c]) -> a + b + c
-    case ([a, b], [c, 5]) -> a + b + c
-    case ([a, b], [_, c]) -> a + b + c
+  switch (%([1, 2], [3, 4])) {
+    case %(_, [a, b, c]) -> a + b + c
+    case %([a, b], [c, 5]) -> a + b + c
+    case %([a, b], [_, c]) -> a + b + c
     case _ -> 0
   }
   // 7
@@ -598,7 +598,28 @@ some other toplevel module with the same name:
   M.bar + M.foo // ERROR: Unbound identifier 'bar'!
 
 This code does not compile because ``bar`` is defined on the module
-``N.M``, not ``M``.
+``N.M``, not ``M``.  But if we were to try to define a function
+directly in ``N`` that refers to ``M``:
+
+.. code:: scala
+
+  module M {
+    def foo = 42
+  }
+  
+  module N {
+    module M {
+      def bar = 43
+    }
+    
+    fun f() = M.foo //ERROR: Unbound identifier 'M.foo'!
+  }
+
+We can refer directly to the submodule ``M`` inside ``N``, so here
+the submodule name shadows the other ``M`` defined at the top level.
+Other languages mitigate this by including a global-scoping operator
+for namespaces and/or module paths, so something like this will probably
+end up in Latro.
 
 Examples
 ========
