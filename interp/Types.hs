@@ -37,7 +37,7 @@ data TCEnv = TCEnv
   , alphaEnv :: AlphaEnv
   , polyEnv :: Map.Map UniqId Ty
   , metaEnv :: Map.Map UniqId Ty
-  , inTopLevelScope :: Bool
+  , scopeLevel :: Int
   }
   deriving (Eq)
 
@@ -45,13 +45,19 @@ data TCEnv = TCEnv
 mtTCEnv :: AlphaEnv -> TCEnv
 mtTCEnv alphaEnv =
   TCEnv
-    { curModule = mtTCModule
-    , varEnv = Map.empty
-    , alphaEnv = alphaEnv
-    , polyEnv = Map.empty
-    , metaEnv = Map.empty
-    , inTopLevelScope = True
+    { curModule   = mtTCModule
+    , varEnv      = Map.empty
+    , alphaEnv    = alphaEnv
+    , polyEnv     = Map.empty
+    , metaEnv     = Map.empty
+    , scopeLevel  = 0
     }
+
+
+inTopLevelScope :: Checked Bool
+inTopLevelScope = do
+  depth <- gets scopeLevel
+  return $ depth == 0
 
 showHum :: Show v => Map.Map UniqId v -> String
 showHum =
@@ -98,12 +104,17 @@ newContextWith fupdate = do
 
 pushNewModuleContext :: Checked TCEnv
 pushNewModuleContext = do
-  curMod <- gets curModule
+  depth <- gets scopeLevel
+  curMod <- if depth == 0
+            then return mtTCModule
+            else gets curModule
   let mod = mtTCModule { closedVars     = vars curMod
                        , closedTys      = types curMod
                        , closedPatFuns  = patFuns curMod
                        }
-  newContextWith (\tcEnv -> tcEnv { curModule = mod })
+  newContextWith (\tcEnv -> tcEnv { curModule = mod
+                                  , scopeLevel = depth + 1
+                                  })
 
 
 -- A new var env needs to close over all
@@ -135,16 +146,16 @@ exportTy id tyCon =
 
 bindVar :: UniqId -> Ty -> Checked ()
 bindVar id ty = do
-  isTopLevel <- gets inTopLevelScope
+  isTopLevel <- inTopLevelScope
   modify (\tcEnv -> tcEnv { varEnv = Map.insert id ty (varEnv tcEnv) })
-  when isTopLevel $ putModuleVarBinding id ty
+  unless isTopLevel $ putModuleVarBinding id ty
 
 
 bindVarIfNotBound :: UniqId -> Ty -> Checked ()
 bindVarIfNotBound id ty = do
-  isTopLevel <- gets inTopLevelScope
+  isTopLevel <- inTopLevelScope
   modify (\tcEnv -> tcEnv { varEnv = Map.insertWith (\new old -> old) id ty (varEnv tcEnv) })
-  when isTopLevel $ putModuleVarBinding id ty
+  unless isTopLevel $ putModuleVarBinding id ty
 
 
 putPatBinding :: UniqId -> Ty -> Checked ()

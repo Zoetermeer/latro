@@ -108,13 +108,15 @@
 (test-case "it searches the module closure for type names"
   (check-equal?
     @typecheck{
-      type Foo = Int
-      module M {
-        add => fun(Foo, Int) : Int
-        fun add(x, y) = x + y
-      }
+      module Root {
+        type Foo = Int
 
-      M.add(1, 2)
+        module Leaf {
+          add => fun(Foo, Int) : Int
+          fun add(x, y) = x + y
+        }
+      }
+      Root.Leaf.add(1, 2)
     }
     'Int))
 
@@ -130,6 +132,43 @@
       }
 
       M'.bar
+    }
+    'Int))
+
+(test-case "it can resolve types defined on sibling modules"
+  (check-equal?
+    @typecheck{
+      module Number {
+        type t = Int
+      }
+
+      module Arith {
+        add => fun(Number.t, Number.t) : Number.t
+        fun add(x, y) = x + y
+      }
+
+      Arith.add(1, 2)
+    }
+    'Int))
+
+(test-case "it can resolve qualified type names with matching local id's"
+  (check-equal?
+    @typecheck{
+      module Number {
+        type t = Int
+      }
+
+      module Div {
+        type t =
+          | Num(Number.t)
+          | ByZero
+
+        fun div(x, 0) = ByZero()
+        fun div(x, y) = Num(x / y)
+      }
+
+      def Div.Num(answer) = Div.div(100, 10)
+      answer
     }
     'Int))
 
@@ -160,7 +199,7 @@
       f => fun(M.String) : M.String
       fun f(s) { s }
     }
-    `(AtPos (SourcePos ,_ 5 ,_) (CompilerModule Types) (UnboundUniqIdentifier (Id String ,_)))))
+    `(AtPos (SourcePos ,_ 5 ,_) (CompilerModule Types) (UnboundUniqIdentifier String))))
 
 (test-case "it does not extend variable name resolution to closures of closed modules"
   (check-match
@@ -178,18 +217,20 @@
 (test-case "it can resolve pattern names in the module closure"
   (check-equal?
     @typecheck{
-      type A = | Foo(Int) | Bar(Int)
+      module Root {
+        type A = | Foo(Int) | Bar(Int)
 
-      module M {
-        def f = fun(a) {
-          switch (a) {
-            case Foo(x) -> x
-            case _ -> 0
+        module M {
+          def f = fun(a) {
+            switch (a) {
+              case Foo(x) -> x
+              case _ -> 0
+            }
           }
         }
       }
 
-      M.f(Foo(43))
+      Root.M.f(Root.Foo(43))
     }
     'Int))
 
@@ -205,7 +246,7 @@
         case _ -> 0
       }
     }
-    `(AtPos (SourcePos ,_ 6 ,_) (CompilerModule Types) (UnboundUniqIdentifier (Id Foo ,_)))))
+    `(AtPos (SourcePos ,_ 6 ,_) (CompilerModule Types) (UnboundUniqIdentifier Foo))))
 
 (test-case "it does not allow module-exported type bindings to escape"
   (check-match

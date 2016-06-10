@@ -10,6 +10,10 @@ data SourcePos = SourcePos SourceFilePath LineNumber ColNumber
   deriving (Eq, Show)
 
 
+mtSourcePos :: SourcePos
+mtSourcePos = SourcePos "??" 0 0
+
+
 type RawId = String
 
 

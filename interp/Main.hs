@@ -36,7 +36,7 @@ instance Functor CommandResult where
 
 
 instance Applicative CommandResult where
-  pure v = Success v
+  pure = Success
 
   (<*>) = ap
 
@@ -90,30 +90,36 @@ runCmd switch (Command dumpOnSwitch dumpSexp result) =
       else Success v
 
 
-run :: UserSwitch -> FilePath -> ProgramText -> CommandResult Value
-run switch filePath program =
+combineAsts :: [RawAst CompUnit] -> RawAst CompUnit
+combineAsts cus =
+  CompUnit mtSourcePos $ concatMap (\(CompUnit _ bodyEs) -> bodyEs) cus
+
+
+run :: UserSwitch -> [(FilePath, ProgramText)] -> CommandResult Value
+run switch pathsAndSources =
   let runCmd' = runCmd switch
-  in do ast <- runCmd' $ parseCmd filePath program
+  in do asts <- mapM (runCmd' . uncurry parseCmd) pathsAndSources
+        let ast = combineAsts asts
         (alphaConvertedAst, alphaEnv) <- runCmd' $ alphaConvertCmd ast
         (typedAst, alphaEnv') <- runCmd' $ tcCmd alphaConvertedAst alphaEnv
         runCmd' $ showTypedAstCmd typedAst
         runCmd' $ interpCmd typedAst alphaEnv'
 
 
-getUserSwitch :: [String] -> (UserSwitch, FilePath)
-getUserSwitch ["-p", path] = (DumpParseTree, path)
-getUserSwitch ["-a", path] = (DumpAlphaConverted, path)
-getUserSwitch ["-tc", path] = (DumpTypecheckResult, path)
-getUserSwitch ["-t", path] = (DumpTypedAst, path)
-getUserSwitch [path] = (Evaluate, path)
-getUserSwitch _ = error "Usage: interp [-a|-p|-t] FILEPATH"
+getUserSwitch :: [String] -> (UserSwitch, [FilePath])
+getUserSwitch [] = error "Usage: interp [-a|-p|-t] FILEPATH"
+getUserSwitch ("-p" : paths) = (DumpParseTree, paths)
+getUserSwitch ("-a" : paths) = (DumpAlphaConverted, paths)
+getUserSwitch ("-tc" : paths) = (DumpTypecheckResult, paths)
+getUserSwitch ("-t" : paths) = (DumpTypedAst, paths)
+getUserSwitch paths = (Evaluate, paths)
 
 
 main = do
   args <- getArgs
-  let (switch, filePath) = getUserSwitch args
-  program <- readFile filePath
-  case run switch filePath program of
+  let (switch, filePaths) = getUserSwitch args
+  sources <- mapM readFile filePaths
+  case run switch (zip filePaths sources) of
     Success v -> printf "%s" $ showSexp v
     DumpOutput sexp -> printf "%s" $ show sexp
     Error err -> printf "%s" $ showSexp err

@@ -65,8 +65,7 @@ convertQualId (Id p id) = do
 
 convertQualId (Path p qid id) = do
   qid' <- convertQualId qid
-  id' <- lookup id
-  return $ Path p qid' id'
+  return $ Path p qid' $ UserId id
 
 
 convertTyAnn :: RawAst TyAnn -> AlphaConverted (UniqAst TyAnn)
