@@ -54,7 +54,7 @@ these types in annotations like so:
   - ``Char`` is the Unicode character type
   - ``t[]`` is a list with elements of type ``t``
   - ``Int[]`` is a list of integers
-  - ``(Int, Bool)`` is the type of 2-tuples with an ``Int`` and ``Bool`` component
+  - ``%(Int, Bool)`` is the type of 2-tuples with an ``Int`` and ``Bool`` component
   - ``fun(Int, Bool) : Bool`` is the type of functions accepting an
     ``Int`` and ``Bool`` argument, and returning a ``Bool``
 
@@ -64,7 +64,7 @@ Literal values for each of the built-in types can be written directly, e.g:
   - ``False`` is a ``Bool``
   - ``'m'`` is a ``Char`` representing the character ``m``
   - ``[1, 2, 3]`` is an ``Int[]`` with 3 elements
-  - ``(1, True)`` is a ``(Int, Bool)`` tuple
+  - ``%(1, True)`` is an ``%(Int, Bool)`` tuple
   - ``fun(x) = x`` is the identity function (its type is ``fun<a>(a) : a``)
 
 Additionally, we can write string literals using the familiar double-quoted
@@ -83,14 +83,14 @@ the type of a value using an annotation:
 
 .. code:: ocaml
 
-  f => fun(Int, Bool) : Bool;
-  fun f(i, b) = b;
+  f => fun(Int, Bool) : Bool
+  fun f(i, b) = b
 
 If we were to omit the annotation from above, like so:
 
 .. code:: ocaml
 
-  fun f(i, b) = b;
+  fun f(i, b) = b
 
 Latro would infer the type of this function to be a polymorphic one returning
 its second argument: ``fun<t1, t2>(t1, t2) : t2``.
@@ -119,28 +119,25 @@ No language would be complete without variable bindings.  We define these using
 
 .. code:: ocaml
 
-  def x = 42;
-  def y = 43;
-  x + y;
-
-Note that in sequences of expressions, we use the semicolon (``;``) as a delimiter as
-in C-family languages.
+  def x = 42
+  def y = 43
+  x + y
 
 "Rebinding" is not currently permitted.  Value bindings are fixed upon definition.  Consider:
 
 .. code:: ocaml
 
-  def x = 42;
-  x = 43; // ERROR
+  def x = 42
+  x = 43 // ERROR
 
 The idiomatic way to do something like this is to define a new binding:
 
 .. code:: ocaml
 
-  def x = 42;
-  def x' = 43;
+  def x = 42
+  def x' = 43
   
-  x'; // 43
+  x' // 43
 
 Conditionals
 ------------
@@ -149,8 +146,8 @@ Latro offers two main forms of conditionals: ``if``/``then``/``else`` and ``cond
 
 .. code:: ocaml
 
-  def v = if (True) { 42; } else { 43; };
-  v; // 42
+  def v = if (True) { 42 } else { 43 }
+  v // 42
 
 The ``else`` is required, and both branches of a conditional must be of the same type.
 
@@ -159,13 +156,13 @@ the ``cond`` form:
 
 .. code:: ocaml
 
-  def b1 = True;
-  def b2 = False;
+  def b1 = True
+  def b2 = False
   cond {
-    case and(b1, b2) -> 42;
-    case or(b1, b2)  -> 43;
-    case _           -> 44;
-  }; // 43
+    case and(b1, b2) -> 42
+    case or(b1, b2)  -> 43
+    case _           -> 44
+  } // 43
 
 Note that we can use arbitrary expressions and/or functions in the test
 expression for a ``case``, as long as each test expression is of type ``Bool``.
@@ -182,17 +179,17 @@ For example, we may want to bind elements of a list:
 
 .. code:: ocaml
 
-  def ls = [1, 2, 3, 4, 5];
-  def [_, _, x, y, z] = ls;
-  [x, y, z];
+  def ls = [1, 2, 3, 4, 5]
+  def [_, _, x, y, z] = ls
+  [x, y, z]
 
 Yields the list ``[3, 4, 5]``.  We can also use the cons operator to destructure:
 
 .. code:: ocaml
 
-  def ls = [1, 2, 3, 4, 5];
-  def x::_ = ls;
-  x;
+  def ls = [1, 2, 3, 4, 5]
+  def x::_ = ls
+  x
 
 Yields the integer ``1``.  Notice also that we can use the wildcard pattern
 (``_``) in places where we wish to ignore certain parts of a value.
@@ -201,9 +198,9 @@ Patterns can be used to do arbitrary traversals on a complex value:
 
 .. code:: ocaml
 
-  def ls = [[(1, 2)], [(3, 4), (5, 6)]];
-  def [[(x, _)], (_, y) :: _] = ls;
-  x + y;
+  def ls = [[(1, 2)], [(3, 4), (5, 6)]]
+  def [[%(x, _)], %(_, y) :: _] = ls
+  x + y
 
 Produces ``5``.
 
@@ -213,7 +210,7 @@ patterns are typechecked to eliminate simple mistakes).  This program:
 
 .. code:: ocaml
 
-  def [x, y, z] = [1, 2];
+  def [x, y, z] = [1, 2]
 
 Results in a runtime exception because the right-hand side only contains two elements,
 not three.
@@ -230,11 +227,11 @@ arbitrary patterns on the test expression.
 .. code:: ocaml
 
   switch (([1, 2], [3, 4])) {
-    case (_, [a, b, c]) -> a + b + c;
-    case ([a, b], [c, 5]) -> a + b + c;
-    case ([a, b], [_, c]) -> a + b + c;
-    case _ -> 0;
-  };
+    case (_, [a, b, c]) -> a + b + c
+    case ([a, b], [c, 5]) -> a + b + c
+    case ([a, b], [_, c]) -> a + b + c
+    case _ -> 0
+  }
   // 7
 
 Functions
@@ -244,22 +241,22 @@ Functions can be defined and used in several different ways.  We can make anonym
 
 .. code:: ocaml
 
-  (fun(x) = x)(42); // 42
+  (fun(x) = x)(42) // 42
 
 Or bind them to names:
 
 .. code:: ocaml
 
-  fun add1(x) = x + 1;
-  add1(2); // 3
+  fun add1(x) = x + 1
+  add1(2) // 3
 
 They can also use a long-form "block" for the body:
 
 .. code:: ocaml
 
   fun add1AndMultBy3(x) {
-    (x + 1) * 3;
-  };
+    (x + 1) * 3
+  }
 
 Function definitions also support a powerful "clause" definition style,
 in which we can define alternative implementations with patterns on arguments.
@@ -267,19 +264,19 @@ For example, here is the Fibonacci sequence in Latro:
 
 .. code:: ocaml
 
-  fun fib(0) = 0;
-  fun fib(1) = 1;
-  fun fib(n) = fib(n - 1) + fib(n - 2);
+  fun fib(0) = 0
+  fun fib(1) = 1
+  fun fib(n) = fib(n - 1) + fib(n - 2)
 
 As shown above, we can annotate functions with types to avoid over-generalizing
 by the type inference engine (or just to be clearer about a function's prototype):
 
 .. code:: ocaml
 
-  fib => fun(Int) : Int;
-  fun fib(0) = 0;
-  fun fib(1) = 1;
-  fun fib(n) = fib(n - 1) + fib(n - 2);
+  fib => fun(Int) : Int
+  fun fib(0) = 0
+  fun fib(1) = 1
+  fun fib(n) = fib(n - 1) + fib(n - 2)
 
 Clauses are a nice, declarative way of expressing functions as sets of
 rules.  As another example, we could define a set of common boolean operations,
@@ -287,17 +284,17 @@ where each function definition looks very much like a truth table:
 
 ::
 
-  fun or(_, True) = True;
-  fun or(True, _) = True;
-  fun or(_, _) = False;
+  fun or(_, True) = True
+  fun or(True, _) = True
+  fun or(_, _) = False
   
-  fun and(True, True) = True;
-  fun and(_, _) = False;
+  fun and(True, True) = True
+  fun and(_, _) = False
   
-  fun xor(False, False) = False;
-  fun xor(True, False) = True;
-  fun xor(False, True) = True;
-  fun xor(_, _) = False;
+  fun xor(False, False) = False
+  fun xor(True, False) = True
+  fun xor(False, True) = True
+  fun xor(_, _) = False
 
 Note also that clauses are evaluated *in order*, so the ``xor`` example is
 correct as the ``xor(_, _)`` case is guaranteed to only operate on cases
@@ -310,15 +307,15 @@ like the following:
 .. code:: ocaml
 
   fun xor(a, b) {
-    def args = (a, b);
+    def args = %(a, b)
     switch (args) {
-      case (False, False) -> False;
-      case (True, False) -> True;
-      case (False, True) -> True;
-      case (_, _) -> False;
-      case _ -> fail("Inexhaustive pattern clauses in function 'xor'!");
-    };
-  };
+      case %(False, False) -> False
+      case %(True, False) -> True
+      case %(False, True) -> True
+      case %(_, _) -> False
+      case _ -> fail("Inexhaustive pattern clauses in function 'xor'!")
+    }
+  }
 
 Functions can also be bound using the familiar ``def`` syntax, although functions
 defined in this way will not have their names bound in the body (so they cannot
@@ -326,7 +323,7 @@ be recursive):
 
 .. code:: ocaml
 
-  def f = fun(x) = x;
+  def f = fun(x) = x
 
 This is equivalent to binding a name to an anonymous function -- and anonymous functions
 obviously have no name with which to refer to themselves.
@@ -336,11 +333,11 @@ The compiler will complain if we try to implement Fibonacci using this form:
 
   def fib = fun(x) {
     switch (x) {
-      case 0 -> 0;
-      case 1 -> 1;
-      case n -> fib(n - 1) + fib(n - 2); // ERROR: Unbound identifier 'fib'!
-    };
-  };
+      case 0 -> 0
+      case 1 -> 1
+      case n -> fib(n - 1) + fib(n - 2) // ERROR: Unbound identifier 'fib'!
+    }
+  }
 
 Closures
 --------
@@ -349,10 +346,10 @@ All functions *close* over bindings in their surrounding scope, e.g.:
 
 ::
 
-  fun adder(x) = fun(y) = x + y;
-  def add5 = adder(5);
+  fun adder(x) = fun(y) = x + y
+  def add5 = adder(5)
   
-  add5(6); // 11
+  add5(6) // 11
   
 Instance functions
 ------------------
@@ -363,8 +360,8 @@ using Go-style post-hoc instance function definitions:
 
 .. code:: ocaml
 
-  fun ([]).length() = 0;
-  fun (x::xs).length() = 1 + xs.length();
+  fun ([]).length() = 0
+  fun (x::xs).length() = 1 + xs.length()
 
 Notice that we may use patterns and clauses to destructure values of the instance
 value, just as we do for arguments in regular function clauses -- and
@@ -375,9 +372,9 @@ could clarify the type of this function with an annotation:
 
 .. code:: ocaml
 
-  length<a> => fun(a[])() : Int;
-  fun ([]).length() = 0;
-  fun (x::xs).length() = 1 + xs.length();
+  length<a> => fun(a[])() : Int
+  fun ([]).length() = 0
+  fun (x::xs).length() = 1 + xs.length()
 
 We can call this function on any list:
 
@@ -398,16 +395,15 @@ use an ADT to represent a value that can be either present or absent:
 .. code:: ocaml
 
   type Optional<a> =
-    | Present a
+    | Present(a)
     | Absent
-    ;
 
 Doing so gives us constructors for each alternative we can use to build values of
 type ``Optional<a>``:
 
 .. code:: ocaml
 
-  def v = Present(42); // Optional<Int>
+  def v = Present(42) // Optional<Int>
 
 We can deconstruct ADT values in any place where we can use patterns, using
 the name of a constructor:
@@ -415,38 +411,36 @@ the name of a constructor:
 .. code:: ocaml
 
   type Optional<a> =
-    | Present a
+    | Present(a)
     | Absent
-    ;
   
-  fun (Present(_)).isPresent() = True;
-  fun (_).isPresent() = False;
+  fun (Present(_)).isPresent() = True
+  fun (_).isPresent() = False
   
-  def a = Present(False);
-  def Present(x) = a;
+  def a = Present(False)
+  def Present(x) = a
   
-  or(x, a.isPresent()); // True
+  or(x, a.isPresent()) // True
 
 We might use this particular ADT to define some useful operations on lists:
 
 .. code:: ocaml
 
   type Optional<a> =
-    | Present a
+    | Present(a)
     | Absent
-    ;
   
-  fun ([]).head() = Absent();
-  fun (x::_).head() = Present(x);
+  fun ([]).head() = Absent()
+  fun (x::_).head() = Present(x)
   
-  fun ([]).tail() = Absent();
-  fun (_::xs).tail() = Present(xs);
+  fun ([]).tail() = Absent()
+  fun (_::xs).tail() = Present(xs)
   
-  [1, 2, 3].head(); // Present(1)
-  ["hello", "world"].tail(); // Present(["world"])
+  [1, 2, 3].head() // Present(1)
+  ["hello", "world"].tail() // Present(["world"])
   
-  "hello".head(); // Present("h")
-  "hello".tail(); // Present("ello")
+  "hello".head() // Present("h")
+  "hello".tail() // Present("ello")
   
 
 Structures
@@ -460,16 +454,16 @@ arbitrary number of named fields:
   type Person = struct {
     Name Char[];
     Age Int;
-  };
+  }
   
-  def p = Person { Name = "john"; Age = 42; };
+  def p = Person { Name = "john"; Age = 42; }
 
 Each field defined for a struct type also gives us
 an instance function we can use as an accessor:
 
 .. code:: ocaml
 
-  p.Name(); // "john"
+  p.Name() // "john"
 
 
 Like ADT's, structure types can be polymorphic:
@@ -480,10 +474,10 @@ Like ADT's, structure types can be polymorphic:
     Name Char[];
     Age Int;
     CustomData a;
-  };
+  }
   
-  def p1 = Person { Name = "john", Age = 42; CustomData = False; };
-  def p2 = Person { Name = "jim", Age = 41, CustomData = [1, 2, 3]; };
+  def p1 = Person { Name = "john"; Age = 42; CustomData = False; }
+  def p2 = Person { Name = "jim"; Age = 41; CustomData = [1, 2, 3]; }
 
 Recursive types
 ---------------
@@ -495,15 +489,14 @@ simple binary-tree implementation:
 .. code:: ocaml
 
   type BTree<a> =
-    | Node a BTree<a> BTree<a>
-    | Leaf a
-    ;
+    | Node(a, BTree<a>, BTree<a>)
+    | Leaf(a)
   
-  fun size(Leaf(_)) = 1;
+  fun size(Leaf(_)) = 1
   fun size(Node(_, left, right)) =
-    1 + size(left) + size(right);
+    1 + size(left) + size(right)
   
-  size(Node("a", Leaf("b"), Leaf("c"))); // 3
+  size(Node("a", Leaf("b"), Leaf("c"))) // 3
 
 Modules
 -------
@@ -514,14 +507,14 @@ grouped into modules like so:
 .. code:: scala
 
   module String {
-    type t = Char[];
+    type t = Char[]
     
-    len => fun(t) : Int;
-    fun len("") = 0;
-    fun len(c::cs) = 1 + len(cs);
-  };
+    len => fun(t) : Int
+    fun len("") = 0
+    fun len(c::cs) = 1 + len(cs)
+  }
   
-  String.len("hello world"); // 11
+  String.len("hello world") // 11
 
 Note also here we are using a list pattern on strings, which works because
 strings are really just a list of Unicode characters.
@@ -531,15 +524,15 @@ Modules can also be arbitrarily nested:
 .. code:: scala
 
   module StringStuff {
-    type t = Char[];
+    type t = Char[]
     module ExtraStringStuff {
-      append => fun(t, t) : t;
-      fun append(c::cs, b) = c :: append(cs, b);
-      fun append(_, b) = b;
-    };
-  };
+      append => fun(t, t) : t
+      fun append(c::cs, b) = c :: append(cs, b)
+      fun append(_, b) = b
+    }
+  }
   
-  StringStuff.ExtraStringStuff.append("hello", " world"); // "hello world"
+  StringStuff.ExtraStringStuff.append("hello", " world") // "hello world"
 
 Submodules can refer to all of the types and/or values defined 
 in parent modules directly, as the ``ExtraStringStuff`` module
@@ -576,14 +569,14 @@ a module later to add bindings to it.
 .. code:: scala
 
   module M {
-    def foo = 42;
-  };
+    def foo = 42
+  }
   
   module M {
-    def bar = 43;
-  };
+    def bar = 43
+  }
   
-  M.bar + M.foo;
+  M.bar + M.foo
 
 Module names are resolved using *qualified identifiers* or paths, where a
 path is a sequence of module names separated by dots (``.``).  Resolution applies
@@ -593,16 +586,16 @@ some other toplevel module with the same name:
 .. code:: scala
 
   module M {
-    def foo = 42;
-  };
+    def foo = 42
+  }
   
   module N {
     module M {
-      def bar = 43;
-    };
-  };
+      def bar = 43
+    }
+  }
   
-  M.bar + M.foo; // ERROR: Unbound identifier 'bar'!
+  M.bar + M.foo // ERROR: Unbound identifier 'bar'!
 
 This code does not compile because ``bar`` is defined on the module
 ``N.M``, not ``M``.
@@ -683,15 +676,15 @@ For example, here's an example test from the interpreter suite:
   (test-case "it evaluates ADT argument patterns"
     (check-equal?
       @interp{
-        type IntOption = | Some Int | None ;
+        type IntOption = | Some(Int) | None
   
-        IsSome => fun(IntOption) : Bool;
-        fun IsSome(Some(_)) = True;
-        fun IsSome(_) = False;
+        IsSome => fun(IntOption) : Bool
+        fun IsSome(Some(_)) = True
+        fun IsSome(_) = False
   
-        def s = Some(42);
-        def Some(v) = s;
-        (IsSome(None()), IsSome(s), v);
+        def s = Some(42)
+        def Some(v) = s
+        (IsSome(None()), IsSome(s), v)
       }
       '(Tuple (False True 42))))
 
