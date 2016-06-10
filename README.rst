@@ -234,6 +234,18 @@ arbitrary patterns on the test expression.
   }
   // 7
 
+We can also use expression blocks for more complex case clauses:
+
+.. code:: ocaml
+
+  switch ([1, 2, 3]) {
+    case [x, y, z] -> {
+      def v = z + y
+      v * 2
+    }
+    case _ -> 3
+  }
+
 Functions
 ---------
 
