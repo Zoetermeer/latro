@@ -80,6 +80,8 @@ ZeroOrMoreExps : Exp { [$1] }
                | OneOrMoreExps Exp { $1 ++ [$2] }
                | {- empty -} { [] }
 
+Block : '{' ExpOrAssigns '}' { $2 }
+
 ZeroOrMoreModuleLevelExps : ModuleLevelExp { [$1] }
                           | ZeroOrMoreModuleLevelExps ModuleLevelExp { $1 ++ [$2] }
                           | {- empty -} { [] }
@@ -223,7 +225,8 @@ InterfaceDecExp: interface id TyParams '{' TyAnns '}' { ExpInterfaceDec (pos $1)
 CaseClauses : CaseClause { [$1] }
             | CaseClauses CaseClause { $1 ++ [$2] }
 
-CaseClause : case PatExp '->' OneOrMoreExps { CaseClause (pos $1) $2 $4 }
+CaseClause : case PatExp '->' Exp { CaseClause (pos $1) $2 [$4] }
+           | case PatExp '->' Block { CaseClause (pos $1) $2 $4 }
 
 CondCaseClauses : CondCaseClause { [$1] }
                 | CondCaseClauses CondCaseClause { $1 ++ [$2] }

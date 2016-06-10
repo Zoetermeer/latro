@@ -621,6 +621,19 @@
     }
     '(App Tuple ((App List (Char)) Int))))
 
+(test-case "it checks switch expressions with mixed block-style and short-form bodies"
+  (check-equal?
+    @typecheck{
+      switch ([1, 2, 3]) {
+        case [x, y] -> {
+          def z = x + y
+          z + 1
+        }
+        case _ -> 3
+      }
+    }
+    'Int))
+
 (test-case "it checks non-polymorphic annotated function definitions"
   (check-equal?
     @typecheck{

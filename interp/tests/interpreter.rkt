@@ -779,6 +779,19 @@
     }
     3))
 
+(test-case "it evaluates switch expressions with mixed block-style and short-form bodies"
+  (check-equal?
+    @interp{
+      switch ([1, 2, 3]) {
+        case [x, y, z] -> {
+          def v = z + y
+          v * 2
+        }
+        case _ -> 3
+      }
+    }
+    10))
+
 (test-case "it evaluates patterns in argument-binding position"
   (check-equal?
     @interp{
