@@ -3,6 +3,10 @@
 //https://github.com/ptrckbrwn/rope
 
 module Rope {
+//  import Core
+//  import Core.String
+//  import Core.List
+
   type t =
     | Leaf(String.t)
     | Node(Int, t, t)

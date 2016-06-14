@@ -1,7 +1,9 @@
 module Core {
-  type Maybe<a> =
-    | Just(a)
-    | Nothing
+  module Maybe {
+    type Maybe<a> =
+      | Just(a)
+      | Nothing
+  }
 
   fun lt(0, 0) = False
   fun lt(0, _) = True
@@ -23,29 +25,29 @@ module Core {
   fun and(True, True) = True
   fun and(True, _)    = False
   fun and(_, _)       = False
-}
 
-module List {
-  fun length([])    = 0
-  fun length(x::xs) = 1 + length(xs)
+  module String {
+    type t = Char[]
 
-  fun append([], bs)    = bs
-  fun append(as, [])    = as
-  fun append(a::as, bs) = a :: append(as, bs)
+    fun (s).splitAt(0)      = %(s, "")
+    fun ("").splitAt(_)     = %("", "")
+    fun (c::cs).splitAt(1)  = %([c], cs)
+    fun (c::cs).splitAt(n) {
+      def %(a, b) = cs.splitAt(n - 1)
+      %(c :: a, b)
+    }
+  }
 
-  fun atIndex([], _)    = Core.Nothing()
-  fun atIndex(x::_, 0)  = Core.Just(x)
-  fun atIndex(_::xs, n) = atIndex(xs, n - 1)
-}
+  module List {
+    fun length([])    = 0
+    fun length(x::xs) = 1 + length(xs)
 
-module String {
-  type t = Char[]
-}
+    fun append([], bs)    = bs
+    fun append(as, [])    = as
+    fun append(a::as, bs) = a :: append(as, bs)
 
-fun (s).splitAt(0)      = %(s, "")
-fun ("").splitAt(_)     = %("", "")
-fun (c::cs).splitAt(1)  = %([c], cs)
-fun (c::cs).splitAt(n) {
-  def %(a, b) = cs.splitAt(n - 1)
-  %(c :: a, b)
+    fun atIndex([], _)    = Core.Nothing()
+    fun atIndex(x::_, 0)  = Core.Just(x)
+    fun atIndex(_::xs, n) = atIndex(xs, n - 1)
+  }
 }
