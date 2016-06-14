@@ -21,6 +21,7 @@ import Semant (SourcePos(..))
 
 $digit = 0-9
 $alpha = [a-zA-Z]
+$idchar = [\+\*\-\!\/\\\@]
 
 tokens :-
   $white+ ;
@@ -72,7 +73,7 @@ tokens :-
   [\,] { lex' TokenComma }
   [\_] { lex' TokenUnderscore }
   $digit+ { lex TokenNumLit }
-  $alpha [$alpha $digit \_ \']* { lex TokenId }
+  [$alpha $idchar] [$alpha $digit $idchar \_ \']* { lex TokenId }
   [\"] [^\"]* [\"] { lex TokenString }
   [\'] [^\']{1} [\'] { lex TokenChar }
 

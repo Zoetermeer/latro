@@ -201,7 +201,6 @@ instance (Sexpable a, Sexpable id) => Sexpable (Exp a id) where
   sexp (ExpDiv d a b) = List [ Symbol "ExpDiv", sexp d, sexp a, sexp b ]
   sexp (ExpMul d a b) = List [ Symbol "ExpMul", sexp d, sexp a, sexp b ]
   sexp (ExpCons d a b) = List [ Symbol "ExpCons", sexp d, sexp a, sexp b ]
-  sexp (ExpNot d e) = List [ Symbol "ExpNot", sexp d, sexp e ]
   sexp (ExpMemberAccess d e id) =
     List  [ Symbol "ExpMemberAccess"
           , sexp d

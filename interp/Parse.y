@@ -190,8 +190,7 @@ SubExp : SubExp '-' AddExp { ExpSub (nodeData $1) $1 $3 }
 ConsExp : SubExp '::' ConsExp { ExpCons (nodeData $1) $1 $3 }
         | SubExp { $1 }
 
-Exp : '!' ConsExp { ExpNot (pos $1) $2 }
-    | ConsExp { $1 }
+Exp : ConsExp { $1 }
     | if '(' Exp ')' '{' ExpOrAssigns '}' else '{' ExpOrAssigns '}' { ExpIfElse (pos $1) $3 $6 $10 }
     | switch '(' Exp ')' '{' CaseClauses '}' { ExpSwitch (pos $1) $3 $6 }
     | cond '{' CondCaseClauses '}' { ExpCond (pos $1) $3 }

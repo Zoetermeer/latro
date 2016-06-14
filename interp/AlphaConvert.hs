@@ -288,9 +288,6 @@ convert (ExpSub p a b) = convertBin ExpSub p a b
 convert (ExpDiv p a b) = convertBin ExpDiv p a b
 convert (ExpMul p a b) = convertBin ExpMul p a b
 convert (ExpCons p a b) = convertBin ExpCons p a b
-convert (ExpNot p e) = do
-  e' <- convert e
-  return $ ExpNot p e'
 
 convert (ExpMemberAccess p e id) = do
   e' <- convert e

@@ -68,17 +68,6 @@
     @typecheck{1::2}
     '(CantUnify (Expected (App List (Int))) (Got Int))))
 
-(test-case "it checks 'not' expressions"
-  (check-equal?
-    @typecheck{!True}
-    'Bool))
-
-(test-case "it fails to typecheck for non-bool types in a 'not' exp"
-  (check-equal?
-    @typecheck{!42} '(CantUnify (Expected Bool) (Got Int)))
-  (check-equal?
-    @typecheck{!(1 + 2)} '(CantUnify (Expected Bool) (Got Int))))
-
 (test-case "it checks if-else expressions"
   (check-equal?
     @typecheck{if (True) { 42 } else { 43 }}
@@ -1027,12 +1016,15 @@
     @typecheck{
       type Opt<a> = | Some(a) | None
 
+      fun not(True) = False
+      fun not(_) = True
+
       isSome<a> => fun(Opt<a>) : Bool
       fun isSome(Some(_)) = True
       fun isSome(_) = False
 
       isNone<a> => fun(Opt<a>) : Bool
-      fun isNone(o) { !isSome(o) }
+      fun isNone(o) { not(isSome(o)) }
 
       %(isNone(Some(42)), isSome(Some(True)))
     }
@@ -1071,6 +1063,9 @@
     @typecheck{
       type Opt<a> = | Some(a) | None
 
+      fun not(True) = False
+      fun not(_) = True
+
       def isSome = fun(o) {
         switch (o) {
           case Some(_) -> True
@@ -1079,7 +1074,7 @@
       }
 
       def isNone = fun(o) {
-        !isSome(o)
+        not(isSome(o))
       }
 
       %(isSome(None()), isSome(Some("hello")))

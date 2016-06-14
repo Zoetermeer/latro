@@ -115,7 +115,6 @@ data Exp a id =
   | ExpDiv a (Exp a id) (Exp a id)
   | ExpMul a (Exp a id) (Exp a id)
   | ExpCons a (Exp a id) (Exp a id)
-  | ExpNot a (Exp a id)
   | ExpMemberAccess a (Exp a id) id
   | ExpApp a (Exp a id) [Exp a id]
   | ExpImport a (QualifiedId a id)
@@ -162,7 +161,6 @@ instance AstNode Exp where
       ExpDiv d _ _ -> d
       ExpMul d _ _ -> d
       ExpCons d _ _ -> d
-      ExpNot d _ -> d
       ExpMemberAccess d _ _ -> d
       ExpApp d _ _ -> d
       ExpImport d _ -> d

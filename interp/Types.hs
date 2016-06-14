@@ -937,11 +937,6 @@ tc (ExpCons p headE listE) = do
                 unify (TyApp TyConList [tyHeadE]) tyListE'
   return (listTy, ExpCons (OfTy p listTy) headE' listE')
 
-tc (ExpNot p e) = do
-  (ty, e') <- tc e
-  unify tyBool ty
-  return (tyBool, ExpNot (OfTy p tyBool) e')
-
 tc (ExpMemberAccess p e id) = do
   -- traceM $ printf "tc ExpMemberAccess %s %s" (show e) (show id)
   (eTy, e') <- tc e

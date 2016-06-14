@@ -420,6 +420,9 @@
 (test-case "it evaluates recursive functions"
   (check-equal?
     @interp{
+      fun not(True) = False
+      fun not(_) = True
+
       f => fun(Int) : Int
       fun f(x) {
         def isZero = switch (x) {
@@ -427,7 +430,7 @@
           case _ -> False
         }
 
-        if (!isZero) {
+        if (not(isZero)) {
           x + f(x - 1)
         } else {
           x
@@ -985,3 +988,19 @@
       [1, 2, 3].len()
     }
     3))
+
+(test-case "it accepts identifiers with non-alphanumeric characters"
+  (check-equal?
+    @interp{
+      def x+ = 1 + 2
+      x+
+    }
+    3))
+
+(test-case "it accepts special characters in function names"
+  (check-equal?
+    @interp{
+      fun foo/bar(n) = n + 1
+      foo/bar(19) / 2
+    }
+    10))
