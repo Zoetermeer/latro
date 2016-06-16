@@ -992,8 +992,8 @@
 (test-case "it accepts identifiers with non-alphanumeric characters"
   (check-equal?
     @interp{
-      def x+ = 1 + 2
-      x+
+      def x/! = 1 + 2
+      x/!
     }
     3))
 
@@ -1004,3 +1004,12 @@
       foo/bar(19) / 2
     }
     10))
+
+(test-case "it evaluates infix application of binary functions"
+  (check-equal?
+    @interp{
+      fun !!(a, b) = a * b
+
+      2 !! 3 + 4
+    }
+    14))

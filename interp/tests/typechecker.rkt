@@ -1259,3 +1259,12 @@
       %(42.id(), v.id())
     }
     '(App Tuple (Int Bool))))
+
+(test-case "it checks infix application of binary functions"
+  (check-equal?
+    @typecheck{
+      fun !!(a, b) = a + b
+
+      1 !! 3 + 4
+    }
+    'Int))

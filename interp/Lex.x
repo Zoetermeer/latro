@@ -21,7 +21,7 @@ import Semant (SourcePos(..))
 
 $digit = 0-9
 $alpha = [a-zA-Z]
-$idchar = [\+\*\-\!\/\\\@]
+$special = [\!\/\\\@]
 
 tokens :-
   $white+ ;
@@ -73,7 +73,9 @@ tokens :-
   [\,] { lex' TokenComma }
   [\_] { lex' TokenUnderscore }
   $digit+ { lex TokenNumLit }
-  [$alpha $idchar] [$alpha $digit $idchar \_ \']* { lex TokenId }
+  [$alpha] [$alpha $digit \_ \']* { lex TokenSimpleId }
+  [$alpha] [$alpha $digit \_ \' $special]+ { lex TokenMixedId }
+  [$special]+ { lex TokenSpecialId }
   [\"] [^\"]* [\"] { lex TokenString }
   [\'] [^\']{1} [\'] { lex TokenChar }
 
@@ -141,7 +143,9 @@ data TokenClass =
   | TokenComma
   | TokenUnderscore
   | TokenNumLit String
-  | TokenId String
+  | TokenSimpleId String
+  | TokenMixedId String
+  | TokenSpecialId String
   | TokenString String
   | TokenChar String
   | TokenEOF
@@ -152,7 +156,9 @@ tokValue :: Token -> String
 tokValue (Token _ tok) =
   case tok of
     TokenNumLit s -> s
-    TokenId s -> s
+    TokenSimpleId s -> s
+    TokenMixedId s -> s
+    TokenSpecialId s -> s
     TokenString s -> s
     TokenChar s -> s
 
@@ -211,7 +217,9 @@ unlex (TokenColon) = ":"
 unlex (TokenComma) = ","
 unlex (TokenUnderscore) = "_"
 unlex (TokenNumLit s) = s
-unlex (TokenId s) = s
+unlex (TokenSimpleId s) = s
+unlex (TokenMixedId s) = s
+unlex (TokenSpecialId s) = s
 unlex (TokenString s) = s
 unlex (TokenEOF) = "<EOF>"
 

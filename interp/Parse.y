@@ -63,7 +63,9 @@ import Semant
   ',' { Token _ TokenComma }
   '_' { Token _ TokenUnderscore }
   num { Token _ (TokenNumLit _) }
-  id  { Token _ (TokenId _) }
+  simple_id { Token _ (TokenSimpleId _) }
+  mixed_id { Token _ (TokenMixedId _) }
+  special_id { Token _ (TokenSpecialId _) }
   string { Token _ (TokenString _) }
   char { Token _ (TokenChar _) }
 
@@ -94,7 +96,7 @@ ModuleLevelExp : InterfaceDecExp { $1 }
                | ModuleDec { $1 }
                | ExpOrAssign { $1 }
 
-ModuleDec : module id ModuleParamList '{' ZeroOrMoreModuleLevelExps '}'
+ModuleDec : module SimpleOrMixedId ModuleParamList '{' ZeroOrMoreModuleLevelExps '}'
   { ExpAssign (pos $1) (PatExpId (pos $2) (tokValue $2)) (ExpModule (pos $4) $3 $5) }
 
 TupleRestExps : ',' Exp { [$2] }
@@ -125,7 +127,7 @@ AtomPatExp : '(' PatExp ')' { $2 }
            | LiteralPatExp { $1 }
            | TuplePatExp { $1 }
            | AdtPatExp { $1 }
-           | id { PatExpId (pos $1) (tokValue $1) }
+           | SimpleOrMixedId{ PatExpId (pos $1) (tokValue $1) }
            | '_' { PatExpWildcard (pos $1) }
 
 ListPatExp : AtomPatExp '::' ListPatExp { PatExpListCons (nodeData $1) $1 $3 }
@@ -140,8 +142,8 @@ CommaSeparatedExps : Exp { [$1] }
 
 ListExp : '[' CommaSeparatedExps ']' { ExpList (pos $1) $2 }
 
-CommaSeparatedIds : id { [tokValue $1] }
-                  | CommaSeparatedIds ',' id { $1 ++ [tokValue $3] }
+CommaSeparatedIds : SimpleOrMixedId { [tokValue $1] }
+                  | CommaSeparatedIds ',' SimpleOrMixedId { $1 ++ [tokValue $3] }
                   | {- empty -} { [] }
 
 ModuleParamList : '(' ')' { [] }
@@ -169,7 +171,7 @@ AtomExp : '(' Exp ')' { $2 }
         | char { ExpChar (pos $1) (tokValue $1) }
         | QualifiedId { qualIdToMemberAcc $1 }
 
-MemberAccessExp : AppExp '.' id { ExpMemberAccess (nodeData $1) $1 (tokValue $3) }
+MemberAccessExp : AppExp '.' SimpleOrMixedId{ ExpMemberAccess (nodeData $1) $1 (tokValue $3) }
                 | AtomExp { $1 }
 
 AppExp : AppExp '(' ArgExps ')' { ExpApp (nodeData $1) $1 $3 }
@@ -190,7 +192,10 @@ SubExp : SubExp '-' AddExp { ExpSub (nodeData $1) $1 $3 }
 ConsExp : SubExp '::' ConsExp { ExpCons (nodeData $1) $1 $3 }
         | SubExp { $1 }
 
-Exp : ConsExp { $1 }
+CustomInfixExp : CustomInfixExp special_id ConsExp { ExpCustomInfix (nodeData $1) $1 (tokValue $2) $3 }
+               | ConsExp { $1 }
+
+Exp : CustomInfixExp { $1 }
     | if '(' Exp ')' '{' ExpOrAssigns '}' else '{' ExpOrAssigns '}' { ExpIfElse (pos $1) $3 $6 $10 }
     | switch '(' Exp ')' '{' CaseClauses '}' { ExpSwitch (pos $1) $3 $6 }
     | cond '{' CondCaseClauses '}' { ExpCond (pos $1) $3 }
@@ -204,8 +209,8 @@ ExpOrAssign : def PatExp '=' Exp { ExpAssign (pos $1) $2 $4 }
 ExpOrAssigns : ExpOrAssign { [$1] }
              | ExpOrAssigns ExpOrAssign { $1 ++ [$2] }
 
-FunDef : fun id '(' PatExpList ')' FunBody { FunDefFun (pos $1) (tokValue $2) $4 $6 }
-       | SingleParamFunHeader '.' id '(' PatExpList ')' FunBody { FunDefInstFun (fst $1) (snd $1) (tokValue $3) $5 $7 }
+FunDef : fun AnyId '(' PatExpList ')' FunBody { FunDefFun (pos $1) (tokValue $2) $4 $6 }
+       | SingleParamFunHeader '.' SimpleOrMixedId '(' PatExpList ')' FunBody { FunDefInstFun (fst $1) (snd $1) (tokValue $3) $5 $7 }
 
 FunBody : '{' ExpOrAssigns '}' { $2 }
         | '=' Exp { [$2] }
@@ -213,13 +218,13 @@ FunBody : '{' ExpOrAssigns '}' { $2 }
 TyParams : '<' CommaSeparatedIds '>' { $2 }
          | {- empty -} { [] }
 
-TyAnn : id TyParams '=>' Ty { TyAnn (pos $1) (tokValue $1) $2 $4 }
+TyAnn : SimpleOrMixedId TyParams '=>' Ty { TyAnn (pos $1) (tokValue $1) $2 $4 }
 
 
 TyAnns : TyAnn { [$1] }
        | TyAnns TyAnn { $1 ++ [$2] }
 
-InterfaceDecExp: interface id TyParams '{' TyAnns '}' { ExpInterfaceDec (pos $1) (tokValue $2) $3 $5 }
+InterfaceDecExp: interface SimpleOrMixedId TyParams '{' TyAnns '}' { ExpInterfaceDec (pos $1) (tokValue $2) $3 $5 }
 
 CaseClauses : CaseClause { [$1] }
             | CaseClauses CaseClause { $1 ++ [$2] }
@@ -237,18 +242,18 @@ ArgExps : Exp { [$1] }
         | ArgExps ',' Exp { $1 ++ [$3] }
         | {- empty -} { [] }
 
-FunParams : id { [tokValue $1] }
-          | FunParams ',' id { $1 ++ [tokValue $3] }
+FunParams : SimpleOrMixedId { [tokValue $1] }
+          | FunParams ',' SimpleOrMixedId { $1 ++ [tokValue $3] }
           | {- empty -} { [] }
 
-TypeDec : type id TyParams '=' Ty { TypeDecTy (pos $1) (tokValue $2) $3 $5 }
-        | type id TyParams '=' AdtAlternatives { TypeDecAdt (pos $1) (tokValue $2) $3 $5 }
+TypeDec : type SimpleOrMixedId TyParams '=' Ty { TypeDecTy (pos $1) (tokValue $2) $3 $5 }
+        | type SimpleOrMixedId TyParams '=' AdtAlternatives { TypeDecAdt (pos $1) (tokValue $2) $3 $5 }
 
 AdtAlternatives : AdtAlternative  { [$1] }
                 | AdtAlternatives AdtAlternative  { $1 ++ [$2] }
 
-AdtAlternative : '|' id '(' CommaSeparatedTys ')' { AdtAlternative (pos $1) (tokValue $2) 0 $4 }
-               | '|' id { AdtAlternative (pos $2) (tokValue $2) 0 [] }
+AdtAlternative : '|' SimpleOrMixedId '(' CommaSeparatedTys ')' { AdtAlternative (pos $1) (tokValue $2) 0 $4 }
+               | '|' SimpleOrMixedId { AdtAlternative (pos $2) (tokValue $2) 0 [] }
 
 Tys : Ty { [$1] }
     | Tys Ty { $1 ++ [$2] }
@@ -289,20 +294,27 @@ Ty : Int { SynTyInt (pos $1)  }
    | QualifiedId '<' CommaSeparatedTys '>' { SynTyRef (nodeData $1) $1 $3 }
    | Ty '[' ']' { SynTyList (nodeData $1) $1 }
 
-TyStructField : Ty id ';' { (tokValue $2, $1) }
+TyStructField : Ty SimpleOrMixedId ';' { (tokValue $2, $1) }
 
 TyStructFields : TyStructField { [$1] }
                | TyStructFields TyStructField { $1 ++ [$2] }
                | {- empty -} { [] }
 
-StructFieldInitializer : id '=' Exp ';' { (tokValue $1, $3) }
+StructFieldInitializer : SimpleOrMixedId '=' Exp ';' { (tokValue $1, $3) }
 
 StructFieldInitializers : StructFieldInitializer { [$1] }
                         | StructFieldInitializers StructFieldInitializer { $1 ++ [$2] }
                         | {- empty -} { [] }
 
-QualifiedId : id  { Id (pos $1) (tokValue $1) }
-            | QualifiedId '.' id  { Path (nodeData $1) $1 (tokValue $3) }
+QualifiedId : SimpleOrMixedId  { Id (pos $1) (tokValue $1) }
+            | QualifiedId '.' SimpleOrMixedId  { Path (nodeData $1) $1 (tokValue $3) }
+
+SimpleOrMixedId : simple_id { $1 }
+                | mixed_id { $1 }
+
+AnyId : simple_id { $1 }
+      | mixed_id { $1 }
+      | special_id { $1 }
 
 {
 
