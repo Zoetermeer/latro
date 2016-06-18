@@ -504,7 +504,7 @@
   (check-match
     @interp{
       type t = struct { }
-      t { }
+      t %{ }
     }
     `(Adt (Id t ,_) 0 ())))
 
@@ -516,7 +516,7 @@
         Int Y;
       }
 
-      Point { X = 3; Y = 4; }
+      Point %{ X = 3; Y = 4; }
     }
     `(Adt (Id Point ,_) 0 (3 4))))
 
@@ -528,7 +528,7 @@
         Int Y;
       }
 
-      def p = Point { X = 3; Y = 4; }
+      def p = Point %{ X = 3; Y = 4; }
       Y(p)
     }
     4))
@@ -537,7 +537,7 @@
   (check-equal?
     @interp{
       type t = struct { }
-      def v = t { }
+      def v = t %{ }
       x(v)
     }
     '(UnboundRawIdentifier x)))
@@ -555,9 +555,9 @@
         Point B;
       }
 
-      def l = Line {
-        A = Point { X = 0; Y = 0; };
-        B = Point { X = 3; Y = 4; };
+      def l = Line %{
+        A = Point %{ X = 0; Y = 0; };
+        B = Point %{ X = 3; Y = 4; };
       }
 
       Y(B(l))
@@ -579,9 +579,9 @@
         }
       }
 
-      def l = Geometry.Line {
-        A = Geometry.Point { X = 0; Y = 0; };
-        B = Geometry.Point { X = 3; Y = 4; };
+      def l = Geometry.Line %{
+        A = Geometry.Point %{ X = 0; Y = 0; };
+        B = Geometry.Point %{ X = 3; Y = 4; };
       }
 
       Geometry.Y(Geometry.B(l))
@@ -945,7 +945,7 @@
       }
 
       module Lists {
-        Map<a, b> => fun(fun(a) : b, a[]) : b[]
+        Map{a, b} => fun(fun(a) : b, a[]) : b[]
         fun Map(_, []) = []
         fun Map(f, x::xs) {
           f(x) :: Map(f, xs)
@@ -1013,3 +1013,45 @@
       2 !! 3 + 4
     }
     14))
+
+(test-case "it evaluates clauses on custom infix operators"
+  (check-equal?
+    @interp{
+      fun ||(True, _) = True
+      fun ||(_, True) = True
+      fun ||(_, _) = False
+
+      True || False || False
+    }
+    'True))
+
+(test-case "it evaluates a boolean AND infix operator"
+  (check-equal?
+    @interp{
+      fun &&(True, True) = True
+      fun &&(_, _) = False
+
+      True && False
+    }
+    'False))
+
+(test-case "it evaluates recursive infix operators"
+  (check-equal?
+    @interp{
+      fun &&(True, True) = True
+      fun &&(_, _) = False
+
+      fun <(0, 0) = False
+      fun <(0, _) = True
+      fun <(_, 0) = False
+      fun <(x, y) = (x - 1) < (y - 1)
+
+      fun <=(0, 0) = True
+      fun <=(0, _) = True
+      fun <=(_, 0) = False
+      fun <=(x, y) = (x - 1) <= (y - 1)
+
+      3 < 4 && (10 <= 10)
+    }
+    'True))
+

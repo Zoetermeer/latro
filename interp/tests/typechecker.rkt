@@ -247,7 +247,7 @@
         }
       }
 
-      def p = Point { X = 0; Y = 0; }
+      def p = Point %{ X = 0; Y = 0; }
       p
     }
     `(AtPos (SourcePos ,_ 8 ,_) (CompilerModule Types) (UnboundUniqIdentifier (Id Point ,_)))))
@@ -720,7 +720,7 @@
 (test-case "it checks annotated function definitions"
   (check-equal?
     @typecheck{
-      f<a> => fun(a) : a
+      f{a} => fun(a) : a
       fun f(x) = x
 
       f(42)
@@ -730,7 +730,7 @@
 (test-case "it checks annotated functions with recursive application"
   (check-equal?
     @typecheck{
-      len<a> => fun(a[]) : Int
+      len{a} => fun(a[]) : Int
       fun len([]) = 0
       fun len(x::xs) { 1 + len(xs) }
 
@@ -741,7 +741,7 @@
 (test-case "it fails in ill-typed application of annotated functions"
   (check-match
     @typecheck{
-      len<a> => fun(a[]) : Int
+      len{a} => fun(a[]) : Int
       fun len([]) = 0
       fun len(x::xs) { 1 + len(xs) }
 
@@ -849,7 +849,7 @@
 (test-case "it checks parameterized ADT types"
   (check-match
     @typecheck{
-      type Option<a> =
+      type Option{a} =
         | Some(a)
         | None
 
@@ -869,7 +869,7 @@
 (test-case "it checks parameterized ADT types with multiple parameters"
   (check-match
     @typecheck{
-      type Either<l, r> =
+      type Either{l, r} =
         | Left(l)
         | Right(r)
 
@@ -904,7 +904,7 @@
 (test-case "it checks parameterized ADT type constructors with no arguments"
   (check-match
     @typecheck{
-      type Option<a> =
+      type Option{a} =
         | Some(a)
         | None
 
@@ -943,7 +943,7 @@
 (test-case "it checks ADT patterns"
   (check-equal?
     @typecheck{
-      type Option<a> =
+      type Option{a} =
         | Some(a)
         | None
 
@@ -955,7 +955,7 @@
 (test-case "it does not allow arbitrary functions in ADT patterns"
   (check-match
     @typecheck{
-      type Option<a> =
+      type Option{a} =
         | Some(a)
         | None
 
@@ -983,7 +983,7 @@
   (check-match
     @typecheck{
       module Opt {
-        type t<a> = | Some(a) | None
+        type t{a} = | Some(a) | None
 
         def GetOne = fun() { Some(42) }
       }
@@ -999,7 +999,7 @@
   (check-equal?
     @typecheck{
       module Opt {
-        type t<a> = | Some(a) | None
+        type t{a} = | Some(a) | None
 
         def GetOne = fun() { Some(42) }
       }
@@ -1014,16 +1014,16 @@
 (test-case "it checks annotated functions on ADT values"
   (check-equal?
     @typecheck{
-      type Opt<a> = | Some(a) | None
+      type Opt{a} = | Some(a) | None
 
       fun not(True) = False
       fun not(_) = True
 
-      isSome<a> => fun(Opt<a>) : Bool
+      isSome{a} => fun(Opt{a}) : Bool
       fun isSome(Some(_)) = True
       fun isSome(_) = False
 
-      isNone<a> => fun(Opt<a>) : Bool
+      isNone{a} => fun(Opt{a}) : Bool
       fun isNone(o) { not(isSome(o)) }
 
       %(isNone(Some(42)), isSome(Some(True)))
@@ -1033,9 +1033,9 @@
 (test-case "it checks the annotated unwrap function on polymorphic ADT's"
   (check-equal?
     @typecheck{
-      type Opt<a> = | Some(a) | None
+      type Opt{a} = | Some(a) | None
 
-      unwrap<a> => fun(Opt<a>) : a
+      unwrap{a} => fun(Opt{a}) : a
       fun unwrap(Some(x)) = x
 
       unwrap(Some("hello"))
@@ -1046,7 +1046,7 @@
 (test-case "it checks the unwrap function on polymorphic ADT's"
   (check-equal?
     @typecheck{
-      type Opt<a> = | Some(a) | None
+      type Opt{a} = | Some(a) | None
 
       def unwrap = fun(o) {
         switch (o) {
@@ -1061,7 +1061,7 @@
 (test-case "it infers function types on ADT values"
   (check-equal?
     @typecheck{
-      type Opt<a> = | Some(a) | None
+      type Opt{a} = | Some(a) | None
 
       fun not(True) = False
       fun not(_) = True
@@ -1084,8 +1084,8 @@
 (test-case "it checks applications involving parameterized recursive types"
   (check-equal?
     @typecheck{
-      type BTree<a> =
-        | Node(a, BTree<a>, BTree<a>)
+      type BTree{a} =
+        | Node(a, BTree{a}, BTree{a})
         | Leaf(a)
 
       fun sizeImp(tree) {
@@ -1096,7 +1096,7 @@
         }
       }
 
-      sizeExp<a> => fun(BTree<a>) : Int
+      sizeExp{a} => fun(BTree{a}) : Int
       fun sizeExp(Leaf(_)) = 1
       fun sizeExp(Node(_, left, right)) {
         1 + sizeImp(left) + sizeImp(right)
@@ -1149,12 +1149,12 @@
 (test-case "it checks functions with argument types accepting multiple type params"
   (check-match
     @typecheck{
-      type t<k, v> = %(k, v)[]
+      type t{k, v} = %(k, v)[]
 
-      insert<k, v> => fun(t<k, v>, k, v) : t<k, v>
+      insert{k, v} => fun(t{k, v}, k, v) : t{k, v}
       fun insert(map, key, val) { %(key, val) :: map }
 
-      present<k, v> => fun(t<k, v>, k) : Bool
+      present{k, v} => fun(t{k, v}, k) : Bool
       fun present(_, _) = False
 
       def m = [%(1, "hello")]
@@ -1165,7 +1165,7 @@
 (test-case "it checks implicit functions with argument types accepting multiple type params"
   (check-match
     @typecheck{
-      type t<k, v> = %(k, v)[]
+      type t{k, v} = %(k, v)[]
 
       fun insert(map, key, val) { %(key, val) :: map }
       fun present(m, k) = False

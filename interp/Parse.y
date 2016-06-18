@@ -42,6 +42,7 @@ import Semant
   '=>' { Token _ TokenRocket }
   '::' { Token _ TokenCons }
   '%(' { Token _ TokenPctLParen }
+  '%{' { Token _ TokenPctLBrace }
   '[' { Token _ TokenLBracket }
   ']' { Token _ TokenRBracket }
   '{' { Token _ TokenLBrace }
@@ -162,7 +163,7 @@ AtomExp : '(' Exp ')' { $2 }
         | '(' ')' { ExpUnit (pos $1) }
         | '%(' Exp TupleRestExps ')' { ExpTuple (pos $1) ($2:$3) }
         | ListExp { $1 }
-        | QualifiedId '{' StructFieldInitializers '}' { ExpStruct (nodeData $1) (SynTyRef (nodeData $1) $1 []) $3 }
+        | QualifiedId '%{' StructFieldInitializers '}' { ExpStruct (nodeData $1) (SynTyRef (nodeData $1) $1 []) $3 }
         | FunHeader FunBody { ExpFun (fst $1) (snd $1) $2 }
         | num { ExpNum (pos $1) (tokValue $1) }
         | True { ExpBool (pos $1) True }
@@ -192,7 +193,7 @@ SubExp : SubExp '-' AddExp { ExpSub (nodeData $1) $1 $3 }
 ConsExp : SubExp '::' ConsExp { ExpCons (nodeData $1) $1 $3 }
         | SubExp { $1 }
 
-CustomInfixExp : CustomInfixExp special_id ConsExp { ExpCustomInfix (nodeData $1) $1 (tokValue $2) $3 }
+CustomInfixExp : CustomInfixExp SpecialId ConsExp { ExpCustomInfix (nodeData $1) $1 (tokValue $2) $3 }
                | ConsExp { $1 }
 
 Exp : CustomInfixExp { $1 }
@@ -215,7 +216,7 @@ FunDef : fun AnyId '(' PatExpList ')' FunBody { FunDefFun (pos $1) (tokValue $2)
 FunBody : '{' ExpOrAssigns '}' { $2 }
         | '=' Exp { [$2] }
 
-TyParams : '<' CommaSeparatedIds '>' { $2 }
+TyParams : '{' CommaSeparatedIds '}' { $2 }
          | {- empty -} { [] }
 
 TyAnn : SimpleOrMixedId TyParams '=>' Ty { TyAnn (pos $1) (tokValue $1) $2 $4 }
@@ -277,7 +278,7 @@ TyTuple : '%(' Ty TyTupleRest ')' { SynTyTuple (pos $1) ($2:$3) }
 OptionalImpClause : ':' Ty { Just $2 }
                   | {- empty -} { Nothing }
 
-TyArgs : '<' CommaSeparatedTys '>' { $2 }
+TyArgs : '{' CommaSeparatedTys '}' { $2 }
        | {- empty -} { [] }
 
 Ty : Int { SynTyInt (pos $1)  }
@@ -287,11 +288,10 @@ Ty : Int { SynTyInt (pos $1)  }
    | fun '(' ')' ':' Ty { SynTyArrow (pos $1) [] $5 }
    | fun '(' CommaSeparatedTys ')' ':' Ty { SynTyArrow (pos $1) $3 $6 }
    | interface '{' '}' { SynTyInterface (pos $1) [] }
-   | default QualifiedId TyArgs { SynTyDefault (pos $1) $2 $3 }
+   | default QualifiedSimpleId TyArgs { SynTyDefault (pos $1) $2 $3 }
    | struct '{' TyStructFields '}' { SynTyStruct (pos $1) $3 }
    | TyTuple { $1 }
-   | QualifiedId { SynTyRef (nodeData $1) $1 [] }
-   | QualifiedId '<' CommaSeparatedTys '>' { SynTyRef (nodeData $1) $1 $3 }
+   | QualifiedSimpleId TyArgs { SynTyRef (nodeData $1) $1 $2 }
    | Ty '[' ']' { SynTyList (nodeData $1) $1 }
 
 TyStructField : Ty SimpleOrMixedId ';' { (tokValue $2, $1) }
@@ -309,12 +309,20 @@ StructFieldInitializers : StructFieldInitializer { [$1] }
 QualifiedId : SimpleOrMixedId  { Id (pos $1) (tokValue $1) }
             | QualifiedId '.' SimpleOrMixedId  { Path (nodeData $1) $1 (tokValue $3) }
 
+QualifiedSimpleId : simple_id { Id (pos $1) (tokValue $1) }
+                  | QualifiedId '.' simple_id { Path (nodeData $1) $1 (tokValue $3) }
+
 SimpleOrMixedId : simple_id { $1 }
                 | mixed_id { $1 }
 
+SpecialId : special_id { $1 }
+          | '|' { Token (pos $1) $ TokenSpecialId "|" }
+          | '<' { Token (pos $1) $ TokenSpecialId "<" }
+          | '>' { Token (pos $1) $ TokenSpecialId ">" }
+
 AnyId : simple_id { $1 }
       | mixed_id { $1 }
-      | special_id { $1 }
+      | SpecialId { $1 }
 
 {
 

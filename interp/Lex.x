@@ -21,7 +21,7 @@ import Semant (SourcePos(..))
 
 $digit = 0-9
 $alpha = [a-zA-Z]
-$special = [\!\/\\\@]
+$special = [\!\/\\\@\|\~\&\=\<\>]
 
 tokens :-
   $white+ ;
@@ -52,6 +52,7 @@ tokens :-
   "=>" { lex' TokenRocket }
   "::" { lex' TokenCons }
   "%(" { lex' TokenPctLParen }
+  "%{" { lex' TokenPctLBrace }
   [\[] { lex' TokenLBracket }
   [\]] { lex' TokenRBracket }
   [\{] { lex' TokenLBrace }
@@ -122,6 +123,7 @@ data TokenClass =
   | TokenRocket
   | TokenCons
   | TokenPctLParen
+  | TokenPctLBrace
   | TokenLBracket
   | TokenRBracket
   | TokenLBrace
@@ -196,6 +198,7 @@ unlex (TokenArrow) = "->"
 unlex (TokenRocket) = "=>"
 unlex (TokenCons) = "::"
 unlex (TokenPctLParen) = "%("
+unlex (TokenPctLBrace) = "%{"
 unlex (TokenLBracket) = "["
 unlex (TokenRBracket) = "]"
 unlex (TokenLBrace) = "{"
