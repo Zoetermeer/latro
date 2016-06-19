@@ -18,6 +18,7 @@
 (define parser-file "./Parse.y")
 (define parser-module "./Parse.hs")
 (define main-module "./Main.hs")
+(define test-source-file "./last-test.l")
 
 
 (define (compile!)
@@ -35,14 +36,14 @@
 (define (call-interpreter opts program)
   (parameterize ([current-directory "../"])
     (call-with-output-file
-      "./test.spar"
+      test-source-file
       (λ (out)
         (fprintf out "~a" program))
       #:mode 'text
       #:exists 'truncate/replace)
     (with-output-to-string
       (λ ()
-        (system (format "./~a ~a ./test.spar" interpreter (string-join opts)))))))
+        (system (format "./~a ~a ~a" interpreter (string-join opts) test-source-file))))))
 
 (define (strip-quotation-marks s) s)
 
