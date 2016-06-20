@@ -362,6 +362,73 @@ All functions *close* over bindings in their surrounding scope, e.g.:
   def add5 = adder(5)
   
   add5(6) // 11
+
+Special identifiers and custom operators
+----------------------------------------
+
+Latro allows any identifier bound to a value (variables, functions, etc.)
+to include some non-alphanumeric characters.  These special characters
+currently are:
+
+``!  /  \  @  |  ~  &  =  <  >  _  '``
+
+Any identifier beginning with an alphabetical character followed by either
+a number or one of the special characters above may be used anywhere a "regular"
+alphanumeric identifier could be used, e.g.:
+
+.. code:: ocaml
+
+  fun foo/special!(a, b) = a + b
+  foo/special!(2, 3)
+
+Additionally, Latro supports the definition of custom infix operators.  Any
+function bound to an identifier using only a combination of the special characters
+given above, e.g.:
+
+.. code:: ocaml
+
+  fun &&(True, True) = True
+  fun &&(_, _) = False
+
+Can only be applied as an infix operator, e.g.:
+
+.. code:: ocaml
+
+  True && False && True
+
+All custom infix operators currently have the same precedence, and
+are left-associative.  Latro will soon support user-defined precedence
+levels for these operators to avoid the need to write expressions with parentheses
+to disambiguate, e.g.:
+
+.. code:: ocaml
+
+  fun &&(True, True) = True
+  fun &&(_, _) = False
+  
+  precedence 1 &&
+
+This indicates that the ``&&`` operator has precedence ``1``, which is the
+highest level.  (Lower numbers indicate higher precedence, with 1 being the
+highest.)  Thus the program:
+
+.. code:: ocaml
+
+  fun ||(True, _) = True
+  fun ||(_, True) = True
+  fun ||(_, _) = False
+
+  fun &&(True, True) = True
+  fun &&(_, _) = False
+  
+  precedence 1 &&
+  precedence 2 ||
+  
+  True || False && True
+
+Would be parsed as:
+
+``True || (False && True)``
   
 Instance functions
 ------------------
@@ -384,10 +451,12 @@ could clarify the type of this function with an annotation:
 
 .. code:: ocaml
 
-  length<a> => fun(a[])() : Int
+  length{a} => fun(a[])() : Int
   fun ([]).length() = 0
   fun (x::xs).length() = 1 + xs.length()
 
+Note that for polymorphic functions such as ``length``, we define the names of its type parameters
+using curly braces (``{a}`` means that this function's type includes a type parameter called ``a``).
 We can call this function on any list:
 
 .. code:: ocaml
@@ -406,12 +475,12 @@ use an ADT to represent a value that can be either present or absent:
 
 .. code:: ocaml
 
-  type Optional<a> =
+  type Optional{a} =
     | Present(a)
     | Absent
 
 Doing so gives us constructors for each alternative we can use to build values of
-type ``Optional<a>``:
+type ``Optional{a}``:
 
 .. code:: ocaml
 
@@ -422,7 +491,7 @@ the name of a constructor:
 
 .. code:: ocaml
 
-  type Optional<a> =
+  type Optional{a} =
     | Present(a)
     | Absent
   
@@ -438,7 +507,7 @@ We might use this particular ADT to define some useful operations on lists:
 
 .. code:: ocaml
 
-  type Optional<a> =
+  type Optional{a} =
     | Present(a)
     | Absent
   
@@ -468,7 +537,7 @@ arbitrary number of named fields:
     Age Int;
   }
   
-  def p = Person { Name = "john"; Age = 42; }
+  def p = Person %{ Name = "john"; Age = 42; }
 
 Each field defined for a struct type also gives us
 an instance function we can use as an accessor:
@@ -482,14 +551,14 @@ Like ADT's, structure types can be polymorphic:
 
 .. code:: ocaml
 
-  type Person<a> = struct {
+  type Person{a} = struct {
     Name Char[];
     Age Int;
     CustomData a;
   }
   
-  def p1 = Person { Name = "john"; Age = 42; CustomData = False; }
-  def p2 = Person { Name = "jim"; Age = 41; CustomData = [1, 2, 3]; }
+  def p1 = Person %{ Name = "john"; Age = 42; CustomData = False; }
+  def p2 = Person %{ Name = "jim"; Age = 41; CustomData = [1, 2, 3]; }
 
 Recursive types
 ---------------
@@ -500,8 +569,8 @@ simple binary-tree implementation:
 
 .. code:: ocaml
 
-  type BTree<a> =
-    | Node(a, BTree<a>, BTree<a>)
+  type BTree{a} =
+    | Node(a, BTree{a}, BTree{a})
     | Leaf(a)
   
   fun size(Leaf(_)) = 1
@@ -656,19 +725,19 @@ machine-code binaries does not exist yet.
 
 The interpreter is implemented in Haskell and can be built using any
 modern compiler for that language (GHC, for example).  All code for the
-interpreter is in the ``interp`` directory.
+interpreter is in the ``src`` directory.
 
 Building
 --------
 
-The code in ``interp`` started as a toy interpreter intended for
-playing with semantics, but large parts of it will end up composing
-the front end for the Latro compiler.  The Cabal/Stack plumbing for it
-isn't there yet; I build it with:
+You can use the Haskell Cabal tool to automatically install dependencies
+and build the ``latro`` interpreter executable:
 
 ::
 
-  $> ghc -o latro Main.hs
+  $> cabal install --only-dependencies
+  $> cabal configure
+  $> cabal build
 
 Running
 -------
@@ -696,7 +765,7 @@ testing (and debugging) easier (see next section).
 Running the tests
 =================
 
-Latro already has an extensive test suite.  The tests are built in a slightly unorthodox way: the
+Latro already has an extensive test suite in the ``tests`` directory.  The tests are built in a slightly unorthodox way: the
 interpreter executable prints its answers in an S-expression format, and tests are written in Racket
 such that S-expressions are read into a Racket test harness.  We do this because AST's and
 types can get quite verbose, and trees annotated with things like source locations and
@@ -724,6 +793,12 @@ For example, here's an example test from the interpreter suite:
 Here's a full-blown example -- the `test suite for the typechecker`_.
 
 .. _test suite for the typechecker: https://github.com/Zoetermeer/L/blob/master/interp/tests/typechecker.rkt
+
+A specific test suite can be run by running its corresponding file directly in Racket, e.g.:
+
+::
+
+  $> racket tests/typechecker.rkt
 
 Roadmap
 =======
