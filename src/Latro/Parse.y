@@ -37,6 +37,7 @@ import Semant
   switch { Token _ TokenSwitch }
   cond { Token _ TokenCond }
   case { Token _ TokenCase }
+  precedence { Token _ TokenPrecedence }
   ':=' { Token _ TokenAssign }
   '->' { Token _ TokenArrow }
   '=>' { Token _ TokenRocket }
@@ -95,6 +96,7 @@ OneOrMoreModuleLevelExps : ModuleLevelExp { [$1] }
 ModuleLevelExp : InterfaceDecExp { $1 }
                | TypeDec { ExpTypeDec (nodeData $1) $1 }
                | ModuleDec { $1 }
+               | PrecedenceAssign { $1 }
                | ExpOrAssign { $1 }
 
 ModuleDec : module SimpleOrMixedId ModuleParamList '{' ZeroOrMoreModuleLevelExps '}'
@@ -209,6 +211,8 @@ ExpOrAssign : def PatExp '=' Exp { ExpAssign (pos $1) $2 $4 }
 
 ExpOrAssigns : ExpOrAssign { [$1] }
              | ExpOrAssigns ExpOrAssign { $1 ++ [$2] }
+
+PrecedenceAssign : precedence SpecialId num { ExpPrecAssign (pos $1) (tokValue $2) (read (tokValue $3)) }
 
 FunDef : fun AnyId '(' PatExpList ')' FunBody { FunDefFun (pos $1) (tokValue $2) $4 $6 }
        | SingleParamFunHeader '.' SimpleOrMixedId '(' PatExpList ')' FunBody { FunDefInstFun (fst $1) (snd $1) (tokValue $3) $5 $7 }

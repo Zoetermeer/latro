@@ -1135,6 +1135,10 @@ tc (ExpIfElse p testE thenEs elseEs) = do
   restoreVarEnv oldVarEnv
   return (ty, ExpIfElse (OfTy p ty) testE' thenEs' elseEs')
 
+tc (ExpBegin p es) = do
+  (ty, es') <- tcEs es
+  return (ty, ExpBegin (OfTy p ty) es')
+
 tc e = throwError $ ErrInterpFailure $ printf "In function tc: %s" $ show e
 
 

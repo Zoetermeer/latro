@@ -140,10 +140,10 @@ data Exp a id =
   | ExpBool a Bool
   | ExpString a String
   | ExpChar a String
-  -- | ExpRef a (QualifiedId a id)
   | ExpRef a id
   | ExpUnit a
   | ExpBegin a [Exp a id]
+  | ExpPrecAssign a id Int
   | ExpFail a String
   deriving (Eq, Show)
 
@@ -189,6 +189,8 @@ instance AstNode Exp where
       ExpChar d _ -> d
       ExpRef d _ -> d
       ExpUnit d -> d
+      ExpBegin d _ -> d
+      ExpPrecAssign d _ _ -> d
       ExpFail d _ -> d
 
 

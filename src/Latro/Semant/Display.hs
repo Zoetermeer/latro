@@ -314,6 +314,12 @@ instance (Sexpable a, Sexpable id) => Sexpable (Exp a id) where
           , sexp d
           , toSexpList es
           ]
+  sexp (ExpPrecAssign d id level) =
+    List  [ Symbol "ExpPrecAssign"
+          , sexp d
+          , sexp id
+          , Atom (show level)
+          ]
   sexp (ExpFail d msg) = List [ Symbol "ExpFail", sexp d, Atom msg ]
 
 

@@ -402,6 +402,12 @@ convert (ExpFun p argPatEs bodyEs) = do
   bodyEs' <- mapM convert bodyEs
   return $ ExpFun p argPatEs' bodyEs'
 
+convert (ExpPrecAssign p id level) = do
+  id' <- lookup id
+  -- TODO: Update the operator-precedence table
+  return $ ExpBegin p [ExpUnit p]
+  -- return $ ExpPrecAssign p id' level
+
 convert (ExpNum p s) = return $ ExpNum p s
 convert (ExpBool p b) = return $ ExpBool p b
 convert (ExpString p s) = return $ ExpString p s

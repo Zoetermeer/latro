@@ -1055,3 +1055,22 @@
     }
     'True))
 
+
+(test-case "it evaluates user-defined precedence assignments"
+  (check-equal?
+    @interp{
+      fun ||(True, _) = True
+      fun ||(_, True) = True
+      fun ||(_, _) = False
+
+      //XOR
+      fun !!(False, False) = False
+      fun !!(True, True) = False
+      fun !!(_, _) = True
+
+      precedence || 1
+      precedence !! 2
+
+      True !! True || True
+    }
+    'False))
