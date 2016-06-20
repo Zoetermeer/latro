@@ -20,7 +20,13 @@ executable latro
   main-is:             Main.hs
   -- other-modules:
   other-extensions:    FlexibleContexts, NamedFieldPuns, CPP, FlexibleInstances
-  build-depends:       base >=4.8 && <4.9, mtl >=2.2 && <2.3, containers >=0.5 && <0.6, errors >=2.1 && <2.2, MissingH >=1.3 && <1.4, array >=0.5 && <0.6, monadlist >=0.0 && <0.1
+  build-depends:       base >=4.8 && <4.9,
+                       mtl >=2.2 && <2.3,
+                       containers >=0.5 && <0.6,
+                       errors >=2.1 && <2.2,
+                       MissingH >=1.3 && <1.4,
+                       array >=0.5 && <0.6,
+                       monadlist >=0.0 && <0.1
   hs-source-dirs:      src/Latro
   build-tools:         alex, happy
   default-language:    Haskell2010
