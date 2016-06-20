@@ -1083,15 +1083,15 @@
       //~ = -
       //| = /
       fun &(a, b) = a + b
-      fun !!(a, b) = a * b
+      fun !(a, b) = a * b
       fun ~(a, b) = a - b
       fun |(a, b) = a / b
 
-      precedence !! 1
+      precedence ! 1
       precedence | 1
       precedence & 2
       precedence ~ 2
 
-      1 & 2 !! 3 ~ 4 | 4
+      1 & 2 ! 3 ~ 4 | 4
     }
     6))

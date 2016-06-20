@@ -57,7 +57,6 @@ import Semant
   '-' { Token _ TokenMinus }
   '*' { Token _ TokenStar }
   '/' { Token _ TokenFSlash }
-  '!' { Token _ TokenExclamation }
   ';' { Token _ TokenSemi }
   '.' { Token _ TokenDot }
   '=' { Token _ TokenEq }

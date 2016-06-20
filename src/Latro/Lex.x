@@ -67,7 +67,6 @@ tokens :-
   [\-] { lex' TokenMinus }
   [\*] { lex' TokenStar }
   [\/] { lex' TokenFSlash }
-  [\!] { lex' TokenExclamation }
   [\;] { lex' TokenSemi }
   [\.] { lex' TokenDot }
   [\=] { lex' TokenEq }
@@ -139,7 +138,6 @@ data TokenClass =
   | TokenMinus
   | TokenStar
   | TokenFSlash
-  | TokenExclamation
   | TokenSemi
   | TokenDot
   | TokenEq
@@ -215,7 +213,6 @@ unlex (TokenMinus) = "-"
 unlex (TokenPlus) = "+"
 unlex (TokenStar) = "*"
 unlex (TokenFSlash) = "/"
-unlex (TokenExclamation) = "!"
 unlex (TokenSemi) = ";"
 unlex (TokenDot) = "."
 unlex (TokenEq) = "="
