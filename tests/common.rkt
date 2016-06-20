@@ -1,4 +1,5 @@
 #lang racket
+(require racket/runtime-path)
 (provide compile!
          interp
          parse-tree
@@ -6,7 +7,7 @@
          typecheck
          show-typed-ast)
 
-(define interpreter "latro")
+(define-runtime-path interpreter "../dist/build/latro/latro")
 
 (define (needs-recompile? file depends-on-file)
   (> (file-or-directory-modify-seconds depends-on-file)
@@ -21,7 +22,7 @@
 (define test-source-file "./last-test.l")
 
 
-(define (compile!)
+#;(define (compile!)
   (parameterize ([current-directory "../"])
     (when (needs-recompile? lexer-module lexer-file)
       (system (format "alex ~a" lexer-file)))
@@ -30,6 +31,10 @@
       (system (format "happy ~a" parser-file)))
 
     (system (format "ghc -o ~a ~a" interpreter main-module))))
+
+(define (compile!)
+  (system "cabal configure")
+  (system "cabal build"))
 
 (compile!)
 
@@ -43,7 +48,7 @@
       #:exists 'truncate/replace)
     (with-output-to-string
       (λ ()
-        (system (format "./~a ~a ~a" interpreter (string-join opts) test-source-file))))))
+        (system (format "~a ~a ~a" interpreter (string-join opts) test-source-file))))))
 
 (define (strip-quotation-marks s) s)
 
