@@ -8,6 +8,7 @@ import Errors
 import Errors.Display
 import Parse (parseExp)
 import qualified Interp
+import Reorder (reorderInfixes)
 import Semant
 import Semant.Display
 import Sexpable
@@ -21,6 +22,7 @@ data UserSwitch =
     Evaluate
   | DumpParseTree
   | DumpAlphaConverted
+  | DumpReordered
   | DumpTypecheckResult
   | DumpTypedAst
   deriving (Eq, Show)
@@ -65,6 +67,10 @@ alphaConvertCmd :: RawAst CompUnit -> Command (UniqAst CompUnit, AlphaEnv)
 alphaConvertCmd compUnit =
   Command DumpAlphaConverted (\(ac, _) -> sexp ac) $ alphaConvert compUnit
 
+reorderInfixesCmd :: UniqAst CompUnit -> Command (UniqAst CompUnit)
+reorderInfixesCmd compUnit =
+  Command DumpReordered (\ac -> sexp ac) $ reorderInfixes compUnit
+
 tcCmd :: UniqAst CompUnit -> AlphaEnv -> Command (TypedAst CompUnit, AlphaEnv)
 tcCmd alphaConverted alphaEnv =
   Command DumpTypecheckResult
@@ -101,6 +107,7 @@ run switch pathsAndSources =
   in do asts <- mapM (runCmd' . uncurry parseCmd) pathsAndSources
         let ast = combineAsts asts
         (alphaConvertedAst, alphaEnv) <- runCmd' $ alphaConvertCmd ast
+        reorderedAst <- runCmd' $ reorderInfixesCmd alphaConvertedAst
         (typedAst, alphaEnv') <- runCmd' $ tcCmd alphaConvertedAst alphaEnv
         runCmd' $ showTypedAstCmd typedAst
         runCmd' $ interpCmd typedAst alphaEnv'
