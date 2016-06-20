@@ -1,5 +1,7 @@
+language: haskell
+
 install:
-  - apt-get install racket
+  - sudo apt-get install racket
 
 script:
   - cabal install --only-dependencies
