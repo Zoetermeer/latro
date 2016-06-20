@@ -4,6 +4,7 @@ install:
   - sudo apt-get install racket
 
 script:
+  - cabal install --only-dependencies
   - cabal configure
   - cabal build
   - racket tests/typechecker.rkt
