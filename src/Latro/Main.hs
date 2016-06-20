@@ -108,7 +108,7 @@ run switch pathsAndSources =
         let ast = combineAsts asts
         (alphaConvertedAst, alphaEnv) <- runCmd' $ alphaConvertCmd ast
         reorderedAst <- runCmd' $ reorderInfixesCmd alphaConvertedAst
-        (typedAst, alphaEnv') <- runCmd' $ tcCmd alphaConvertedAst alphaEnv
+        (typedAst, alphaEnv') <- runCmd' $ tcCmd reorderedAst alphaEnv
         runCmd' $ showTypedAstCmd typedAst
         runCmd' $ interpCmd typedAst alphaEnv'
 
@@ -117,6 +117,7 @@ getUserSwitch :: [String] -> (UserSwitch, [FilePath])
 getUserSwitch [] = error "Usage: interp [-a|-p|-t] FILEPATH"
 getUserSwitch ("-p" : paths) = (DumpParseTree, paths)
 getUserSwitch ("-a" : paths) = (DumpAlphaConverted, paths)
+getUserSwitch ("-r" : paths) = (DumpReordered, paths)
 getUserSwitch ("-tc" : paths) = (DumpTypecheckResult, paths)
 getUserSwitch ("-t" : paths) = (DumpTypedAst, paths)
 getUserSwitch paths = (Evaluate, paths)

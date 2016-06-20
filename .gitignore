@@ -1,6 +1,7 @@
 **/*.o
 **/*.hi
 **/*.*#
+last-test.l
 /dist
 /src/Latro/alpha.rkt*
 /src/Latro/lex
@@ -11,6 +12,6 @@
 /src/Latro/Scratch.l
 /src/Latro/test.spar
 /src/last-test.l
-/src/Latro/tests/compiled/
-/src/Latro/tests/scratch.rkt
-/src/Latro/tests/*.rkt~
+/tests/compiled/
+/tests/scratch.rkt
+//tests/*.rkt~

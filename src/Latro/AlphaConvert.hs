@@ -292,7 +292,7 @@ convert (ExpCustomInfix p lhe id rhe) = do
   lhe' <- convert lhe
   rhe' <- convert rhe
   id' <- lookup id
-  return $ ExpApp p (ExpRef p id') [lhe', rhe']
+  return $ ExpCustomInfix p lhe' id' rhe'
 
 convert (ExpMemberAccess p e id) = do
   e' <- convert e
@@ -404,9 +404,7 @@ convert (ExpFun p argPatEs bodyEs) = do
 
 convert (ExpPrecAssign p id level) = do
   id' <- lookup id
-  -- TODO: Update the operator-precedence table
-  return $ ExpBegin p [ExpUnit p]
-  -- return $ ExpPrecAssign p id' level
+  return $ ExpPrecAssign p id' level
 
 convert (ExpNum p s) = return $ ExpNum p s
 convert (ExpBool p b) = return $ ExpBool p b

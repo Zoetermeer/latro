@@ -4,6 +4,7 @@
          interp
          parse-tree
          alpha-convert
+         infix-reordered
          typecheck
          show-typed-ast)
 
@@ -21,16 +22,6 @@
 (define main-module "./Main.hs")
 (define test-source-file "./last-test.l")
 
-
-#;(define (compile!)
-  (parameterize ([current-directory "../"])
-    (when (needs-recompile? lexer-module lexer-file)
-      (system (format "alex ~a" lexer-file)))
-
-    (when (needs-recompile? parser-module parser-file)
-      (system (format "happy ~a" parser-file)))
-
-    (system (format "ghc -o ~a ~a" interpreter main-module))))
 
 (define (compile!)
   (system "cabal configure")
@@ -64,6 +55,9 @@
 
 (define (alpha-convert . s)
   (call-and-read '("-a") (apply string-append s)))
+
+(define (infix-reordered . s)
+  (call-and-read '("-r") (apply string-append s)))
 
 (define (typecheck . s)
   (call-and-read '("-tc") (apply string-append s)))
