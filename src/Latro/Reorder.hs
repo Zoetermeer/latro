@@ -63,15 +63,81 @@ rewriteCaseClauseInfix (CaseClause p patE bodyEs) =
     CaseClause p patE $ map rewriteInfix bodyEs
 
 
+rewriteCondCaseClauseInfix :: UniqAst CondCaseClause -> UniqAst CondCaseClause
+rewriteCondCaseClauseInfix clause =
+  case clause of
+    CondCaseClause p e bodyEs ->
+      CondCaseClause p (rewriteInfix e) $ map rewriteInfix bodyEs
+    CondCaseClauseWildcard p bodyEs ->
+      CondCaseClauseWildcard p $ map rewriteInfix bodyEs
+
+
 rewriteInfix :: UniqAst Exp -> UniqAst Exp
+rewriteInfix (ExpAdd p lhe rhe) = ExpAdd p (rewriteInfix lhe) (rewriteInfix rhe)
+rewriteInfix (ExpSub p lhe rhe) = ExpSub p (rewriteInfix lhe) (rewriteInfix rhe)
+rewriteInfix (ExpDiv p lhe rhe) = ExpDiv p (rewriteInfix lhe) (rewriteInfix rhe)
+rewriteInfix (ExpMul p lhe rhe) = ExpMul p (rewriteInfix lhe) (rewriteInfix rhe)
+rewriteInfix (ExpCons p lhe rhe) = ExpCons p (rewriteInfix lhe) (rewriteInfix rhe)
+
 rewriteInfix (ExpCustomInfix p lhe opId rhe) =
   ExpApp p (ExpRef p opId) [rewriteInfix lhe, rewriteInfix rhe]
+
+rewriteInfix (ExpMemberAccess p e id) =
+  ExpMemberAccess p (rewriteInfix e) id
+
+rewriteInfix (ExpApp p ratorE randEs) =
+  ExpApp p (rewriteInfix ratorE) $ map rewriteInfix randEs
+
+rewriteInfix eImp@(ExpImport _ _) = eImp
+
+rewriteInfix (ExpAssign p patE e) =
+  ExpAssign p patE $ rewriteInfix e
+
+rewriteInfix eTy@(ExpTypeDec _ _) = eTy
+rewriteInfix eAnn@(ExpTyAnn _) = eAnn
+
+rewriteInfix (ExpWithAnn tyAnn e) = ExpWithAnn tyAnn $ rewriteInfix e
 
 rewriteInfix (ExpFunDef (FunDefFun p id argPatEs bodyEs)) =
   ExpFunDef $ FunDefFun p id argPatEs $ map rewriteInfix bodyEs
 
+rewriteInfix (ExpModule p paramIds bodyEs) =
+  ExpModule p paramIds $ map rewriteInfix bodyEs
+
+rewriteInfix (ExpStruct p synTy fieldInits) =
+    ExpStruct p synTy $ zip fids fes'
+  where
+    (fids, fes) = unzip fieldInits
+    fes' = map rewriteInfix fes
+
+rewriteInfix (ExpIfElse p e thenEs elseEs) =
+    ExpIfElse p (rewriteInfix e) thenEs' elseEs'
+  where
+    thenEs' = map rewriteInfix thenEs
+    elseEs' = map rewriteInfix elseEs
+
+rewriteInfix (ExpMakeAdt p id n argEs) =
+  ExpMakeAdt p id n $ map rewriteInfix argEs
+
+rewriteInfix (ExpGetAdtField p e n) =
+  ExpGetAdtField p (rewriteInfix e) n
+
+rewriteInfix (ExpTuple p argEs) =
+  ExpTuple p $ map rewriteInfix argEs
+
 rewriteInfix (ExpSwitch p e clauses) =
   ExpSwitch p (rewriteInfix e) $ map rewriteCaseClauseInfix clauses
+
+rewriteInfix (ExpCond p clauses) =
+  ExpCond p $ map rewriteCondCaseClauseInfix clauses
+
+rewriteInfix (ExpList p es) = ExpList p $ map rewriteInfix es
+
+rewriteInfix (ExpFun p patEs bodyEs) =
+  ExpFun p patEs $ map rewriteInfix bodyEs
+
+rewriteInfix (ExpBegin p bodyEs) =
+  ExpBegin p $ map rewriteInfix bodyEs
 
 rewriteInfix e = e
 
