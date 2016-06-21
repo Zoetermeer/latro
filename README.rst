@@ -396,20 +396,20 @@ Can only be applied as an infix operator, e.g.:
 
   True && False && True
 
-All custom infix operators currently have the same precedence, and
-are left-associative.  Latro will soon support user-defined precedence
-levels for these operators to avoid the need to write expressions with parentheses
-to disambiguate, e.g.:
+All custom infix operators are currently left-associative, but this
+may change.  We can change the precedence of any operator to avoid
+the need to write expressions with parentheses to disambiguate using
+a *precedence assignment*:
 
 .. code:: ocaml
 
   fun &&(True, True) = True
   fun &&(_, _) = False
   
-  precedence 1 &&
+  precedence && 1
 
 This indicates that the ``&&`` operator has precedence ``1``, which is the
-highest level.  (Lower numbers indicate higher precedence, with 1 being the
+highest level we can assign.  (Lower numbers indicate higher precedence, with 1 being the
 highest.)  Thus the program:
 
 .. code:: ocaml
@@ -421,14 +421,18 @@ highest.)  Thus the program:
   fun &&(True, True) = True
   fun &&(_, _) = False
   
-  precedence 1 &&
-  precedence 2 ||
+  precedence && 1
+  precedence || 2
   
   True || False && True
 
 Would be parsed as:
 
 ``True || (False && True)``
+
+Note that built-in operators such as ``::``, and terms
+such as function application, have precedence 0 and cannot
+be preceded by user-defined ones.
   
 Instance functions
 ------------------
@@ -484,7 +488,7 @@ type ``Optional{a}``:
 
 .. code:: ocaml
 
-  def v = Present(42) // Optional<Int>
+  def v = Present(42) // Optional{Int}
 
 We can deconstruct ADT values in any place where we can use patterns, using
 the name of a constructor:
@@ -799,6 +803,13 @@ A specific test suite can be run by running its corresponding file directly in R
 ::
 
   $> racket tests/typechecker.rkt
+
+Or we can run the entire test suite from the top-level directory:
+
+::
+
+  $> ./run_tests.sh
+  
 
 Roadmap
 =======
