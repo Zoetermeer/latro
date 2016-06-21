@@ -302,6 +302,14 @@ lookupVarIn table id =
   hoistEither $ maybeToEither (ErrUnboundUniqIdentifier id) $ Map.lookup id table
 
 
+lookupModule :: UniqAst QualifiedId -> Checked TCModule
+lookupModule qid = do
+  modTy <- lookupVarQual qid `reportErrorAt` nodeData qid
+  case modTy of
+    TyApp (TyConModule _ mod) _ -> return mod
+    _ -> throwError (ErrInvalidModulePath qid) `reportErrorAt` nodeData qid
+
+
 lookupPatIn :: TEnv -> UniqId -> Checked Ty
 lookupPatIn table id =
   hoistEither $ maybeToEither (ErrUnboundUniqIdentifier id) $ Map.lookup id table
@@ -313,11 +321,8 @@ lookupPatQual (Id p id) = do
   lookupPatIn (patFuns curMod `Map.union` closedPatFuns curMod) id `reportErrorAt` p
 
 lookupPatQual (Path p qid id) = do
-  modTy <- lookupVarQual qid `reportErrorAt` nodeData qid
-  case modTy of
-    TyApp (TyConModule _ mod) _ ->
-      lookupPatIn (patFuns mod) id `reportErrorAt` p
-    _ -> throwError (ErrInvalidModulePath qid) `reportErrorAt` nodeData qid
+  mod <- lookupModule qid
+  lookupPatIn (patFuns mod) id `reportErrorAt` p
 
 
 lookupTy :: UniqId -> Checked TyCon
@@ -963,6 +968,20 @@ tc (ExpApp p ratorE randEs) = do
   then throwError (ErrWrongArity ratorE' arity argLen) `reportErrorAt` p
   else do ty' <- subst ty
           return (ty', ExpApp (OfTy p ty) ratorE' randEs')
+
+tc (ExpImport p qid) = do
+  mod <- lookupModule qid
+  curMod <- gets curModule
+  varEnv <- gets varEnv
+  (qid', _) <- tcQualId qid
+  let curMod' = curMod {
+    types = Map.union (types mod) (types curMod)
+    , closedVars = Map.union (vars mod) (closedVars curMod)
+    , patFuns = Map.union (patFuns mod) (patFuns curMod)
+    , fieldIndices = Map.union (fieldIndices mod) (fieldIndices curMod)
+    }
+  modify (\tcEnv -> tcEnv { curModule = curMod', varEnv = Map.union (vars mod) varEnv })
+  return (tyUnit, ExpImport (OfTy p tyUnit) qid')
 
 -- module { m1 ... mn } --> App(Module, [tc(m1), ..., tc(mn)]
 -- module <t1, ..., tn> { ... } --> Poly([t1, ..., tn], App(Module ...))

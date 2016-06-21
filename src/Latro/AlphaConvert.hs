@@ -303,6 +303,10 @@ convert (ExpApp p ratorE randEs) = do
   randEs' <- mapM convert randEs
   return $ ExpApp p ratorE' randEs'
 
+convert (ExpImport p qualId) = do
+  qualId' <- convertQualId qualId
+  return $ ExpImport p qualId'
+
 convert (ExpFunDef (FunDefFun p id argPatEs bodyEs)) = do
   id' <- freshM id
   argPatEs' <- mapM convertPatExp argPatEs

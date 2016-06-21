@@ -1268,3 +1268,52 @@
       1 !! 3 + 4
     }
     'Int))
+
+(test-case "it binds imported values"
+  (check-equal?
+    @typecheck{
+      module Foo {
+        def v = 42
+      }
+
+      module Bar {
+        import Foo
+        def x = v
+      }
+
+      Bar.x
+    }
+    'Int))
+
+(test-case "it does not re-export imported bindings"
+  (check-match
+    @typecheck{
+      module Foo {
+        def v = 42
+      }
+
+      module Bar {
+        import Foo
+      }
+
+      Bar.v
+    }
+    `(AtPos ,_ (CompilerModule Types) (UnboundUniqIdentifier v))))
+
+(test-case "it imports infix operators"
+  (check-equal?
+    @typecheck{
+      module Prims {
+        fun &&(True, True) = True
+        fun &&(_, _) = False
+      }
+
+      module Foo {
+        import Prims
+
+        def v = True && False
+      }
+
+      Foo.v
+    }
+    'Bool))
