@@ -1095,3 +1095,53 @@
       1 & 2 ! 3 ~ 4 | 4
     }
     6))
+
+(test-case "it binds imported values"
+  (check-equal?
+    @interp{
+      module Foo {
+        def v = 42
+      }
+
+      module Bar {
+        import Foo
+        def x = v
+      }
+
+      Bar.x
+    }
+    42))
+
+(test-case "it imports infix operators"
+  (check-equal?
+    @interp{
+      module Prims {
+        fun &&(True, True) = True
+        fun &&(_, _) = False
+      }
+
+      module Foo {
+        import Prims
+
+        def v = True && False
+      }
+
+      Foo.v
+    }
+    'False))
+
+(test-case "it imports submodule infix operators"
+  (check-equal?
+    @interp{
+      module Prims {
+        module BoolOps {
+          fun &&(True, True) = True
+          fun &&(_, _) = False
+        }
+      }
+
+      import Prims.BoolOps
+
+      True && False
+    }
+    'False))

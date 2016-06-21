@@ -129,7 +129,7 @@ AtomPatExp : '(' PatExp ')' { $2 }
            | LiteralPatExp { $1 }
            | TuplePatExp { $1 }
            | AdtPatExp { $1 }
-           | SimpleOrMixedId{ PatExpId (pos $1) (tokValue $1) }
+           | SimpleOrMixedId { PatExpId (pos $1) (tokValue $1) }
            | '_' { PatExpWildcard (pos $1) }
 
 ListPatExp : AtomPatExp '::' ListPatExp { PatExpListCons (nodeData $1) $1 $3 }

@@ -286,6 +286,12 @@ evalE (ExpUnit _) = return ValueUnit
 
 evalE (ExpBegin _ es) = evalEs es
 
+evalE (ExpImport _ qid) = do
+  (ValueModule (Module _ _ exports)) <- lookupVarQual qid
+  let moduleVars = exportVars exports
+  modify (\env -> env { varEnv = Map.union moduleVars (varEnv env) })
+  return ValueUnit
+
 evalE (ExpApp _ e argEs) = do
   fv@(ValueFun (Closure fid fTy fenv paramIds bodyEs)) <- evalE e
   argVs <- mapM evalE argEs
@@ -308,13 +314,9 @@ evalE (ExpFun (OfTy _ ty) argPatEs bodyEs) = do
   where paramIds = map (\(PatExpId _ paramId) -> paramId) argPatEs
 
 evalE (ExpMemberAccess (OfTy p _) e id) = do
-  v <- evalE e
-  let handle = flip reportErrorAt p
-  handle $ case v of
-             (ValueModule (Module _ _ exports)) ->
-               lookupId id (exportVars exports) `reportErrorAt` p
-             (ValueStruct (Struct _ fields)) ->
-               hoistEither $ maybeToEither err $ lookup id fields
+    (ValueModule (Module _ _ exports)) <- evalE e
+    let handle = flip reportErrorAt p
+    handle (lookupId id (exportVars exports) `reportErrorAt` p)
   where
     err = ErrUnboundUniqIdentifier id
 
