@@ -4,6 +4,7 @@ module Interp where
 import AlphaConvert hiding (lookup)
 import Common
 import Control.Error.Util (hoistEither)
+import Control.Monad (unless)
 import Control.Monad.Except
 import Control.Monad.State
 import Data.Either.Utils (maybeToEither)
@@ -19,8 +20,7 @@ import Semant
 import Text.Printf (printf)
 
 
-reportErrorAt a p =
-  reportPosOnFail a "Interp" p
+reportErrorAt a = reportPosOnFail a "Interp"
 
 
 -- An evaluator monad is a possibly-failing computation
@@ -99,12 +99,12 @@ getVarEnv = gets varEnv
 
 
 bindVar :: UniqId -> Value -> Eval ()
-bindVar id v = do
+bindVar id v =
   modify (\intEnv -> intEnv { varEnv = Map.insert id v (varEnv intEnv) })
 
 
 exportVar :: UniqId -> Value -> Eval ()
-exportVar id v = do
+exportVar id v =
   modify (\intEnv ->
             let (Module cloEnv paramIds exports) = curModule intEnv
                 exports' = exports { exportVars = Map.insert id v (exportVars exports) }
@@ -124,7 +124,7 @@ getClosureEnv = gets varEnv
 
 
 restoreEnv :: InterpEnv -> Eval ()
-restoreEnv intEnv = put intEnv
+restoreEnv = put
 
 
 type BinOp = Int -> Int -> Int
@@ -148,32 +148,24 @@ freshId = do
 evalPatExp :: TypedAst PatExp -> Value -> Eval ()
 evalPatExp (PatExpWildcard _) _ = return ()
 evalPatExp e@(PatExpNumLiteral (OfTy p _) n) v =
-    if i == ni
-    then return ()
-    else (throwError $ ErrPatMatchFail e v) `reportErrorAt` p
+    unless (i == ni) $ throwError (ErrPatMatchFail e v) `reportErrorAt` p
   where
     (ValueInt i) = v
     ni = read n
 
-evalPatExp e@(PatExpBoolLiteral _ b) v =
-    if bv == b
-    then return ()
-    else throwError $ ErrPatMatchFail e v
+evalPatExp e@(PatExpBoolLiteral (OfTy p _) b) v =
+    unless (bv == b) $ throwError (ErrPatMatchFail e v) `reportErrorAt` p
   where
     (ValueBool bv) = v
 
-evalPatExp e@(PatExpStringLiteral _ s) v =
-    if vStr == s
-    then return ()
-    else throwError $ ErrPatMatchFail e v
+evalPatExp e@(PatExpStringLiteral (OfTy p _) s) v =
+    unless (vStr == s) $ throwError (ErrPatMatchFail e v) `reportErrorAt` p
   where
     (ValueList cvs) = v
     vStr = map (\(ValueChar c) -> c) cvs
 
-evalPatExp e@(PatExpCharLiteral _ [c]) v =
-    if cv == c
-    then return ()
-    else throwError $ ErrPatMatchFail e v
+evalPatExp e@(PatExpCharLiteral (OfTy p _) [c]) v =
+    unless (cv == c) $ throwError (ErrPatMatchFail e v) `reportErrorAt` p
   where
     (ValueChar cv) = v
 
@@ -182,7 +174,7 @@ evalPatExp e@(PatExpTuple _ patEs) v =
     then throwError $ ErrPatMatchFail e v
     else do
       let evPairs = zip patEs vs
-      mapM_ (\(patE, v) -> evalPatExp patE v) evPairs
+      mapM_ (uncurry evalPatExp) evPairs
       return ()
   where
     (ValueTuple vs) = v
@@ -190,9 +182,9 @@ evalPatExp e@(PatExpTuple _ patEs) v =
 evalPatExp patE@(PatExpAdt (OfTy p _) qid patEs) v@(ValueAdt (Adt ctorId _ vs))
     | id == ctorId =
       let evPairs = zip patEs vs
-      in do mapM_ (\(patE, v) -> evalPatExp patE v) evPairs
+      in do mapM_ (uncurry evalPatExp) evPairs
             return ()
-    | otherwise = (throwError $ ErrPatMatchFail patE v) `reportErrorAt` p
+    | otherwise = throwError (ErrPatMatchFail patE v) `reportErrorAt` p
   where
     id = case qid of
           Path _ qid' id -> id
@@ -200,15 +192,15 @@ evalPatExp patE@(PatExpAdt (OfTy p _) qid patEs) v@(ValueAdt (Adt ctorId _ vs))
 
 evalPatExp e@(PatExpList (OfTy p _) es) v =
     if length es /= length vs
-    then (throwError $ ErrPatMatchFail e v) `reportErrorAt` p
+    then throwError (ErrPatMatchFail e v) `reportErrorAt` p
     else do
       let evPairs = zip es vs
-      mapM_ (\(patE, v) -> evalPatExp patE v) evPairs
+      mapM_ (uncurry evalPatExp) evPairs
       return ()
   where
     (ValueList vs) = v
 
-evalPatExp e@(PatExpListCons _ _ _) v@(ValueList []) =
+evalPatExp e@PatExpListCons{} v@(ValueList []) =
   throwError $ ErrPatMatchFail e v
 
 evalPatExp (PatExpListCons _ eHd eTl) (ValueList (v:vs)) = do
@@ -275,7 +267,7 @@ evalE (ExpFunDef (FunDefFun (OfTy p ty) funId argPatEs bodyEs)) =
         exportVar funId f
         return ValueUnit
 
-evalE (ExpAssign _ patE@(PatExpId _ funId) ef@(ExpFun _ _ _)) = do
+evalE (ExpAssign _ patE@(PatExpId _ funId) ef@ExpFun{}) = do
   (ValueFun (Closure _ ty cloEnv paramIds bodyEs)) <- evalE ef
   let recF = ValueFun $ Closure funId ty cloEnv paramIds bodyEs
   evalPatExp patE recF
@@ -287,9 +279,8 @@ evalE (ExpAssign _ patE e) = do
   evalPatExp patE v
   return ValueUnit
 
-evalE (ExpRef (OfTy p _) id) = do
-  v <- lookupVarId id `reportErrorAt` p
-  return v
+evalE (ExpRef (OfTy p _) id) =
+  lookupVarId id `reportErrorAt` p
 
 evalE (ExpUnit _) = return ValueUnit
 
@@ -304,7 +295,7 @@ evalE (ExpApp _ e argEs) = do
 
   bindVar fid fv
   let argVTbl = zip paramIds argVs
-  mapM_ (\(paramId, paramV) -> bindVar paramId paramV) argVTbl
+  mapM_ (uncurry bindVar) argVTbl
   retV <- evalEs bodyEs
 
   restoreEnv preApplyInterpEnv
@@ -318,7 +309,7 @@ evalE (ExpFun (OfTy _ ty) argPatEs bodyEs) = do
 
 evalE (ExpMemberAccess (OfTy p _) e id) = do
   v <- evalE e
-  let handle = (flip reportErrorAt) p
+  let handle = flip reportErrorAt p
   handle $ case v of
              (ValueModule (Module _ _ exports)) ->
                lookupId id (exportVars exports) `reportErrorAt` p
@@ -342,7 +333,7 @@ evalE (ExpIfElse _ condE thenEs elseEs) = do
 evalE switchE@(ExpSwitch (OfTy p _) e clauses) = do
   v <- evalE e
   matchResult <- evalCaseClauses v clauses
-  (hoistEither (maybeToEither (ErrNonExhaustivePattern switchE v) matchResult)) `reportErrorAt` p
+  hoistEither (maybeToEither (ErrNonExhaustivePattern switchE v) matchResult) `reportErrorAt` p
 
 evalE (ExpFail (OfTy pos _) msg) =
   throwError $ ErrUserFail pos msg
@@ -352,7 +343,7 @@ evalE e = throwError $ ErrCantEvaluate e
 
 evalCaseClauses :: Value -> [TypedAst CaseClause] -> Eval (Maybe Value)
 evalCaseClauses _ [] = return Nothing
-evalCaseClauses v ((CaseClause _ patE bodyEs):clauses) = do
+evalCaseClauses v (CaseClause _ patE bodyEs : clauses) = do
   oldEnv <- get
   result <- do { r <- evalPatExp patE v; return $ Just () } `catchError` (\_ -> return Nothing)
   case result of
@@ -366,7 +357,7 @@ evalCaseClauses v ((CaseClause _ patE bodyEs):clauses) = do
 
 evalEs :: [TypedAst Exp] -> Eval Value
 evalEs [] = return ValueUnit
-evalEs (e:[]) = evalE e
+evalEs [e] = evalE e
 evalEs es = do
   vs <- mapM evalE es
   return $ last vs
@@ -376,5 +367,5 @@ eval :: TypedAst CompUnit -> Eval Value
 eval (CompUnit _ es) = evalEs es
 
 interp :: TypedAst CompUnit -> AlphaEnv -> Either Err Value
-interp alphaConverted alphaEnv = do
+interp alphaConverted alphaEnv =
   evalState (runExceptT $ eval alphaConverted) $ mtInterpEnv alphaEnv

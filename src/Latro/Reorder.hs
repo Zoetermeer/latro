@@ -35,7 +35,7 @@ buildPrecEnv (CompUnit p bodyEs) =
 
 
 reorder :: Env PrecLevel -> UniqAst Exp -> UniqAst Exp
-reorder env (ExpCustomInfix p outerLhe@(ExpCustomInfix _ _ _ _) outerOpId outerRhe)
+reorder env (ExpCustomInfix p outerLhe@ExpCustomInfix{} outerOpId outerRhe)
     | needsReorder = ExpCustomInfix innerP innerLhe innerOpId $ ExpCustomInfix p innerRhe outerOpId outerRhe'
     | otherwise = ExpCustomInfix p outerLhe' outerOpId outerRhe'
   where

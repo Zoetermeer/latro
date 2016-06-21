@@ -1,6 +1,7 @@
 module AlphaConvert where
 
 import Common
+import Control.Applicative
 import Control.Monad.Except
 import Control.Monad.State
 import Data.List (all, find, nub)
@@ -322,7 +323,7 @@ convert (ExpFunDef (FunDefInstFun p instPatE id argPatEs bodyEs)) = do
 
 convert (ExpFunDefClauses p id funDefs) = do
   id' <- freshM id
-  funDef <- liftM fst $ desugarFunDefs id' funDefs
+  funDef <- fst <$> desugarFunDefs id' funDefs
   return $ ExpFunDef funDef
 
 convert (ExpAssign p patExp e) = do
@@ -357,7 +358,7 @@ convert (ExpWithAnn (TyAnn p aid tyParamIds synTy) e) = do
          let e' = ExpFunDef (FunDefFun fp aid' argPatEs' bodyEs')
          return $ ExpWithAnn tyAnn e'
     ExpFunDefClauses p id funDefs ->
-      do funDef <- liftM fst $ desugarFunDefs aid' funDefs
+      do funDef <- fst <$> desugarFunDefs aid' funDefs
          return $ ExpWithAnn tyAnn $ ExpFunDef funDef
     ExpAssign ep (PatExpId pp pid) e ->
       do e' <- convert e
