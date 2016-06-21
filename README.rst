@@ -623,6 +623,25 @@ Submodules can refer to all of the types and/or values defined
 in parent modules directly, as the ``ExtraStringStuff`` module
 refers directly to the type ``t`` above.
 
+We can bring in all of the bindings exported by a module using
+an ``import`` expression, such that
+they can be referred to without using a qualified module path:
+
+.. code:: scala
+
+  module StringStuff {
+    type t = Char[]
+    module ExtraStringStuff {
+      append => fun(t, t) : t
+      fun append(c::cs, b) = c :: append(cs, b)
+      fun append(_, b) = b
+    }
+  }
+  
+  import StringStuff.ExtraStringStuff
+  append("hello", " world") // "hello world"
+  
+
 **Modules and the toplevel**
 
 *Note that the implementation of rules outlined in this section is work-in-progress,
