@@ -2,6 +2,11 @@
 
 :Author: James Swaine <james.swaine@gmail.com>
 
+.. image:: https://travis-ci.org/Zoetermeer/latro.svg?branch=master
+    :target: https://travis-ci.org/Zoetermeer/latro
+
+.. image:: https://img.shields.io/github/license/mashape/apistatus.svg?maxAge=2592000   :target: 
+
 Latro is a statically-typed, general-purpose functional programming language designed
 to make people more productive.  It does not attempt to include every
 esoteric language feature, or bury you in cryptic discourse on
