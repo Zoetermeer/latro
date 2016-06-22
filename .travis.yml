@@ -1,5 +1,7 @@
 language: haskell
 
+sudo: true
+
 install:
   - sudo apt-get install curl
   - curl -o racket.sh https://mirror.racket-lang.org/installers/6.5/racket-6.5-x86_64-linux.sh && echo 2 | bash racket.sh
@@ -8,5 +10,5 @@ script:
   - cabal install --only-dependencies
   - cabal configure
   - cabal build
-  - racket tests/typechecker.rkt
-  - racket tests/interpreter.rkt
+  - /usr/racket/bin/racket tests/typechecker.rkt
+  - /usr/racket/bin/racket tests/interpreter.rkt

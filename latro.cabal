@@ -28,7 +28,9 @@ executable latro
                        array,
                        monadlist,
                        bifunctors,
-                       transformers
+                       transformers,
+                       alex,
+                       happy
   hs-source-dirs:      src/Latro
   build-tools:         alex, happy
   default-language:    Haskell2010
