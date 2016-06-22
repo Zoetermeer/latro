@@ -2,7 +2,7 @@ language: haskell
 
 install:
   - sudo apt-get install curl
-  - curl -o racket.sh https://mirror.racket-lang.org/installers/6.5/racket-6.5-x86_64-linux.sh && echo 2 | bash racket.sh`
+  - curl -o racket.sh https://mirror.racket-lang.org/installers/6.5/racket-6.5-x86_64-linux.sh && echo 2 | bash racket.sh
 
 script:
   - cabal install --only-dependencies
