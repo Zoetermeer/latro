@@ -1,3 +1,3 @@
 #!/bin/bash
 
-../../interp/latro core.l rope.l
+../../dist/build/latro/latro core.l rope.l
