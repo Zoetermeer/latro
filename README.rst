@@ -65,7 +65,7 @@ Literal values for each of the built-in types can be written directly, e.g:
   - ``'m'`` is a ``Char`` representing the character ``m``
   - ``[1, 2, 3]`` is an ``Int[]`` with 3 elements
   - ``%(1, True)`` is an ``%(Int, Bool)`` tuple
-  - ``fun(x) = x`` is the identity function (its type is ``fun<a>(a) : a``)
+  - ``fun(x) = x`` is the identity function (its type is ``fun{a}(a) : a``)
 
 Additionally, we can write string literals using the familiar double-quoted
 syntax, e.g. ``"hello world"``.  The type of a string literal is ``Char[]``
@@ -93,7 +93,7 @@ If we were to omit the annotation from above, like so:
   fun f(i, b) = b
 
 Latro would infer the type of this function to be a polymorphic one returning
-its second argument: ``fun<t1, t2>(t1, t2) : t2``.
+its second argument: ``fun{t1, t2}(t1, t2) : t2``.
 
 Sometimes we may want to define *type aliases* for types to give them special 
 meaning; for example, we may want to define a name ``String`` that really
@@ -105,8 +105,6 @@ Basic expressions
 
 Latro supports a few primitive operations on built-in types, such as integer
 arithmetic: ``1 + 2``, ``1 * 3 - 2 + 4``.
-
-We can yield the negation of a ``Bool`` with the ``!`` operator: ``!False``.
 
 Lists can be constructed using the right-associative cons operator ``::``
 
@@ -779,6 +777,7 @@ Switches:
 --help                Display help information.
 -p                    Don't evaluate, just dump a parse tree.
 -a                    Don't evaluate, just dump an alpha-converted syntax tree.
+-r                    Don't evaluate, just dump a syntax tree after reordering infixes by user precedence assignments.
 -t                    Don't evaluate, just dump a type-annotated syntax tree.
 -tc                   Don't evaluate, just display the type of the last expression in the executed module.
 
