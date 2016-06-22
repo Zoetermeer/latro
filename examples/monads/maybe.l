@@ -7,11 +7,10 @@ fun >>=(_, _) = Nothing()
 
 fun return(x) = Just(x)
 
-def simulatedInput1 = Nothing()
-def simulatedInput2 = Just("swaine")
+fun value(3) = Nothing()
+fun value(i) = Just(i)
 
-fun compose(f, g) = fun(x) = f(g(x))
 
-simulatedInput1 >>= fun(s) {
-  simulatedInput2 >>= return
-}
+value(1) >>= fun(a) =
+value(3) >>= fun(b) =
+return(a + b)
