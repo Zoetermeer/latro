@@ -46,7 +46,7 @@ module Rope {
 
 
   index => fun(t, Int) : Maybe{Char}
-  fun index(Leaf(string), n) = List.atIndex(string, n)
+  fun index(Leaf(string), n) = string.at-index(n)
   fun index(Node(weight, left, right), n) {
     cond {
       case n < length'(left) -> index(left, n)
@@ -96,11 +96,12 @@ module Rope {
   }
 
 
-  toString => fun(t) : String
-  fun toString(Leaf(string)) = string
-  fun toString(Node(_, left, right)) =
-    toString(left) @ toString(right)
+  fun (Leaf(string)).show() = string
+  fun (Node(_, left, right)).show() =
+    left.show() @ right.show()
 }
 
-def leaf = Rope.Leaf("hello")
-Rope.delete(leaf, 1, 4)
+import Rope
+
+def rope = Node(11, Leaf("hello "), Leaf("world"))
+delete(rope, 4, 7).show()

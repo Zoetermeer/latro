@@ -59,8 +59,8 @@ module Core {
     fun @(as, [])    = as
     fun @(a::as, bs) = a :: (as @ bs)
 
-    fun atIndex([], _)    = Nothing()
-    fun atIndex(x::_, 0)  = Just(x)
-    fun atIndex(_::xs, n) = atIndex(xs, n - 1)
+    fun ([]).at-index(_)    = Nothing()
+    fun (x::_).at-index(0)  = Just(x)
+    fun (_::xs).at-index(n) = xs.at-index(n - 1)
   }
 }
