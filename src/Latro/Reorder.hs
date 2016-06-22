@@ -21,6 +21,10 @@ runBuildPrecEnv (ExpPrecAssign p operatorId level) = do
   put $ Map.insert operatorId level env
   return $ ExpBegin p [ExpUnit p]
 
+runBuildPrecEnv (ExpAssign p id e) = do
+  e' <- runBuildPrecEnv e
+  return $ ExpAssign p id e'
+
 runBuildPrecEnv (ExpModule p paramIds bodyEs) = do
   bodyEs' <- mapM runBuildPrecEnv bodyEs
   return $ ExpModule p paramIds bodyEs'
