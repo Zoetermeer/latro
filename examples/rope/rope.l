@@ -38,8 +38,8 @@ module Rope {
 
     cond {
       case i > j                      -> Node(weight, left, right)
-      case (i < llen) && (j < llen)   -> Node(w, delete(left, i, j), right)
-      case (i < llen) && (j >= llen)  -> Node(w, delete(left, i, llen), delete(right, 0, j - llen))
+      case i < llen && j < llen       -> Node(w, delete(left, i, j), right)
+      case i < llen && j >= llen      -> Node(w, delete(left, i, llen), delete(right, 0, j - llen))
       case i >= llen                  -> Node(w, left, delete(right, i - llen, j - llen))
     }
   }
@@ -90,7 +90,7 @@ module Rope {
 
     cond {
       case i > j                      -> Nothing()
-      case (i < llen) && (j >= llen)  -> substring(left, i, j)
+      case i < llen && j >= llen      -> substring(left, i, j)
       case i >= llen                  -> substring(right, i - llen, j - llen)
     }
   }

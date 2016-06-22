@@ -45,3 +45,9 @@ mapIndM f i (x:xs) = do
 
 mapMi :: Monad m => (Int -> a -> m b) -> [a] -> m [b]
 mapMi f xs = mapIndM f 0 xs
+
+
+mapSnd :: (b -> c) -> [(a, b)] -> [(a, c)]
+mapSnd f tups = zip as cs
+  where (as, bs) = unzip tups
+        cs = map f bs

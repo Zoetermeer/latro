@@ -38,6 +38,11 @@ buildPrecEnv (CompUnit p bodyEs) =
   where (bodyEs', env) = runState (mapM runBuildPrecEnv bodyEs) mtEnv
 
 
+reorderCaseClause :: Env PrecLevel -> UniqAst CaseClause -> UniqAst CaseClause
+reorderCaseClause env (CaseClause p patE bodyEs) =
+  CaseClause p patE $ map (reorder env) bodyEs
+
+
 reorder :: Env PrecLevel -> UniqAst Exp -> UniqAst Exp
 reorder env (ExpCustomInfix p outerLhe@ExpCustomInfix{} outerOpId outerRhe)
     | needsReorder = ExpCustomInfix innerP innerLhe innerOpId $ ExpCustomInfix p innerRhe outerOpId outerRhe'
@@ -50,16 +55,49 @@ reorder env (ExpCustomInfix p outerLhe@ExpCustomInfix{} outerOpId outerRhe)
                       return $ outerLevel < innerLevel
     needsReorder = fromMaybe False maybeOuterLt
 
-reorder env (ExpCustomInfix p lhe opId rhe) =
-    ExpCustomInfix p lhe' opId rhe'
-  where lhe' = reorder env lhe
-        rhe' = reorder env rhe
+reorder env e =
+  case e of
+    ExpAdd p lhe rhe -> ExpAdd p (r lhe) (r rhe)
+    ExpSub p lhe rhe -> ExpSub p (r lhe) (r rhe)
+    ExpDiv p lhe rhe -> ExpDiv p (r lhe) (r rhe)
+    ExpMul p lhe rhe -> ExpMul p (r lhe) (r rhe)
+    ExpCons p lhe rhe -> ExpCons p (r lhe) (r rhe)
+    ExpCustomInfix p lhe opId rhe ->
+      ExpCustomInfix p (r lhe) opId (r rhe)
+    ExpMemberAccess p e id -> ExpMemberAccess p (r e) id
+    ExpApp p ratorE randEs -> ExpApp p (r ratorE) $ map r randEs
+    eImp@ExpImport{} -> eImp
+    ExpAssign p patE e -> ExpAssign p patE $ r e
+    eTy@ExpTypeDec{} -> eTy
+    eAnn@ExpTyAnn{} -> eAnn
+    ExpWithAnn tyAnn e -> ExpWithAnn tyAnn $ r e
+    ExpFunDef (FunDefFun p id argPatEs bodyEs) ->
+      ExpFunDef $ FunDefFun p id argPatEs $ map r bodyEs
+    ExpFunDef (FunDefInstFun p instPatE id argPatEs bodyEs) ->
+      ExpFunDef $ FunDefInstFun p instPatE id argPatEs $ map r bodyEs
+    ExpModule p paramIds bodyEs -> ExpModule p paramIds $ map r bodyEs
+    ExpStruct p synTy fieldInits ->
+      ExpStruct p synTy $ mapSnd r fieldInits
+    ExpIfElse p e thenEs elseEs ->
+      ExpIfElse p (r e) (map r thenEs) (map r elseEs)
+    ExpMakeAdt p id n argEs ->
+      ExpMakeAdt p id n $ map r argEs
+    ExpGetAdtField p e n ->
+      ExpGetAdtField p (r e) n
+    ExpTuple p argEs ->
+      ExpTuple p $ map r argEs
+    ExpSwitch p e clauses ->
+      ExpSwitch p (r e) $ map (reorderCaseClause env) clauses
+    ExpList p es ->
+      ExpList p $ map r es
+    ExpFun p argPatEs bodyEs ->
+      ExpFun p argPatEs $ map r bodyEs
+    ExpBegin p bodyEs ->
+      ExpBegin p $ map r bodyEs
+    _ -> e
 
-reorder env (ExpModule p paramIds bodyEs) =
-    ExpModule p paramIds bodyEs'
-  where bodyEs' = map (reorder env) bodyEs
-
-reorder _ e = e
+  where
+    r = reorder env
 
 
 rewriteCaseClauseInfix :: UniqAst CaseClause -> UniqAst CaseClause
