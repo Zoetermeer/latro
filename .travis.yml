@@ -1,4 +1,5 @@
 language: haskell
+ghc: 7.10
 
 sudo: true
 
