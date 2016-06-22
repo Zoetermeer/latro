@@ -18,7 +18,7 @@ cabal-version:       >=1.10
 
 executable latro
   main-is:             Main.hs
-  -- other-modules:
+  other-modules:       Lex, Parse
   other-extensions:    FlexibleContexts, NamedFieldPuns, CPP, FlexibleInstances
   build-depends:       base,
                        mtl,
@@ -28,9 +28,7 @@ executable latro
                        array,
                        monadlist,
                        bifunctors,
-                       transformers,
-                       alex,
-                       happy
+                       transformers
   hs-source-dirs:      src/Latro
   build-tools:         alex, happy
   default-language:    Haskell2010
