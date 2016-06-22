@@ -105,6 +105,9 @@ rewriteInfix (ExpWithAnn tyAnn e) = ExpWithAnn tyAnn $ rewriteInfix e
 rewriteInfix (ExpFunDef (FunDefFun p id argPatEs bodyEs)) =
   ExpFunDef $ FunDefFun p id argPatEs $ map rewriteInfix bodyEs
 
+rewriteInfix (ExpFunDef (FunDefInstFun p instPatE id argPatEs bodyEs)) =
+  ExpFunDef $ FunDefInstFun p instPatE id argPatEs $ map rewriteInfix bodyEs
+
 rewriteInfix (ExpModule p paramIds bodyEs) =
   ExpModule p paramIds $ map rewriteInfix bodyEs
 

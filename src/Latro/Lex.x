@@ -75,7 +75,7 @@ tokens :-
   [\_] { lex' TokenUnderscore }
   $digit+ { lex TokenNumLit }
   [$alpha] [$alpha $digit \_ \']* { lex TokenSimpleId }
-  [$alpha] [$alpha $digit \_ \' $special]+ { lex TokenMixedId }
+  [$alpha] [$alpha $digit \_ \' \- $special]+ { lex TokenMixedId }
   [$special]+ { lex TokenSpecialId }
   [\"] [^\"]* [\"] { lex TokenString }
   [\'] [^\']{1} [\'] { lex TokenChar }
