@@ -20,7 +20,7 @@ executable latro
   main-is:             Main.hs
   other-modules:       Lex, Parse
   other-extensions:    FlexibleContexts, NamedFieldPuns, CPP, FlexibleInstances
-  build-depends:       base >= 4.9.0,
+  build-depends:       base >= 4.7.0,
                        mtl,
                        containers,
                        errors,
