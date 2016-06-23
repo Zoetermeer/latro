@@ -8,8 +8,6 @@
          typecheck
          show-typed-ast)
 
-(define-runtime-path interpreter "../dist/build/latro/latro")
-
 (define (needs-recompile? file depends-on-file)
   (> (file-or-directory-modify-seconds depends-on-file)
      (file-or-directory-modify-seconds file)))
@@ -25,12 +23,13 @@
 
 (define (compile!)
   (system "cabal configure")
-  (system "cabal build"))
+  (system "cabal build")
+  (system "cabal install"))
 
 (compile!)
 
 (define (call-interpreter opts program)
-  (parameterize ([current-directory "../"])
+  (parameterize ([current-directory "."])
     (call-with-output-file
       test-source-file
       (λ (out)
@@ -39,7 +38,7 @@
       #:exists 'truncate/replace)
     (with-output-to-string
       (λ ()
-        (system (format "~a ~a ~a" interpreter (string-join opts) test-source-file))))))
+        (system (format "latro ~a ~a" (string-join opts) test-source-file))))))
 
 (define (strip-quotation-marks s) s)
 
