@@ -305,11 +305,15 @@ instance Ord UniqId where
   (UniqId _ raw) `compare` (UserId raw') = raw `compare` raw'
 
 
+type RawIdEnv a = Map.Map RawId a
 type Env a = Map.Map UniqId a
 type CloEnv a = Env a
 type VEnv = Env Value
 type TEnv = Env Ty
 
+
+mtRawIdEnv :: RawIdEnv a
+mtRawIdEnv = Map.empty
 
 mtEnv :: Env a
 mtEnv = Map.empty

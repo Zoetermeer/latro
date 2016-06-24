@@ -1170,3 +1170,25 @@
       True && False
     }
     'False))
+
+(test-case "it distinguishes between types and values with the same name"
+  (check-equal?
+    @interp{
+      fun foo(a, b) = a + b
+      type foo = Int
+
+      foo(2, 4)
+    }
+    6))
+
+(test-case "it distinguishes between type and value names in annotations"
+  (check-equal?
+    @interp{
+      type foo = Int
+
+      foo => fun(foo, foo) : foo
+      fun foo(a, b) = a + b
+
+      foo(2, 4)
+    }
+    6))

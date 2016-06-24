@@ -3,27 +3,26 @@
 (require "common.rkt"
          rackunit)
 
-(test-case "it reorders expressions by user-defined precedence"
-  (check-equal?
-    @interp{
-      fun <(0, 0) = False
-      fun <(0, _) = True
-      fun <(_, 0) = False
-      fun <(a, b) = a - 1 < b - 1
+#;@alpha-convert{
+  module Number {
+    type t = Int
+  }
 
-      precedence < 1
+  module Div {
+    type t =
+      | Num(Number.t)
+      | ByZero
 
-      fun &&(True, True) = True
-      fun &&(_, _) = False
+    fun div(x, 0) = ByZero()
+    fun div(x, y) = Num(x / y)
+  }
 
-      precedence && 2
+  def Div.Num(answer) = Div.div(100, 10)
+  answer
+}
 
-      def i = 1
-      def j = 2
-      def k = 3
-      cond {
-        case i < k && j < k -> 42
-        case _ -> 43
-      }
-    }
-    42))
+@interp{
+  fun foo(x) {
+    (fun(x) { x + 1 })(x) + x
+  }
+}

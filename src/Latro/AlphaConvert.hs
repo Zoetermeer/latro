@@ -1,3 +1,5 @@
+{-# LANGUAGE NamedFieldPuns #-}
+
 module AlphaConvert where
 
 import Common
@@ -5,47 +7,83 @@ import Control.Applicative
 import Control.Monad.Except
 import Control.Monad.State
 import Data.List (all, find, nub)
+import qualified Data.Map as Map (insert, lookup)
 import Errors
 import Prelude hiding (lookup)
 import Semant
 import Text.Printf (printf)
 
 
-data AlphaEnv = AlphaEnv Int [(RawId, UniqId)]
+data AlphaTables = AlphaTables
+  { typeIdEnv :: RawIdEnv UniqId
+  , varIdEnv  :: RawIdEnv UniqId
+  }
+  deriving (Eq)
+
+
+mtTables :: AlphaTables
+mtTables = AlphaTables { typeIdEnv = mtRawIdEnv, varIdEnv = mtRawIdEnv }
+
+
+data AlphaEnv = AlphaEnv Int AlphaTables
   deriving (Eq)
 
 
 type AlphaConverted a = ExceptT Err (State AlphaEnv) a
 
 
-fresh :: RawId -> AlphaEnv -> (UniqId, AlphaEnv)
-fresh id (AlphaEnv counter table) =
+freshTypeId :: RawId -> AlphaEnv -> (UniqId, AlphaEnv)
+freshTypeId id (AlphaEnv counter tables@AlphaTables{ typeIdEnv }) =
   let counter' = counter + 1
       uniqId = UniqId counter id
   in
-    (uniqId, AlphaEnv counter' ((id, uniqId):table))
+    (uniqId, AlphaEnv counter' $ tables { typeIdEnv = Map.insert id uniqId typeIdEnv })
 
 
-freshM :: RawId -> AlphaConverted UniqId
-freshM id = do
+freshVarId :: RawId -> AlphaEnv -> (UniqId, AlphaEnv)
+freshVarId id (AlphaEnv counter tables@AlphaTables{ varIdEnv }) =
+  let counter' = counter + 1
+      uniqId = UniqId counter id
+  in
+    (uniqId, AlphaEnv counter' $ tables { varIdEnv = Map.insert id uniqId varIdEnv })
+
+
+freshM :: RawId -> (RawId -> AlphaEnv -> (UniqId, AlphaEnv)) -> AlphaConverted UniqId
+freshM id fMake = do
   alphaEnv <- lift get
-  let (uniqId, alphaEnv') = fresh id alphaEnv
+  let (uniqId, alphaEnv') = fMake id alphaEnv
   lift $ put alphaEnv'
   return uniqId
+
+
+freshVarIdM :: RawId -> AlphaConverted UniqId
+freshVarIdM id = freshM id freshVarId
+
+
+freshTypeIdM :: RawId -> AlphaConverted UniqId
+freshTypeIdM id = freshM id freshTypeId
 
 
 nextIdIndex :: AlphaEnv -> Int
 nextIdIndex (AlphaEnv i _) = i
 
 
-lookup :: RawId -> AlphaConverted UniqId
-lookup id = do
-  (AlphaEnv _ table) <- lift get
-  let maybeUniqId = find (\(key, uid) -> key == id) table
+lookup :: RawId -> (AlphaTables -> RawIdEnv UniqId) -> AlphaConverted UniqId
+lookup id fGet = do
+  (AlphaEnv _ tables) <- lift get
+  let maybeUniqId = Map.lookup id $ fGet tables
   case maybeUniqId of
-    Just uniqId -> return $ snd uniqId
+    Just uniqId -> return uniqId
     Nothing ->
       throwError $ ErrUnboundRawIdentifier id
+
+
+lookupVarId :: RawId -> AlphaConverted UniqId
+lookupVarId id = lookup id varIdEnv
+
+
+lookupTypeId :: RawId -> AlphaConverted UniqId
+lookupTypeId id = lookup id typeIdEnv
 
 
 convertBin  :: (SourcePos -> UniqAst Exp -> UniqAst Exp -> UniqAst Exp)
@@ -59,20 +97,31 @@ convertBin c p a b = do
   return $ c p a' b'
 
 
-convertQualId :: RawAst QualifiedId -> AlphaConverted (UniqAst QualifiedId)
-convertQualId (Id p id) = do
-  id' <- lookup id
+convertVarQualId :: RawAst QualifiedId -> AlphaConverted (UniqAst QualifiedId)
+convertVarQualId (Id p id) = do
+  id' <- lookupVarId id
   return $ Id p id'
 
-convertQualId (Path p qid id) = do
-  qid' <- convertQualId qid
+convertVarQualId (Path p qid id) = do
+  qid' <- convertVarQualId qid
   return $ Path p qid' $ UserId id
+
+
+convertTypeQualId :: RawAst QualifiedId -> AlphaConverted (UniqAst QualifiedId)
+convertTypeQualId (Id p id) = do
+  id' <- lookupTypeId id
+  return $ Id p id'
+
+convertTypeQualId (Path p qid id) = do
+  qid' <- convertVarQualId qid
+  id' <- lookupTypeId id
+  return $ Path p qid' id'
 
 
 convertTyAnn :: RawAst TyAnn -> AlphaConverted (UniqAst TyAnn)
 convertTyAnn (TyAnn p id tyParamIds ty) = do
-  id' <- freshM id
-  tyParamIds' <- mapM freshM tyParamIds
+  id' <- freshVarIdM id
+  tyParamIds' <- mapM freshTypeIdM tyParamIds
   ty' <- convertTy ty
   return $ TyAnn p id' tyParamIds' ty'
 
@@ -97,11 +146,11 @@ convertTy (SynTyModule p paramTys maybeImplTy) = do
       return $ SynTyModule p paramTys' Nothing
 
 convertTy (SynTyInterface p paramIds) = do
-  paramIds' <- mapM freshM paramIds
+  paramIds' <- mapM freshTypeIdM paramIds
   return $ SynTyInterface p paramIds'
 
 convertTy (SynTyDefault p qid tyArgs) = do
-  qid' <- convertQualId qid
+  qid' <- convertTypeQualId qid
   tyArgs' <- mapM convertTy tyArgs
   return $ SynTyDefault p qid' tyArgs'
 
@@ -119,13 +168,13 @@ convertTy (SynTyList p ty) = do
 
 convertTy (SynTyRef p qid tyArgs) = do
   tyArgs' <- mapM convertTy tyArgs
-  qid' <- convertQualId qid
+  qid' <- convertTypeQualId qid
   return $ SynTyRef p qid' tyArgs'
 
 
 convertAdtAlternative :: Int -> RawAst AdtAlternative -> AlphaConverted (UniqAst AdtAlternative)
 convertAdtAlternative index (AdtAlternative p id _ tys) = do
-  id' <- freshM id
+  id' <- freshVarIdM id
   tys' <- mapM convertTy tys
   return $ AdtAlternative p id' index tys'
 
@@ -141,11 +190,11 @@ convertPatExp (PatExpTuple p es) = do
   return $ PatExpTuple p es'
 
 convertPatExp (PatExpId p id) = do
-  id' <- freshM id
+  id' <- freshVarIdM id
   return $ PatExpId p id'
 
 convertPatExp (PatExpAdt p qid es) = do
-  qid' <- convertQualId qid
+  qid' <- convertVarQualId qid
   es' <- mapM convertPatExp es
   return $ PatExpAdt p qid' es'
 
@@ -162,14 +211,14 @@ convertPatExp (PatExpListCons p eHd eTl) = do
 convertFunDef :: RawAst FunDef -> AlphaConverted (UniqAst FunDef)
 convertFunDef (FunDefFun p id argPatEs bodyEs) = do
   argPatEs' <- mapM convertPatExp argPatEs
-  id' <- lookup id
+  id' <- lookupVarId id
   bodyEs' <- mapM convert bodyEs
   return $ FunDefFun p id' argPatEs' bodyEs'
 
 convertFunDef (FunDefInstFun p instPatE id argPatEs bodyEs) = do
   instPatE' <- convertPatExp instPatE
   argPatEs' <- mapM convertPatExp argPatEs
-  id' <- freshM id
+  id' <- freshVarIdM id
   bodyEs' <- mapM convert bodyEs
   return $ FunDefInstFun p instPatE' id' argPatEs' bodyEs'
 
@@ -227,7 +276,7 @@ desugarFunDefs fid funDefs =
   in
     case arities of
       [len] -> do
-        paramIds <- replicateM len ((\_ -> freshM "arg") ())
+        paramIds <- replicateM len ((\_ -> freshVarIdM "arg") ())
         cases <- mapM funDefToCaseClause funDefs
         let paramRefs = map (ExpRef startP) paramIds
             paramPats = map (PatExpId startP) paramIds
@@ -237,7 +286,7 @@ desugarFunDefs fid funDefs =
             in
               return (FunDefFun startP fid paramPats [ExpSwitch startP argsTup cases], paramIds)
           FunDefInstFun _ instPatE _ argPatEs bodyEs ->
-            do instId <- freshM "this"
+            do instId <- freshVarIdM "this"
                let instRef = ExpRef startP instId
                    argsTup = ExpTuple startP (instRef : paramRefs)
                return (FunDefInstFun startP (PatExpId startP instId) fid paramPats [ExpSwitch startP argsTup cases], paramIds)
@@ -292,7 +341,7 @@ convert (ExpCons p a b) = convertBin ExpCons p a b
 convert (ExpCustomInfix p lhe id rhe) = do
   lhe' <- convert lhe
   rhe' <- convert rhe
-  id' <- lookup id
+  id' <- lookupVarId id
   return $ ExpCustomInfix p lhe' id' rhe'
 
 convert (ExpMemberAccess p e id) = do
@@ -305,24 +354,24 @@ convert (ExpApp p ratorE randEs) = do
   return $ ExpApp p ratorE' randEs'
 
 convert (ExpImport p qualId) = do
-  qualId' <- convertQualId qualId
+  qualId' <- convertVarQualId qualId
   return $ ExpImport p qualId'
 
 convert (ExpFunDef (FunDefFun p id argPatEs bodyEs)) = do
-  id' <- freshM id
+  id' <- freshVarIdM id
   argPatEs' <- mapM convertPatExp argPatEs
   bodyEs' <- mapM convert bodyEs
   return $ ExpFunDef $ FunDefFun p id' argPatEs' bodyEs'
 
 convert (ExpFunDef (FunDefInstFun p instPatE id argPatEs bodyEs)) = do
-  id' <- freshM id
+  id' <- freshVarIdM id
   instPatE' <- convertPatExp instPatE
   argPatEs' <- mapM convertPatExp argPatEs
   bodyEs' <- mapM convert bodyEs
   return $ ExpFunDef $ FunDefInstFun p instPatE' id' argPatEs' bodyEs'
 
 convert (ExpFunDefClauses p id funDefs) = do
-  id' <- freshM id
+  id' <- freshVarIdM id
   funDef <- fst <$> desugarFunDefs id' funDefs
   return $ ExpFunDef funDef
 
@@ -332,14 +381,14 @@ convert (ExpAssign p patExp e) = do
   return $ ExpAssign p patExp' e'
 
 convert (ExpTypeDec p (TypeDecTy pInner id tyParamIds ty)) = do
-  id' <- freshM id
-  tyParamIds' <- mapM freshM tyParamIds
+  id' <- freshTypeIdM id
+  tyParamIds' <- mapM freshTypeIdM tyParamIds
   ty' <- convertTy ty
   return $ ExpTypeDec p $ TypeDecTy pInner id' tyParamIds' ty'
 
 convert (ExpTypeDec p (TypeDecAdt pInner id tyParamIds alts)) = do
-  id' <- freshM id
-  tyParamIds' <- mapM freshM tyParamIds
+  id' <- freshTypeIdM id
+  tyParamIds' <- mapM freshTypeIdM tyParamIds
   alts' <- mapMi convertAdtAlternative alts
   return $ ExpTypeDec p $ TypeDecAdt pInner id' tyParamIds' alts'
 
@@ -347,8 +396,8 @@ convert (ExpTyAnn (TyAnn _ id _ _)) =
   throwError $ ErrInterpFailure $ "ExpTyAnn " ++ show id ++ " not removed before alpha-conversion!"
 
 convert (ExpWithAnn (TyAnn p aid tyParamIds synTy) e) = do
-  aid' <- freshM aid
-  tyParamIds' <- mapM freshM tyParamIds
+  aid' <- freshVarIdM aid
+  tyParamIds' <- mapM freshTypeIdM tyParamIds
   synTy' <- convertTy synTy
   let tyAnn = TyAnn p aid' tyParamIds' synTy'
   case e of
@@ -366,19 +415,19 @@ convert (ExpWithAnn (TyAnn p aid tyParamIds synTy) e) = do
     _ -> throwError $ ErrInterpFailure $ "in convert ExpWithAnn: " ++ show e
 
 convert (ExpInterfaceDec p id tyParamIds memberTyAnns) = do
-  id' <- freshM id
-  tyParamIds' <- mapM freshM tyParamIds
+  id' <- freshTypeIdM id
+  tyParamIds' <- mapM freshTypeIdM tyParamIds
   memberTyAnns' <- mapM convertTyAnn memberTyAnns
   return $ ExpInterfaceDec p id' tyParamIds' memberTyAnns'
 
 convert (ExpModule p paramIds bodyEs) = do
-  paramIds' <- mapM freshM paramIds
+  paramIds' <- mapM freshVarIdM paramIds
   bodyEs' <- mapM convert bodyEs
   return $ ExpModule p paramIds' bodyEs'
 
 convert (ExpStruct p synTy fields) = do
   synTy' <- convertTy synTy
-  fields' <- mapM (\(fieldId, fieldE) -> do { fieldE' <- convert fieldE; fieldId' <- freshM fieldId; return (fieldId', fieldE') }) fields
+  fields' <- mapM (\(fieldId, fieldE) -> do { fieldE' <- convert fieldE; fieldId' <- freshVarIdM fieldId; return (fieldId', fieldE') }) fields
   return $ ExpStruct p synTy' fields'
 
 convert (ExpIfElse p condE thenEs elseEs) = do
@@ -408,7 +457,7 @@ convert (ExpFun p argPatEs bodyEs) = do
   return $ ExpFun p argPatEs' bodyEs'
 
 convert (ExpPrecAssign p id level) = do
-  id' <- lookup id
+  id' <- lookupVarId id
   return $ ExpPrecAssign p id' level
 
 convert (ExpNum p s) = return $ ExpNum p s
@@ -418,7 +467,7 @@ convert (ExpChar p s) = return $ ExpChar p s
 convert (ExpUnit p) = return $ ExpUnit p
 convert (ExpFail p msg) = return $ ExpFail p msg
 convert (ExpRef p id) = do
-  id' <- lookup id
+  id' <- lookupVarId id
   return $ ExpRef p id'
 
 
@@ -509,6 +558,6 @@ collapse e = return e
 alphaConvert :: RawAst CompUnit -> Either Err (UniqAst CompUnit, AlphaEnv)
 alphaConvert (CompUnit pos exps) = do
   collapsedEs <- collapseEs exps
-  let (eithExps, alphaEnv) = runState (runExceptT $ mapM convert collapsedEs) (AlphaEnv 1 [])
+  let (eithExps, alphaEnv) = runState (runExceptT $ mapM convert collapsedEs) (AlphaEnv 1 mtTables)
   exps' <- eithExps
   return (CompUnit pos exps', alphaEnv)

@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts, NamedFieldPuns #-}
 module Interp where
 
-import AlphaConvert hiding (lookup)
+import AlphaConvert hiding (lookup, lookupVarId)
 import Common
 import Control.Error.Util (hoistEither)
 import Control.Monad (unless)
@@ -140,7 +140,7 @@ freshId :: Eval UniqId
 freshId = do
   alphaEnv <- gets alphaEnv
   let index = nextIdIndex alphaEnv
-  let (uniqId, alphaEnv') = fresh (printf "%s%i" "x" index) alphaEnv
+  let (uniqId, alphaEnv') = freshVarId (printf "%s%i" "x" index) alphaEnv
   modify (\interpEnv -> interpEnv { alphaEnv = alphaEnv' })
   return uniqId
 

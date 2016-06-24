@@ -1317,3 +1317,13 @@
       Foo.v
     }
     'Bool))
+
+(test-case "it narrows types correctly with annotations"
+  (check-match
+    @typecheck{
+      foo => fun(Int) : Int
+      fun foo(a) = a
+
+      foo(True)
+    }
+    `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
