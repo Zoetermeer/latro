@@ -14,9 +14,15 @@ import Semant
 import Text.Printf (printf)
 
 
+data AlphaEntry =
+    UniqIdEntry UniqId
+  | TableEntry UniqId (RawIdEnv AlphaEntry)
+  deriving (Eq, Show)
+
+
 data AlphaTables = AlphaTables
-  { typeIdEnv :: RawIdEnv UniqId
-  , varIdEnv  :: RawIdEnv UniqId
+  { typeIdEnv :: RawIdEnv AlphaEntry
+  , varIdEnv  :: RawIdEnv AlphaEntry
   }
   deriving (Eq)
 
@@ -37,7 +43,7 @@ freshTypeId id (AlphaEnv counter tables@AlphaTables{ typeIdEnv }) =
   let counter' = counter + 1
       uniqId = UniqId counter id
   in
-    (uniqId, AlphaEnv counter' $ tables { typeIdEnv = Map.insert id uniqId typeIdEnv })
+    (uniqId, AlphaEnv counter' $ tables { typeIdEnv = Map.insert id (UniqIdEntry uniqId) typeIdEnv })
 
 
 freshVarId :: RawId -> AlphaEnv -> (UniqId, AlphaEnv)
@@ -45,7 +51,7 @@ freshVarId id (AlphaEnv counter tables@AlphaTables{ varIdEnv }) =
   let counter' = counter + 1
       uniqId = UniqId counter id
   in
-    (uniqId, AlphaEnv counter' $ tables { varIdEnv = Map.insert id uniqId varIdEnv })
+    (uniqId, AlphaEnv counter' $ tables { varIdEnv = Map.insert id (UniqIdEntry uniqId) varIdEnv })
 
 
 freshM :: RawId -> (RawId -> AlphaEnv -> (UniqId, AlphaEnv)) -> AlphaConverted UniqId
@@ -68,12 +74,12 @@ nextIdIndex :: AlphaEnv -> Int
 nextIdIndex (AlphaEnv i _) = i
 
 
-lookup :: RawId -> (AlphaTables -> RawIdEnv UniqId) -> AlphaConverted UniqId
+lookup :: RawId -> (AlphaTables -> RawIdEnv AlphaEntry) -> AlphaConverted UniqId
 lookup id fGet = do
   (AlphaEnv _ tables) <- lift get
   let maybeUniqId = Map.lookup id $ fGet tables
   case maybeUniqId of
-    Just uniqId -> return uniqId
+    Just (UniqIdEntry uniqId) -> return uniqId
     Nothing ->
       throwError $ ErrUnboundRawIdentifier id
 
