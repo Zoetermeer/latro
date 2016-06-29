@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts, NamedFieldPuns #-}
 module Interp where
 
-import AlphaConvert hiding (lookup, lookupVarId)
+import AlphaConvert hiding (lookup, lookupVarId, reportErrorAt)
 import Common
 import Control.Error.Util (hoistEither)
 import Control.Monad (unless)

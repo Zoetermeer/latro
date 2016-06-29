@@ -1,4 +1,4 @@
-{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE FlexibleContexts, NamedFieldPuns #-}
 
 module AlphaConvert where
 
@@ -7,11 +7,14 @@ import Control.Applicative
 import Control.Monad.Except
 import Control.Monad.State
 import Data.List (all, find, nub)
-import qualified Data.Map as Map (insert, lookup)
+import qualified Data.Map as Map (insert, lookup, union)
 import Errors
 import Prelude hiding (lookup)
 import Semant
 import Text.Printf (printf)
+
+
+reportErrorAt a = reportPosOnFail a "AlphaConvert"
 
 
 data AlphaEntry =
@@ -20,45 +23,87 @@ data AlphaEntry =
   deriving (Eq, Show)
 
 
-data AlphaTables = AlphaTables
-  { typeIdEnv :: RawIdEnv AlphaEntry
-  , varIdEnv  :: RawIdEnv AlphaEntry
+data AlphaEnv = AlphaEnv
+  { counter         :: Int
+  , varTableStack   :: [RawIdEnv AlphaEntry]
+  , typeTableStack  :: [RawIdEnv AlphaEntry]
   }
   deriving (Eq)
 
 
-mtTables :: AlphaTables
-mtTables = AlphaTables { typeIdEnv = mtRawIdEnv, varIdEnv = mtRawIdEnv }
-
-
-data AlphaEnv = AlphaEnv Int AlphaTables
-  deriving (Eq)
+mtAlphaEnv :: AlphaEnv
+mtAlphaEnv = AlphaEnv { counter         = 1
+                      , varTableStack   = [mtRawIdEnv]
+                      , typeTableStack  = [mtRawIdEnv]
+                      }
 
 
 type AlphaConverted a = ExceptT Err (State AlphaEnv) a
 
 
+pushVarTable :: AlphaConverted ()
+pushVarTable = modify (\aEnv -> aEnv { varTableStack = mtRawIdEnv : varTableStack aEnv })
+
+
+popVarTable :: AlphaConverted (RawIdEnv AlphaEntry)
+popVarTable = do
+  (table : tables) <- gets varTableStack
+  modify (\aEnv -> aEnv { varTableStack = tables })
+  return table
+
+
+pushTypeTable :: AlphaConverted ()
+pushTypeTable = modify (\aEnv -> aEnv { typeTableStack = mtRawIdEnv : typeTableStack aEnv })
+
+
+popTypeTable :: AlphaConverted (RawIdEnv AlphaEntry)
+popTypeTable = do
+  (table : tables) <- gets typeTableStack
+  modify (\aEnv -> aEnv { typeTableStack = tables })
+  return table
+
+
+addEntryToVarTable :: RawId -> AlphaEntry -> AlphaConverted ()
+addEntryToVarTable rawId entry = do
+  (table : tables) <- gets varTableStack
+  modify (\aEnv -> aEnv { varTableStack = (Map.insert rawId entry table : tables) })
+
+
+freshVarId id aEnv@(AlphaEnv { counter, varTableStack }) =
+    (uniqId, aEnv { counter = counter', varTableStack = table' : tables })
+  where
+    counter' = counter + 1
+    uniqId = UniqId counter id
+    (table : tables) = varTableStack
+    table' = Map.insert id (UniqIdEntry uniqId) table
+
+
 freshTypeId :: RawId -> AlphaEnv -> (UniqId, AlphaEnv)
-freshTypeId id (AlphaEnv counter tables@AlphaTables{ typeIdEnv }) =
-  let counter' = counter + 1
-      uniqId = UniqId counter id
-  in
-    (uniqId, AlphaEnv counter' $ tables { typeIdEnv = Map.insert id (UniqIdEntry uniqId) typeIdEnv })
-
-
-freshVarId :: RawId -> AlphaEnv -> (UniqId, AlphaEnv)
-freshVarId id (AlphaEnv counter tables@AlphaTables{ varIdEnv }) =
-  let counter' = counter + 1
-      uniqId = UniqId counter id
-  in
-    (uniqId, AlphaEnv counter' $ tables { varIdEnv = Map.insert id (UniqIdEntry uniqId) varIdEnv })
+freshTypeId id aEnv@(AlphaEnv { counter, typeTableStack }) =
+    (uniqId, aEnv { counter = counter', typeTableStack = table' : tables })
+  where
+    counter' = counter + 1
+    uniqId = UniqId counter id
+    (table : tables) = typeTableStack
+    table' = Map.insert id (UniqIdEntry uniqId) table
 
 
 freshM :: RawId -> (RawId -> AlphaEnv -> (UniqId, AlphaEnv)) -> AlphaConverted UniqId
 freshM id fMake = do
-  alphaEnv <- lift get
+  alphaEnv <- get
   let (uniqId, alphaEnv') = fMake id alphaEnv
   lift $ put alphaEnv'
+  return uniqId
+
+
+freshTableM :: RawId -> AlphaConverted UniqId
+freshTableM id = do
+  aEnv@(AlphaEnv{ counter, varTableStack }) <- get
+  let counter' = nextIdIndex aEnv
+      uniqId = UniqId counter id
+      (table : tables) = varTableStack
+      table' = Map.insert id (TableEntry uniqId mtRawIdEnv) table
+  modify (\aEnv -> aEnv { counter = counter', varTableStack = table' : tables })
   return uniqId
 
 
@@ -71,25 +116,50 @@ freshTypeIdM id = freshM id freshTypeId
 
 
 nextIdIndex :: AlphaEnv -> Int
-nextIdIndex (AlphaEnv i _) = i
+nextIdIndex AlphaEnv{ counter } = counter
 
 
-lookup :: RawId -> (AlphaTables -> RawIdEnv AlphaEntry) -> AlphaConverted UniqId
-lookup id fGet = do
-  (AlphaEnv _ tables) <- lift get
-  let maybeUniqId = Map.lookup id $ fGet tables
-  case maybeUniqId of
-    Just (UniqIdEntry uniqId) -> return uniqId
-    Nothing ->
-      throwError $ ErrUnboundRawIdentifier id
+lookupEntryIn :: RawId -> [RawIdEnv AlphaEntry] -> AlphaConverted AlphaEntry
+lookupEntryIn id [] = throwError $ ErrUnboundRawIdentifier id
+lookupEntryIn id (table : tables) =
+  let maybeEntry = Map.lookup id table
+  in case maybeEntry of
+      Just anEntry -> return anEntry
+      _ -> lookupEntryIn id tables
+
+
+-- lookupIdIn :: RawId -> RawIdEnv AlphaEntry -> AlphaConverted UniqId
+-- lookupIdIn id table = do
+--   (UniqIdEntry uniqId) <- lookupEntryIn id table
+--   return uniqId
+
+
+lookupEntry :: RawId -> (AlphaEnv -> [RawIdEnv AlphaEntry]) -> AlphaConverted AlphaEntry
+lookupEntry id fGet = do
+  aEnv <- get
+  lookupEntryIn id $ fGet aEnv
+
+
+lookupVarEntry :: RawId -> AlphaConverted AlphaEntry
+lookupVarEntry id = lookupEntry id varTableStack
+
+
+lookupTypeEntry :: RawId -> AlphaConverted AlphaEntry
+lookupTypeEntry id = lookupEntry id typeTableStack
 
 
 lookupVarId :: RawId -> AlphaConverted UniqId
-lookupVarId id = lookup id varIdEnv
+lookupVarId id = do
+  entry <- lookupVarEntry id
+  return $ case entry of
+    UniqIdEntry uid -> uid
+    TableEntry uid _ -> uid
 
 
 lookupTypeId :: RawId -> AlphaConverted UniqId
-lookupTypeId id = lookup id typeIdEnv
+lookupTypeId id = do
+  (UniqIdEntry uid) <- lookupTypeEntry id
+  return uid
 
 
 convertBin  :: (SourcePos -> UniqAst Exp -> UniqAst Exp -> UniqAst Exp)
@@ -103,25 +173,36 @@ convertBin c p a b = do
   return $ c p a' b'
 
 
-convertVarQualId :: RawAst QualifiedId -> AlphaConverted (UniqAst QualifiedId)
-convertVarQualId (Id p id) = do
-  id' <- lookupVarId id
-  return $ Id p id'
+lookupVarQualId :: RawAst QualifiedId -> AlphaConverted AlphaEntry
+lookupVarQualId (Id p id) = lookupVarEntry id
+lookupVarQualId (Path p qid id) = do
+  table <- lookupVarQualId qid
+  case table of
+    UniqIdEntry _ -> throwError (ErrInvalidRawModulePath qid) `reportErrorAt` p
+    TableEntry _ table -> lookupEntryIn id [table]
 
-convertVarQualId (Path p qid id) = do
-  qid' <- convertVarQualId qid
-  return $ Path p qid' $ UserId id
+
+lookupTypeQualId :: RawAst QualifiedId -> AlphaConverted AlphaEntry
+lookupTypeQualId (Id p id) = lookupTypeEntry id
+lookupTypeQualId (Path p qid id) = do
+  table <- lookupVarQualId qid
+  case table of
+    UniqIdEntry _ -> throwError (ErrInvalidRawModulePath qid) `reportErrorAt` p
+    TableEntry _ table -> lookupEntryIn id [table]
+
+
+convertVarQualId :: RawAst QualifiedId -> AlphaConverted (UniqAst QualifiedId)
+convertVarQualId qid = do
+    (UniqIdEntry uid) <- lookupVarQualId qid
+    return $ Id p uid
+  where p = nodeData qid
 
 
 convertTypeQualId :: RawAst QualifiedId -> AlphaConverted (UniqAst QualifiedId)
-convertTypeQualId (Id p id) = do
-  id' <- lookupTypeId id
-  return $ Id p id'
-
-convertTypeQualId (Path p qid id) = do
-  qid' <- convertVarQualId qid
-  id' <- lookupTypeId id
-  return $ Path p qid' id'
+convertTypeQualId qid = do
+    (UniqIdEntry uid) <- lookupTypeQualId qid
+    return $ Id p uid
+  where p = nodeData qid
 
 
 convertTyAnn :: RawAst TyAnn -> AlphaConverted (UniqAst TyAnn)
@@ -138,7 +219,7 @@ convertTy (SynTyBool p) = return $ SynTyBool p
 convertTy (SynTyChar p) = return $ SynTyChar p
 convertTy (SynTyUnit p) = return $ SynTyUnit p
 convertTy (SynTyArrow p paramTys retTy) = do
-  paramTys' <- mapM convertTy paramTys
+  paramTys' <- mapM convertTy paramTys `reportErrorAt` p
   retTy' <- convertTy retTy
   return $ SynTyArrow p paramTys' retTy'
 
@@ -174,7 +255,7 @@ convertTy (SynTyList p ty) = do
 
 convertTy (SynTyRef p qid tyArgs) = do
   tyArgs' <- mapM convertTy tyArgs
-  qid' <- convertTypeQualId qid
+  qid' <- convertTypeQualId qid `reportErrorAt` p
   return $ SynTyRef p qid' tyArgs'
 
 
@@ -359,9 +440,9 @@ convert (ExpApp p ratorE randEs) = do
   randEs' <- mapM convert randEs
   return $ ExpApp p ratorE' randEs'
 
-convert (ExpImport p qualId) = do
-  qualId' <- convertVarQualId qualId
-  return $ ExpImport p qualId'
+convert (ExpImport p qid) = do
+  (TableEntry moduleId moduleTable) <- lookupVarQualId qid
+  return $ ExpImport p $ Id p moduleId
 
 convert (ExpFunDef (FunDefFun p id argPatEs bodyEs)) = do
   id' <- freshVarIdM id
@@ -380,6 +461,23 @@ convert (ExpFunDefClauses p id funDefs) = do
   id' <- freshVarIdM id
   funDef <- fst <$> desugarFunDefs id' funDefs
   return $ ExpFunDef funDef
+
+convert (ExpAssign p (PatExpId pp rawId) (ExpModule mp paramIds bodyEs)) = do
+  -- modify (\\aEnv -> aEnv { varIdWriteEnv = oldVarWriteEnv, typeIdWriteEnv = oldTypeWriteEnv })
+  pushVarTable
+  pushTypeTable
+  bodyEs' <- mapM convert bodyEs
+  id' <- freshM rawId freshVarId
+  modVarTable <- popVarTable
+  modTypeTable <- popTypeTable
+  addEntryToVarTable rawId $ TableEntry id' modVarTable
+  -- modify (\\(aEnv@AlphaEnv{ varIdEnv = oldVarIdEnv, typeIdEnv = oldTypeIdEnv}) ->
+  --             aEnv { varIdEnv  = Map.insert rawId (TableEntry id' mvEnv) oldVarIdEnv
+  --                  , typeIdEnv = Map.insert rawId (TableEntry id' mtEnv) oldTypeIdEnv
+  --                  , varIdWriteEnv = oldVarWriteEnv
+  --                  , typeIdWriteEnv = oldTypeWriteEnv
+  --                  })
+  return $ ExpAssign p (PatExpId pp id') (ExpModule mp [] bodyEs')
 
 convert (ExpAssign p patExp e) = do
   e' <- convert e
@@ -564,6 +662,6 @@ collapse e = return e
 alphaConvert :: RawAst CompUnit -> Either Err (UniqAst CompUnit, AlphaEnv)
 alphaConvert (CompUnit pos exps) = do
   collapsedEs <- collapseEs exps
-  let (eithExps, alphaEnv) = runState (runExceptT $ mapM convert collapsedEs) (AlphaEnv 1 mtTables)
+  let (eithExps, alphaEnv) = runState (runExceptT $ mapM convert collapsedEs) mtAlphaEnv
   exps' <- eithExps
   return (CompUnit pos exps', alphaEnv)

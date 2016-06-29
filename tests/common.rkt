@@ -22,7 +22,6 @@
 
 
 (define (compile!)
-  (system "cabal configure")
   (system "cabal build")
   (system "cabal install"))
 

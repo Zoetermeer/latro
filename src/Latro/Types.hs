@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 module Types where
 
-import AlphaConvert
+import AlphaConvert hiding (markVarEnv, reportErrorAt)
 import Common
 import Control.Error.Util (hoistEither)
 import Control.Monad.Except
@@ -253,7 +253,7 @@ lookupFieldIndex tyId id = do
           Path _ qid _ -> do modTy <- lookupVarQual qid `reportErrorAt` nodeData qid
                              case modTy of
                                TyApp (TyConModule _ mod) _ -> return mod
-                               _ -> throwError (ErrInvalidModulePath qid) `reportErrorAt` nodeData qid
+                               _ -> throwError (ErrInvalidUniqModulePath qid) `reportErrorAt` nodeData qid
           _ -> gets curModule
   lookupOrFail (fieldIndices mod) id
 
@@ -307,7 +307,7 @@ lookupModule qid = do
   modTy <- lookupVarQual qid `reportErrorAt` nodeData qid
   case modTy of
     TyApp (TyConModule _ mod) _ -> return mod
-    _ -> throwError (ErrInvalidModulePath qid) `reportErrorAt` nodeData qid
+    _ -> throwError (ErrInvalidUniqModulePath qid) `reportErrorAt` nodeData qid
 
 
 lookupPatIn :: TEnv -> UniqId -> Checked Ty
@@ -356,7 +356,7 @@ tcQualId (Path p qid id) = do
          let ty = fTys !! fIndex
          return (Path (OfTy p ty) qid' id, ty)
     _ ->
-      throwError (ErrInvalidModulePath qid) `reportErrorAt` p
+      throwError (ErrInvalidUniqModulePath qid) `reportErrorAt` p
 
 
 lookupTyQual :: UniqAst QualifiedId -> Checked TyCon
@@ -365,7 +365,7 @@ lookupTyQual (Path p qid id) = do
   ty <- lookupVarQual qid
   case ty of
     TyApp (TyConModule _ mod) _ -> lookupTyIn (types mod) id `reportErrorAt` p
-    _ -> throwError (ErrInvalidModulePath qid) `reportErrorAt` p
+    _ -> throwError (ErrInvalidUniqModulePath qid) `reportErrorAt` p
 
 
 lookupVar :: UniqId -> Checked Ty

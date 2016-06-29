@@ -35,7 +35,8 @@ data Err =
   | ErrNoBindingAfterTyAnn RawId
   | ErrCircularType Ty Ty
   | ErrPartialTyConApp (QualifiedId SourcePos UniqId) TyCon [Ty]
-  | ErrInvalidModulePath (QualifiedId SourcePos UniqId)
+  | ErrInvalidRawModulePath (QualifiedId SourcePos RawId)
+  | ErrInvalidUniqModulePath (QualifiedId SourcePos UniqId)
   | ErrInferenceFail (Map.Map UniqId Ty) Ty Ty
   | ErrUserFail SourcePos String
   | ErrInterpFailure String

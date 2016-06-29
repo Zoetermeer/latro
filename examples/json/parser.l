@@ -1,10 +1,12 @@
 module Core {
   type String = Char[]
 
-  type Result{E, T} =
-    | Ok(T)
-    | Error(T)
-  with {
+  type Result{E, T} {
+    data =
+      | Ok(T)
+      | Error(T)
+
+
     fun (Ok(_)).isOk() = True
     fun (_).isOk() = False
   }
@@ -19,21 +21,21 @@ module Json {
     | JsonString(String)
     | JsonNumber(Int)
     | JsonBool(Bool)
-    | JsonNull()
+    | JsonNull
 
 
   type Tok =
-    | TokLBrace()
-    | TokRBrace()
-    | TokComma()
-    | TokLBracket()
-    | TokRBracket()
+    | TokLBrace
+    | TokRBrace
+    | TokComma
+    | TokLBracket
+    | TokRBracket
     | TokString(String)
     | TokNumber(Int)
-    | TokTrue()
-    | TokFalse()
-    | TokNull()
-    | TokEof()
+    | TokTrue
+    | TokFalse
+    | TokNull
+    | TokEof
 
 
   fun lex([]) = Ok(%(TokEof(), ""))
