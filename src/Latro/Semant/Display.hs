@@ -308,6 +308,7 @@ instance (Sexpable a, Sexpable id) => Sexpable (Exp a id) where
   sexp (ExpString d s) = List [ Symbol "ExpString", sexp d, Atom s ]
   sexp (ExpChar d s) = List [ Symbol "ExpChar", sexp d, Atom s ]
   sexp (ExpRef d id) = List [ Symbol "ExpRef", sexp d, sexp id ]
+  sexp (ExpQualifiedRef d qid) = List [ Symbol "ExpQualifiedRef", sexp d, sexp qid ]
   sexp (ExpUnit d) = List [ Symbol "ExpUnit", sexp d ]
   sexp (ExpBegin d es) =
     List  [ Symbol "ExpBegin"

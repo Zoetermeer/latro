@@ -176,7 +176,7 @@
 
       M'.bar
     }
-    `(AtPos ,_ (CompilerModule Types) (UnboundUniqIdentifier (Id N ,_)))))
+    `(AtPos (SourcePos ,_ 8 ,_) (CompilerModule AlphaConvert) (UnboundRawIdentifier N))))
 
 (test-case "it does not extend type name resolution to closures of closed modules"
   (check-match
@@ -188,7 +188,7 @@
       f => fun(M.String) : M.String
       fun f(s) { s }
     }
-    `(AtPos (SourcePos ,_ 5 ,_) (CompilerModule Types) (UnboundUniqIdentifier String))))
+    `(AtPos (SourcePos ,_ 5 ,_) (CompilerModule AlphaConvert) (UnboundRawIdentifier String))))
 
 (test-case "it does not extend variable name resolution to closures of closed modules"
   (check-match
@@ -201,7 +201,7 @@
 
       M.foo + M.bar
     }
-    `(AtPos (SourcePos ,_ 7 ,_) (CompilerModule Types) (UnboundUniqIdentifier foo))))
+    `(AtPos (SourcePos ,_ 7 ,_) (CompilerModule AlphaConvert) (UnboundRawIdentifier foo))))
 
 (test-case "it can resolve pattern names in the module closure"
   (check-equal?
@@ -235,7 +235,7 @@
         case _ -> 0
       }
     }
-    `(AtPos (SourcePos ,_ 6 ,_) (CompilerModule Types) (UnboundUniqIdentifier Foo))))
+    `(AtPos (SourcePos ,_ 6 ,_) (CompilerModule AlphaConvert) (UnboundRawIdentifier Foo))))
 
 (test-case "it does not allow module-exported type bindings to escape"
   (check-match
@@ -250,7 +250,7 @@
       def p = Point %{ X = 0; Y = 0; }
       p
     }
-    `(AtPos (SourcePos ,_ 8 ,_) (CompilerModule Types) (UnboundUniqIdentifier (Id Point ,_)))))
+    `(AtPos (SourcePos ,_ 8 ,_) (CompilerModule AlphaConvert) (UnboundRawIdentifier Point))))
 
 (test-case "it checks expressions with module-binding components"
   (check-equal?
@@ -993,7 +993,7 @@
         case _ -> True
       }
     }
-    `(AtPos ,_ (CompilerModule Types) (UnboundUniqIdentifier (Id Some ,_)))))
+    `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier Some))))
 
 (test-case "it checks qualified ADT patterns"
   (check-equal?

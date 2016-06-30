@@ -171,7 +171,7 @@ AtomExp : '(' Exp ')' { $2 }
         | False { ExpBool (pos $1) False }
         | string { ExpString (pos $1) (tokValue $1) }
         | char { ExpChar (pos $1) (tokValue $1) }
-        | QualifiedId { qualIdToMemberAcc $1 }
+        | QualifiedId { ExpQualifiedRef (nodeData $1) $1 }
 
 MemberAccessExp : AppExp '.' SimpleOrMixedId{ ExpMemberAccess (nodeData $1) $1 (tokValue $3) }
                 | AtomExp { $1 }

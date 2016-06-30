@@ -3214,7 +3214,7 @@ happyReduction_71 _  = notHappyAtAll
 happyReduce_72 = happySpecReduce_1  29 happyReduction_72
 happyReduction_72 (HappyAbsSyn70  happy_var_1)
 	 =  HappyAbsSyn29
-		 (qualIdToMemberAcc happy_var_1
+		 (ExpQualifiedRef (nodeData happy_var_1) happy_var_1
 	)
 happyReduction_72 _  = notHappyAtAll 
 

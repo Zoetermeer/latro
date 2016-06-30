@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 module Types where
 
-import AlphaConvert hiding (markVarEnv, reportErrorAt)
+import AlphaConvert hiding (lookupVarIn, markVarEnv, reportErrorAt)
 import Common
 import Control.Error.Util (hoistEither)
 import Control.Monad.Except

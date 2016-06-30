@@ -141,6 +141,7 @@ data Exp a id =
   | ExpString a String
   | ExpChar a String
   | ExpRef a id
+  | ExpQualifiedRef a (QualifiedId a id)
   | ExpUnit a
   | ExpBegin a [Exp a id]
   | ExpPrecAssign a id Int
@@ -188,6 +189,7 @@ instance AstNode Exp where
       ExpString d _ -> d
       ExpChar d _ -> d
       ExpRef d _ -> d
+      ExpQualifiedRef d _ -> d
       ExpUnit d -> d
       ExpBegin d _ -> d
       ExpPrecAssign d _ _ -> d
