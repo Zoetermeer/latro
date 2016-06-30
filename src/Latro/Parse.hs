@@ -3165,7 +3165,7 @@ happyReduction_65 (_ `HappyStk`
 	(HappyAbsSyn70  happy_var_1) `HappyStk`
 	happyRest)
 	 = HappyAbsSyn29
-		 (ExpStruct (nodeData happy_var_1) (SynTyRef (nodeData happy_var_1) happy_var_1 []) happy_var_3
+		 (ExpStruct (nodeData happy_var_1) happy_var_1 happy_var_3
 	) `HappyStk` happyRest
 
 happyReduce_66 = happySpecReduce_2  29 happyReduction_66

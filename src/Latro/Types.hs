@@ -1068,8 +1068,8 @@ tc (ExpFun p argPatEs bodyEs) = do
 
 tc (ExpMakeAdt p synTy i es) = throwError $ ErrNotImplemented "tc for MakeAdt"
 
-tc (ExpStruct p strSynTy@(SynTyRef pSty qid _) fieldInitEs) = do
-  ty <- tcTy strSynTy
+tc (ExpStruct p qid fieldInitEs) = do
+  ty <- tcTy $ SynTyRef (nodeData qid) qid []
   sorted <- sortByM (\a@(aId, _) b@(bId, _) -> do
                         aInd <- lookupFieldIndex qid aId
                         bInd <- lookupFieldIndex qid bId

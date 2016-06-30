@@ -164,7 +164,7 @@ AtomExp : '(' Exp ')' { $2 }
         | '(' ')' { ExpUnit (pos $1) }
         | '%(' Exp TupleRestExps ')' { ExpTuple (pos $1) ($2:$3) }
         | ListExp { $1 }
-        | QualifiedId '%{' StructFieldInitializers '}' { ExpStruct (nodeData $1) (SynTyRef (nodeData $1) $1 []) $3 }
+        | QualifiedId '%{' StructFieldInitializers '}' { ExpStruct (nodeData $1) $1 $3 }
         | FunHeader FunBody { ExpFun (fst $1) (snd $1) $2 }
         | num { ExpNum (pos $1) (tokValue $1) }
         | True { ExpBool (pos $1) True }

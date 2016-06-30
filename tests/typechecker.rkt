@@ -252,6 +252,30 @@
     }
     `(AtPos (SourcePos ,_ 8 ,_) (CompilerModule AlphaConvert) (UnboundRawIdentifier Point))))
 
+(test-case "it checks module-exported struct field initializers/getters"
+  (check-equal?
+    @typecheck{
+      module Geometry {
+        type Point = struct {
+          Int X;
+          Int Y;
+        }
+
+        type Line = struct {
+          Point A;
+          Point B;
+        }
+      }
+
+      def l = Geometry.Line %{
+        A = Geometry.Point %{ X = 0; Y = 0; };
+        B = Geometry.Point %{ X = 3; Y = 4; };
+      }
+
+      Geometry.Y(Geometry.B(l))
+    }
+    'Int))
+
 (test-case "it checks expressions with module-binding components"
   (check-equal?
     @typecheck{
@@ -1284,21 +1308,6 @@
       Bar.x
     }
     'Int))
-
-(test-case "it does not re-export imported bindings"
-  (check-match
-    @typecheck{
-      module Foo {
-        def v = 42
-      }
-
-      module Bar {
-        import Foo
-      }
-
-      Bar.v
-    }
-    `(AtPos ,_ (CompilerModule Types) (UnboundUniqIdentifier v))))
 
 (test-case "it imports infix operators"
   (check-equal?

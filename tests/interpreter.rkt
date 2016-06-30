@@ -10,7 +10,9 @@
   (check-equal? @interp{'f'} #\f))
 
 (test-case "it returns an error for unbound identifiers"
-  (check-equal? @interp{x} '(UnboundRawIdentifier x)))
+  (check-match
+    @interp{x}
+    `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier x))))
 
 (test-case "it evaluates arithmetic exps"
   (check-equal? (interp "4 + 3") 7)
@@ -98,25 +100,7 @@
 
       runForever(3, False)
     }
-    `(AtPos ,_ (CompilerModule Types) (UnboundUniqIdentifier (Id runForever ,_)))))
-
-(test-case "it does not add bindings introduced in subexpressions to the module export env"
-  (check-match
-    @interp{
-      module m {
-        if (True) {
-          def x = 42
-        } else {
-          ()
-        }
-      }
-
-      m
-    }
-    `(Module
-       (CloEnv ())
-       (Params ())
-       (Exports ()))))
+    `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier runForever))))
 
 (test-case "it evaluates non-literals in the test position"
   (check-equal?
@@ -170,25 +154,13 @@
     }
     'Int))
 
-(test-case "it returns module values"
-  (check-match
-    @interp{
-      module m {} m
-    }
-    `(Module
-       (CloEnv ())
-       (Params ())
-       (Exports ()))))
-
 (test-case "it adds definitions to module exports"
   (check-match
     @interp{
-      module m { def v = 42 } m
+      module m { def v = 42 }
+      m.v
     }
-    `(Module
-       (CloEnv ())
-       (Params ())
-       (Exports ((Id v ,_))))))
+    42))
 
 (test-case "it applies functions on modules with multiple decs"
   (check-equal?
@@ -298,24 +270,6 @@
     }
     42))
 
-(test-case "it does not add locals in function bodies to the module export env"
-  (check-match
-    @interp{
-      module m {
-        f => fun() : Int
-        fun f() {
-          def x = 42
-          x
-        }
-      }
-
-      m
-    }
-    `(Module
-       (CloEnv ())
-       (Params ())
-       (Exports ((Id f ,_))))))
-
 (test-case "it returns nested module values"
   (check-match
     @interp{
@@ -329,12 +283,9 @@
         fun f() { 42 }
       }
 
-      m.m'
+      m.m'.g()
     }
-    `(Module
-       (CloEnv ())
-       (Params ())
-       (Exports ((Id g ,_))))))
+    43))
 
 (test-case "it resolves functions on nested modules"
   (check-equal?
@@ -401,7 +352,7 @@
 
       m1.g(1, 1)
     }
-    `(AtPos ,_ (CompilerModule Types) (UnboundUniqIdentifier (Id m1 ,_)))))
+    `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier m1))))
 
 (test-case "it does not capture id's in lexical scope for modules as exports"
   (check-match
@@ -415,7 +366,7 @@
 
       m.n.f()
     }
-    `(AtPos ,_ (CompilerModule Types) (UnboundUniqIdentifier f))))
+    `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier f))))
 
 (test-case "it evaluates recursive functions"
   (check-equal?
@@ -472,20 +423,21 @@
 (test-case "it can access prior bindings in a module closure"
   (check-match
     @interp{
-      module m { }
-      f => fun() : Int
-      fun f() = 1
-
-      module n {
-        def v = 2
+      module m {
+        f => fun() : Int
+        fun f() = 2
       }
 
-      n
+      g => fun() : Int
+      fun g() = 1
+
+      module n {
+        def v = m.f() + g()
+      }
+
+      n.v
     }
-    `(Module
-      (CloEnv ((Id f ,_) (Id m ,_)))
-      (Params ())
-      (Exports ((Id v ,_))))))
+    3))
 
 (test-case "it evaluates accesses on nested-module-level scalars"
   (check-equal?
@@ -534,13 +486,13 @@
     4))
 
 (test-case "it returns an error on undefined-field accesses"
-  (check-equal?
+  (check-match
     @interp{
       type t = struct { }
       def v = t %{ }
       x(v)
     }
-    '(UnboundRawIdentifier x)))
+    `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier x))))
 
 (test-case "it evaluates nested struct field accesses"
   (check-equal?
@@ -596,13 +548,9 @@
           | Just(Int)
           | None
       }
-      Prims
+      Prims.Just
     }
-    `(Module
-       (CloEnv ())
-       (Params ())
-       (Exports
-         ((Id Just ,_) (Id None ,_))))))
+    `(Fun (Id Just ,_) (CloEnv ()))))
 
 (test-case "it constructs ADT instances"
   (check-match
@@ -626,7 +574,7 @@
 
       Just(42)
     }
-    `(AtPos ,_ (CompilerModule Types) (UnboundUniqIdentifier (Id Just ,_)))))
+    `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier Just))))
 
 (test-case "it evaluates multi-arity ADT constructors"
   (check-match

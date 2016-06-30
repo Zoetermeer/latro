@@ -21,7 +21,21 @@
       fun foo(v) = v + 1
       v + foo(3)
     }
-    45))
+    46))
+
+(test-case "it does not export local definitions on modules"
+  (check-match
+    @interp{
+      module M {
+        fun f() {
+          def v = 3
+          v
+        }
+      }
+
+      M.v
+    }
+    `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier v))))
 
 (test-case "it does not allow rebinding in the same scope"
   (check-match
@@ -30,7 +44,7 @@
       def v = 43
       v
     }
-    `(AtPos ,_ (IdAlreadyBound v))))
+    `(AtPos ,_ (CompilerModule AlphaConvert) (IdAlreadyBound v))))
 
 (test-case "it does allow rebinding in nested scopes"
   (check-match
@@ -39,6 +53,14 @@
       (fun(x) { def v = 43  v })(1)
     }
     43))
+
+(test-case "it refers to the correct value after a rebinding in a nested scope"
+  (check-match
+    @interp{
+      def v = 3
+      fun(x) { def v = 43  v }(1) + v
+    }
+    46))
 
 (test-case "it resolves module-scoped types with matching names"
   (check-equal?
@@ -78,6 +100,52 @@
         fun intId(i) = i
       }
 
-      B.boolId(False)
+      I.B.boolId(False)
     }
     'False))
+
+(test-case "it does not add bindings introduced in subexpressions to the module export env"
+  (check-match
+    @interp{
+      module m {
+        if (True) {
+          def x = 42
+        } else {
+          ()
+        }
+      }
+
+      m.x
+    }
+    `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier x))))
+
+(test-case "it does not add locals in function bodies to the module export env"
+  (check-match
+    @interp{
+      module m {
+        f => fun() : Int
+        fun f() {
+          def x = 42
+          x
+        }
+      }
+
+      m.x
+    }
+    `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier x))))
+
+(test-case "it does not re-export imported bindings"
+  (check-match
+    @typecheck{
+      module Foo {
+        def v = 42
+      }
+
+      module Bar {
+        import Foo
+      }
+
+      Bar.v
+    }
+    `(AtPos ,_ (CompilerModule Types) (UnboundUniqIdentifier v))))
+

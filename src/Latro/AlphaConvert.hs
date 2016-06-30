@@ -18,14 +18,18 @@ reportErrorAt a = reportPosOnFail a "AlphaConvert"
 
 
 data Frame = Frame
-  { varIdEnv  :: RawIdEnv AlphaEntry
+  { index :: Int
+  , varIdEnv  :: RawIdEnv AlphaEntry
   , typeIdEnv :: RawIdEnv AlphaEntry
   }
   deriving (Eq, Show)
 
 
-mtFrame :: Frame
-mtFrame = Frame { varIdEnv = mtRawIdEnv, typeIdEnv = mtRawIdEnv }
+mtFrame :: Int -> Frame
+mtFrame ind = Frame { index = ind
+                    , varIdEnv = mtRawIdEnv
+                    , typeIdEnv = mtRawIdEnv
+                    }
 
 
 data AlphaEntry =
@@ -42,16 +46,20 @@ data AlphaEnv = AlphaEnv
 
 
 mtAlphaEnv :: AlphaEnv
-mtAlphaEnv = AlphaEnv { counter = 1
-                      , stack   = [mtFrame]
-                      }
+mtAlphaEnv =
+    AlphaEnv { counter = i
+             , stack   = [mtFrame i]
+             }
+  where i = 1
 
 
 type AlphaConverted a = ExceptT Err (State AlphaEnv) a
 
 
 pushFrame :: AlphaConverted ()
-pushFrame = modify (\aEnv -> aEnv { stack = mtFrame : stack aEnv })
+pushFrame = do
+  index <- nextIdIndexM
+  modify (\aEnv -> aEnv { stack = mtFrame index : stack aEnv })
 
 
 popFrame :: AlphaConverted Frame
@@ -101,17 +109,6 @@ freshM id fMake = do
   return uniqId
 
 
--- freshTableM :: RawId -> AlphaConverted UniqId
--- freshTableM id = do
---   aEnv@(AlphaEnv{ counter, varTableStack }) <- get
---   let counter' = nextIdIndex aEnv
---       uniqId = UniqId counter id
---       (table : tables) = varTableStack
---       table' = Map.insert id (FrameEntry uniqId mtRawIdEnv) table
---   modify (\\aEnv -> aEnv { counter = counter', varTableStack = table' : tables })
---   return uniqId
-
-
 freshVarIdM :: RawId -> AlphaConverted UniqId
 freshVarIdM id = freshM id freshVarId
 
@@ -122,6 +119,14 @@ freshTypeIdM id = freshM id freshTypeId
 
 nextIdIndex :: AlphaEnv -> Int
 nextIdIndex AlphaEnv{ counter } = counter
+
+
+nextIdIndexM :: AlphaConverted Int
+nextIdIndexM = do
+  aEnv <- get
+  let next = nextIdIndex aEnv
+  put $ aEnv { counter = next }
+  return next
 
 
 lookupEntryIn :: RawId -> [Frame] -> (Frame -> RawIdEnv AlphaEntry) -> AlphaConverted AlphaEntry
@@ -195,6 +200,16 @@ lookupTypeQualId (Path p qid id) = do
   case table of
     UniqIdEntry _ -> throwError (ErrInvalidRawModulePath qid) `reportErrorAt` p
     FrameEntry _ frame -> lookupEntryIn id [frame] typeIdEnv
+
+
+-- |Find the environment for the module at the base path of the given
+-- qualified ID.  If it's not a path, just return the current
+-- frame.
+baseFrame :: RawAst QualifiedId -> AlphaConverted Frame
+baseFrame (Id{}) = gets $ head . stack
+baseFrame (Path _ qid _) = do
+  (FrameEntry _ frame) <- lookupVarQualId qid
+  return frame
 
 
 convertVarQualId :: RawAst QualifiedId -> AlphaConverted (UniqAst QualifiedId)
@@ -448,15 +463,17 @@ convert (ExpApp p ratorE randEs) = do
 
 convert (ExpImport p qid) = do
   (FrameEntry moduleId Frame{ varIdEnv = modVarIdEnv, typeIdEnv = modTypeIdEnv }) <- lookupVarQualId qid
-  modifyFrame (\(Frame{ varIdEnv, typeIdEnv }) ->
-                  Frame{ varIdEnv = Map.union varIdEnv modVarIdEnv
-                       , typeIdEnv = Map.union typeIdEnv modTypeIdEnv })
+  modifyFrame (\(curFrame@Frame{ varIdEnv, typeIdEnv }) ->
+                  curFrame { varIdEnv = Map.union varIdEnv modVarIdEnv
+                           , typeIdEnv = Map.union typeIdEnv modTypeIdEnv })
   return $ ExpUnit p
 
 convert (ExpFunDef (FunDefFun p id argPatEs bodyEs)) = do
-  id' <- freshVarIdM id
+  id' <- freshVarIdM "foo"
+  pushFrame
   argPatEs' <- mapM convertPatExp argPatEs
   bodyEs' <- mapM convert bodyEs
+  popFrame
   return $ ExpFunDef $ FunDefFun p id' argPatEs' bodyEs'
 
 convert (ExpFunDef (FunDefInstFun p instPatE id argPatEs bodyEs)) = do
@@ -468,7 +485,9 @@ convert (ExpFunDef (FunDefInstFun p instPatE id argPatEs bodyEs)) = do
 
 convert (ExpFunDefClauses p id funDefs) = do
   id' <- freshVarIdM id
+  pushFrame
   funDef <- fst <$> desugarFunDefs id' funDefs
+  popFrame
   return $ ExpFunDef funDef
 
 convert (ExpAssign p (PatExpId pp rawId) (ExpModule mp paramIds bodyEs)) = do
@@ -484,6 +503,15 @@ convert (ExpAssign p patExp e) = do
   e' <- convert e
   patExp' <- convertPatExp patExp
   return $ ExpAssign p patExp' e'
+
+convert (ExpTypeDec p (TypeDecTy pInner id tyParamIds (SynTyStruct stp fields))) = do
+  id' <- freshTypeIdM id
+  tyParamIds' <- mapM freshTypeIdM tyParamIds
+  fields' <- mapM (\(id, ty) -> do id' <- freshM id freshVarId
+                                   ty' <- convertTy ty
+                                   return (id', ty'))
+                  fields
+  return $ ExpTypeDec p $ TypeDecTy pInner id' tyParamIds' $ SynTyStruct p fields'
 
 convert (ExpTypeDec p (TypeDecTy pInner id tyParamIds ty)) = do
   id' <- freshTypeIdM id
@@ -530,10 +558,16 @@ convert (ExpModule p paramIds bodyEs) = do
   bodyEs' <- mapM convert bodyEs
   return $ ExpModule p paramIds' bodyEs'
 
-convert (ExpStruct p synTy fields) = do
-  synTy' <- convertTy synTy
-  fields' <- mapM (\(fieldId, fieldE) -> do { fieldE' <- convert fieldE; fieldId' <- freshVarIdM fieldId; return (fieldId', fieldE') }) fields
-  return $ ExpStruct p synTy' fields'
+convert (ExpStruct p qid fields) = do
+  definitionFrame <- baseFrame qid
+  qid' <- convertTypeQualId qid `reportErrorAt` nodeData qid
+  fields' <- mapM (\(fieldId, fieldE) ->
+                      do fieldE' <- convert fieldE
+                         fieldId' <- lookupVarIn fieldId [definitionFrame]
+                         return (fieldId', fieldE'))
+                  fields
+  return $ ExpStruct p qid' fields'
+
 
 convert (ExpIfElse p condE thenEs elseEs) = do
   condE' <- convert condE
@@ -557,8 +591,10 @@ convert (ExpList p es) = do
   return $ ExpList p es'
 
 convert (ExpFun p argPatEs bodyEs) = do
+  pushFrame
   argPatEs' <- mapM convertPatExp argPatEs
   bodyEs' <- mapM convert bodyEs
+  popFrame
   return $ ExpFun p argPatEs' bodyEs'
 
 convert (ExpPrecAssign p id level) = do
@@ -576,13 +612,13 @@ convert (ExpQualifiedRef p (Id _ id)) = convert (ExpRef p id)
 convert (ExpQualifiedRef p (Path pp qid id)) = do
   entry <- lookupVarQualId qid `reportErrorAt` pp
   case entry of
-    UniqIdEntry uid -> return $ ExpRef p uid
+    UniqIdEntry uid -> return $ ExpMemberAccess p (ExpRef pp uid) $ UserId id
     FrameEntry _ frame -> do
       memberUid <- lookupVarIn id [frame] `reportErrorAt` pp
       return $ ExpRef p memberUid
 
 convert (ExpRef p id) = do
-  id' <- lookupVarId id
+  id' <- lookupVarId id `reportErrorAt` p
   return $ ExpRef p id'
 
 
