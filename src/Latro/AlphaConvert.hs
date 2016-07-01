@@ -69,6 +69,14 @@ popFrame = do
   return frame
 
 
+inNewFrame :: AlphaConverted a -> AlphaConverted a
+inNewFrame thunk = do
+  pushFrame
+  v <- thunk
+  popFrame
+  return v
+
+
 modifyFrame :: (Frame -> Frame) -> AlphaConverted ()
 modifyFrame fModify = do
   (frame : frames) <- gets stack
@@ -113,6 +121,14 @@ freshVarIdM :: RawId -> AlphaConverted UniqId
 freshVarIdM id = freshM id freshVarId
 
 
+freshVarIdIfNotBoundM :: RawId -> AlphaConverted UniqId
+freshVarIdIfNotBoundM id = do
+  curFrame <- gets $ head . stack
+  if isBoundIn id [curFrame] varIdEnv
+    then throwError $ ErrIdAlreadyBound id
+    else freshVarIdM id
+
+
 freshTypeIdM :: RawId -> AlphaConverted UniqId
 freshTypeIdM id = freshM id freshTypeId
 
@@ -127,6 +143,14 @@ nextIdIndexM = do
   let next = nextIdIndex aEnv
   put $ aEnv { counter = next }
   return next
+
+
+isBoundIn :: RawId -> [Frame] -> (Frame -> RawIdEnv AlphaEntry) -> Bool
+isBoundIn id [] _ = False
+isBoundIn id (frame : frames) getEnv =
+  case Map.lookup id (getEnv frame) of
+    Just anEntry -> True
+    _ -> isBoundIn id frames getEnv
 
 
 lookupEntryIn :: RawId -> [Frame] -> (Frame -> RawIdEnv AlphaEntry) -> AlphaConverted AlphaEntry
@@ -298,7 +322,7 @@ convertPatExp (PatExpTuple p es) = do
   return $ PatExpTuple p es'
 
 convertPatExp (PatExpId p id) = do
-  id' <- freshVarIdM id
+  id' <- freshVarIdIfNotBoundM id `reportErrorAt` p
   return $ PatExpId p id'
 
 convertPatExp (PatExpAdt p qid es) = do
@@ -333,22 +357,28 @@ convertFunDef (FunDefInstFun p instPatE id argPatEs bodyEs) = do
 
 convertCaseClause :: RawAst CaseClause -> AlphaConverted (UniqAst CaseClause)
 convertCaseClause (CaseClause p patE es) = do
+  pushFrame
   patE' <- convertPatExp patE
   es' <- mapM convert es
+  popFrame
   return $ CaseClause p patE' es'
 
 
 funDefToCaseClause :: RawAst FunDef -> AlphaConverted (UniqAst CaseClause)
 funDefToCaseClause (FunDefFun p _ argPatEs bodyEs) = do
   let tupPat = PatExpTuple p argPatEs
+  pushFrame
   tupPat' <- convertPatExp tupPat
   bodyEs' <- mapM convert bodyEs
+  popFrame
   return $ CaseClause p tupPat' bodyEs'
 
 funDefToCaseClause (FunDefInstFun p instPatE _ argPatEs bodyEs) = do
   let tupPat = PatExpTuple p $ instPatE : argPatEs
+  pushFrame
   tupPat' <- convertPatExp tupPat
   bodyEs' <- mapM convert bodyEs
+  popFrame
   return $ CaseClause p tupPat' bodyEs'
 
 
@@ -469,7 +499,7 @@ convert (ExpImport p qid) = do
   return $ ExpUnit p
 
 convert (ExpFunDef (FunDefFun p id argPatEs bodyEs)) = do
-  id' <- freshVarIdM "foo"
+  id' <- freshVarIdM id
   pushFrame
   argPatEs' <- mapM convertPatExp argPatEs
   bodyEs' <- mapM convert bodyEs
@@ -497,7 +527,6 @@ convert (ExpAssign p (PatExpId pp rawId) (ExpModule mp paramIds bodyEs)) = do
   moduleFrame <- popFrame
   bindInCurrentFrame rawId $ FrameEntry id' moduleFrame
   return $ ExpBegin p bodyEs'
-  -- return $ ExpAssign p (PatExpId pp id') (ExpModule mp [] bodyEs')
 
 convert (ExpAssign p patExp e) = do
   e' <- convert e
@@ -535,12 +564,16 @@ convert (ExpWithAnn (TyAnn p aid tyParamIds synTy) e) = do
   let tyAnn = TyAnn p aid' tyParamIds' synTy'
   case e of
     ExpFunDef (FunDefFun fp fid argPatEs bodyEs) ->
-      do argPatEs' <- mapM convertPatExp argPatEs
+      do pushFrame
+         argPatEs' <- mapM convertPatExp argPatEs
          bodyEs' <- mapM convert bodyEs
+         popFrame
          let e' = ExpFunDef (FunDefFun fp aid' argPatEs' bodyEs')
          return $ ExpWithAnn tyAnn e'
     ExpFunDefClauses p id funDefs ->
-      do funDef <- fst <$> desugarFunDefs aid' funDefs
+      do pushFrame
+         funDef <- fst <$> desugarFunDefs aid' funDefs
+         popFrame
          return $ ExpWithAnn tyAnn $ ExpFunDef funDef
     ExpAssign ep (PatExpId pp pid) e ->
       do e' <- convert e
@@ -571,8 +604,8 @@ convert (ExpStruct p qid fields) = do
 
 convert (ExpIfElse p condE thenEs elseEs) = do
   condE' <- convert condE
-  thenEs' <- mapM convert thenEs
-  elseEs' <- mapM convert elseEs
+  thenEs' <- inNewFrame $ mapM convert thenEs
+  elseEs' <- inNewFrame $ mapM convert elseEs
   return $ ExpIfElse p condE' thenEs' elseEs'
 
 convert (ExpSwitch p e clauses) = do

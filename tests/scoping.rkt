@@ -50,9 +50,25 @@
   (check-match
     @interp{
       def v = 42
-      (fun(x) { def v = 43  v })(1)
+      fun(x) { def v = 43  v }(1)
     }
     43))
+
+(test-case "it allows rebinding in a nested 'if' scope"
+  (check-match
+    @interp{
+      module m {
+        def x = False
+        if (True) {
+          def x = 42
+        } else {
+          ()
+        }
+      }
+
+      m.x
+    }
+    'False))
 
 (test-case "it refers to the correct value after a rebinding in a nested scope"
   (check-match

@@ -26,6 +26,7 @@ data Err =
   | ErrCantEvaluate (Exp CheckedData UniqId)
   | ErrUnboundRawIdentifier RawId
   | ErrUnboundUniqIdentifier UniqId
+  | ErrIdAlreadyBound RawId
   | ErrCantUnify Ty Ty
   | ErrUndefinedMember SourcePos UniqId
   | ErrInvalidStructType Ty

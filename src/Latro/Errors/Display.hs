@@ -65,6 +65,11 @@ instance Sexpable Err where
           , sexp id
           ]
 
+  sexp (ErrIdAlreadyBound id) =
+    List  [ Symbol "IdAlreadyBound"
+          , sexp id
+          ]
+
   sexp (ErrUnboundRawIdentifier id) =
     List  [ Symbol "UnboundRawIdentifier"
           , sexp id
