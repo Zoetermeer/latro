@@ -165,3 +165,39 @@
     }
     `(AtPos ,_ (CompilerModule Types) (UnboundUniqIdentifier v))))
 
+(test-case "it does not allow bindings in a pattern to escape into other clauses"
+  (check-match
+    @typecheck{
+      type Foo =
+        | B(Bool)
+        | I(Int)
+
+      switch (I(42)) {
+        case I(x) -> x
+        case B(b) -> x
+      }
+    }
+    `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier x))))
+
+(test-case "it does not allow bindings to escape from then/else scopes"
+  (check-match
+    @interp{
+      def v = if (True) {
+        def x = 42
+        x
+      } else { 0 }
+
+      x
+    }
+    `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier x))))
+
+(test-case "it does not allow bindings to escape the test exp of an if/else"
+  (check-match
+    @interp{
+      if (if (True) { def x = 42 True } else { False }) {
+        x
+      } else {
+        x
+      }
+    }
+    `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier x))))

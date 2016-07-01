@@ -74,7 +74,7 @@
 
       x
     }
-    `(AtPos ,_ (CompilerModule Types) (UnboundUniqIdentifier (Id x ,_)))))
+    `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier x))))
 
 (test-case "it does not allow bindings to escape the test exp of an if/else"
   (check-match
@@ -85,7 +85,7 @@
         x
       }
     }
-    `(AtPos ,_ (CompilerModule Types) (UnboundUniqIdentifier (Id x ,_)))))
+    `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier x))))
 
 (test-case "it does not allow argument bindings to escape"
   (check-match

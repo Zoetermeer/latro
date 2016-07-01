@@ -1001,7 +1001,7 @@
         case B(b) -> x
       }
     }
-    `(AtPos ,_ (CompilerModule Types) (UnboundUniqIdentifier (Id x ,_)))))
+    `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier x))))
 
 (test-case "it does not allow pattern bindings to escape modules"
   (check-match
