@@ -1070,12 +1070,12 @@ tc (ExpMakeAdt p synTy i es) = throwError $ ErrNotImplemented "tc for MakeAdt"
 
 tc (ExpStruct p qid fieldInitEs) = do
   ty <- tcTy $ SynTyRef (nodeData qid) qid []
-  sorted <- sortByM (\a@(aId, _) b@(bId, _) -> do
+  sorted <- sortByM (\(FieldInit aId _) (FieldInit bId _) -> do
                         aInd <- lookupFieldIndex qid aId
                         bInd <- lookupFieldIndex qid bId
                         return $ compare aInd bInd)
                     fieldInitEs
-  let initEs = (snd . unzip) sorted
+  let initEs = map (\(FieldInit _ e) -> e) sorted
   (qid', ctorTy) <- tcQualId qid `reportErrorAt` nodeData qid
   let eMemberAccess = qualIdToMemberAcc qid'
   (_, initEs') <- tcEs initEs

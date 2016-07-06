@@ -50,20 +50,6 @@ instance (Sexpable a, Sexpable id) => Sexpable (SynTy a id) where
   sexp (SynTyArrow d paramTys retTy) =
     List $ sexp d : (intersperse (Symbol "->" ) . map sexp) (paramTys ++ [retTy])
 
-  sexp (SynTyModule d paramTys maybeImplTy)  =
-    List  [ Symbol "Module"
-          , sexp d
-          , toSexpList paramTys
-          , sexp maybeImplTy
-          ]
-  sexp (SynTyInterface d []) = List [ Symbol "Interface", sexp d ]
-  sexp (SynTyInterface d ids) = List [ Symbol "Interface", sexp d, toSexpList ids ]
-  sexp (SynTyDefault d qid synTyArgs) =
-    List  [ Symbol "Default"
-          , sexp d
-          , sexp qid
-          , toSexpList synTyArgs
-          ]
   sexp (SynTyStruct d fields) =
     List  [ Symbol "Struct"
           , sexp d
@@ -190,6 +176,10 @@ instance (Sexpable a, Sexpable id) => Sexpable (FunDef a id) where
           ]
 
 
+instance (Sexpable a, Sexpable id) => Sexpable (FieldInit a id) where
+  sexp (FieldInit id e) = List  [ sexp id, sexp e ]
+
+
 instance (Sexpable a, Sexpable id) => Sexpable (AnnDef a id) where
   sexp (AnnDefModule d id e) = List [ Symbol "AnnDefModule", sexp d, sexp e ]
   sexp (AnnDefFun d funDef) = List [ Symbol "AnnDefFun", sexp d, sexp funDef ]
@@ -269,10 +259,10 @@ instance (Sexpable a, Sexpable id) => Sexpable (Exp a id) where
           , toSexpList tyAnns
           ]
   sexp (ExpModule d paramIds es) = List [ Symbol "ExpModule", sexp d, toSexpList paramIds, toSexpList es ]
-  sexp (ExpStruct d tyE fieldEs) =
+  sexp (ExpStruct d tyE fieldInits) =
     List  [ Symbol "ExpStruct"
           , sexp d
-          , List $ map (\(id, e) -> List [ sexp id, sexp e ]) fieldEs
+          , List $ map sexp fieldInits
           ]
   sexp (ExpIfElse d e thenEs elseEs) =
     List  [ Symbol "ExpIfElse"

@@ -290,8 +290,6 @@ Ty : Int { SynTyInt (pos $1)  }
    | Unit { SynTyUnit (pos $1) }
    | fun '(' ')' ':' Ty { SynTyArrow (pos $1) [] $5 }
    | fun '(' CommaSeparatedTys ')' ':' Ty { SynTyArrow (pos $1) $3 $6 }
-   | interface '{' '}' { SynTyInterface (pos $1) [] }
-   | default QualifiedSimpleId TyArgs { SynTyDefault (pos $1) $2 $3 }
    | struct '{' TyStructFields '}' { SynTyStruct (pos $1) $3 }
    | TyTuple { $1 }
    | QualifiedSimpleId TyArgs { SynTyRef (nodeData $1) $1 $2 }
@@ -303,7 +301,7 @@ TyStructFields : TyStructField { [$1] }
                | TyStructFields TyStructField { $1 ++ [$2] }
                | {- empty -} { [] }
 
-StructFieldInitializer : SimpleOrMixedId '=' Exp ';' { (tokValue $1, $3) }
+StructFieldInitializer : SimpleOrMixedId '=' Exp ';' { FieldInit (tokValue $1) $3 }
 
 StructFieldInitializers : StructFieldInitializer { [$1] }
                         | StructFieldInitializers StructFieldInitializer { $1 ++ [$2] }

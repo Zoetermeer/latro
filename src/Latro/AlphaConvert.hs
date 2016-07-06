@@ -1,7 +1,17 @@
-{-# LANGUAGE FlexibleContexts, NamedFieldPuns #-}
+{-# LANGUAGE FlexibleContexts, NamedFieldPuns, TypeSynonymInstances #-}
 
+{-|
+Module      : AlphaConvert
+Description : Rewrite the syntax tree such that all bound identifiers are unique
+
+The rewriting guarantees that we cannot have shadowing or substitution problems
+downstream.  As part of this transformation, we replace all qualified (raw) identifiers
+with their unqualified, alpha-converted equivalents and factor out module definitions
+altogether.
+-}
 module AlphaConvert where
 
+import Collapse
 import Common
 import Control.Applicative
 import Control.Monad.Except
@@ -35,12 +45,14 @@ mtFrame ind = Frame { index = ind
 data AlphaEntry =
     UniqIdEntry UniqId
   | FrameEntry UniqId Frame
+  | UnknownEntry (RawAst QualifiedId)
   deriving (Eq, Show)
 
 
 data AlphaEnv = AlphaEnv
   { counter :: Int
   , stack   :: [Frame]
+  , pass    :: Int
   }
   deriving (Eq)
 
@@ -49,11 +61,16 @@ mtAlphaEnv :: AlphaEnv
 mtAlphaEnv =
     AlphaEnv { counter = i
              , stack   = [mtFrame i]
+             , pass    = 0
              }
   where i = 1
 
 
 type AlphaConverted a = ExceptT Err (State AlphaEnv) a
+
+
+isFirstPass :: AlphaConverted Bool
+isFirstPass = gets pass >>= \p -> return $ p == 0
 
 
 pushFrame :: AlphaConverted ()
@@ -211,18 +228,34 @@ convertBin c p a b = do
 lookupVarQualId :: RawAst QualifiedId -> AlphaConverted AlphaEntry
 lookupVarQualId (Id p id) = lookupVarEntry id
 lookupVarQualId (Path p qid id) = do
+  firstPass <- isFirstPass
   entry <- lookupVarQualId qid
   case entry of
-    UniqIdEntry _ -> throwError (ErrInvalidRawModulePath qid) `reportErrorAt` p
+    entry@(UnknownEntry qid) ->
+      if firstPass
+        then return entry
+        else throwError (ErrInvalidRawModulePath qid) `reportErrorAt` p
+    UniqIdEntry _ ->
+      if firstPass
+        then return $ UnknownEntry $ Path p qid id
+        else throwError (ErrInvalidRawModulePath qid) `reportErrorAt` p
     FrameEntry _ frame -> lookupEntryIn id [frame] varIdEnv
 
 
 lookupTypeQualId :: RawAst QualifiedId -> AlphaConverted AlphaEntry
 lookupTypeQualId (Id p id) = lookupTypeEntry id
 lookupTypeQualId (Path p qid id) = do
+  firstPass <- isFirstPass
   table <- lookupVarQualId qid
   case table of
-    UniqIdEntry _ -> throwError (ErrInvalidRawModulePath qid) `reportErrorAt` p
+    entry@(UnknownEntry qid) ->
+      if firstPass
+        then return entry
+        else throwError (ErrInvalidRawModulePath qid) `reportErrorAt` p
+    UniqIdEntry _ ->
+      if firstPass
+        then return $ UnknownEntry $ Path p qid id
+        else throwError (ErrInvalidRawModulePath qid) `reportErrorAt` p
     FrameEntry _ frame -> lookupEntryIn id [frame] typeIdEnv
 
 
@@ -267,24 +300,6 @@ convertTy (SynTyArrow p paramTys retTy) = do
   paramTys' <- mapM convertTy paramTys `reportErrorAt` p
   retTy' <- convertTy retTy
   return $ SynTyArrow p paramTys' retTy'
-
-convertTy (SynTyModule p paramTys maybeImplTy) = do
-  paramTys' <- mapM convertTy paramTys
-  case maybeImplTy of
-    Just ty -> do
-      implTy' <- convertTy ty
-      return $ SynTyModule p paramTys' $ Just implTy'
-    _ ->
-      return $ SynTyModule p paramTys' Nothing
-
-convertTy (SynTyInterface p paramIds) = do
-  paramIds' <- mapM freshTypeIdM paramIds
-  return $ SynTyInterface p paramIds'
-
-convertTy (SynTyDefault p qid tyArgs) = do
-  qid' <- convertTypeQualId qid
-  tyArgs' <- mapM convertTy tyArgs
-  return $ SynTyDefault p qid' tyArgs'
 
 convertTy (SynTyStruct p fields) = do
   fields' <- mapM (\(id, ty) -> do { ty' <- convertTy ty; return (UserId id, ty') }) fields
@@ -594,10 +609,10 @@ convert (ExpModule p paramIds bodyEs) = do
 convert (ExpStruct p qid fields) = do
   definitionFrame <- baseFrame qid
   qid' <- convertTypeQualId qid `reportErrorAt` nodeData qid
-  fields' <- mapM (\(fieldId, fieldE) ->
+  fields' <- mapM (\(FieldInit fieldId fieldE) ->
                       do fieldE' <- convert fieldE
                          fieldId' <- lookupVarIn fieldId [definitionFrame]
-                         return (fieldId', fieldE'))
+                         return $ FieldInit fieldId' fieldE')
                   fields
   return $ ExpStruct p qid' fields'
 
@@ -655,88 +670,141 @@ convert (ExpRef p id) = do
   return $ ExpRef p id'
 
 
-collectFunDefs :: RawId -> [RawAst Exp] -> ([RawAst FunDef], [RawAst Exp])
-collectFunDefs _ [] = ([], [])
-collectFunDefs id (eFunDef@(ExpFunDef funDef@(FunDefFun _ fid _ _)) : es)
-  | id == fid =
-    let (funDefs, es') = collectFunDefs id es
-    in (funDef : funDefs, es')
-  | otherwise = ([], eFunDef : es)
-
-collectFunDefs _ es = ([], es)
+class InjectUserIds a where
+  inject :: RawAst a -> UniqAst a
 
 
-collectInstFunDefs :: RawId -> [RawAst Exp] -> ([RawAst FunDef], [RawAst Exp])
-collectInstFunDefs _ [] = ([], [])
-collectInstFunDefs id (eFunDef@(ExpFunDef funDef@(FunDefInstFun _ _ fid _ _)) : es)
-  | id == fid =
-    let (funDefs, es') = collectInstFunDefs id es
-    in (funDef : funDefs, es')
-  | otherwise = ([], eFunDef : es)
-
-collectInstFunDefs _ es = ([], es)
+instance InjectUserIds QualifiedId where
+  inject (Id p id) = Id p $ UserId id
+  inject (Path p qid id) = Path p (inject qid) (UserId id)
 
 
-collapseBindingExp :: RawId -> [RawAst Exp] -> Either Err (RawAst Exp, [RawAst Exp])
-collapseBindingExp id (e@(ExpAssign _ (PatExpId _ pid) _) : es)
-  | id == pid = return (e, es)
-  | otherwise = throwError $ ErrNoBindingAfterTyAnn id
-
-collapseBindingExp id _ = throwError $ ErrNoBindingAfterTyAnn id
+instance InjectUserIds CaseClause where
+  inject (CaseClause p patE bodyEs) =
+    CaseClause p (inject patE) (map inject bodyEs)
 
 
-collapseEs :: [RawAst Exp] -> Either Err [RawAst Exp]
-collapseEs [] = return []
-collapseEs (ExpTyAnn tyAnn@(TyAnn ap aid _ synTy) : es) =
-  case synTy of
-    SynTyArrow {} ->
-      let (funDefs, es') = collectFunDefs aid es
-          eFunDef = ExpFunDefClauses ap aid funDefs
-      in if null funDefs
-           then throwError $ ErrNoBindingAfterTyAnn aid
-           else do es'' <- collapseEs es'
-                   return (ExpWithAnn tyAnn eFunDef : es'')
-    _ ->
-      do (e, es') <- collapseBindingExp aid es
-         es'' <- collapseEs es'
-         return (ExpWithAnn tyAnn e : es'')
-
-collapseEs (ExpFunDef (FunDefFun p fid argPatEs bodyEs) : es) = do
-  bodyEs' <- collapseEs bodyEs
-  let (funDefs, es') = collectFunDefs fid es
-      funDef = FunDefFun p fid argPatEs bodyEs'
-      eFunDef = ExpFunDefClauses p fid (funDef : funDefs)
-  es'' <- collapseEs es'
-  return (eFunDef : es'')
-
-collapseEs (ExpFunDef (FunDefInstFun p instPatE fid argPatEs bodyEs) : es) = do
-  bodyEs' <- collapseEs bodyEs
-  let (funDefs, es') = collectInstFunDefs fid es
-      funDef = FunDefInstFun p instPatE fid argPatEs bodyEs'
-      eFunDef = ExpFunDefClauses p fid (funDef : funDefs)
-  es'' <- collapseEs es'
-  return (eFunDef : es'')
-
-collapseEs (e : es) = do
-  e' <- collapse e
-  es' <- collapseEs es
-  return (e' : es')
+instance InjectUserIds CondCaseClause where
+  inject (CondCaseClause p testE bodyEs) =
+    CondCaseClause p (inject testE) (map inject bodyEs)
 
 
-collapse :: RawAst Exp -> Either Err (RawAst Exp)
-collapse (ExpAssign p patE e) = do
-  e' <- collapse e
-  return $ ExpAssign p patE e'
+instance InjectUserIds PatExp where
+  inject patE =
+    case patE of
+      PatExpNumLiteral p s -> PatExpNumLiteral p s
+      PatExpBoolLiteral p b -> PatExpBoolLiteral p b
+      PatExpStringLiteral p s -> PatExpStringLiteral p s
+      PatExpCharLiteral p s -> PatExpCharLiteral p s
+      PatExpTuple p patEs -> PatExpTuple p $ map inject patEs
+      PatExpAdt p qid patEs -> PatExpAdt p (inject qid) (map inject patEs)
+      PatExpList p patEs -> PatExpList p $ map inject patEs
+      PatExpListCons p hdE tlE -> PatExpListCons p (inject hdE) (inject tlE)
+      PatExpId p id -> PatExpId p $ UserId id
+      PatExpWildcard p -> PatExpWildcard p
 
-collapse (ExpFunDef (FunDefFun p id argPatEs bodyEs)) = do
-  bodyEs' <- collapseEs bodyEs
-  return $ ExpFunDef $ FunDefFun p id argPatEs bodyEs'
 
-collapse (ExpModule p paramIds bodyEs) = do
-  bodyEs' <- collapseEs bodyEs
-  return $ ExpModule p paramIds bodyEs'
+instance InjectUserIds FieldInit where
+  inject (FieldInit id e) = FieldInit (UserId id) (inject e)
 
-collapse e = return e
+
+instance InjectUserIds FunDef where
+  inject (FunDefFun p id argPatEs bodyEs) =
+    FunDefFun p (UserId id) (map inject argPatEs) (map inject bodyEs)
+
+  inject (FunDefInstFun p instPatE id argPatEs bodyEs) =
+    FunDefInstFun p
+                  (inject instPatE)
+                  (UserId id)
+                  (map inject argPatEs)
+                  (map inject bodyEs)
+
+
+instance InjectUserIds SynTy where
+  inject synTy =
+    case synTy of
+      SynTyInt p -> SynTyInt p
+      SynTyBool p -> SynTyBool p
+      SynTyString p -> SynTyString p
+      SynTyChar p -> SynTyChar p
+      SynTyUnit p -> SynTyUnit p
+      SynTyArrow p argTys retTy -> SynTyArrow p (map inject argTys) (inject retTy)
+      SynTyStruct p fieldInitPairs ->
+        let (ids, tys) = unzip fieldInitPairs
+            ids' = map UserId ids
+            tys' = map inject tys
+        in
+          SynTyStruct p $ zip ids' tys'
+      SynTyAdt p id alts -> SynTyAdt p (UserId id) (map inject alts)
+      SynTyList p elemTy -> SynTyList p $ inject elemTy
+      SynTyRef p qid paramTys -> SynTyRef p (inject qid) (map inject paramTys)
+
+
+instance InjectUserIds TyAnn where
+  inject (TyAnn p id tyParamIds synTy) =
+    TyAnn p (UserId id) (map UserId tyParamIds) (inject synTy)
+
+
+instance InjectUserIds AdtAlternative where
+  inject (AdtAlternative p id i synTy) =
+    AdtAlternative p (UserId id) i (map inject synTy)
+
+
+instance InjectUserIds TypeDec where
+  inject (TypeDecTy p id tyParamIds synTy) =
+    TypeDecTy p (UserId id) (map UserId tyParamIds) (inject synTy)
+  inject (TypeDecAdt p id tyParamIds alts) =
+    TypeDecAdt p (UserId id) (map UserId tyParamIds) (map inject alts)
+
+
+instance InjectUserIds Exp where
+  inject e =
+    case e of
+      ExpAdd p a b -> ExpAdd p (r a) (r b)
+      ExpSub p a b -> ExpSub p (r a) (r b)
+      ExpDiv p a b -> ExpDiv p (r a) (r b)
+      ExpMul p a b -> ExpMul p (r a) (r b)
+      ExpCons p a b -> ExpCons p (r a) (r b)
+      ExpCustomInfix p a rator b ->
+        ExpCustomInfix p (r a) (UserId rator) (r b)
+      ExpMemberAccess p e id -> ExpMemberAccess p (r e) (UserId id)
+      ExpApp p rator rands -> ExpApp p (r rator) (map r rands)
+      ExpImport p qid -> ExpImport p $ inject qid
+      ExpAssign p patE e -> ExpAssign p (inject patE) (r e)
+      ExpTypeDec p typeDec -> ExpTypeDec p $ inject typeDec
+      ExpTyAnn tyAnn -> ExpTyAnn $ inject tyAnn
+      ExpWithAnn tyAnn e -> ExpWithAnn (inject tyAnn) $ inject e
+      ExpFunDef funDef -> ExpFunDef $ inject funDef
+      ExpFunDefClauses p id funDefs ->
+        ExpFunDefClauses p (UserId id) (map inject funDefs)
+      ExpInterfaceDec p id paramIds tyAnns ->
+        ExpInterfaceDec p (UserId id) (map UserId paramIds) (map inject tyAnns)
+      ExpModule p paramIds bodyEs ->
+        ExpModule p (map UserId paramIds) (map inject bodyEs)
+      ExpStruct p qid fieldInits ->
+        ExpStruct p (inject qid) (map inject fieldInits)
+      ExpIfElse p e thenEs elseEs ->
+        ExpIfElse p (inject e) (map inject thenEs) (map inject elseEs)
+      ExpMakeAdt p id i argEs ->
+        ExpMakeAdt p (UserId id) i (map inject argEs)
+      ExpGetAdtField p e i -> ExpGetAdtField p (inject e) i
+      ExpTuple p es -> ExpTuple p $ map inject es
+      ExpSwitch p e clauses -> ExpSwitch p (inject e) (map inject clauses)
+      ExpCond p clauses -> ExpCond p $ map inject clauses
+      ExpList p es -> ExpList p $ map inject es
+      ExpFun p argPatEs bodyEs ->
+        ExpFun p (map inject argPatEs) (map inject bodyEs)
+      ExpNum p s -> ExpNum p s
+      ExpBool p b -> ExpBool p b
+      ExpString p s -> ExpString p s
+      ExpChar p s -> ExpChar p s
+      ExpRef p id -> ExpRef p $ UserId id
+      ExpQualifiedRef p qid -> ExpQualifiedRef p $ inject qid
+      ExpUnit p -> ExpUnit p
+      ExpBegin p es -> ExpBegin p $ map inject es
+      ExpPrecAssign p id i -> ExpPrecAssign p (UserId id) i
+      ExpFail p s -> ExpFail p s
+    where r = inject
 
 
 alphaConvert :: RawAst CompUnit -> Either Err (UniqAst CompUnit, AlphaEnv)

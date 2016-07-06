@@ -109,6 +109,10 @@ instance AstNode FunDef where
       FunDefInstFun d _ _ _ _ -> d
 
 
+data FieldInit a id = FieldInit id (Exp a id)
+  deriving (Eq, Show)
+
+
 data Exp a id =
     ExpAdd a (Exp a id) (Exp a id)
   | ExpSub a (Exp a id) (Exp a id)
@@ -127,7 +131,7 @@ data Exp a id =
   | ExpFunDefClauses a id [FunDef a id]
   | ExpInterfaceDec a id [id] [TyAnn a id]
   | ExpModule a [id] [Exp a id]
-  | ExpStruct a (QualifiedId a id) [(id, Exp a id)]
+  | ExpStruct a (QualifiedId a id) [FieldInit a id]
   | ExpIfElse a (Exp a id) [Exp a id] [Exp a id]
   | ExpMakeAdt a id Int [Exp a id]
   | ExpGetAdtField a (Exp a id) Int
@@ -254,9 +258,6 @@ data SynTy a id =
   | SynTyChar a
   | SynTyUnit a
   | SynTyArrow a [SynTy a id] (SynTy a id)
-  | SynTyModule a [SynTy a id] (Maybe (SynTy a id))
-  | SynTyInterface a [id]
-  | SynTyDefault a (QualifiedId a id) [SynTy a id]
   | SynTyStruct a [(id, (SynTy a id))]
   | SynTyAdt a id [AdtAlternative a id]
   | SynTyTuple a [SynTy a id]
@@ -274,9 +275,6 @@ instance AstNode SynTy where
       SynTyChar d -> d
       SynTyUnit d -> d
       SynTyArrow d _ _ -> d
-      SynTyModule d _ _ -> d
-      SynTyInterface d _ -> d
-      SynTyDefault d _ _ -> d
       SynTyStruct d _ -> d
       SynTyAdt d _ _ -> d
       SynTyTuple d _ -> d

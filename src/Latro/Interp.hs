@@ -255,7 +255,7 @@ evalE (ExpModule _ paramIds moduleEs) = do
   return $ ValueModule $ Module cloEnv (oldParamIds ++ paramIds) exports
 
 evalE (ExpStruct (OfTy _ ty) _ fieldInits) = do
-  fieldInitVs <- mapM (\(id, e) -> do { v <- evalE e; return (id, v) }) fieldInits
+  fieldInitVs <- mapM (\(FieldInit id e) -> do { v <- evalE e; return (id, v) }) fieldInits
   return $ ValueStruct $ Struct ty fieldInitVs
 
 evalE (ExpFunDef (FunDefFun (OfTy p ty) funId argPatEs bodyEs)) =

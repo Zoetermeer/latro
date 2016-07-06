@@ -201,3 +201,40 @@
       }
     }
     `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier x))))
+
+(test-case "it does not require type definitions to be in order"
+  (check-equal?
+    @interp{
+      type foo = bar
+      type bar = Int
+
+      x => foo
+      def x = 42
+
+      x
+    }
+    42))
+
+(test-case "it allows use-before-defines at the top level"
+  (check-equal?
+    @interp{
+      module M {
+        def y = x
+        def x = 42
+      }
+
+      M.y
+    }
+    42))
+
+(test-case "it does not allow use-before-defines in local contexts"
+  (check-match
+    @interp{
+      fun foo(a) {
+        def x = y
+        def y = a
+
+        x + y
+      }
+    }
+    `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier y))))
