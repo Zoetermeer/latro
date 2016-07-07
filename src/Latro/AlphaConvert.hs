@@ -291,8 +291,10 @@ baseFrame (Path _ qid _) = do
 
 convertVarQualId :: UniqAst QualifiedId -> AlphaConverted (UniqAst QualifiedId)
 convertVarQualId qid = do
-    (UniqIdEntry uid) <- lookupVarQualId qid
-    return $ Id p uid
+    varEntry <- lookupVarQualId qid
+    case varEntry of
+      UnknownEntry _ -> return qid
+      UniqIdEntry uid -> return $ Id p uid
   where p = nodeData qid
 
 
@@ -694,9 +696,10 @@ convert (ExpBegin p es) = do
   return $ ExpBegin p es'
 
 convert (ExpQualifiedRef p (Id _ id)) = convert (ExpRef p id)
-convert (ExpQualifiedRef p (Path pp qid id)) = do
+convert (ExpQualifiedRef p path@(Path pp qid id)) = do
   entry <- lookupVarQualId qid `reportErrorAt` pp
   case entry of
+    UnknownEntry _ -> return $ ExpQualifiedRef p path
     UniqIdEntry uid -> return $ ExpMemberAccess p (ExpRef pp uid) id
     FrameEntry _ frame -> do
       memberUid <- lookupVarIn id [frame] `reportErrorAt` pp
@@ -726,6 +729,8 @@ instance InjectUserIds CaseClause where
 instance InjectUserIds CondCaseClause where
   inject (CondCaseClause p testE bodyEs) =
     CondCaseClause p (inject testE) (map inject bodyEs)
+  inject (CondCaseClauseWildcard p bodyEs) =
+    CondCaseClauseWildcard p $ map inject bodyEs
 
 
 instance InjectUserIds PatExp where
@@ -774,6 +779,7 @@ instance InjectUserIds SynTy where
             tys' = map inject tys
         in
           SynTyStruct p $ zip ids' tys'
+      SynTyTuple p elemTys -> SynTyTuple p $ map inject elemTys
       SynTyAdt p id alts -> SynTyAdt p (UserId id) (map inject alts)
       SynTyList p elemTy -> SynTyList p $ inject elemTy
       SynTyRef p qid paramTys -> SynTyRef p (inject qid) (map inject paramTys)
