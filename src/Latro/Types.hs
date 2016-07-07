@@ -214,7 +214,7 @@ tyUnit = mtApp TyConUnit
 makeFresh :: RawId -> Checked UniqId
 makeFresh raw = do
   alphaEnv <- gets alphaEnv
-  let (uniqId, alphaEnv') = freshTypeId raw alphaEnv
+  let (uniqId, alphaEnv') = freshTypeId (UserId raw) alphaEnv
   modify (\tcEnv -> tcEnv { alphaEnv = alphaEnv' })
   return uniqId
 

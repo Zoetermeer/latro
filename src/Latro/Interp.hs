@@ -140,7 +140,7 @@ freshId :: Eval UniqId
 freshId = do
   alphaEnv <- gets alphaEnv
   let index = nextIdIndex alphaEnv
-  let (uniqId, alphaEnv') = freshVarId (printf "%s%i" "x" index) alphaEnv
+  let (uniqId, alphaEnv') = freshVarId (UserId (printf "%s%i" "x" index)) alphaEnv
   modify (\interpEnv -> interpEnv { alphaEnv = alphaEnv' })
   return uniqId
 

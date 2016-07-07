@@ -46,6 +46,16 @@
     }
     `(AtPos ,_ (CompilerModule AlphaConvert) (IdAlreadyBound v))))
 
+(test-case "it does not allow rebinding of an id to a module"
+  (check-match
+    @interp{
+      def m = 42
+      module m {
+        def x = 43
+      }
+    }
+    `(AtPos ,_ (CompilerModule AlphaConvert) (IdAlreadyBound m))))
+
 (test-case "it does allow rebinding in nested scopes"
   (check-match
     @interp{
