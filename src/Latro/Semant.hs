@@ -260,12 +260,6 @@ data Exp a id =
   deriving (Eq, Show)
 
 
-qualIdToMemberAcc :: QualifiedId a id -> Exp a id
-qualIdToMemberAcc (Id d id) = ExpRef d id
-qualIdToMemberAcc (Path d qid id) =
-  ExpMemberAccess d (qualIdToMemberAcc qid) id
-
-
 instance AstNode Exp where
   nodeData e =
     case e of
@@ -433,6 +427,9 @@ data CheckedData = OfTy SourcePos Ty
 type RawAst a = a SourcePos RawId
 type UniqAst a = a SourcePos UniqId
 type TypedAst a = a CheckedData UniqId
+
+type Untyped a = a SourcePos
+type Typed a = a CheckedData
 
 
 data Exports = Exports

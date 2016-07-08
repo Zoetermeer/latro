@@ -15,14 +15,14 @@ data Err =
   | ErrInvalidTypeExp (Exp SourcePos UniqId)
   | ErrPatMatchFail (TypedAst PatExp) Value
   | ErrPatMatchFailOn SourcePos Value
-  | ErrPatMatchBindingFail (PatExp SourcePos UniqId) Ty
+  | ErrPatMatchBindingFail (ILPat SourcePos) Ty
   | ErrInvalidConsTo Value
   | ErrNonFunDefsInFunDec UniqId
   | ErrNoFunDefGivenFor UniqId
   | ErrNoInstFunDefGivenFor UniqId
   | ErrFunDefIdMismatch UniqId UniqId
   | ErrFunDefArityMismatch UniqId
-  | ErrWrongArity (Exp CheckedData UniqId) Int Int
+  | ErrWrongArity (Typed IL) Int Int
   | ErrCantEvaluate (Exp CheckedData UniqId)
   | ErrUnboundRawIdentifier RawId
   | ErrUnboundUniqIdentifier UniqId

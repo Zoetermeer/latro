@@ -6,6 +6,7 @@ import Control.Monad
 import Data.Functor.Identity (runIdentity)
 import Errors
 import Errors.Display
+import ILGen
 import Parse (parseExp)
 import qualified Interp
 import Reorder (reorderInfixes)
@@ -23,6 +24,7 @@ data UserSwitch =
   | DumpParseTree
   | DumpAlphaConverted
   | DumpReordered
+  | DumpIL
   | DumpTypecheckResult
   | DumpTypedAst
   deriving (Eq, Show)
@@ -71,19 +73,23 @@ reorderInfixesCmd :: UniqAst CompUnit -> Command (UniqAst CompUnit)
 reorderInfixesCmd compUnit =
   Command DumpReordered (\ac -> sexp ac) $ reorderInfixes compUnit
 
-tcCmd :: UniqAst CompUnit -> AlphaEnv -> Command (TypedAst CompUnit, AlphaEnv)
-tcCmd alphaConverted alphaEnv =
+ilGenCmd :: UniqAst CompUnit -> Command (Untyped ILCompUnit)
+ilGenCmd cu =
+  Command DumpIL sexp $ return $ ilGenCompUnit cu
+
+tcCmd :: Untyped ILCompUnit -> AlphaEnv -> Command (Typed ILCompUnit, AlphaEnv)
+tcCmd untypedIL alphaEnv =
   Command DumpTypecheckResult
-          (\(CompUnit (OfTy _ ty) _, _) -> sexp ty)
-          $ T.typeCheck alphaConverted alphaEnv
+          (\(ILCompUnit (OfTy _ ty) _, _) -> sexp ty)
+          $ T.typeCheck untypedIL alphaEnv
 
-showTypedAstCmd :: TypedAst CompUnit -> Command (TypedAst CompUnit)
-showTypedAstCmd typedAst =
-  Command DumpTypedAst sexp $ return typedAst
+showTypedAstCmd :: Typed ILCompUnit -> Command (Typed ILCompUnit)
+showTypedAstCmd typedIL =
+  Command DumpTypedAst sexp $ return typedIL
 
-interpCmd :: TypedAst CompUnit -> AlphaEnv -> Command Value
-interpCmd alphaConverted alphaEnv =
-  Command Evaluate sexp $ Interp.interp alphaConverted alphaEnv
+interpCmd :: Typed ILCompUnit -> AlphaEnv -> Command Value
+interpCmd typedIL alphaEnv =
+  Command Evaluate sexp $ Interp.interp typedIL alphaEnv
 
 
 runCmd :: UserSwitch -> Command a -> CommandResult a
@@ -108,9 +114,10 @@ run switch pathsAndSources =
         let ast = combineAsts asts
         (alphaConvertedAst, alphaEnv) <- runCmd' $ alphaConvertCmd ast
         reorderedAst <- runCmd' $ reorderInfixesCmd alphaConvertedAst
-        (typedAst, alphaEnv') <- runCmd' $ tcCmd reorderedAst alphaEnv
-        runCmd' $ showTypedAstCmd typedAst
-        runCmd' $ interpCmd typedAst alphaEnv'
+        il <- runCmd' $ ilGenCmd reorderedAst
+        (typedIL, alphaEnv') <- runCmd' $ tcCmd il alphaEnv
+        runCmd' $ showTypedAstCmd typedIL
+        runCmd' $ interpCmd typedIL alphaEnv'
 
 
 getUserSwitch :: [String] -> (UserSwitch, [FilePath])
@@ -118,6 +125,7 @@ getUserSwitch [] = error "Usage: interp [-a|-p|-t] FILEPATH"
 getUserSwitch ("-p" : paths) = (DumpParseTree, paths)
 getUserSwitch ("-a" : paths) = (DumpAlphaConverted, paths)
 getUserSwitch ("-r" : paths) = (DumpReordered, paths)
+getUserSwitch ("-il" : paths) = (DumpIL, paths)
 getUserSwitch ("-tc" : paths) = (DumpTypecheckResult, paths)
 getUserSwitch ("-t" : paths) = (DumpTypedAst, paths)
 getUserSwitch paths = (Evaluate, paths)
