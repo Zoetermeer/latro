@@ -164,7 +164,7 @@ data IL a =
   | ILApp a (IL a) [IL a]
   | ILAssign a (ILPat a) (IL a)
   | ILTypeDec a (TypeDec a UniqId)
-  | ILWithAnn (TyAnn a UniqId) (IL a)
+  | ILWithAnn a (TyAnn a UniqId) (IL a)
   | ILFunDef a UniqId [UniqId] [IL a]
   | ILInstFunDef a UniqId UniqId [UniqId] [IL a]
   | ILStruct a UniqId [ILFieldInit a]
@@ -196,7 +196,7 @@ instance ILNode IL where
       ILApp d _ _ -> d
       ILAssign d _ _ -> d
       ILTypeDec d _ -> d
-      ILWithAnn tyAnn _ -> nodeData tyAnn
+      ILWithAnn d _ _ -> d
       ILFunDef d _ _ _ -> d
       ILInstFunDef d _ _ _ _ -> d
       ILStruct d _ _ -> d
@@ -214,6 +214,10 @@ instance ILNode IL where
       ILRef d _ -> d
       ILBegin d _ -> d
       ILFail d _ -> d
+
+
+data ILCompUnit a = ILCompUnit a [IL a]
+  deriving (Eq, Show)
 
 
 data Exp a id =

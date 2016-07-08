@@ -3,9 +3,9 @@ module ILGen where
 import Semant
 
 
-ilGenClause :: CaseClause a UniqId -> ILCaseClause a
+ilGenClause :: CaseClause a UniqId -> ILCase a
 ilGenClause (CaseClause p patE bodyEs) =
-  ILCaseClause p (ilGenPat patE) (map ilGen bodyEs)
+  ILCase p (ilGenPat patE) (map ilGen bodyEs)
 
 
 ilGenPat :: PatExp a UniqId -> ILPat a
@@ -31,6 +31,10 @@ ilGenPat patE =
     PatExpWildcard p -> ILPatWildcard p
 
 
+ilGenFieldInit :: FieldInit a UniqId -> ILFieldInit a
+ilGenFieldInit (FieldInit p e) = ILFieldInit p $ ilGen e
+
+
 ilGen :: Exp a UniqId -> IL a
 ilGen e =
   case e of
@@ -45,8 +49,8 @@ ilGen e =
       ILAssign p (ilGenPat patE) (ilGen e)
     ExpTypeDec p typeDec ->
       ILTypeDec p typeDec
-    ExpWithAnn p tyAnn e ->
-      ILWithAnn p tyAnn $ ilGen e
+    ExpWithAnn tyAnn e ->
+      ILWithAnn (nodeData tyAnn) tyAnn $ ilGen e
     ExpFunDef (FunDefFun p fid argPatEs bodyEs) ->
       let argIds = map (\(PatExpId _ id) -> id) argPatEs
       in ILFunDef p fid argIds $ map ilGen bodyEs
@@ -55,12 +59,13 @@ ilGen e =
           argIds = map (\(PatExpId _ id) -> id) argPatEs
       in ILInstFunDef p instId fid argIds $ map ilGen bodyEs
     ExpStruct p (Id _ uid) fieldInits ->
-      ILStruct p uid $ ilGenFieldInits fieldInits
+      ILStruct p uid $ map ilGenFieldInit fieldInits
     ExpIfElse p e thenEs elseEs ->
       ILSwitch p
                (ilGen e)
-               (ILCaseClause p (ILPatBool p True) (map ilGen thenEs))
-               (ILCaseClause p (ILPatBool p False) (map ilGen elseEs))
+               [ (ILCase p (ILPatBool p True) (map ilGen thenEs))
+               , (ILCase p (ILPatBool p False) (map ilGen elseEs))
+               ]
     ExpMakeAdt p id i argEs ->
       ILMakeAdt p id i $ map ilGen argEs
     ExpGetAdtField p e i ->
@@ -82,3 +87,7 @@ ilGen e =
     ExpUnit p -> ILUnit p
     ExpBegin p es -> ILBegin p $ map ilGen es
     ExpFail p msg -> ILFail p msg
+
+
+ilGenCompUnit :: CompUnit a UniqId -> ILCompUnit a
+ilGenCompUnit (CompUnit p es) = ILCompUnit p $ map ilGen es

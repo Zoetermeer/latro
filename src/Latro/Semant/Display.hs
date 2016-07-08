@@ -370,7 +370,7 @@ instance (Sexpable a) => Sexpable (IL a) where
               ]
       ILAssign d patE e -> List [ Symbol "ILAssign", sexp d, sexp patE, sexp e ]
       ILTypeDec d typeDec -> List [ Symbol "ILTypeDec", sexp d, sexp typeDec ]
-      ILWithAnn tyAnn e -> List [ Symbol "ILWithAnn", sexp tyAnn, sexp e ]
+      ILWithAnn d tyAnn e -> List [ Symbol "ILWithAnn", sexp d, sexp tyAnn, sexp e ]
       ILFunDef d id paramIds bodyEs ->
         List [ Symbol "ILFunDef", sexp d, sexp id, toSexpList paramIds, toSexpList bodyEs ]
       ILInstFunDef d instId funId paramIds bodyEs ->
