@@ -71,7 +71,7 @@ alphaConvertCmd compUnit =
 
 reorderInfixesCmd :: UniqAst CompUnit -> Command (UniqAst CompUnit)
 reorderInfixesCmd compUnit =
-  Command DumpReordered (\ac -> sexp ac) $ reorderInfixes compUnit
+  Command DumpReordered sexp $ reorderInfixes compUnit
 
 ilGenCmd :: UniqAst CompUnit -> Command (Untyped ILCompUnit)
 ilGenCmd cu =

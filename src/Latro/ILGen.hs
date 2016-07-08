@@ -65,8 +65,8 @@ ilGen e =
     ExpIfElse p e thenEs elseEs ->
       ILSwitch p
                (ilGen e)
-               [ (ILCase p (ILPatBool p True) (map ilGen thenEs))
-               , (ILCase p (ILPatBool p False) (map ilGen elseEs))
+               [ ILCase p (ILPatBool p True) (map ilGen thenEs)
+               , ILCase p (ILPatBool p False) (map ilGen elseEs)
                ]
     ExpMakeAdt p id i argEs ->
       ILMakeAdt p id i $ map ilGen argEs

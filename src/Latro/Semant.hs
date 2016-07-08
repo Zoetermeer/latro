@@ -321,7 +321,7 @@ isAnnDefFun (AnnDefFun _ _) = True
 isAnnDefFun _ = False
 
 isAnnDefModule :: AnnDef a id -> Bool
-isAnnDefModule (AnnDefModule _ _ _) = True
+isAnnDefModule AnnDefModule{} = True
 isAnnDefModule _ = False
 
 
@@ -359,7 +359,7 @@ data SynTy a id =
   | SynTyChar a
   | SynTyUnit a
   | SynTyArrow a [SynTy a id] (SynTy a id)
-  | SynTyStruct a [(id, (SynTy a id))]
+  | SynTyStruct a [(id, SynTy a id)]
   | SynTyAdt a id [AdtAlternative a id]
   | SynTyTuple a [SynTy a id]
   | SynTyList a (SynTy a id)

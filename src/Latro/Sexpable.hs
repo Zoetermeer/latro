@@ -13,14 +13,14 @@ class Sexpable a where
 
 instance Show Sexp where
   show (List vs) =
-    printf "(%s)" ((intercalate " " . map show) vs)
+    printf "(%s)" ((unwords . map show) vs)
 
   show (Symbol v) = v
   show (Atom v) = show v
 
 
 showSexp :: Sexpable a => a -> String
-showSexp v = (show . sexp) v
+showSexp = show . sexp
 
 
 toSexpList :: Sexpable a => [a] -> Sexp

@@ -122,7 +122,7 @@ bindInCurrentFrame _ _ = return ()
 
 
 freshVarId :: UniqId -> AlphaEnv -> (UniqId, AlphaEnv)
-freshVarId (UserId id) aEnv@(AlphaEnv { counter, stack }) =
+freshVarId (UserId id) aEnv@AlphaEnv { counter, stack } =
     (uniqId, aEnv { counter = counter', stack = frame' : frames })
   where
     counter' = counter + 1
@@ -134,7 +134,7 @@ freshVarId id aEnv = (id, aEnv)
 
 
 freshTypeId :: UniqId -> AlphaEnv -> (UniqId, AlphaEnv)
-freshTypeId (UserId id) aEnv@(AlphaEnv { counter, stack }) =
+freshTypeId (UserId id) aEnv@AlphaEnv { counter, stack } =
     (uniqId, aEnv { counter = counter', stack = frame' : frames })
   where
     counter' = counter + 1
@@ -184,7 +184,7 @@ nextIdIndexM = do
 
 
 isBoundIn :: UniqId -> [Frame] -> (Frame -> RawIdEnv AlphaEntry) -> Bool
-isBoundIn uid@(UniqId{}) _ _ = False
+isBoundIn uid@UniqId{} _ _ = False
 isBoundIn id [] _ = False
 isBoundIn userId@(UserId id) (frame : frames) getEnv =
   case Map.lookup id (getEnv frame) of
@@ -193,7 +193,7 @@ isBoundIn userId@(UserId id) (frame : frames) getEnv =
 
 
 lookupEntryIn :: UniqId -> [Frame] -> (Frame -> RawIdEnv AlphaEntry) -> AlphaConverted AlphaEntry
-lookupEntryIn uid@(UniqId{}) _ _ = return $ UniqIdEntry uid
+lookupEntryIn uid@UniqId{} _ _ = return $ UniqIdEntry uid
 lookupEntryIn (UserId id) [] _ = do
   firstPass <- isFirstPass
   if firstPass
@@ -207,7 +207,7 @@ lookupEntryIn userId@(UserId id) (frame : frames) getEnv =
 
 
 lookupVarIn :: UniqId -> [Frame] -> AlphaConverted UniqId
-lookupVarIn uid@(UniqId{}) _ = return uid
+lookupVarIn uid@UniqId{} _ = return uid
 lookupVarIn userId frames = do
   entry <- lookupEntryIn userId frames varIdEnv
   case entry of
@@ -231,7 +231,7 @@ lookupTypeEntry id = lookupEntry id typeIdEnv
 
 
 lookupVarId :: UniqId -> AlphaConverted UniqId
-lookupVarId uid@(UniqId{}) = return uid
+lookupVarId uid@UniqId{} = return uid
 lookupVarId userId = do
   entry <- lookupVarEntry userId
   return $ case entry of
@@ -241,7 +241,7 @@ lookupVarId userId = do
 
 
 lookupTypeId :: UniqId -> AlphaConverted UniqId
-lookupTypeId uid@(UniqId{}) = return uid
+lookupTypeId uid@UniqId{} = return uid
 lookupTypeId userId = do
   (UniqIdEntry uid) <- lookupTypeEntry userId
   return uid
@@ -253,7 +253,7 @@ lookupVarQualId (Path p qid id) = do
   firstPass <- isFirstPass
   entry <- lookupVarQualId qid
   case entry of
-    entry@(UnknownEntry{}) ->
+    entry@UnknownEntry{} ->
       if firstPass
         then return entry
         else throwError (ErrInvalidUniqModulePath qid) `reportErrorAt` p
@@ -269,7 +269,7 @@ lookupTypeQualId (Path p qid id) = do
   firstPass <- isFirstPass
   table <- lookupVarQualId qid
   case table of
-    entry@(UnknownEntry{}) ->
+    entry@UnknownEntry{} ->
       if firstPass
         then return entry
         else throwError (ErrInvalidUniqModulePath qid) `reportErrorAt` p
@@ -283,7 +283,7 @@ lookupTypeQualId (Path p qid id) = do
 -- qualified ID.  If it's not a path, just return the current
 -- frame.
 baseFrame :: UniqAst QualifiedId -> AlphaConverted Frame
-baseFrame (Id{}) = gets $ head . stack
+baseFrame Id{} = gets $ head . stack
 baseFrame (Path _ qid _) = do
   (FrameEntry _ frame) <- lookupVarQualId qid
   return frame
