@@ -1021,9 +1021,27 @@ tcEs es = do
 
 tcCompUnit :: Untyped ILCompUnit -> Checked (Ty, Typed ILCompUnit)
 tcCompUnit (ILCompUnit p es) = do
+  mapM makeSymTables es
   (ty, es') <- tcEs es
   ty' <- generalize ty
   return (ty', ILCompUnit (OfTy p ty') es')
+
+
+makeSymTables :: Untyped IL -> Checked ()
+makeSymTables (ILBegin _ es) = do
+  mapM makeSymTables es
+  return ()
+
+makeSymTables (ILTypeDec p tyDec) =
+  let id = getTypeDecId tyDec
+  in do exportTy id $ TyConTyFun [] $ TyRef $ Id p id
+        return ()
+
+makeSymTables (ILAssign _ (ILPatId _ id) _) = do
+  ty <- freshMeta
+  bindVar id ty
+
+makeSymTables e = return ()
 
 
 typeCheck :: Untyped ILCompUnit -> AlphaEnv -> Either Err (Typed ILCompUnit, AlphaEnv)
