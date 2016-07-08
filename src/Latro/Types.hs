@@ -1019,9 +1019,9 @@ tcEs es = do
   return (last tys, es')
 
 
-tcCompUnit :: Untyped ILCompUnit -> Checked (Ty, Typed ILCompUnit)
-tcCompUnit (ILCompUnit p es) = do
-  mapM makeSymTables es
+tcCompUnit :: Untyped ILCompUnit -> Bool -> Checked (Ty, Typed ILCompUnit)
+tcCompUnit (ILCompUnit p es) bindForwardReferences = do
+  when bindForwardReferences $ mapM_ makeSymTables es
   (ty, es') <- tcEs es
   ty' <- generalize ty
   return (ty', ILCompUnit (OfTy p ty') es')
@@ -1046,6 +1046,7 @@ makeSymTables e = return ()
 
 typeCheck :: Untyped ILCompUnit -> AlphaEnv -> Either Err (Typed ILCompUnit, AlphaEnv)
 typeCheck cu aEnv = do
-  (tyResult, tcEnv) <- return $ runState (runExceptT (tcCompUnit cu)) $ mtTCEnv aEnv
-  (ty, cu') <- tyResult
-  return (cu', alphaEnv tcEnv)
+  (tyResult, tcEnv) <- return $ runState (runExceptT (tcCompUnit cu True)) $ mtTCEnv aEnv
+  (tyResult', tcEnv') <- return $ runState (runExceptT (tcCompUnit cu False)) tcEnv
+  (ty, cu') <- tyResult'
+  return (cu', alphaEnv tcEnv')
