@@ -64,29 +64,6 @@
     }
     43))
 
-(test-case "it does not allow bindings to escape from then/else scopes"
-  (check-match
-    @interp{
-      def v = if (True) {
-        def x = 42
-        x
-      } else { 0 }
-
-      x
-    }
-    `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier x))))
-
-(test-case "it does not allow bindings to escape the test exp of an if/else"
-  (check-match
-    @interp{
-      if (if (True) { def x = 42 True } else { False }) {
-        x
-      } else {
-        x
-      }
-    }
-    `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier x))))
-
 (test-case "it does not allow argument bindings to escape"
   (check-match
     @typecheck{
@@ -550,7 +527,7 @@
       }
       Prims.Just
     }
-    `(Fun (Id Just ,_) (CloEnv ()))))
+    `(Fun ,_ (CloEnv ()))))
 
 (test-case "it constructs ADT instances"
   (check-match

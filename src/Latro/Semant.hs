@@ -448,7 +448,7 @@ data Module = Module (CloEnv Value) [UniqId] Exports
   deriving (Eq, Show)
 
 
-data Closure = Closure UniqId Ty (CloEnv Value) [UniqId] [Exp CheckedData UniqId]
+data Closure = Closure UniqId Ty (CloEnv Value) [UniqId] [Typed IL]
   deriving (Eq, Show)
 
 

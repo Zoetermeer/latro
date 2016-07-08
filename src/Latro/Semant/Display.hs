@@ -410,6 +410,10 @@ instance (Sexpable a) => Sexpable (IL a) where
       ILFail d msg -> List [ Symbol "ILFail", sexp d, Atom $ printf "\"%s\"" msg ]
 
 
+instance (Sexpable a) => Sexpable (ILCompUnit a) where
+  sexp (ILCompUnit d es) = List [ Symbol "ILCompUnit", sexp d, toSexpList es ]
+
+
 sexpOfMap :: (Sexpable k, Sexpable v) => Map.Map k v -> Sexp
 -- sexpOfMap m = List $ map (\\(k, v) -> List [ sexp k, sexp v]) $ Map.toList m
 sexpOfMap m = toSexpList $ Map.keys m

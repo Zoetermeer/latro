@@ -129,7 +129,7 @@ restoreEnv = put
 
 type BinOp = Int -> Int -> Int
 
-evalBinArith :: BinOp -> TypedAst Exp -> TypedAst Exp -> Eval Value
+evalBinArith :: BinOp -> Typed IL -> Typed IL -> Eval Value
 evalBinArith f a b = do
   (ValueInt a') <- evalE a
   (ValueInt b') <- evalE b
@@ -145,154 +145,132 @@ freshId = do
   return uniqId
 
 
-evalPatExp :: TypedAst PatExp -> Value -> Eval ()
-evalPatExp (PatExpWildcard _) _ = return ()
-evalPatExp e@(PatExpNumLiteral (OfTy p _) n) v =
+evalPat :: Typed ILPat -> Value -> Eval ()
+evalPat (ILPatWildcard _) _ = return ()
+evalPat e@(ILPatInt (OfTy p _) ni) v =
     unless (i == ni) $ throwError (ErrPatMatchFail e v) `reportErrorAt` p
   where
     (ValueInt i) = v
-    ni = read n
 
-evalPatExp e@(PatExpBoolLiteral (OfTy p _) b) v =
+evalPat e@(ILPatBool (OfTy p _) b) v =
     unless (bv == b) $ throwError (ErrPatMatchFail e v) `reportErrorAt` p
   where
     (ValueBool bv) = v
 
-evalPatExp e@(PatExpStringLiteral (OfTy p _) s) v =
+evalPat e@(ILPatStr (OfTy p _) s) v =
     unless (vStr == s) $ throwError (ErrPatMatchFail e v) `reportErrorAt` p
   where
     (ValueList cvs) = v
     vStr = map (\(ValueChar c) -> c) cvs
 
-evalPatExp e@(PatExpCharLiteral (OfTy p _) [c]) v =
+evalPat e@(ILPatChar (OfTy p _) [c]) v =
     unless (cv == c) $ throwError (ErrPatMatchFail e v) `reportErrorAt` p
   where
     (ValueChar cv) = v
 
-evalPatExp e@(PatExpTuple _ patEs) v =
+evalPat e@(ILPatTuple _ patEs) v =
     if length patEs /= length vs
     then throwError $ ErrPatMatchFail e v
     else do
       let evPairs = zip patEs vs
-      mapM_ (uncurry evalPatExp) evPairs
+      mapM_ (uncurry evalPat) evPairs
       return ()
   where
     (ValueTuple vs) = v
 
-evalPatExp patE@(PatExpAdt (OfTy p _) qid patEs) v@(ValueAdt (Adt ctorId _ vs))
+evalPat patE@(ILPatAdt (OfTy p _) id patEs) v@(ValueAdt (Adt ctorId _ vs))
     | id == ctorId =
       let evPairs = zip patEs vs
-      in do mapM_ (uncurry evalPatExp) evPairs
+      in do mapM_ (uncurry evalPat) evPairs
             return ()
     | otherwise = throwError (ErrPatMatchFail patE v) `reportErrorAt` p
-  where
-    id = case qid of
-          Path _ qid' id -> id
-          Id _ id -> id
 
-evalPatExp e@(PatExpList (OfTy p _) es) v =
+evalPat e@(ILPatList (OfTy p _) es) v =
     if length es /= length vs
     then throwError (ErrPatMatchFail e v) `reportErrorAt` p
     else do
       let evPairs = zip es vs
-      mapM_ (uncurry evalPatExp) evPairs
+      mapM_ (uncurry evalPat) evPairs
       return ()
   where
     (ValueList vs) = v
 
-evalPatExp e@PatExpListCons{} v@(ValueList []) =
+evalPat e@ILPatCons{} v@(ValueList []) =
   throwError $ ErrPatMatchFail e v
 
-evalPatExp (PatExpListCons _ eHd eTl) (ValueList (v:vs)) = do
-  evalPatExp eHd v
-  evalPatExp eTl $ ValueList vs
+evalPat (ILPatCons _ eHd eTl) (ValueList (v:vs)) = do
+  evalPat eHd v
+  evalPat eTl $ ValueList vs
   return ()
 
-evalPatExp (PatExpId _ id) v = do
+evalPat (ILPatId _ id) v = do
   bindVar id v
   exportVar id v
   return ()
 
 
-evalE :: TypedAst Exp -> Eval Value
-evalE (ExpNum _ str) = return $ ValueInt $ read str
-evalE (ExpBool _ b) = return $ ValueBool b
-evalE (ExpString _ s) = return $ ValueList $ map ValueChar s
-evalE (ExpChar _ [c]) = return $ ValueChar c
-evalE (ExpAdd _ a b) = evalBinArith (+) a b
-evalE (ExpSub _ a b) = evalBinArith (-) a b
-evalE (ExpDiv _ a b) = evalBinArith quot a b
-evalE (ExpMul _ a b) = evalBinArith (*) a b
+evalE :: Typed IL -> Eval Value
+evalE (ILInt _ i) = return $ ValueInt i
+evalE (ILBool _ b) = return $ ValueBool b
+evalE (ILStr _ s) = return $ ValueList $ map ValueChar s
+evalE (ILChar _ [c]) = return $ ValueChar c
+evalE (ILAdd _ a b) = evalBinArith (+) a b
+evalE (ILSub _ a b) = evalBinArith (-) a b
+evalE (ILDiv _ a b) = evalBinArith quot a b
+evalE (ILMul _ a b) = evalBinArith (*) a b
 
-evalE (ExpCons _ a b) = do
+evalE (ILCons _ a b) = do
   vHd <- evalE a
   (ValueList vs) <- evalE b
   return $ ValueList (vHd:vs)
 
-evalE (ExpTuple _ es) = do
+evalE (ILTuple _ es) = do
   vs <- mapM evalE es
   return $ ValueTuple vs
 
-evalE (ExpList _ es) = do
+evalE (ILList _ es) = do
   vs <- mapM evalE es
   return $ ValueList vs
 
-evalE (ExpMakeAdt _ ty i ctorArgEs) = do
+evalE (ILMakeAdt _ ty i ctorArgEs) = do
   argVs <- mapM evalE ctorArgEs
   return $ ValueAdt $ Adt ty i argVs
 
-evalE (ExpGetAdtField _ e index) = do
+evalE (ILGetAdtField _ e index) = do
   (ValueAdt (Adt _ _ fieldVs)) <- evalE e
   return (fieldVs !! index)
 
-evalE (ExpTypeDec _ _) = return ValueUnit
-
-evalE (ExpModule _ paramIds moduleEs) = do
-  oldEnv <- pushNewModuleContext
-  mapM_ evalE moduleEs
-  (Module cloEnv oldParamIds exports) <- gets curModule
-  restoreEnv oldEnv
-  return $ ValueModule $ Module cloEnv (oldParamIds ++ paramIds) exports
-
-evalE (ExpStruct (OfTy _ ty) _ fieldInits) = do
-  fieldInitVs <- mapM (\(FieldInit id e) -> do { v <- evalE e; return (id, v) }) fieldInits
+evalE (ILStruct (OfTy _ ty) _ fieldInits) = do
+  fieldInitVs <- mapM (\(ILFieldInit id e) -> do { v <- evalE e; return (id, v) }) fieldInits
   return $ ValueStruct $ Struct ty fieldInitVs
 
-evalE (ExpFunDef (FunDefFun (OfTy p ty) funId argPatEs bodyEs)) =
-  let paramIds = map (\(PatExpId _ paramId) -> paramId) argPatEs
-      ef = ExpFun (OfTy p ty) argPatEs bodyEs
+evalE (ILFunDef (OfTy p ty) funId paramIds bodyEs) =
+  let ef = ILFun (OfTy p ty) paramIds bodyEs
   in do cloEnv <- getClosureEnv
         let f = ValueFun $ Closure funId ty cloEnv paramIds bodyEs
         bindVar funId f
         exportVar funId f
         return ValueUnit
 
-evalE (ExpAssign _ patE@(PatExpId _ funId) ef@ExpFun{}) = do
-  (ValueFun (Closure _ ty cloEnv paramIds bodyEs)) <- evalE ef
-  let recF = ValueFun $ Closure funId ty cloEnv paramIds bodyEs
-  evalPatExp patE recF
-  return ValueUnit
+-- evalE (ILAssign _ patE@(ILPatId _ funId) ef@ILFun{}) = do
+--   (ValueFun (Closure _ ty cloEnv paramIds bodyEs)) <- evalE ef
+--   let recF = ValueFun $ Closure funId ty cloEnv paramIds bodyEs
+--   evalPat patE recF
+--   return ValueUnit
 
-evalE (ExpAssign _ patE e) = do
+evalE (ILAssign _ patE e) = do
   v <- evalE e
-  let (OfTy patEPos _) = nodeData patE
-  evalPatExp patE v
+  evalPat patE v
   return ValueUnit
 
-evalE (ExpRef (OfTy p _) id) =
+evalE (ILRef (OfTy p _) id) =
   lookupVarId id `reportErrorAt` p
 
-evalE (ExpUnit _) = return ValueUnit
+evalE (ILUnit _) = return ValueUnit
 
-evalE (ExpBegin _ es) = evalEs es
+evalE (ILBegin _ es) = evalEs es
 
-evalE (ExpImport _ qid) = do
-  (ValueModule (Module _ _ exports)) <- lookupVarQual qid
-  let moduleVars = exportVars exports
-  modify (\env -> env { varEnv = Map.union moduleVars (varEnv env) })
-  return ValueUnit
-
-evalE (ExpApp _ e argEs) = do
+evalE (ILApp _ e argEs) = do
   fv@(ValueFun (Closure fid fTy fenv paramIds bodyEs)) <- evalE e
   argVs <- mapM evalE argEs
 
@@ -307,57 +285,37 @@ evalE (ExpApp _ e argEs) = do
   restoreEnv preApplyInterpEnv
   return retV
 
-evalE (ExpFun (OfTy _ ty) argPatEs bodyEs) = do
-    cloEnv <- getClosureEnv
-    newId <- freshId
-    return $ ValueFun $ Closure newId ty cloEnv paramIds bodyEs
-  where paramIds = map (\(PatExpId _ paramId) -> paramId) argPatEs
+evalE (ILFun (OfTy _ ty) paramIds bodyEs) = do
+  cloEnv <- getClosureEnv
+  newId <- freshId
+  return $ ValueFun $ Closure newId ty cloEnv paramIds bodyEs
 
-evalE (ExpMemberAccess (OfTy p _) e id) = do
-    (ValueModule (Module _ _ exports)) <- evalE e
-    let handle = flip reportErrorAt p
-    handle (lookupId id (exportVars exports) `reportErrorAt` p)
-  where
-    err = ErrUnboundUniqIdentifier id
-
--- We throw away the updated environment
--- after each evaluation to avoid local binding
--- escape
-evalE (ExpIfElse _ condE thenEs elseEs) = do
-  curEnv <- get
-  (ValueBool condV) <- evalE condE
-  restoreEnv curEnv
-  let es = if condV then thenEs else elseEs
-  v <- evalEs es
-  restoreEnv curEnv
-  return v
-
-evalE switchE@(ExpSwitch (OfTy p _) e clauses) = do
+evalE switchE@(ILSwitch (OfTy p _) e clauses) = do
   v <- evalE e
-  matchResult <- evalCaseClauses v clauses
+  matchResult <- evalCases v clauses
   hoistEither (maybeToEither (ErrNonExhaustivePattern switchE v) matchResult) `reportErrorAt` p
 
-evalE (ExpFail (OfTy pos _) msg) =
+evalE (ILFail (OfTy pos _) msg) =
   throwError $ ErrUserFail pos msg
 
 evalE e = throwError $ ErrCantEvaluate e
 
 
-evalCaseClauses :: Value -> [TypedAst CaseClause] -> Eval (Maybe Value)
-evalCaseClauses _ [] = return Nothing
-evalCaseClauses v (CaseClause _ patE bodyEs : clauses) = do
+evalCases :: Value -> [Typed ILCase] -> Eval (Maybe Value)
+evalCases _ [] = return Nothing
+evalCases v (ILCase _ patE bodyEs : clauses) = do
   oldEnv <- get
-  result <- do { r <- evalPatExp patE v; return $ Just () } `catchError` (\_ -> return Nothing)
+  result <- do { r <- evalPat patE v; return $ Just () } `catchError` (\_ -> return Nothing)
   case result of
     Nothing -> do
       restoreEnv oldEnv
-      evalCaseClauses v clauses
+      evalCases v clauses
     Just _ -> do
       retV <- evalEs bodyEs
       return $ Just retV
 
 
-evalEs :: [TypedAst Exp] -> Eval Value
+evalEs :: [Typed IL] -> Eval Value
 evalEs [] = return ValueUnit
 evalEs [e] = evalE e
 evalEs es = do
@@ -365,9 +323,9 @@ evalEs es = do
   return $ last vs
 
 
-eval :: TypedAst CompUnit -> Eval Value
-eval (CompUnit _ es) = evalEs es
+eval :: Typed ILCompUnit -> Eval Value
+eval (ILCompUnit _ es) = evalEs es
 
-interp :: TypedAst CompUnit -> AlphaEnv -> Either Err Value
+interp :: Typed ILCompUnit -> AlphaEnv -> Either Err Value
 interp alphaConverted alphaEnv =
   evalState (runExceptT $ eval alphaConverted) $ mtInterpEnv alphaEnv

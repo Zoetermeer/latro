@@ -74,14 +74,14 @@
     'Int))
 
 (test-case "it fails to typecheck if an if-else test is not a boolean"
-  (check-equal?
+  (check-match
     @typecheck{if (0) { 42 } else { 43 }}
-    '(CantUnify (Expected Bool) (Got Int))))
+    `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
 
 (test-case "it fails to typecheck if an if-else's branch types do not unify"
-  (check-equal?
+  (check-match
     @typecheck{if (True) { 42 } else { "hello" }}
-    '(CantUnify (Expected Int) (Got (App List (Char))))))
+    `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got (App List (Char)))))))
 
 (test-case "it checks module-value accesses"
   (check-equal?

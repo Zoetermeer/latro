@@ -6,14 +6,14 @@ import Semant
 
 data Err =
     ErrSyntax String
-  | ErrNonExhaustivePattern (TypedAst Exp) Value
+  | ErrNonExhaustivePattern (Typed IL) Value
   | ErrInvalidConstructor UniqId Ty
   | ErrNotAConstructor UniqId
   | ErrNotAnAdt Value
   | ErrInvalidFunPattern
   | ErrInvalidAdtPattern
   | ErrInvalidTypeExp (Exp SourcePos UniqId)
-  | ErrPatMatchFail (TypedAst PatExp) Value
+  | ErrPatMatchFail (Typed ILPat) Value
   | ErrPatMatchFailOn SourcePos Value
   | ErrPatMatchBindingFail (ILPat SourcePos) Ty
   | ErrInvalidConsTo Value
@@ -23,7 +23,7 @@ data Err =
   | ErrFunDefIdMismatch UniqId UniqId
   | ErrFunDefArityMismatch UniqId
   | ErrWrongArity (Typed IL) Int Int
-  | ErrCantEvaluate (Exp CheckedData UniqId)
+  | ErrCantEvaluate (Typed IL)
   | ErrUnboundRawIdentifier RawId
   | ErrUnboundUniqIdentifier UniqId
   | ErrIdAlreadyBound UniqId

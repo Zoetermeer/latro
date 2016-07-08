@@ -57,6 +57,9 @@
 (define (infix-reordered . s)
   (call-and-read '("-r") (apply string-append s)))
 
+(define (il-gen . s)
+  (call-and-read '("-il") (apply string-append s)))
+
 (define (typecheck . s)
   (call-and-read '("-tc") (apply string-append s)))
 

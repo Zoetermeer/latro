@@ -43,6 +43,8 @@ ilGen e =
     ExpDiv p l r -> ILDiv p (ilGen l) (ilGen r)
     ExpMul p l r -> ILMul p (ilGen l) (ilGen r)
     ExpCons p l r -> ILCons p (ilGen l) (ilGen r)
+    ExpMemberAccess p e id ->
+      ILApp p (ILRef p id) [ilGen e]
     ExpApp p rator rands ->
       ILApp p (ilGen rator) (map ilGen rands)
     ExpAssign p patE e ->
