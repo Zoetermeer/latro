@@ -5,6 +5,7 @@
          parse-tree
          alpha-convert
          infix-reordered
+         il-gen
          typecheck
          show-typed-ast)
 

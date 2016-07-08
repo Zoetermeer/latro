@@ -37,7 +37,6 @@ data TCEnv = TCEnv
   , alphaEnv :: AlphaEnv
   , polyEnv :: Map.Map UniqId Ty
   , metaEnv :: Map.Map UniqId Ty
-  , scopeLevel :: Int
   }
   deriving (Eq)
 
@@ -50,14 +49,8 @@ mtTCEnv alphaEnv =
     , alphaEnv    = alphaEnv
     , polyEnv     = Map.empty
     , metaEnv     = Map.empty
-    , scopeLevel  = 0
     }
 
-
-inTopLevelScope :: Checked Bool
-inTopLevelScope = do
-  depth <- gets scopeLevel
-  return $ depth == 0
 
 showHum :: Show v => Map.Map UniqId v -> String
 showHum =
@@ -102,21 +95,6 @@ newContextWith fupdate = do
   return oldEnv
 
 
-pushNewModuleContext :: Checked TCEnv
-pushNewModuleContext = do
-  depth <- gets scopeLevel
-  curMod <- if depth == 0
-            then return mtTCModule
-            else gets curModule
-  let mod = mtTCModule { closedVars     = vars curMod
-                       , closedTys      = types curMod
-                       , closedPatFuns  = patFuns curMod
-                       }
-  newContextWith (\tcEnv -> tcEnv { curModule = mod
-                                  , scopeLevel = depth + 1
-                                  })
-
-
 -- A new var env needs to close over all
 -- bindings in the existing env, so
 -- the update function is the identity function
@@ -145,17 +123,13 @@ exportTy id tyCon =
 
 
 bindVar :: UniqId -> Ty -> Checked ()
-bindVar id ty = do
-  isTopLevel <- inTopLevelScope
+bindVar id ty =
   modify (\tcEnv -> tcEnv { varEnv = Map.insert id ty (varEnv tcEnv) })
-  unless isTopLevel $ putModuleVarBinding id ty
 
 
 bindVarIfNotBound :: UniqId -> Ty -> Checked ()
-bindVarIfNotBound id ty = do
-  isTopLevel <- inTopLevelScope
+bindVarIfNotBound id ty =
   modify (\tcEnv -> tcEnv { varEnv = Map.insertWith (\new old -> old) id ty (varEnv tcEnv) })
-  unless isTopLevel $ putModuleVarBinding id ty
 
 
 putPatBinding :: UniqId -> Ty -> Checked ()
@@ -297,14 +271,6 @@ lookupVarIn table id =
   hoistEither $ maybeToEither (ErrUnboundUniqIdentifier id) $ Map.lookup id table
 
 
-lookupModule :: UniqAst QualifiedId -> Checked TCModule
-lookupModule qid = do
-  modTy <- lookupVarQual qid `reportErrorAt` nodeData qid
-  case modTy of
-    TyApp (TyConModule _ mod) _ -> return mod
-    _ -> throwError (ErrInvalidUniqModulePath qid) `reportErrorAt` nodeData qid
-
-
 lookupPatIn :: TEnv -> UniqId -> Checked Ty
 lookupPatIn table id =
   hoistEither $ maybeToEither (ErrUnboundUniqIdentifier id) $ Map.lookup id table
@@ -322,41 +288,8 @@ lookupTy id = do
   lookupTyIn (types curMod `Map.union` closedTys curMod) id
 
 
-lookupVarQual :: UniqAst QualifiedId -> Checked Ty
-lookupVarQual (Id p id) = lookupVar id
-lookupVarQual (Path p qid id) = do
-  innerTy <- lookupVarQual qid
-  case innerTy of
-    TyApp (TyConModule _ mod) _ ->
-      hoistEither $ maybeToEither (ErrUndefinedMember p id) $ Map.lookup id $ vars mod
-    TyApp (TyConStruct fieldNames) fTys ->
-      do fIndex <- hoistEither $ maybeToEither (ErrUndefinedMember p id) $ elemIndex id fieldNames
-         return $ fTys !! fIndex
-
-
-tcQualId :: UniqAst QualifiedId -> Checked (TypedAst QualifiedId, Ty)
-tcQualId (Id p id) = lookupVar id >>= \ty -> return (Id (OfTy p ty) id, ty)
-tcQualId (Path p qid id) = do
-  (qid', innerTy) <- tcQualId qid
-  case innerTy of
-    TyApp (TyConModule _ mod) _ ->
-      do ty <- lookupVarIn (vars mod) id
-         return (Path (OfTy p ty) qid' id, ty)
-    TyApp (TyConStruct fieldNames) fTys ->
-      do fIndex <- hoistEither $ maybeToEither (ErrUndefinedMember p id) $ elemIndex id fieldNames
-         let ty = fTys !! fIndex
-         return (Path (OfTy p ty) qid' id, ty)
-    _ ->
-      throwError (ErrInvalidUniqModulePath qid) `reportErrorAt` p
-
-
 lookupTyQual :: UniqAst QualifiedId -> Checked TyCon
 lookupTyQual (Id p id) = lookupTy id `reportErrorAt` p
-lookupTyQual (Path p qid id) = do
-  ty <- lookupVarQual qid
-  case ty of
-    TyApp (TyConModule _ mod) _ -> lookupTyIn (types mod) id `reportErrorAt` p
-    _ -> throwError (ErrInvalidUniqModulePath qid) `reportErrorAt` p
 
 
 lookupVar :: UniqId -> Checked Ty

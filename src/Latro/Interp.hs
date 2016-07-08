@@ -68,28 +68,6 @@ lookupId id map =
     err = ErrUnboundUniqIdentifier id
 
 
-lookupQualIn  :: TypedAst QualifiedId
-              -> InterpEnv
-              -> (Exports -> Map.Map UniqId a)
-              -> (InterpEnv -> Map.Map UniqId a)
-              -> Eval a
-lookupQualIn (Id p id) intEnv _ extractAEnv = lookupId id $ extractAEnv intEnv
-lookupQualIn (Path p qid id) intEnv extractExportEnv _ = do
-  v <- lookupQualIn qid intEnv exportVars varEnv
-  case v of
-    ValueModule (Module _ _ exports) ->
-      lookupId id $ extractExportEnv exports
-    _ -> throwError $ ErrInterpFailure $ printf "Can't lookup qualified ID in: %s" $ show v
-
-
-lookupVarQualIn :: TypedAst QualifiedId -> InterpEnv -> Eval Value
-lookupVarQualIn id intEnv = lookupQualIn id intEnv exportVars varEnv
-
-
-lookupVarQual :: TypedAst QualifiedId -> Eval Value
-lookupVarQual id = get >>= lookupVarQualIn id
-
-
 lookupVarId :: UniqId -> Eval Value
 lookupVarId id = getVarEnv >>= lookupId id
 
@@ -110,13 +88,6 @@ exportVar id v =
                 exports' = exports { exportVars = Map.insert id v (exportVars exports) }
             in
               intEnv { curModule = Module cloEnv paramIds exports' })
-
-
-pushNewModuleContext :: Eval InterpEnv
-pushNewModuleContext = do
-  curEnv <- get
-  modify (\intEnv -> intEnv { curModule = Module (varEnv curEnv) [] mtExports })
-  return curEnv
 
 
 getClosureEnv :: Eval VEnv
@@ -251,12 +222,6 @@ evalE (ILFunDef (OfTy p ty) funId paramIds bodyEs) =
         bindVar funId f
         exportVar funId f
         return ValueUnit
-
--- evalE (ILAssign _ patE@(ILPatId _ funId) ef@ILFun{}) = do
---   (ValueFun (Closure _ ty cloEnv paramIds bodyEs)) <- evalE ef
---   let recF = ValueFun $ Closure funId ty cloEnv paramIds bodyEs
---   evalPat patE recF
---   return ValueUnit
 
 evalE (ILAssign _ patE e) = do
   v <- evalE e
