@@ -819,7 +819,7 @@ For example, here's an example test from the interpreter suite:
 
 Here's a full-blown example -- the `test suite for the typechecker`_.
 
-.. _test suite for the typechecker: https://github.com/Zoetermeer/L/blob/master/interp/tests/typechecker.rkt
+.. _test suite for the typechecker: https://github.com/Zoetermeer/latro/blob/master/tests/typechecker.rkt
 
 A specific test suite can be run by running its corresponding file directly in Racket, e.g.:
 
