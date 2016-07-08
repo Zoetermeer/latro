@@ -324,6 +324,92 @@ instance (Sexpable a, Sexpable id) => Sexpable (TyAnn a id) where
           ]
 
 
+instance (Sexpable a) => Sexpable (ILFieldInit a) where
+  sexp (ILFieldInit fieldId e) =
+    List [ Symbol "ILFieldInit", sexp fieldId, sexp e ]
+
+
+instance (Sexpable a) => Sexpable (ILCase a) where
+  sexp (ILCase d patE bodyEs) =
+    List [ Symbol "ILCase", sexp d, sexp patE, toSexpList bodyEs ]
+
+
+instance (Sexpable a) => Sexpable (ILPat a) where
+  sexp ilPat =
+    case ilPat of
+      ILPatInt d i -> List [ Symbol "ILPatInt", sexp d, Atom $ show i ]
+      ILPatBool d b -> List [ Symbol "ILPatBool", sexp d, Symbol $ show b ]
+      ILPatStr d s -> List [ Symbol "ILPatStr", sexp d, Atom s ]
+      ILPatChar d s -> List [ Symbol "ILPatChar", sexp d, Atom s ]
+      ILPatTuple d argPatEs ->
+        List [ Symbol "ILPatTuple", sexp d, toSexpList argPatEs ]
+      ILPatAdt d ctorId argPatEs ->
+        List [ Symbol "ILPatAdt", sexp d, sexp ctorId, toSexpList argPatEs ]
+      ILPatList d argPatEs ->
+        List [ Symbol "ILPatList", sexp d, toSexpList argPatEs ]
+      ILPatCons d patHd patTl ->
+        List [ Symbol "ILPatCons", sexp d, sexp patHd, sexp patTl ]
+      ILPatId d id ->
+        List [ Symbol "ILPatId", sexp d, sexp id ]
+      ILPatWildcard d -> List [ Symbol "ILPatWildcard", sexp d ]
+
+
+instance (Sexpable a) => Sexpable (IL a) where
+  sexp il =
+    case il of
+      ILAdd d a b -> List [ Symbol "ILAdd", sexp d, sexp a, sexp b ]
+      ILSub d a b -> List [ Symbol "ILSub", sexp d, sexp a, sexp b ]
+      ILDiv d a b -> List [ Symbol "ILDiv", sexp d, sexp a, sexp b ]
+      ILMul d a b -> List [ Symbol "ILMul", sexp d, sexp a, sexp b ]
+      ILCons d a b -> List [ Symbol "ILCons", sexp d, sexp a, sexp b ]
+      ILApp d rator rands ->
+        List  [ Symbol "ILApp"
+              , sexp d
+              , sexp rator
+              , toSexpList rands
+              ]
+      ILAssign d patE e -> List [ Symbol "ILAssign", sexp d, sexp patE, sexp e ]
+      ILTypeDec d typeDec -> List [ Symbol "ILTypeDec", sexp d, sexp typeDec ]
+      ILWithAnn tyAnn e -> List [ Symbol "ILWithAnn", sexp tyAnn, sexp e ]
+      ILFunDef d id paramIds bodyEs ->
+        List [ Symbol "ILFunDef", sexp d, sexp id, toSexpList paramIds, toSexpList bodyEs ]
+      ILInstFunDef d instId funId paramIds bodyEs ->
+        List [ Symbol "ILInstFunDef"
+             , sexp d
+             , sexp instId
+             , sexp funId
+             , toSexpList paramIds
+             , toSexpList bodyEs
+             ]
+      ILStruct d typeId fieldInits -> List [ Symbol "ILStruct", sexp d, toSexpList fieldInits ]
+      ILMakeAdt d typeId ctorIndex argEs ->
+        List  [ Symbol "ILMakeAdt"
+              , sexp d
+              , sexp typeId
+              , Atom $ show ctorIndex
+              , toSexpList argEs
+              ]
+      ILGetAdtField d e fieldIndex ->
+        List [ Symbol "ILGetAdtField", sexp d, sexp e, Atom $ show fieldIndex ]
+      ILTuple d argEs -> List [ Symbol "ILTuple", sexp d, toSexpList argEs ]
+      ILSwitch d e clauses -> List [ Symbol "ILSwitch", sexp d, sexp e, toSexpList clauses ]
+      ILList d argEs -> List [ Symbol "ILList", sexp d, toSexpList argEs ]
+      ILFun d paramIds bodyEs ->
+        List  [ Symbol "ILFun"
+              , sexp d
+              , toSexpList paramIds
+              , toSexpList bodyEs
+              ]
+      ILInt d i -> List [ Symbol "ILInt", sexp d, Atom $ show i ]
+      ILBool d b -> List [ Symbol "ILBool", sexp d, Symbol $ show b ]
+      ILStr d s -> List [ Symbol "ILStr", sexp d, Atom $ printf "\"%s\"" s ]
+      ILChar d s -> List [ Symbol "ILChar", sexp d, Atom $ printf "\'%s\'" s ]
+      ILUnit d -> List [ Symbol "ILUnit", sexp d ]
+      ILRef d id -> List [ Symbol "ILRef", sexp d, sexp id ]
+      ILBegin d es -> List [ Symbol "ILBegin", sexp d, toSexpList es ]
+      ILFail d msg -> List [ Symbol "ILFail", sexp d, Atom $ printf "\"%s\"" msg ]
+
+
 sexpOfMap :: (Sexpable k, Sexpable v) => Map.Map k v -> Sexp
 -- sexpOfMap m = List $ map (\\(k, v) -> List [ sexp k, sexp v]) $ Map.toList m
 sexpOfMap m = toSexpList $ Map.keys m

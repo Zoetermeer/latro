@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeSynonymInstances #-}
 module Semant where
 
 import qualified Data.Map as Map
@@ -24,6 +25,10 @@ data QualifiedId a id =
 
 class AstNode a where
   nodeData :: a b id -> b
+
+
+class ILNode a where
+  ilNodeData :: a b -> b
 
 
 instance AstNode QualifiedId where
@@ -111,6 +116,104 @@ instance AstNode FunDef where
 
 data FieldInit a id = FieldInit id (Exp a id)
   deriving (Eq, Show)
+
+
+data ILFieldInit a = ILFieldInit UniqId (IL a)
+  deriving (Eq, Show)
+
+
+data ILCase a = ILCase a (ILPat a) [IL a]
+  deriving (Eq, Show)
+
+
+data ILPat a =
+    ILPatInt a Int
+  | ILPatBool a Bool
+  | ILPatStr a String
+  | ILPatChar a String
+  | ILPatTuple a [ILPat a]
+  | ILPatAdt a UniqId [ILPat a]
+  | ILPatList a [ILPat a]
+  | ILPatCons a (ILPat a) (ILPat a)
+  | ILPatId a UniqId
+  | ILPatWildcard a
+  deriving (Eq, Show)
+
+
+instance ILNode ILPat where
+  ilNodeData ilPat =
+    case ilPat of
+      ILPatInt d _ -> d
+      ILPatBool d _ -> d
+      ILPatStr d _ -> d
+      ILPatChar d _ -> d
+      ILPatTuple d _ -> d
+      ILPatAdt d _ _ -> d
+      ILPatList d _ -> d
+      ILPatCons d _ _ -> d
+      ILPatId d _ -> d
+      ILPatWildcard d -> d
+
+
+data IL a =
+    ILAdd a (IL a) (IL a)
+  | ILSub a (IL a) (IL a)
+  | ILDiv a (IL a) (IL a)
+  | ILMul a (IL a) (IL a)
+  | ILCons a (IL a) (IL a)
+  | ILApp a (IL a) [IL a]
+  | ILAssign a (ILPat a) (IL a)
+  | ILTypeDec a (TypeDec a UniqId)
+  | ILWithAnn (TyAnn a UniqId) (IL a)
+  | ILFunDef a UniqId [UniqId] [IL a]
+  | ILInstFunDef a UniqId UniqId [UniqId] [IL a]
+  | ILStruct a UniqId [ILFieldInit a]
+  | ILMakeAdt a UniqId Int [IL a]
+  | ILGetAdtField a (IL a) Int
+  | ILTuple a [IL a]
+  | ILSwitch a (IL a) [ILCase a]
+  | ILList a [IL a]
+  | ILFun a [UniqId] [IL a]
+  | ILInt a Int
+  | ILBool a Bool
+  | ILStr a String
+  | ILChar a String
+  | ILUnit a
+  | ILRef a UniqId
+  | ILBegin a [IL a]
+  | ILFail a String
+  deriving (Eq, Show)
+
+
+instance ILNode IL where
+  ilNodeData il =
+    case il of
+      ILAdd d _ _ -> d
+      ILSub d _ _ -> d
+      ILDiv d _ _ -> d
+      ILMul d _ _ -> d
+      ILCons d _ _ -> d
+      ILApp d _ _ -> d
+      ILAssign d _ _ -> d
+      ILTypeDec d _ -> d
+      ILWithAnn tyAnn _ -> nodeData tyAnn
+      ILFunDef d _ _ _ -> d
+      ILInstFunDef d _ _ _ _ -> d
+      ILStruct d _ _ -> d
+      ILMakeAdt d _ _ _ -> d
+      ILGetAdtField d _ _ -> d
+      ILTuple d _ -> d
+      ILSwitch d _ _ -> d
+      ILList d _ -> d
+      ILFun d _ _ -> d
+      ILInt d _ -> d
+      ILBool d _ -> d
+      ILStr d _ -> d
+      ILChar d _ -> d
+      ILUnit d -> d
+      ILRef d _ -> d
+      ILBegin d _ -> d
+      ILFail d _ -> d
 
 
 data Exp a id =
