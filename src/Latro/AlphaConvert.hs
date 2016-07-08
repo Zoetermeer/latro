@@ -54,7 +54,7 @@ data AlphaEnv = AlphaEnv
   , stack   :: [Frame]
   , pass    :: Int
   }
-  deriving (Eq)
+  deriving (Eq, Show)
 
 
 mtAlphaEnv :: AlphaEnv
@@ -160,11 +160,12 @@ freshVarIdM id = freshM id freshVarId
 
 
 freshVarIdIfNotBoundM :: UniqId -> AlphaConverted UniqId
-freshVarIdIfNotBoundM uid = do
+freshVarIdIfNotBoundM uid@UniqId{} = return uid
+freshVarIdIfNotBoundM userId = do
   curFrame <- gets $ head . stack
-  if isBoundIn uid [curFrame] varIdEnv
-    then throwError $ ErrIdAlreadyBound uid
-    else freshVarIdM uid
+  if isBoundIn userId [curFrame] varIdEnv
+    then throwError $ ErrIdAlreadyBound userId
+    else freshVarIdM userId
 
 
 freshTypeIdM :: UniqId -> AlphaConverted UniqId
@@ -572,11 +573,15 @@ convert (ExpFunDefClauses p id funDefs) = do
 
 convert (ExpAssign p (PatExpId pp rawId) (ExpModule mp paramIds bodyEs)) = do
   id' <- pushNewOrExistingFrame rawId
+  aEnv <- get
   bodyEs' <- mapM convert bodyEs
   id'' <- freshM id' freshVarId
   moduleFrame <- popFrame
   bindInCurrentFrame id' $ FrameEntry id'' moduleFrame
-  return $ ExpBegin p bodyEs'
+  firstPass <- isFirstPass
+  if firstPass
+    then return $ ExpAssign p (PatExpId pp rawId) (ExpModule mp paramIds bodyEs')
+    else return $ ExpBegin p bodyEs'
 
 convert (ExpAssign p patExp e) = do
   e' <- convert e

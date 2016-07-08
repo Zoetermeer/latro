@@ -226,7 +226,7 @@
     42))
 
 (test-case "it allows circular dependencies between types"
-  (check-equal?
+  (check-match
     @interp{
       type Expr =
         | ExprNum(Int)
@@ -237,13 +237,58 @@
 
       [ StmDef("x", ExprNum(42)) ]
     }
-    '(List)))
+    `(List
+       ((Adt (Id StmDef ,_) 0 ("x" (Adt (Id ExprNum ,_) 0 (42))))))))
 
-(test-case "it allows use-before-defines at the top level"
+(test-case "it allows circular dependencies between module-level types"
+  (check-match
+    @interp{
+      module Expr {
+        type t =
+          | ExprNum(Int)
+          | ExprStm(Stm.t)
+      }
+
+      module Stm {
+        type t =
+          | StmDef(Char[], Expr.t)
+      }
+
+      [ Stm.StmDef("x", Expr.ExprNum(42)) ]
+    }
+    `(List
+       ((Adt (Id StmDef ,_) 0 ("x" (Adt (Id ExprNum ,_) 0 (42))))))))
+
+(test-case "it allows use-before-defines in top-level definitions"
+  (check-equal?
+    @interp{
+      def y = x
+      def x = 42
+
+      y
+    }
+    42))
+
+(test-case "it allows use-before-defines in module-level definitions"
   (check-equal?
     @interp{
       module M {
         def y = x
+        def x = 42
+      }
+
+      M.y
+    }
+    42))
+
+(test-case "it allows use-before-defines that refer to other modules"
+  (check-equal?
+    @interp{
+      module M {
+        def y = N.x
+      }
+
+      module N {
         def x = 42
       }
 
