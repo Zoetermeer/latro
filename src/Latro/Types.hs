@@ -1028,18 +1028,14 @@ tcCompUnit (ILCompUnit p es) bindForwardReferences = do
 
 
 makeSymTables :: Untyped IL -> Checked ()
-makeSymTables (ILBegin _ es) = do
-  mapM makeSymTables es
-  return ()
+makeSymTables (ILBegin _ es) = mapM_ makeSymTables es
 
 makeSymTables (ILTypeDec p tyDec) =
-  let id = getTypeDecId tyDec
-  in do exportTy id $ TyConTyFun [] $ TyRef $ Id p id
-        return ()
+    exportTy id $ TyConTyFun [] $ TyRef $ Id p id
+  where id = getTypeDecId tyDec
 
-makeSymTables (ILAssign _ (ILPatId _ id) _) = do
-  ty <- freshMeta
-  bindVar id ty
+makeSymTables (ILAssign _ (ILPatId _ id) _) =
+  freshMeta >>= bindVar id
 
 makeSymTables e = return ()
 
