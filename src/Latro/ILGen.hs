@@ -3,7 +3,7 @@ module ILGen where
 import Semant
 
 
-ilGenClause :: CaseClause a UniqId -> ILCase a
+ilGenClause :: Show a => CaseClause a UniqId -> ILCase a
 ilGenClause (CaseClause p patE bodyEs) =
   ILCase p (ilGenPat patE) (map ilGen bodyEs)
 
@@ -31,11 +31,11 @@ ilGenPat patE =
     PatExpWildcard p -> ILPatWildcard p
 
 
-ilGenFieldInit :: FieldInit a UniqId -> ILFieldInit a
+ilGenFieldInit :: Show a => FieldInit a UniqId -> ILFieldInit a
 ilGenFieldInit (FieldInit p e) = ILFieldInit p $ ilGen e
 
 
-ilGen :: Exp a UniqId -> IL a
+ilGen :: Show a => Exp a UniqId -> IL a
 ilGen e =
   case e of
     ExpAdd p l r -> ILAdd p (ilGen l) (ilGen r)
@@ -89,7 +89,8 @@ ilGen e =
     ExpUnit p -> ILUnit p
     ExpBegin p es -> ILBegin p $ map ilGen es
     ExpFail p msg -> ILFail p msg
+    e -> error $ show e
 
 
-ilGenCompUnit :: CompUnit a UniqId -> ILCompUnit a
+ilGenCompUnit :: Show a => CompUnit a UniqId -> ILCompUnit a
 ilGenCompUnit (CompUnit p es) = ILCompUnit p $ map ilGen es
