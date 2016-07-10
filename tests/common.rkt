@@ -26,8 +26,6 @@
   (system "cabal build")
   (system "cabal install"))
 
-(compile!)
-
 (define (call-interpreter opts program)
   (parameterize ([current-directory "."])
     (call-with-output-file

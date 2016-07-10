@@ -13,5 +13,6 @@ last-test.l
 /src/Latro/test.spar
 /src/last-test.l
 /tests/compiled/
+/tests/last-test.l
 /tests/scratch.rkt
 //tests/*.rkt~

@@ -1,4 +1,6 @@
 #!/bin/bash
 
-racket tests/typechecker.rkt
-racket tests/interpreter.rkt
+cabal configure
+cabal build
+cabal install
+raco test -t tests
