@@ -551,8 +551,6 @@ convert (ExpApp p ratorE randEs) = do
   return $ ExpApp p ratorE' randEs'
 
 convert (ExpImport p qid) = do
-  -- (FrameEntry _ frame) <- lookupVarQualId qid
-  -- pushFrame frame
   (FrameEntry moduleId Frame{ varIdEnv = modVarIdEnv, typeIdEnv = modTypeIdEnv }) <- lookupVarQualId qid
   modifyFrame (\(curFrame@Frame{ varIdEnv, typeIdEnv }) ->
                   curFrame { varIdEnv = Map.union varIdEnv modVarIdEnv
@@ -644,17 +642,6 @@ convert (ExpWithAnn (TyAnn p aid tyParamIds synTy) e) = do
       do e' <- convert e
          return $ ExpWithAnn tyAnn $ ExpAssign ep (PatExpId pp aid') e'
     _ -> throwError $ ErrInterpFailure $ "in convert ExpWithAnn: " ++ show e
-
--- convert (ExpInterfaceDec p id tyParamIds memberTyAnns) = do
---   id' <- freshTypeIdM id
---   tyParamIds' <- mapM freshTypeIdM tyParamIds
---   memberTyAnns' <- mapM convertTyAnn memberTyAnns
---   return $ ExpInterfaceDec p id' tyParamIds' memberTyAnns'
-
--- convert (ExpModule p paramIds bodyEs) = do
---   paramIds' <- mapM freshVarIdM paramIds
---   bodyEs' <- mapM convert bodyEs
---   return $ ExpModule p paramIds' bodyEs'
 
 convert (ExpStruct p qid fields) = do
   definitionFrame <- baseFrame qid
