@@ -73,10 +73,16 @@ isFirstPass :: AlphaConverted Bool
 isFirstPass = gets pass >>= \p -> return $ p == 0
 
 
-pushFrame :: AlphaConverted ()
-pushFrame = do
+pushNewFrame :: AlphaConverted ()
+pushNewFrame = do
   index <- nextIdIndexM
-  modify (\aEnv -> aEnv { stack = mtFrame index : stack aEnv })
+  pushFrame $ mtFrame index
+
+
+pushFrame :: Frame -> AlphaConverted ()
+pushFrame frame = do
+  index <- nextIdIndexM
+  modify (\aEnv -> aEnv { stack = frame : stack aEnv })
 
 
 pushNewOrExistingFrame :: UniqId -> AlphaConverted UniqId
@@ -87,7 +93,7 @@ pushNewOrExistingFrame id = do
       do modify (\aEnv -> aEnv { stack = frame : stack aEnv })
          return uid
     _ ->
-      do pushFrame
+      do pushNewFrame
          return id
 
 
@@ -100,7 +106,7 @@ popFrame = do
 
 inNewFrame :: AlphaConverted a -> AlphaConverted a
 inNewFrame thunk = do
-  pushFrame
+  pushNewFrame
   v <- thunk
   popFrame
   return v
@@ -121,16 +127,18 @@ bindInCurrentFrame (UserId rawId) entry = do
 bindInCurrentFrame _ _ = return ()
 
 
-freshVarId :: UniqId -> AlphaEnv -> (UniqId, AlphaEnv)
-freshVarId (UserId id) aEnv@AlphaEnv { counter, stack } =
+freshVarId :: Bool -> UniqId -> AlphaEnv -> (UniqId, AlphaEnv)
+freshVarId bindInFrame (UserId id) aEnv@AlphaEnv { counter, stack } =
     (uniqId, aEnv { counter = counter', stack = frame' : frames })
   where
     counter' = counter + 1
     uniqId = UniqId counter id
     (frame : frames) = stack
-    frame' = frame { varIdEnv = Map.insert id (UniqIdEntry uniqId) $ varIdEnv frame }
+    frame' = if bindInFrame
+             then frame { varIdEnv = Map.insert id (UniqIdEntry uniqId) $ varIdEnv frame }
+             else frame
 
-freshVarId id aEnv = (id, aEnv)
+freshVarId _ id aEnv = (id, aEnv)
 
 
 freshTypeId :: UniqId -> AlphaEnv -> (UniqId, AlphaEnv)
@@ -156,7 +164,7 @@ freshM id _ = return id
 
 
 freshVarIdM :: UniqId -> AlphaConverted UniqId
-freshVarIdM id = freshM id freshVarId
+freshVarIdM id = freshM id $ freshVarId True
 
 
 freshVarIdIfNotBoundM :: UniqId -> AlphaConverted UniqId
@@ -397,7 +405,7 @@ convertFunDef (FunDefInstFun p instPatE id argPatEs bodyEs) = do
 
 convertCaseClause :: UniqAst CaseClause -> AlphaConverted (UniqAst CaseClause)
 convertCaseClause (CaseClause p patE es) = do
-  pushFrame
+  pushNewFrame
   patE' <- convertPatExp patE
   es' <- mapM convert es
   popFrame
@@ -407,7 +415,7 @@ convertCaseClause (CaseClause p patE es) = do
 funDefToCaseClause :: UniqAst FunDef -> AlphaConverted (UniqAst CaseClause)
 funDefToCaseClause (FunDefFun p _ argPatEs bodyEs) = do
   let tupPat = PatExpTuple p argPatEs
-  pushFrame
+  pushNewFrame
   tupPat' <- convertPatExp tupPat
   bodyEs' <- mapM convert bodyEs
   popFrame
@@ -415,7 +423,7 @@ funDefToCaseClause (FunDefFun p _ argPatEs bodyEs) = do
 
 funDefToCaseClause (FunDefInstFun p instPatE _ argPatEs bodyEs) = do
   let tupPat = PatExpTuple p $ instPatE : argPatEs
-  pushFrame
+  pushNewFrame
   tupPat' <- convertPatExp tupPat
   bodyEs' <- mapM convert bodyEs
   popFrame
@@ -543,6 +551,8 @@ convert (ExpApp p ratorE randEs) = do
   return $ ExpApp p ratorE' randEs'
 
 convert (ExpImport p qid) = do
+  -- (FrameEntry _ frame) <- lookupVarQualId qid
+  -- pushFrame frame
   (FrameEntry moduleId Frame{ varIdEnv = modVarIdEnv, typeIdEnv = modTypeIdEnv }) <- lookupVarQualId qid
   modifyFrame (\(curFrame@Frame{ varIdEnv, typeIdEnv }) ->
                   curFrame { varIdEnv = Map.union varIdEnv modVarIdEnv
@@ -551,7 +561,7 @@ convert (ExpImport p qid) = do
 
 convert (ExpFunDef (FunDefFun p id argPatEs bodyEs)) = do
   id' <- freshVarIdM id
-  pushFrame
+  pushNewFrame
   argPatEs' <- mapM convertPatExp argPatEs
   bodyEs' <- mapM convert bodyEs
   popFrame
@@ -566,18 +576,18 @@ convert (ExpFunDef (FunDefInstFun p instPatE id argPatEs bodyEs)) = do
 
 convert (ExpFunDefClauses p id funDefs) = do
   id' <- freshVarIdM id
-  pushFrame
+  pushNewFrame
   funDef <- fst <$> desugarFunDefs id' funDefs
   popFrame
   return $ ExpFunDef funDef
 
 convert (ExpAssign p (PatExpId pp rawId) (ExpModule mp paramIds bodyEs)) = do
-  id' <- pushNewOrExistingFrame rawId
+  id' <- freshM rawId $ freshVarId False
+  id'' <- pushNewOrExistingFrame rawId
   aEnv <- get
   bodyEs' <- mapM convert bodyEs
-  id'' <- freshM id' freshVarId
   moduleFrame <- popFrame
-  bindInCurrentFrame id' $ FrameEntry id'' moduleFrame
+  bindInCurrentFrame id'' $ FrameEntry id'' moduleFrame
   firstPass <- isFirstPass
   if firstPass
     then return $ ExpAssign p (PatExpId pp rawId) (ExpModule mp paramIds bodyEs')
@@ -591,7 +601,7 @@ convert (ExpAssign p patExp e) = do
 convert (ExpTypeDec p (TypeDecTy pInner id tyParamIds (SynTyStruct stp fields))) = do
   id' <- freshTypeIdM id
   tyParamIds' <- mapM freshTypeIdM tyParamIds
-  fields' <- mapM (\(id, ty) -> do id' <- freshM id freshVarId
+  fields' <- mapM (\(id, ty) -> do id' <- freshVarIdM id
                                    ty' <- convertTy ty
                                    return (id', ty'))
                   fields
@@ -619,14 +629,14 @@ convert (ExpWithAnn (TyAnn p aid tyParamIds synTy) e) = do
   let tyAnn = TyAnn p aid' tyParamIds' synTy'
   case e of
     ExpFunDef (FunDefFun fp fid argPatEs bodyEs) ->
-      do pushFrame
+      do pushNewFrame
          argPatEs' <- mapM convertPatExp argPatEs
          bodyEs' <- mapM convert bodyEs
          popFrame
          let e' = ExpFunDef (FunDefFun fp aid' argPatEs' bodyEs')
          return $ ExpWithAnn tyAnn e'
     ExpFunDefClauses p id funDefs ->
-      do pushFrame
+      do pushNewFrame
          funDef <- fst <$> desugarFunDefs aid' funDefs
          popFrame
          return $ ExpWithAnn tyAnn $ ExpFunDef funDef
@@ -635,16 +645,16 @@ convert (ExpWithAnn (TyAnn p aid tyParamIds synTy) e) = do
          return $ ExpWithAnn tyAnn $ ExpAssign ep (PatExpId pp aid') e'
     _ -> throwError $ ErrInterpFailure $ "in convert ExpWithAnn: " ++ show e
 
-convert (ExpInterfaceDec p id tyParamIds memberTyAnns) = do
-  id' <- freshTypeIdM id
-  tyParamIds' <- mapM freshTypeIdM tyParamIds
-  memberTyAnns' <- mapM convertTyAnn memberTyAnns
-  return $ ExpInterfaceDec p id' tyParamIds' memberTyAnns'
+-- convert (ExpInterfaceDec p id tyParamIds memberTyAnns) = do
+--   id' <- freshTypeIdM id
+--   tyParamIds' <- mapM freshTypeIdM tyParamIds
+--   memberTyAnns' <- mapM convertTyAnn memberTyAnns
+--   return $ ExpInterfaceDec p id' tyParamIds' memberTyAnns'
 
-convert (ExpModule p paramIds bodyEs) = do
-  paramIds' <- mapM freshVarIdM paramIds
-  bodyEs' <- mapM convert bodyEs
-  return $ ExpModule p paramIds' bodyEs'
+-- convert (ExpModule p paramIds bodyEs) = do
+--   paramIds' <- mapM freshVarIdM paramIds
+--   bodyEs' <- mapM convert bodyEs
+--   return $ ExpModule p paramIds' bodyEs'
 
 convert (ExpStruct p qid fields) = do
   definitionFrame <- baseFrame qid
@@ -679,7 +689,7 @@ convert (ExpList p es) = do
   return $ ExpList p es'
 
 convert (ExpFun p argPatEs bodyEs) = do
-  pushFrame
+  pushNewFrame
   argPatEs' <- mapM convertPatExp argPatEs
   bodyEs' <- mapM convert bodyEs
   popFrame

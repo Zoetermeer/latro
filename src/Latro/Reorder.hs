@@ -25,9 +25,9 @@ runBuildPrecEnv (ExpAssign p id e) = do
   e' <- runBuildPrecEnv e
   return $ ExpAssign p id e'
 
-runBuildPrecEnv (ExpModule p paramIds bodyEs) = do
+runBuildPrecEnv (ExpBegin p bodyEs) = do
   bodyEs' <- mapM runBuildPrecEnv bodyEs
-  return $ ExpModule p paramIds bodyEs'
+  return $ ExpBegin p bodyEs'
 
 runBuildPrecEnv e = return e
 
