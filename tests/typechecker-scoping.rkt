@@ -173,7 +173,7 @@
 
       Bar.v
     }
-    `(AtPos ,_ (CompilerModule Types) (UnboundUniqIdentifier v))))
+    `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier v))))
 
 (test-case "it does not allow bindings in a pattern to escape into other clauses"
   (check-match
@@ -237,8 +237,7 @@
 
       [ StmDef("x", ExprNum(42)) ]
     }
-    `(List
-       ((Adt (Id StmDef ,_) 0 ("x" (Adt (Id ExprNum ,_) 0 (42))))))))
+    `(App List ,_)))
 
 (test-case "it allows circular dependencies between module-level types"
   (check-match
@@ -256,8 +255,7 @@
 
       [ Stm.StmDef("x", Expr.ExprNum(42)) ]
     }
-    `(List
-       ((Adt (Id StmDef ,_) 0 ("x" (Adt (Id ExprNum ,_) 0 (42))))))))
+    `(App List ,_)))
 
 (test-case "it allows use-before-defines in top-level definitions"
   (check-equal?
@@ -399,3 +397,19 @@
     }
     `(AtPos (SourcePos ,_ 8 ,_) (CompilerModule AlphaConvert) (UnboundRawIdentifier Point))))
 
+(test-case "it allows importing of forward-referenced modules"
+  (check-equal?
+    @typecheck{
+      module A {
+        import B
+
+        def a = b
+      }
+
+      module B {
+        def b = 42
+      }
+
+      A.a
+    }
+    'Int))

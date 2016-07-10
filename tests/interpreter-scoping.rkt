@@ -399,3 +399,19 @@
     }
     `(AtPos (SourcePos ,_ 8 ,_) (CompilerModule AlphaConvert) (UnboundRawIdentifier Point))))
 
+(test-case "it allows importing of forward-referenced modules"
+  (check-equal?
+    @interp{
+      module A {
+        import B
+
+        def a = b
+      }
+
+      module B {
+        def b = 42
+      }
+
+      A.a
+    }
+    42))

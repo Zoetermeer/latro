@@ -551,11 +551,15 @@ convert (ExpApp p ratorE randEs) = do
   return $ ExpApp p ratorE' randEs'
 
 convert (ExpImport p qid) = do
-  (FrameEntry moduleId Frame{ varIdEnv = modVarIdEnv, typeIdEnv = modTypeIdEnv }) <- lookupVarQualId qid
-  modifyFrame (\(curFrame@Frame{ varIdEnv, typeIdEnv }) ->
-                  curFrame { varIdEnv = Map.union varIdEnv modVarIdEnv
-                           , typeIdEnv = Map.union typeIdEnv modTypeIdEnv })
-  return $ ExpUnit p
+  firstPass <- isFirstPass
+  if firstPass
+    then return $ ExpImport p qid
+    else do
+      (FrameEntry moduleId Frame{ varIdEnv = modVarIdEnv, typeIdEnv = modTypeIdEnv }) <- lookupVarQualId qid
+      modifyFrame (\(curFrame@Frame{ varIdEnv, typeIdEnv }) ->
+                      curFrame { varIdEnv = Map.union varIdEnv modVarIdEnv
+                               , typeIdEnv = Map.union typeIdEnv modTypeIdEnv })
+      return $ ExpUnit p
 
 convert (ExpFunDef (FunDefFun p id argPatEs bodyEs)) = do
   id' <- freshVarIdM id
