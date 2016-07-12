@@ -1,0 +1,11 @@
+Node(11, Leaf("hello "), Leaf("world"))
+Node(2, Leaf("h"), Leaf("o"))
+Just('o')
+Just('r')
+"hell no"
+"hello wicked world"
+"hello word gold"
+"hello great world"
+"well, hello wicked world."
+25
+Unit

@@ -68,7 +68,7 @@ module IO {
 type String = Char[]
 
 module String {
-  fun (s).splitAt(0)      = %(s, "")
+  fun (s).splitAt(0)      = %("", s)
   fun ("").splitAt(_)     = %("", "")
   fun (c::cs).splitAt(1)  = %([c], cs)
   fun (c::cs).splitAt(n) {
