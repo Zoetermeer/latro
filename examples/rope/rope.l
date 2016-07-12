@@ -2,38 +2,37 @@
 //Haskell Rope implementation:
 //https://github.com/ptrckbrwn/rope
 
+
 module Rope {
   import Core
   import Core.List
 
-  type t =
+  type Rope =
     | Leaf(String)
-    | Node(Int, t, t)
+    | Node(Int, Rope, Rope)
+
+  fun (Leaf(string)).length'() = List.length(string)
+  fun (Node(weight, _, _)).length'() = weight
 
 
-  length' => fun(t) : Int
-  fun length'(Leaf(string))       = length(string)
-  fun length'(Node(weight, _, _)) = weight
-
-
-  concat' => fun(t, t) : t
+  concat' => fun(Rope, Rope) : Rope
   fun concat'(r1, r2) {
-    def weight = length'(r1) + length'(r2)
+    def weight = r1.length'() + r2.length'()
     Node(weight, r1, r2)
   }
 
 
-  delete => fun(t, Int, Int) : t
+  delete => fun(Rope, Int, Int) : Rope
   fun delete(Leaf(string), i, j) {
     def %(s1, tmp)  = string.splitAt(i)
     def %(_, s2)    = tmp.splitAt(j - i)
-    def weight      = length(s1 @ s2)
+    def weight      = List.length(s1 @ s2)
 
     Node(weight, Leaf(s1), Leaf(s2))
   }
 
   fun delete(Node(weight, left, right), i, j) {
-    def llen  = length'(left)
+    def llen  = left.length'()
     def w     = weight - (j - i)
 
     cond {
@@ -45,28 +44,28 @@ module Rope {
   }
 
 
-  index => fun(t, Int) : Maybe{Char}
+  index => fun(Rope, Int) : Maybe{Char}
   fun index(Leaf(string), n) = string.at-index(n)
   fun index(Node(weight, left, right), n) {
     cond {
-      case n < length'(left) -> index(left, n)
-      case _                 -> index(right, n - length'(left))
+      case n < left.length'() -> index(left, n)
+      case _                  -> index(right, n - left.length'())
     }
   }
 
 
-  insert => fun(t, Int, String) : t
+  insert => fun(Rope, Int, String) : Rope
   fun insert(Leaf(oldString), n, newString) {
     def %(s1, s3) = oldString.splitAt(n)
     def s2        = newString
-    def w1        = length(s1 @ s2 @ s3)
-    def w2        = length(s1 @ s2)
+    def w1        = List.length(s1 @ s2 @ s3)
+    def w2        = List.length(s1 @ s2)
 
     Node(w1, Node(w2, Leaf(s1), Leaf(s2)), Leaf(s3))
   }
 
   fun insert(Node(_, left, right), n, string) {
-    def llen = length'(left)
+    def llen = left.length'()
     cond {
       case n < llen -> concat'(insert(left, n, string), right)
       case n > llen -> concat'(left, insert(right, n - llen, string))
@@ -75,7 +74,7 @@ module Rope {
   }
 
 
-  substring => fun(t, Int, Int) : Maybe{String}
+  substring => fun(Rope, Int, Int) : Maybe{String}
   fun substring(Leaf(str), i, j) {
     def %(_, tmp) = str.splitAt(i)
     def %(s, _)   = tmp.splitAt(j - i)
@@ -84,7 +83,7 @@ module Rope {
   }
 
   fun substring(Node(_, left, right), i, j) {
-    def llen = length'(left)
+    def llen = left.length'()
 
     cond {
       case i > j                      -> Nothing()
@@ -141,7 +140,7 @@ fun stressTests() {
   def r5 = insert(r4, 24, ".")
 
   IO.println(r5.show())
-  IO.println(length'(r5))
+  IO.println(r5.length'())
 }
 
 itWrapsTwoRopesByASingleNode()
