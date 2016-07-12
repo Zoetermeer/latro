@@ -558,7 +558,7 @@
         }
         Prims.Just
       }
-      @line{fun x136 => Int -> IntOption}))
+      @line{fun x329 => Int -> IntOption}))
 
   (test-case "it constructs ADT instances"
     (check-equal?
@@ -878,7 +878,7 @@
       @interp{
         fun(x, y) { x + y }
       }
-      @line{fun x139 => meta@"@"135 -> meta@"@"136 -> meta@"@"137}))
+      @line{fun x332 => meta@"@"328 -> meta@"@"329 -> meta@"@"330}))
 
   (test-case "it evaluates anonymous function application"
     (check-equal?
@@ -974,10 +974,6 @@
   (test-case "it evaluates clauses on custom infix operators"
     (check-equal?
       @interp-sexp{
-        fun ||(True, _) = True
-        fun ||(_, True) = True
-        fun ||(_, _) = False
-
         True || False || False
       }
       'True))
@@ -985,9 +981,6 @@
   (test-case "it evaluates a boolean AND infix operator"
     (check-equal?
       @interp-sexp{
-        fun &&(True, True) = True
-        fun &&(_, _) = False
-
         True && False
       }
       'False))
@@ -995,20 +988,17 @@
   (test-case "it evaluates recursive infix operators"
     (check-equal?
       @interp-sexp{
-        fun &&(True, True) = True
-        fun &&(_, _) = False
+        fun ~(0, 0) = False
+        fun ~(0, _) = True
+        fun ~(_, 0) = False
+        fun ~(x, y) = (x - 1) ~ (y - 1)
 
-        fun <(0, 0) = False
-        fun <(0, _) = True
-        fun <(_, 0) = False
-        fun <(x, y) = (x - 1) < (y - 1)
+        fun ~!(0, 0) = True
+        fun ~!(0, _) = True
+        fun ~!(_, 0) = False
+        fun ~!(x, y) = (x - 1) ~! (y - 1)
 
-        fun <=(0, 0) = True
-        fun <=(0, _) = True
-        fun <=(_, 0) = False
-        fun <=(x, y) = (x - 1) <= (y - 1)
-
-        3 < 4 && (10 <= 10)
+        3 ~ 4 && (10 ~! 10)
       }
       'True))
 
