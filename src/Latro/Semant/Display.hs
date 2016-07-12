@@ -186,11 +186,8 @@ instance (Sexpable a, Sexpable id) => Sexpable (AnnDef a id) where
 
 
 instance (Sexpable a, Sexpable id) => Sexpable (Exp a id) where
-  sexp (ExpAdd d a b) = List [ Symbol "ExpAdd", sexp d, sexp a, sexp b ]
-  sexp (ExpSub d a b) = List [ Symbol "ExpSub", sexp d, sexp a, sexp b ]
-  sexp (ExpDiv d a b) = List [ Symbol "ExpDiv", sexp d, sexp a, sexp b ]
-  sexp (ExpMul d a b) = List [ Symbol "ExpMul", sexp d, sexp a, sexp b ]
   sexp (ExpCons d a b) = List [ Symbol "ExpCons", sexp d, sexp a, sexp b ]
+  sexp (ExpInParens d e) = List [ Symbol "ExpInParens", sexp d, sexp e ]
   sexp (ExpCustomInfix d lhe id rhe) =
     List  [ Symbol "ExpCustomInfix"
           , sexp d
@@ -378,10 +375,6 @@ instance Sexpable Prim where
 instance (Sexpable a) => Sexpable (IL a) where
   sexp il =
     case il of
-      ILAdd d a b -> List [ Symbol "ILAdd", sexp d, sexp a, sexp b ]
-      ILSub d a b -> List [ Symbol "ILSub", sexp d, sexp a, sexp b ]
-      ILDiv d a b -> List [ Symbol "ILDiv", sexp d, sexp a, sexp b ]
-      ILMul d a b -> List [ Symbol "ILMul", sexp d, sexp a, sexp b ]
       ILCons d a b -> List [ Symbol "ILCons", sexp d, sexp a, sexp b ]
       ILApp d rator rands ->
         List  [ Symbol "ILApp"

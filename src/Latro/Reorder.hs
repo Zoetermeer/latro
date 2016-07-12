@@ -57,11 +57,8 @@ reorder env (ExpCustomInfix p outerLhe@ExpCustomInfix{} outerOpId outerRhe)
 
 reorder env e =
   case e of
-    ExpAdd p lhe rhe -> ExpAdd p (r lhe) (r rhe)
-    ExpSub p lhe rhe -> ExpSub p (r lhe) (r rhe)
-    ExpDiv p lhe rhe -> ExpDiv p (r lhe) (r rhe)
-    ExpMul p lhe rhe -> ExpMul p (r lhe) (r rhe)
     ExpCons p lhe rhe -> ExpCons p (r lhe) (r rhe)
+    ExpInParens p e -> ExpInParens p (r e)
     ExpCustomInfix p lhe opId rhe ->
       ExpCustomInfix p (r lhe) opId (r rhe)
     ExpMemberAccess p e id -> ExpMemberAccess p (r e) id
@@ -115,11 +112,8 @@ rewriteCondCaseClauseInfix clause =
 
 
 rewriteInfix :: UniqAst Exp -> UniqAst Exp
-rewriteInfix (ExpAdd p lhe rhe) = ExpAdd p (rewriteInfix lhe) (rewriteInfix rhe)
-rewriteInfix (ExpSub p lhe rhe) = ExpSub p (rewriteInfix lhe) (rewriteInfix rhe)
-rewriteInfix (ExpDiv p lhe rhe) = ExpDiv p (rewriteInfix lhe) (rewriteInfix rhe)
-rewriteInfix (ExpMul p lhe rhe) = ExpMul p (rewriteInfix lhe) (rewriteInfix rhe)
 rewriteInfix (ExpCons p lhe rhe) = ExpCons p (rewriteInfix lhe) (rewriteInfix rhe)
+rewriteInfix (ExpInParens p e) = ExpInParens p $ rewriteInfix e
 
 rewriteInfix (ExpCustomInfix p lhe opId rhe) =
   ExpApp p (ExpRef p opId) [rewriteInfix lhe, rewriteInfix rhe]

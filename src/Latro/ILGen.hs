@@ -53,11 +53,8 @@ ilGenPrim (UserId id) =
 ilGen :: Show a => Exp a UniqId -> IL a
 ilGen e =
   case e of
-    ExpAdd p l r -> ILAdd p (ilGen l) (ilGen r)
-    ExpSub p l r -> ILSub p (ilGen l) (ilGen r)
-    ExpDiv p l r -> ILDiv p (ilGen l) (ilGen r)
-    ExpMul p l r -> ILMul p (ilGen l) (ilGen r)
     ExpCons p l r -> ILCons p (ilGen l) (ilGen r)
+    ExpInParens p e -> ilGen e
     ExpMemberAccess p e id ->
       ILApp p (ILRef p id) [ilGen e]
     ExpApp p rator rands ->

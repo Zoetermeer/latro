@@ -602,19 +602,6 @@ unifyAll (ta:tb:tys) = do
   unifyAll (ty':tys)
 
 
-tcArith :: (CheckedData -> Typed IL -> Typed IL -> Typed IL)
-        -> SourcePos
-        -> Untyped IL
-        -> Untyped IL
-        -> Checked (Ty, Typed IL)
-tcArith ctor p a b = do
-  (tya, a') <- tc a
-  (tyb, b') <- tc b
-  unify tyInt tya
-  unify tyInt tyb
-  return (tyInt, ctor (OfTy p tyInt) a' b')
-
-
 -- A "syntax-level type" is just an
 -- AST representing a type
 tcTy :: UniqAst SynTy -> Checked Ty
@@ -834,11 +821,6 @@ tc (ILStr p s) = return (tyStr, ILStr (OfTy p tyStr) s)
 tc (ILChar p s) = return (tyChar, ILChar (OfTy p tyChar) s)
 tc (ILBool p b) = return (tyBool, ILBool (OfTy p tyBool) b)
 tc (ILInt p n) = return (tyInt, ILInt (OfTy p tyInt) n)
-
-tc (ILAdd p a b) = tcArith ILAdd p a b
-tc (ILSub p a b) = tcArith ILSub p a b
-tc (ILDiv p a b) = tcArith ILDiv p a b
-tc (ILMul p a b) = tcArith ILMul p a b
 
 tc (ILCons p headE listE) = do
   (tyListE, listE') <- tc listE

@@ -21,7 +21,7 @@ import Semant (SourcePos(..))
 
 $digit = 0-9
 $alpha = [a-zA-Z]
-$special = [\!\/\\\@\|\~\&\=\<\>]
+$special = [\!\/\\\@\|\~\&\=\<\>\+\-\*]
 
 tokens :-
   $white+ ;
@@ -64,10 +64,6 @@ tokens :-
   [\<] { lex' TokenLt }
   [\>] { lex' TokenGt }
   [\|] { lex' TokenPipe }
-  [\+] { lex' TokenPlus }
-  [\-] { lex' TokenMinus }
-  [\*] { lex' TokenStar }
-  [\/] { lex' TokenFSlash }
   [\;] { lex' TokenSemi }
   [\.] { lex' TokenDot }
   [\=] { lex' TokenEq }
@@ -136,10 +132,6 @@ data TokenClass =
   | TokenLt
   | TokenGt
   | TokenPipe
-  | TokenPlus
-  | TokenMinus
-  | TokenStar
-  | TokenFSlash
   | TokenSemi
   | TokenDot
   | TokenEq
@@ -212,10 +204,6 @@ unlex (TokenRParen) = ")"
 unlex (TokenLt) = "<"
 unlex (TokenGt) = ">"
 unlex (TokenPipe) = "|"
-unlex (TokenMinus) = "-"
-unlex (TokenPlus) = "+"
-unlex (TokenStar) = "*"
-unlex (TokenFSlash) = "/"
 unlex (TokenSemi) = ";"
 unlex (TokenDot) = "."
 unlex (TokenEq) = "="

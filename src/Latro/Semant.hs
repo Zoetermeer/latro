@@ -173,11 +173,7 @@ data Prim =
 
 
 data IL a =
-    ILAdd a (IL a) (IL a)
-  | ILSub a (IL a) (IL a)
-  | ILDiv a (IL a) (IL a)
-  | ILMul a (IL a) (IL a)
-  | ILCons a (IL a) (IL a)
+  ILCons a (IL a) (IL a)
   | ILApp a (IL a) [IL a]
   | ILPrim a Prim
   | ILAssign a (ILPat a) (IL a)
@@ -206,10 +202,6 @@ data IL a =
 instance ILNode IL where
   ilNodeData il =
     case il of
-      ILAdd d _ _ -> d
-      ILSub d _ _ -> d
-      ILDiv d _ _ -> d
-      ILMul d _ _ -> d
       ILCons d _ _ -> d
       ILApp d _ _ -> d
       ILPrim d _ -> d
@@ -240,11 +232,8 @@ data ILCompUnit a = ILCompUnit a [IL a]
 
 
 data Exp a id =
-    ExpAdd a (Exp a id) (Exp a id)
-  | ExpSub a (Exp a id) (Exp a id)
-  | ExpDiv a (Exp a id) (Exp a id)
-  | ExpMul a (Exp a id) (Exp a id)
-  | ExpCons a (Exp a id) (Exp a id)
+  ExpCons a (Exp a id) (Exp a id)
+  | ExpInParens a (Exp a id)
   | ExpCustomInfix a (Exp a id) id (Exp a id)
   | ExpMemberAccess a (Exp a id) id
   | ExpApp a (Exp a id) [Exp a id]
@@ -283,11 +272,8 @@ data Exp a id =
 instance AstNode Exp where
   nodeData e =
     case e of
-      ExpAdd d _ _ -> d
-      ExpSub d _ _ -> d
-      ExpDiv d _ _ -> d
-      ExpMul d _ _ -> d
       ExpCons d _ _ -> d
+      ExpInParens d _ -> d
       ExpCustomInfix d _ _ _ -> d
       ExpMemberAccess d _ _ -> d
       ExpApp d _ _ -> d

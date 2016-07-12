@@ -26,19 +26,19 @@
     (check-equal? @typecheck{42 + 3 * 1 / 33} 'Int))
 
   (test-case "it fails to typecheck using non-numerics in arithmetic"
-    (check-equal?
+    (check-match
       @typecheck{1 + True}
-      '(CantUnify (Expected Int) (Got Bool))))
+      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
 
   (test-case "it fails to typecheck using non-numerics on the LHS of arithmetic exps"
-    (check-equal?
+    (check-match
       @typecheck{False + 42}
-      '(CantUnify (Expected Int) (Got Bool))))
+      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
 
   (test-case "it fails to typecheck if no numerics are given in arithmetic"
-    (check-equal?
+    (check-match
       @typecheck{False + True}
-      '(CantUnify (Expected Int) (Got Bool))))
+      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
 
   (test-case "it typechecks list expressions"
     (check-equal?

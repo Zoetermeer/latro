@@ -98,15 +98,6 @@ restoreEnv :: InterpEnv -> Eval ()
 restoreEnv = put
 
 
-type BinOp = Int -> Int -> Int
-
-evalBinArith :: BinOp -> Typed IL -> Typed IL -> Eval Value
-evalBinArith f a b = do
-  (ValueInt a') <- evalE a
-  (ValueInt b') <- evalE b
-  return $ ValueInt $ f a' b'
-
-
 freshId :: Eval UniqId
 freshId = do
   alphaEnv <- gets alphaEnv
@@ -216,10 +207,6 @@ evalE (ILInt _ i) = return $ ValueInt i
 evalE (ILBool _ b) = return $ ValueBool b
 evalE (ILStr _ s) = return $ ValueList $ map ValueChar s
 evalE (ILChar _ [c]) = return $ ValueChar c
-evalE (ILAdd _ a b) = evalBinArith (+) a b
-evalE (ILSub _ a b) = evalBinArith (-) a b
-evalE (ILDiv _ a b) = evalBinArith quot a b
-evalE (ILMul _ a b) = evalBinArith (*) a b
 
 evalE (ILCons _ a b) = do
   vHd <- evalE a

@@ -530,11 +530,11 @@ convertBin c p a b = do
 
 
 convert :: UniqAst Exp -> AlphaConverted (UniqAst Exp)
-convert (ExpAdd p a b) = convertBin ExpAdd p a b
-convert (ExpSub p a b) = convertBin ExpSub p a b
-convert (ExpDiv p a b) = convertBin ExpDiv p a b
-convert (ExpMul p a b) = convertBin ExpMul p a b
 convert (ExpCons p a b) = convertBin ExpCons p a b
+convert (ExpInParens p e) = do
+  e' <- convert e
+  return $ ExpInParens p e'
+
 convert (ExpCustomInfix p lhe id rhe) = do
   lhe' <- convert lhe
   rhe' <- convert rhe
@@ -813,11 +813,8 @@ instance InjectUserIds TypeDec where
 instance InjectUserIds Exp where
   inject e =
     case e of
-      ExpAdd p a b -> ExpAdd p (r a) (r b)
-      ExpSub p a b -> ExpSub p (r a) (r b)
-      ExpDiv p a b -> ExpDiv p (r a) (r b)
-      ExpMul p a b -> ExpMul p (r a) (r b)
       ExpCons p a b -> ExpCons p (r a) (r b)
+      ExpInParens p e -> ExpInParens p (r e)
       ExpCustomInfix p a rator b ->
         ExpCustomInfix p (r a) (UserId rator) (r b)
       ExpMemberAccess p e id -> ExpMemberAccess p (r e) (UserId id)

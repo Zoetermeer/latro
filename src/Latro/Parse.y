@@ -54,10 +54,6 @@ import Semant
   '<' { Token _ TokenLt }
   '>' { Token _ TokenGt }
   '|' { Token _ TokenPipe }
-  '+' { Token _ TokenPlus }
-  '-' { Token _ TokenMinus }
-  '*' { Token _ TokenStar }
-  '/' { Token _ TokenFSlash }
   ';' { Token _ TokenSemi }
   '.' { Token _ TokenDot }
   '=' { Token _ TokenEq }
@@ -161,7 +157,7 @@ FunHeader : SingleParamFunHeader { (fst $1, [snd $1]) }
           | MultiParamFunHeader { $1 }
           | fun '(' ')' { (pos $1, []) }
 
-AtomExp : '(' Exp ')' { $2 }
+AtomExp : '(' Exp ')' { ExpInParens (nodeData $2) $2 }
         | '(' ')' { ExpUnit (pos $1) }
         | '%(' Exp TupleRestExps ')' { ExpTuple (pos $1) ($2:$3) }
         | ListExp { $1 }
@@ -181,20 +177,8 @@ MemberAccessExp : AppExp '.' SimpleOrMixedId { ExpMemberAccess (nodeData $1) $1 
 AppExp : AppExp '(' ArgExps ')' { ExpApp (nodeData $1) $1 $3 }
        | MemberAccessExp { $1 }
 
-MulExp : MulExp '*' AppExp { ExpMul (nodeData $1) $1 $3 }
-       | AppExp { $1 }
-
-DivExp : DivExp '/' MulExp { ExpDiv (nodeData $1) $1 $3 }
-       | MulExp { $1 }
-
-AddExp : AddExp '+' DivExp { ExpAdd (nodeData $1) $1 $3 }
-       | DivExp { $1 }
-
-SubExp : SubExp '-' AddExp { ExpSub (nodeData $1) $1 $3 }
-       | AddExp { $1 }
-
-ConsExp : SubExp '::' ConsExp { ExpCons (nodeData $1) $1 $3 }
-        | SubExp { $1 }
+ConsExp : AppExp '::' ConsExp { ExpCons (nodeData $1) $1 $3 }
+        | AppExp { $1 }
 
 CustomInfixExp : CustomInfixExp SpecialId ConsExp { ExpCustomInfix (nodeData $1) $1 (tokValue $2) $3 }
                | ConsExp { $1 }

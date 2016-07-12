@@ -45,11 +45,12 @@
       `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier x))))
 
   (test-case "it evaluates arithmetic exps"
-    (check-equal? (interp-sexp "4 + 3") 7)
-    (check-equal? (interp-sexp "4 + 3 * 2") 10)
-    (check-equal? (interp-sexp "4 - 3 / 3") 3)
-    (check-equal? (interp-sexp "3 * 2 + 4") 10)
-    (check-equal? (interp-sexp "(4 + 3) * 2") 14))
+    (check-equal? @interp-sexp{4 + 3} 7)
+    (check-equal? @interp-sexp{4 + 3 * 2} 10)
+    (check-equal? @interp-sexp{4 - 3 / 3} 3)
+    (check-equal? @interp-sexp{3 * 2 + 4} 10)
+    (check-equal? @interp-sexp{((4 + 3) - 42 * 3) + 100 / 10} -109)
+    (check-equal? @interp-sexp{(4 + 3) * 2} 14))
 
   (test-case "it evaluates arithmetic expressions involving application"
     (check-equal?
@@ -557,7 +558,7 @@
         }
         Prims.Just
       }
-      @line{fun x20 => Int -> IntOption}))
+      @line{fun x136 => Int -> IntOption}))
 
   (test-case "it constructs ADT instances"
     (check-equal?
@@ -877,7 +878,7 @@
       @interp{
         fun(x, y) { x + y }
       }
-      @line{fun x21 => meta@"@"18 -> meta@"@"19 -> meta@"@"20}))
+      @line{fun x139 => meta@"@"135 -> meta@"@"136 -> meta@"@"137}))
 
   (test-case "it evaluates anonymous function application"
     (check-equal?
@@ -964,6 +965,7 @@
     (check-equal?
       @interp-sexp{
         fun !!(a, b) = a * b
+        precedence !! 10
 
         2 !! 3 + 4
       }
@@ -1059,12 +1061,12 @@
         fun <(_, 0) = False
         fun <(a, b) = a - 1 < b - 1
 
-        precedence < 1
+        precedence < 10
 
         fun &&(True, True) = True
         fun &&(_, _) = False
 
-        precedence && 2
+        precedence && 11
 
         def i = 1
         def j = 2
