@@ -210,6 +210,11 @@ instance (Sexpable a, Sexpable id) => Sexpable (Exp a id) where
           , sexp rator
           , toSexpList rands
           ]
+  sexp (ExpPrim d rator) =
+    List  [ Symbol "ExpPrim"
+          , sexp d
+          , sexp rator
+          ]
   sexp (ExpImport d qid) = List [ Symbol "ExpImport", sexp d, sexp qid ]
   sexp (ExpAssign d patE e) =
     List  [ Symbol "ExpAssign"
@@ -354,6 +359,22 @@ instance (Sexpable a) => Sexpable (ILPat a) where
       ILPatWildcard d -> List [ Symbol "ILPatWildcard", sexp d ]
 
 
+instance Sexpable Prim where
+  sexp prim =
+    case prim of
+      PrimPrintln -> Symbol "PrimPrintln"
+      PrimIntAdd -> Symbol "PrimIntAdd"
+      PrimIntSub -> Symbol "PrimIntSub"
+      PrimIntDiv -> Symbol "PrimIntDiv"
+      PrimIntMul -> Symbol "PrimIntMul"
+      PrimIntEq -> Symbol "PrimIntEq"
+      PrimIntLt -> Symbol "PrimIntLt"
+      PrimIntLeq -> Symbol "PrimIntLeq"
+      PrimIntGt -> Symbol "PrimIntGt"
+      PrimIntGeq -> Symbol "PrimIntGeq"
+      PrimUnknown id -> List [ Symbol "PrimUnknown", sexp id ]
+
+
 instance (Sexpable a) => Sexpable (IL a) where
   sexp il =
     case il of
@@ -367,6 +388,11 @@ instance (Sexpable a) => Sexpable (IL a) where
               , sexp d
               , sexp rator
               , toSexpList rands
+              ]
+      ILPrim d prim ->
+        List  [ Symbol "ILPrim"
+              , sexp d
+              , sexp prim
               ]
       ILAssign d patE e -> List [ Symbol "ILAssign", sexp d, sexp patE, sexp e ]
       ILTypeDec d typeDec -> List [ Symbol "ILTypeDec", sexp d, sexp typeDec ]
@@ -520,8 +546,6 @@ instance Sexpable TyCon where
     List [ Symbol "Struct", toSexpList fieldNames ]
   sexp (TyConAdt ctorNames) =
     List [ Symbol "Adt", toSexpList ctorNames ]
-  sexp (TyConModule tyParamIds tcMod) =
-    List [ Symbol "Module", toSexpList tyParamIds, sexp tcMod ]
   sexp (TyConTyFun tyVarIds ty) =
     List [ Symbol "TyFun", toSexpList tyVarIds, sexp ty ]
   sexp (TyConUnique id tyCon) =

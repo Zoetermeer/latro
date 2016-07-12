@@ -38,6 +38,7 @@ import Semant
   cond { Token _ TokenCond }
   case { Token _ TokenCase }
   precedence { Token _ TokenPrecedence }
+  prim { Token _ TokenPrim }
   ':=' { Token _ TokenAssign }
   '->' { Token _ TokenArrow }
   '=>' { Token _ TokenRocket }
@@ -166,6 +167,7 @@ AtomExp : '(' Exp ')' { $2 }
         | ListExp { $1 }
         | QualifiedId '%{' StructFieldInitializers '}' { ExpStruct (nodeData $1) $1 $3 }
         | FunHeader FunBody { ExpFun (fst $1) (snd $1) $2 }
+        | prim '(' simple_id ')' { ExpPrim (pos $1) (tokValue $3) }
         | num { ExpNum (pos $1) (tokValue $1) }
         | True { ExpBool (pos $1) True }
         | False { ExpBool (pos $1) False }
@@ -173,7 +175,7 @@ AtomExp : '(' Exp ')' { $2 }
         | char { ExpChar (pos $1) (tokValue $1) }
         | QualifiedId { ExpQualifiedRef (nodeData $1) $1 }
 
-MemberAccessExp : AppExp '.' SimpleOrMixedId{ ExpMemberAccess (nodeData $1) $1 (tokValue $3) }
+MemberAccessExp : AppExp '.' SimpleOrMixedId { ExpMemberAccess (nodeData $1) $1 (tokValue $3) }
                 | AtomExp { $1 }
 
 AppExp : AppExp '(' ArgExps ')' { ExpApp (nodeData $1) $1 $3 }

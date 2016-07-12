@@ -151,6 +151,11 @@ instance Sexpable Err where
           , List [ Symbol "ReturnType", sexp retTy ]
           ]
 
+  sexp (ErrPrimUnknown primId) =
+    List  [ Symbol "PrimUnknown"
+          , sexp primId
+          ]
+
   sexp (ErrInterpFailure s) =
     List  [ Symbol "InterpFailure"
           , Atom "Non-exhaustive pattern"

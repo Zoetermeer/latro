@@ -1,7 +1,9 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 module Semant where
 
+import Data.List (intersperse)
 import qualified Data.Map as Map
+import Text.Printf (printf)
 
 
 type LineNumber = Int
@@ -155,6 +157,21 @@ instance ILNode ILPat where
       ILPatWildcard d -> d
 
 
+data Prim =
+    PrimPrintln
+  | PrimIntAdd
+  | PrimIntSub
+  | PrimIntDiv
+  | PrimIntMul
+  | PrimIntEq
+  | PrimIntLt
+  | PrimIntLeq
+  | PrimIntGt
+  | PrimIntGeq
+  | PrimUnknown RawId
+  deriving (Eq, Show)
+
+
 data IL a =
     ILAdd a (IL a) (IL a)
   | ILSub a (IL a) (IL a)
@@ -162,6 +179,7 @@ data IL a =
   | ILMul a (IL a) (IL a)
   | ILCons a (IL a) (IL a)
   | ILApp a (IL a) [IL a]
+  | ILPrim a Prim
   | ILAssign a (ILPat a) (IL a)
   | ILTypeDec a (TypeDec a UniqId)
   | ILWithAnn a (TyAnn a UniqId) (IL a)
@@ -194,6 +212,7 @@ instance ILNode IL where
       ILMul d _ _ -> d
       ILCons d _ _ -> d
       ILApp d _ _ -> d
+      ILPrim d _ -> d
       ILAssign d _ _ -> d
       ILTypeDec d _ -> d
       ILWithAnn d _ _ -> d
@@ -229,6 +248,7 @@ data Exp a id =
   | ExpCustomInfix a (Exp a id) id (Exp a id)
   | ExpMemberAccess a (Exp a id) id
   | ExpApp a (Exp a id) [Exp a id]
+  | ExpPrim a id
   | ExpImport a (QualifiedId a id)
   | ExpAssign a (PatExp a id) (Exp a id)
   | ExpTypeDec a (TypeDec a id)
@@ -271,6 +291,7 @@ instance AstNode Exp where
       ExpCustomInfix d _ _ _ -> d
       ExpMemberAccess d _ _ -> d
       ExpApp d _ _ -> d
+      ExpPrim d _ -> d
       ExpImport d _ -> d
       ExpAssign d _ _ -> d
       ExpTypeDec d _ -> d
@@ -386,7 +407,10 @@ instance AstNode SynTy where
 data UniqId =
     UserId RawId
   | UniqId Int RawId
-  deriving (Show)
+
+instance Show UniqId where
+  show (UserId raw) = raw
+  show (UniqId _ raw) = raw
 
 instance Eq UniqId where
   (UserId raw) == (UserId raw') = raw == raw'
@@ -471,8 +495,29 @@ data Value =
   | ValueTuple [Value]
   | ValueList [Value]
   | ValueUnit
+  | ValuePrim Prim
   | Err String
-  deriving (Eq, Show)
+  deriving (Eq)
+
+
+instance Show Value where
+  show v =
+    case v of
+      ValueInt i -> show i
+      ValueBool b -> show b
+      ValueChar c -> printf "'%c'" c
+      ValueFun (Closure fid fty _ paramIds _) -> printf "fun %s => %s" (show fid) (show fty)
+      ValueStruct struct -> "struct"
+      ValueAdt (Adt uid i vs) ->
+        printf "%s(%s)" (show uid) (concat . intersperse ", " $ map show vs)
+      ValueTuple vs -> printf "%%(%s)" $ concat . intersperse ", " $ map show vs
+      ValueList vs@((ValueChar c) : _) ->
+        let str = map (\(ValueChar c) -> c) vs
+        in show str
+      ValueList vs -> printf "[%s]" $ concat . intersperse ", " $ map show vs
+      ValueUnit -> "Unit"
+      ValuePrim prim -> "prim"
+      Err str -> "Error = " ++ str
 
 
 type TyVarId = UniqId
@@ -486,7 +531,20 @@ data Ty =
   | TyMeta TyVarId
   | TyRef (QualifiedId SourcePos UniqId) -- Only for recursive type definitions
   | TyInstFun Ty Ty
-  deriving (Eq, Show)
+  deriving (Eq)
+
+
+instance Show Ty where
+  show (TyApp tyCon []) = show tyCon
+  show (TyApp TyConArrow tyArgs) = concat . intersperse " -> " $ map show tyArgs
+  show (TyApp tyCon tyArgs) = printf "%s{%s}" (show tyCon) (concat . intersperse ", " $ map show tyArgs)
+  show (TyPoly [] ty) = show ty
+  show (TyPoly tyParams ty) = printf "{%s} %s" (concat . intersperse ", " $ map show tyParams) (show ty)
+  show (TyVar id) = show id
+  show (TyMeta id) = show id
+  show (TyRef qid) = show qid
+  show (TyInstFun instTy ty) = printf "(%s) %s" (show instTy) (show ty)
+
 
 data ModuleBinding =
     ModuleBindingTyCon FieldName TyCon
@@ -551,9 +609,18 @@ data TyCon =
   | TyConArrow
   | TyConStruct [FieldName]
   | TyConAdt [CtorName]
-  | TyConModule [TyVarId] TCModule
-  | TyConInterface [ModuleBinding]
   | TyConTyFun [TyVarId] Ty
   | TyConUnique UniqId TyCon
   | TyConTyVar TyVarId -- In the body of a tyfun/poly
-  deriving (Eq, Show)
+  deriving (Eq)
+
+
+instance Show TyCon where
+  show TyConInt = "Int"
+  show TyConBool = "Bool"
+  show TyConChar = "Char"
+  show TyConUnit = "Unit"
+  show TyConList = "[]"
+  show TyConTuple = "(,)"
+  show (TyConUnique id _) = show id
+  show (TyConTyFun [] ty) = show ty

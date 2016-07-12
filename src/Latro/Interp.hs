@@ -8,7 +8,6 @@ import Control.Monad (unless)
 import Control.Monad.Except
 import Control.Monad.State
 import Data.Either.Utils (maybeToEither)
-import Data.Functor.Identity (runIdentity)
 import Data.List
 import qualified Data.Map as Map
 import Data.Maybe (fromJust, isJust)
@@ -17,6 +16,7 @@ import Errors
 import Parse
 import Prelude hiding (lookup)
 import Semant
+import Semant.Display
 import Text.Printf (printf)
 
 
@@ -41,7 +41,7 @@ data InterpEnv = InterpEnv
   }
   deriving (Eq)
 
-type Eval a = ExceptT Err (State InterpEnv) a
+type Eval a = ExceptT Err (StateT InterpEnv IO) a
 
 
 mtExports :: Exports
@@ -180,6 +180,37 @@ evalPat (ILPatId _ id) v = do
   return ()
 
 
+primArith :: (Int -> Int -> Int) -> [Value] -> Value
+primArith op [ValueInt x, ValueInt y] = ValueInt $ x `op` y
+
+
+primCmp :: (Int -> Int -> Bool) -> [Value] -> Value
+primCmp op [ValueInt x, ValueInt y] = ValueBool $ x `op` y
+
+
+printV :: IO () -> Eval Value
+printV act = do
+  _ <- liftIO act
+  return ValueUnit
+
+
+evalPrimApp :: Prim -> [Typed IL] -> Eval Value
+evalPrimApp prim argEs = do
+  argVs <- mapM evalE argEs
+  case prim of
+    PrimIntAdd -> return $ primArith (+) argVs
+    PrimIntSub -> return $ primArith (-) argVs
+    PrimIntDiv -> return $ primArith (quot) argVs
+    PrimIntMul -> return $ primArith (*) argVs
+    PrimIntEq -> return $ primCmp (==) argVs
+    PrimIntLt -> return $ primCmp (<) argVs
+    PrimIntLeq -> return $ primCmp (<=) argVs
+    PrimIntGt -> return $ primCmp (>) argVs
+    PrimIntGeq -> return $ primCmp (>=) argVs
+    PrimPrintln -> do liftIO $ putStrLn $ show $ head argVs
+                      return ValueUnit
+
+
 evalE :: Typed IL -> Eval Value
 evalE (ILInt _ i) = return $ ValueInt i
 evalE (ILBool _ b) = return $ ValueBool b
@@ -236,19 +267,24 @@ evalE (ILUnit _) = return ValueUnit
 evalE (ILBegin _ es) = evalEs es
 
 evalE (ILApp _ e argEs) = do
-  fv@(ValueFun (Closure fid fTy fenv paramIds bodyEs)) <- evalE e
-  argVs <- mapM evalE argEs
+  fv <- evalE e
+  case fv of
+    ValuePrim prim -> evalPrimApp prim argEs
+    ValueFun (Closure fid fTy fenv paramIds bodyEs) -> do
+      argVs <- mapM evalE argEs
 
-  preApplyInterpEnv <- get
-  put (preApplyInterpEnv { varEnv = fenv })
+      preApplyInterpEnv <- get
+      put (preApplyInterpEnv { varEnv = fenv })
 
-  bindVar fid fv
-  let argVTbl = zip paramIds argVs
-  mapM_ (uncurry bindVar) argVTbl
-  retV <- evalEs bodyEs
+      bindVar fid fv
+      let argVTbl = zip paramIds argVs
+      mapM_ (uncurry bindVar) argVTbl
+      retV <- evalEs bodyEs
 
-  restoreEnv preApplyInterpEnv
-  return retV
+      restoreEnv preApplyInterpEnv
+      return retV
+
+evalE (ILPrim _ prim) = return $ ValuePrim prim
 
 evalE (ILFun (OfTy _ ty) paramIds bodyEs) = do
   cloEnv <- getClosureEnv
@@ -292,6 +328,7 @@ eval :: Typed ILCompUnit -> Eval Value
 eval (ILCompUnit _ es) = evalEs es
 
 
-interp :: Typed ILCompUnit -> AlphaEnv -> Either Err Value
-interp alphaConverted alphaEnv =
-  evalState (runExceptT $ eval alphaConverted) $ mtInterpEnv alphaEnv
+interp :: Typed ILCompUnit -> AlphaEnv -> IO (Either Err Value)
+interp alphaConverted alphaEnv = do
+  v <- liftIO $ evalStateT (runExceptT $ eval alphaConverted) $ mtInterpEnv alphaEnv
+  return v

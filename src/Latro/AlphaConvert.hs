@@ -550,6 +550,8 @@ convert (ExpApp p ratorE randEs) = do
   randEs' <- mapM convert randEs
   return $ ExpApp p ratorE' randEs'
 
+convert (ExpPrim p ratorId) = return $ ExpPrim p ratorId
+
 convert (ExpImport p qid) = do
   firstPass <- isFirstPass
   if firstPass
@@ -820,6 +822,7 @@ instance InjectUserIds Exp where
         ExpCustomInfix p (r a) (UserId rator) (r b)
       ExpMemberAccess p e id -> ExpMemberAccess p (r e) (UserId id)
       ExpApp p rator rands -> ExpApp p (r rator) (map r rands)
+      ExpPrim p rator -> ExpPrim p $ UserId rator
       ExpImport p qid -> ExpImport p $ inject qid
       ExpAssign p patE e -> ExpAssign p (inject patE) (r e)
       ExpTypeDec p typeDec -> ExpTypeDec p $ inject typeDec

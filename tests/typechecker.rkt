@@ -230,7 +230,7 @@
 
   (test-case "it reports an error for tuple patterns with non-tuple right-hand exps"
     (check-match
-      @interp{
+      @typecheck{
         def %(a, b) = 42
         a
       }

@@ -3,6 +3,7 @@ module Main where
 import AlphaConvert
 import Common
 import Control.Monad
+import Control.Monad.Except (runExceptT)
 import Data.Functor.Identity (runIdentity)
 import Errors
 import Errors.Display
@@ -87,10 +88,6 @@ showTypedAstCmd :: Typed ILCompUnit -> Command (Typed ILCompUnit)
 showTypedAstCmd typedIL =
   Command DumpTypedAst sexp $ return typedIL
 
-interpCmd :: Typed ILCompUnit -> AlphaEnv -> Command Value
-interpCmd typedIL alphaEnv =
-  Command Evaluate sexp $ Interp.interp typedIL alphaEnv
-
 
 runCmd :: UserSwitch -> Command a -> CommandResult a
 runCmd switch (Command dumpOnSwitch dumpSexp result) =
@@ -107,7 +104,7 @@ combineAsts cus =
   CompUnit mtSourcePos $ concatMap (\(CompUnit _ bodyEs) -> bodyEs) cus
 
 
-run :: UserSwitch -> [(FilePath, ProgramText)] -> CommandResult Value
+run :: UserSwitch -> [(FilePath, ProgramText)] -> CommandResult (Typed ILCompUnit, AlphaEnv)
 run switch pathsAndSources =
   let runCmd' = runCmd switch
   in do asts <- mapM (runCmd' . uncurry parseCmd) pathsAndSources
@@ -117,7 +114,7 @@ run switch pathsAndSources =
         il <- runCmd' $ ilGenCmd reorderedAst
         (typedIL, alphaEnv') <- runCmd' $ tcCmd il alphaEnv
         runCmd' $ showTypedAstCmd typedIL
-        runCmd' $ interpCmd typedIL alphaEnv'
+        return (typedIL, alphaEnv')
 
 
 getUserSwitch :: [String] -> (UserSwitch, [FilePath])
@@ -136,6 +133,10 @@ main = do
   let (switch, filePaths) = getUserSwitch args
   sources <- mapM readFile filePaths
   case run switch (zip filePaths sources) of
-    Success v -> printf "%s" $ showSexp v
+    Success (il, alphaEnv) -> do
+      result <- Interp.interp il alphaEnv
+      case result of
+        Left err -> putStrLn $ showSexp err
+        Right v -> putStrLn $ show v
     DumpOutput sexp -> printf "%s" $ show sexp
     Error err -> printf "%s" $ showSexp err

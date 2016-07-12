@@ -867,6 +867,25 @@ tc (ILApp p ratorE randEs) = do
   else do ty' <- subst ty
           return (ty', ILApp (OfTy p ty) ratorE' randEs')
 
+tc (ILPrim p prim) = do
+    primTy <- case prim of
+                PrimPrintln -> do
+                  paramMeta <- freshMeta
+                  return $ TyApp TyConArrow [paramMeta, tyUnit]
+                PrimIntAdd -> intArithTy
+                PrimIntSub -> intArithTy
+                PrimIntDiv -> intArithTy
+                PrimIntMul -> intArithTy
+                PrimIntEq -> intCmpTy
+                PrimIntLt -> intCmpTy
+                PrimIntLeq -> intCmpTy
+                PrimIntGt -> intCmpTy
+                PrimIntGeq -> intCmpTy
+                PrimUnknown id -> throwError (ErrPrimUnknown id) `reportErrorAt` p
+    return (primTy, ILPrim (OfTy p primTy) prim)
+  where intArithTy = return $ TyApp TyConArrow [tyInt, tyInt, tyInt]
+        intCmpTy   = return $ TyApp TyConArrow [tyInt, tyInt, tyBool]
+
 tc (ILAssign p patE (ILFun funP paramIds bodyEs)) =
   case patE of
     ILPatId patP id -> do

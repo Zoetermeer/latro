@@ -4,28 +4,56 @@
   (require "common.rkt"
            rackunit)
 
+  (test-case "it applies built-in primitives"
+    (check-equal?
+      @interp{
+        prim(println)(42)
+      }
+      "42\nUnit\n"))
+
+  (test-case "it applies functions from core modules"
+    (check-equal?
+      @interp{
+        IO.println(42)
+      }
+      "42\nUnit\n"))
+
+  (test-case "it rejects application of unknown primitives"
+    (check-match
+      @interp-sexp{
+        prim(foo)(42)
+      }
+      `(AtPos ,_ (CompilerModule Types) (PrimUnknown foo))))
+
+  (test-case "it evaluates built-in integer primitives"
+    (check-match
+      @interp{
+        prim(intEq)(3, 4)
+      }
+      "False\n"))
+
   (test-case "it evaluates literals"
-    (check-equal? @interp{True} 'True)
-    (check-equal? @interp{False} 'False)
-    (check-equal? @interp{42} 42)
-    (check-equal? @interp{"hello"} "hello")
-    (check-equal? @interp{'f'} #\f))
+    (check-equal? @interp-sexp{True} 'True)
+    (check-equal? @interp-sexp{False} 'False)
+    (check-equal? @interp-sexp{42} 42)
+    (check-equal? @interp-sexp{"hello"} "hello")
+    (check-equal? @interp{'f'} "'f'\n"))
 
   (test-case "it returns an error for unbound identifiers"
     (check-match
-      @interp{x}
+      @interp-sexp{x}
       `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier x))))
 
   (test-case "it evaluates arithmetic exps"
-    (check-equal? (interp "4 + 3") 7)
-    (check-equal? (interp "4 + 3 * 2") 10)
-    (check-equal? (interp "4 - 3 / 3") 3)
-    (check-equal? (interp "3 * 2 + 4") 10)
-    (check-equal? (interp "(4 + 3) * 2") 14))
+    (check-equal? (interp-sexp "4 + 3") 7)
+    (check-equal? (interp-sexp "4 + 3 * 2") 10)
+    (check-equal? (interp-sexp "4 - 3 / 3") 3)
+    (check-equal? (interp-sexp "3 * 2 + 4") 10)
+    (check-equal? (interp-sexp "(4 + 3) * 2") 14))
 
   (test-case "it evaluates arithmetic expressions involving application"
     (check-equal?
-      @interp{
+      @interp-sexp{
         f => fun(Int) : Int
         fun f(x) = x
 
@@ -35,7 +63,7 @@
 
   (test-case "it evaluates string patterns"
     (check-equal?
-      @interp{
+      @interp-sexp{
         switch ("hello") {
           case "foo" -> "bar"
           case "hello" -> "world"
@@ -46,7 +74,7 @@
 
   (test-case "it evaluates if-else expressions"
     (check-equal?
-      @interp{
+      @interp-sexp{
         if (True) {
           42
         } else {
@@ -57,7 +85,7 @@
 
   (test-case "it takes the else branch on false"
     (check-equal?
-      @interp{
+      @interp-sexp{
         if (False) {
           42
         } else {
@@ -83,7 +111,7 @@
 
   (test-case "it evaluates non-literals in the test position"
     (check-equal?
-      @interp{
+      @interp-sexp{
         def f = fun(x) {
           if (x) { True } else { False }
         }
@@ -98,29 +126,29 @@
 
   (test-case "it evaluates nested if-else expressions"
     (check-equal?
-      @interp{
+      @interp-sexp{
         42 + (if (True) { 1 } else { 2 })
       }
       43))
 
   (test-case "it returns function values"
-    (check-match
+    (check-equal?
       @interp{
         fun f() = 42
 
         f
       }
-      `(Fun (Id f ,_) (CloEnv ()))))
+      @line{fun f => Int}))
 
   (test-case "it returns function values with closures"
-    (check-match
+    (check-equal?
       @interp{
         def v = 1
         fun f() = v
 
         f
       }
-      `(Fun (Id f ,_) (CloEnv ((Id v ,_))))))
+      @line{fun f => Int}))
 
   (test-case "it evaluates the shorthand syntax for single-expression function bodies"
     (check-equal?
@@ -135,7 +163,7 @@
 
   (test-case "it adds definitions to module exports"
     (check-match
-      @interp{
+      @interp-sexp{
         module m { def v = 42 }
         m.v
       }
@@ -143,7 +171,7 @@
 
   (test-case "it applies functions on modules with multiple decs"
     (check-equal?
-      @interp{
+      @interp-sexp{
         module m {
           fun f() = 42
           fun g() = 43
@@ -155,7 +183,7 @@
 
   (test-case "it returns values defined in modules"
     (check-equal?
-      @interp{
+      @interp-sexp{
         module m { def v = 42 }
         m.v
       }
@@ -163,7 +191,7 @@
 
   (test-case "it can apply module-exported functions"
     (check-equal?
-      @interp{
+      @interp-sexp{
         module m {
           f => fun() : Int
           fun f() = 42
@@ -174,7 +202,7 @@
 
   (test-case "it can apply module-exported functions occurring after a nested module dec"
     (check-equal?
-      @interp{
+      @interp-sexp{
         module m {
           module n { }
 
@@ -187,7 +215,7 @@
 
   (test-case "it can apply module-exported functions occurring before a nested module dec"
     (check-equal?
-      @interp{
+      @interp-sexp{
         module m {
           f => fun() : Int
           fun f() = 42
@@ -200,7 +228,7 @@
 
   (test-case "it returns values defined in nested modules"
     (check-equal?
-      @interp{
+      @interp-sexp{
         module a {
           module b {
             def v = 42
@@ -213,7 +241,7 @@
 
   (test-case "it applies defined functions"
     (check-equal?
-      @interp{
+      @interp-sexp{
         f => fun() : Int
         fun f() = 42
         f()
@@ -222,7 +250,7 @@
 
   (test-case "it substitutes function args"
     (check-equal?
-      @interp{
+      @interp-sexp{
         f => fun(Int) : Int
         fun f(x) = x
         f(42)
@@ -231,7 +259,7 @@
 
   (test-case "it correctly shadows bindings in function bodies"
     (check-equal?
-      @interp{
+      @interp-sexp{
         module m { }
         f => fun(Int) : Int
         fun f(m) = m
@@ -241,7 +269,7 @@
 
   (test-case "it captures bindings from the env in function bodies"
     (check-equal?
-      @interp{
+      @interp-sexp{
         def v = 42
         f => fun() : Int
         fun f() = v
@@ -251,7 +279,7 @@
 
   (test-case "it returns nested module values"
     (check-match
-      @interp{
+      @interp-sexp{
         module m {
           module m' {
             g => fun() : Int
@@ -268,7 +296,7 @@
 
   (test-case "it resolves functions on nested modules"
     (check-equal?
-      @interp{
+      @interp-sexp{
         module m {
           module m' {
             g => fun() : Int
@@ -285,7 +313,7 @@
 
   (test-case "it evaluates functions with compound bodies on nested modules"
     (check-equal?
-      @interp{
+      @interp-sexp{
         module m {
           module m1 {
             g => fun(Int, Int) : Int
@@ -302,7 +330,7 @@
 
   (test-case "it evaluates higher-order functions"
     (check-equal?
-      @interp{
+      @interp-sexp{
         f => fun(fun(Int) : Int, Int) : Int
         fun f(g, x) {
           g(10) + x
@@ -319,7 +347,7 @@
 
   (test-case "it does not allow nested modules to escape the local env"
     (check-match
-      @interp{
+      @interp-sexp{
         module m {
           module m1 {
             g => fun(Int, Int) : Int
@@ -335,7 +363,7 @@
 
   (test-case "it does not capture id's in lexical scope for modules as exports"
     (check-match
-      @interp{
+      @interp-sexp{
         module m {
           f => fun() : Int
           fun f() = 42
@@ -349,7 +377,7 @@
 
   (test-case "it evaluates recursive functions"
     (check-equal?
-      @interp{
+      @interp-sexp{
         fun not(True) = False
         fun not(_) = True
 
@@ -372,7 +400,7 @@
 
   (test-case "it resolves member accesses on captured modules"
     (check-equal?
-      @interp{
+      @interp-sexp{
         module m {
           module n {
             module o {
@@ -390,7 +418,7 @@
 
   (test-case "it evaluates accesses on module-level scalars"
     (check-equal?
-      @interp{
+      @interp-sexp{
         module m {
           def v = 6
         }
@@ -401,7 +429,7 @@
 
   (test-case "it can access prior bindings in a module closure"
     (check-match
-      @interp{
+      @interp-sexp{
         module m {
           f => fun() : Int
           fun f() = 2
@@ -420,7 +448,7 @@
 
   (test-case "it evaluates accesses on nested-module-level scalars"
     (check-equal?
-      @interp{
+      @interp-sexp{
         module m {
           module n {
             def v = 6
@@ -433,15 +461,15 @@
 
   (test-case "it returns the empty struct"
     (check-match
-      @interp{
+      @interp-sexp{
         type t = struct { }
         t %{ }
       }
-      `(Adt (Id t ,_) 0 ())))
+      't))
 
   (test-case "it evaluates struct instances"
     (check-match
-      @interp{
+      @interp-sexp{
         type Point = struct {
           Int X;
           Int Y;
@@ -449,11 +477,11 @@
 
         Point %{ X = 3; Y = 4; }
       }
-      `(Adt (Id Point ,_) 0 (3 4))))
+      'Point))
 
   (test-case "it evaluates struct field accesses"
     (check-equal?
-      @interp{
+      @interp-sexp{
         type Point = struct {
           Int X;
           Int Y;
@@ -466,7 +494,7 @@
 
   (test-case "it returns an error on undefined-field accesses"
     (check-match
-      @interp{
+      @interp-sexp{
         type t = struct { }
         def v = t %{ }
         x(v)
@@ -475,7 +503,7 @@
 
   (test-case "it evaluates nested struct field accesses"
     (check-equal?
-      @interp{
+      @interp-sexp{
         type Point = struct {
           Int X;
           Int Y;
@@ -497,7 +525,7 @@
 
   (test-case "it evaluates module-exported struct types"
     (check-equal?
-      @interp{
+      @interp-sexp{
         module Geometry {
           type Point = struct {
             Int X;
@@ -520,7 +548,7 @@
       4))
 
   (test-case "it exports algebraic data type constructors"
-    (check-match
+    (check-equal?
       @interp{
         module Prims {
           type IntOption =
@@ -529,10 +557,10 @@
         }
         Prims.Just
       }
-      `(Fun ,_ (CloEnv ()))))
+      @line{fun x20 => Int -> IntOption}))
 
   (test-case "it constructs ADT instances"
-    (check-match
+    (check-equal?
       @interp{
         type IntOption =
           | Just(Int)
@@ -540,11 +568,11 @@
 
         Just(42)
       }
-      `(Adt (Id Just ,_) 0 (42))))
+      @line{Just(42)}))
 
   (test-case "it scopes ADT defs/ctors to module exports"
     (check-match
-      @interp{
+      @interp-sexp{
         module m {
           type IntOption =
             | Just(Int)
@@ -556,7 +584,7 @@
       `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier Just))))
 
   (test-case "it evaluates multi-arity ADT constructors"
-    (check-match
+    (check-equal?
       @interp{
         type T =
           | IBTuple(Int, Bool)
@@ -564,21 +592,21 @@
 
         %(B(True), IBTuple(2, False))
       }
-      `(Tuple ((Adt (Id B ,_) 1 (True)) (Adt (Id IBTuple ,_) 0 (2 False))))))
+      @line{%(B(True), IBTuple(2, False))}))
 
   (test-case "it evaluates tuple expressions"
     (check-equal?
       @interp{
         %(4, False)
       }
-      '(Tuple (4 False))))
+      @line{%(4, False)}))
 
   (test-case "it evaluates 3-tuples"
     (check-equal?
       @interp{
         %(3, True, 4)
       }
-      '(Tuple (3 True 4))))
+      @line{%(3, True, 4)}))
 
   (test-case "it applies functions with tuple arguments"
     (check-equal?
@@ -588,14 +616,14 @@
 
         f(%(5, False))
       }
-      '(Tuple (5 False))))
+      @line{%(5, False)}))
 
   (test-case "it evaluates list expressions"
     (check-equal?
       @interp{
         [1, 2, 3]
       }
-      '(List (1 2 3))))
+      @line{[1, 2, 3]}))
 
   (test-case "it evaluates list bindings"
     (check-equal?
@@ -603,14 +631,14 @@
         def ls = [1, 2, 3, 4]
         ls
       }
-      '(List (1 2 3 4))))
+      @line{[1, 2, 3, 4]}))
 
   (test-case "it evaluates list cons operations"
     (check-equal?
       @interp{
         1 :: [2, 3, 4]
       }
-      '(List (1 2 3 4))))
+      @line{[1, 2, 3, 4]}))
 
   (test-case "it makes cons right-associative"
     (check-equal?
@@ -622,11 +650,11 @@
 
         f(1, 2)
       }
-      '(List (1 2 3 4 5))))
+      @line{[1, 2, 3, 4, 5]}))
 
   (test-case "it evaluates list patterns"
     (check-equal?
-      @interp{
+      @interp-sexp{
         def [a, b, c] = [1, 2, 3]
         a + b + c
       }
@@ -634,7 +662,7 @@
 
   (test-case "it evaluates list patterns with pattern subexpressions"
     (check-equal?
-      @interp{
+      @interp-sexp{
         def [_, b, 3] = [1, 2, 3]
         b
       }
@@ -642,7 +670,7 @@
 
   (test-case "it fails to bind to list patterns if lengths don't match"
     (check-match
-      @interp{
+      @interp-sexp{
         def [a, b] = []
         a
       }
@@ -654,11 +682,11 @@
         def x::xs = [1, 2, 3, 4]
         %(x, xs)
       }
-      '(Tuple (1 (List (2 3 4))))))
+      @line{%(1, [2, 3, 4])}))
 
   (test-case "it evaluates cons patterns with list pat subexpressions"
     (check-equal?
-      @interp{
+      @interp-sexp{
         def x::[] = [3]
         x
       }
@@ -670,11 +698,11 @@
         def xs::[[3, 4], [x, _, z]] = [[1, 2], [3, 4], [5, 6, 7]]
         %(xs, x, z)
       }
-      '(Tuple ((List (1 2)) 5 7))))
+      @line{%([1, 2], 5, 7)}))
 
   (test-case "it evaluates tuple pattern bindings"
     (check-equal?
-      @interp{
+      @interp-sexp{
         def %(a, b) = %(1, True)
         b
       }
@@ -682,7 +710,7 @@
 
   (test-case "it evaluates wildcards in tuple patterns"
     (check-equal?
-      @interp{
+      @interp-sexp{
         def %(_, b) = %(1, 43)
         b
       }
@@ -690,7 +718,7 @@
 
   (test-case "it throws away expressions bound to wildcards"
     (check-equal?
-      @interp{
+      @interp-sexp{
         def _ = 42
         43
       }
@@ -698,7 +726,7 @@
 
   (test-case "it evaluates switch expressions"
     (check-equal?
-      @interp{
+      @interp-sexp{
         def v = %(4, False)
         switch (v) {
           case %(0, _) -> 1
@@ -711,7 +739,7 @@
 
   (test-case "it evaluates switch expressions with mixed block-style and short-form bodies"
     (check-equal?
-      @interp{
+      @interp-sexp{
         switch ([1, 2, 3]) {
           case [x, y, z] -> {
             def v = z + y
@@ -731,7 +759,7 @@
 
         %(IsZero(1), IsZero(0))
       }
-      '(Tuple (False True))))
+      @line{%(False, True)}))
 
   (test-case "it evaluates tuple patterns in argument bindings"
     (check-equal?
@@ -745,11 +773,11 @@
         def v = %(42, False)
         %(Snd(v), Fst(v))
       }
-      '(Tuple (False 42))))
+      @line{%(False, 42)}))
 
   (test-case "it returns an error for non-exhaustive patterns in argument bindings"
     (check-match
-      @interp{
+      @interp-sexp{
         IsZero => fun(Int) : Bool
         fun IsZero(0) = True
 
@@ -759,7 +787,7 @@
 
   (test-case "it evaluates ADT patterns"
     (check-equal?
-      @interp{
+      @interp-sexp{
         type String = Char[]
         type StringOption =
           | Some(String)
@@ -772,7 +800,7 @@
 
   (test-case "it returns an error for non-exhaustive patterns in ADT bindings"
     (check-match
-      @interp{
+      @interp-sexp{
         type IntOption =
           | Some(Int)
           | None
@@ -799,7 +827,7 @@
         def Some(v) = s
         %(IsSome(None()), IsSome(s), v)
       }
-      '(Tuple (False True 42))))
+      @line{%(False, True, 42)}))
 
   (test-case "can encode a module with common list operations"
     (check-equal?
@@ -842,18 +870,18 @@
 
         %(GetTwoOrLess(1), GetTwoOrLess(4))
       }
-      '(Tuple (1 2))))
+      @line{%(1, 2)}))
 
   (test-case "it evaluates anonymous lambda expressions"
-    (check-match
+    (check-equal?
       @interp{
         fun(x, y) { x + y }
       }
-      `(Fun ,_ (CloEnv ()))))
+      @line{fun x21 => meta@"@"18 -> meta@"@"19 -> meta@"@"20}))
 
   (test-case "it evaluates anonymous function application"
     (check-equal?
-      @interp{
+      @interp-sexp{
         fun (x, y) { x + y }(1, 2)
       }
       3))
@@ -881,11 +909,11 @@
 
         Lists.Map(fun(n) { IsEven(n) }, [1, 2, 3, 4])
       }
-      '(List (False True False True))))
+      @line{[False, True, False, True]}))
 
   (test-case "it evaluates a string-length function"
     (check-equal?
-      @interp{
+      @interp-sexp{
         type String = Char[]
 
         len => fun(String) : Int
@@ -898,7 +926,7 @@
 
   (test-case "it evaluates instance function applications"
     (check-equal?
-      @interp{
+      @interp-sexp{
         fun (True).isTrue() = True
         fun (_).isFalse() = False
 
@@ -908,7 +936,7 @@
 
   (test-case "it evaluates recursive instance functions"
     (check-equal?
-      @interp{
+      @interp-sexp{
         fun ([]).len() = 0
         fun (x::xs).len() = 1 + xs.len()
 
@@ -918,7 +946,7 @@
 
   (test-case "it accepts identifiers with non-alphanumeric characters"
     (check-equal?
-      @interp{
+      @interp-sexp{
         def x/! = 1 + 2
         x/!
       }
@@ -926,7 +954,7 @@
 
   (test-case "it accepts special characters in function names"
     (check-equal?
-      @interp{
+      @interp-sexp{
         fun foo/bar(n) = n + 1
         foo/bar(19) / 2
       }
@@ -934,7 +962,7 @@
 
   (test-case "it evaluates infix application of binary functions"
     (check-equal?
-      @interp{
+      @interp-sexp{
         fun !!(a, b) = a * b
 
         2 !! 3 + 4
@@ -943,7 +971,7 @@
 
   (test-case "it evaluates clauses on custom infix operators"
     (check-equal?
-      @interp{
+      @interp-sexp{
         fun ||(True, _) = True
         fun ||(_, True) = True
         fun ||(_, _) = False
@@ -954,7 +982,7 @@
 
   (test-case "it evaluates a boolean AND infix operator"
     (check-equal?
-      @interp{
+      @interp-sexp{
         fun &&(True, True) = True
         fun &&(_, _) = False
 
@@ -964,7 +992,7 @@
 
   (test-case "it evaluates recursive infix operators"
     (check-equal?
-      @interp{
+      @interp-sexp{
         fun &&(True, True) = True
         fun &&(_, _) = False
 
@@ -985,7 +1013,7 @@
 
   (test-case "it evaluates user-defined precedence assignments"
     (check-equal?
-      @interp{
+      @interp-sexp{
         fun ||(True, _) = True
         fun ||(_, True) = True
         fun ||(_, _) = False
@@ -1004,7 +1032,7 @@
 
   (test-case "it evaluates user-defined arithmetic operators"
     (check-equal?
-      @interp{
+      @interp-sexp{
         //& = +
         //!! = *
         //~ = -
@@ -1025,7 +1053,7 @@
 
   (test-case "it reorders expressions by user-defined precedence"
     (check-equal?
-      @interp{
+      @interp-sexp{
         fun <(0, 0) = False
         fun <(0, _) = True
         fun <(_, 0) = False
@@ -1050,7 +1078,7 @@
 
   (test-case "it binds imported values"
     (check-equal?
-      @interp{
+      @interp-sexp{
         module Foo {
           def v = 42
         }
@@ -1066,7 +1094,7 @@
 
   (test-case "it imports infix operators"
     (check-equal?
-      @interp{
+      @interp-sexp{
         module Prims {
           fun &&(True, True) = True
           fun &&(_, _) = False
@@ -1084,7 +1112,7 @@
 
   (test-case "it imports submodule infix operators"
     (check-equal?
-      @interp{
+      @interp-sexp{
         module Prims {
           module BoolOps {
             fun &&(True, True) = True
@@ -1100,7 +1128,7 @@
 
   (test-case "it distinguishes between types and values with the same name"
     (check-equal?
-      @interp{
+      @interp-sexp{
         fun foo(a, b) = a + b
         type foo = Int
 

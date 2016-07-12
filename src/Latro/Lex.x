@@ -48,6 +48,7 @@ tokens :-
   cond { lex' TokenCond }
   case { lex' TokenCase }
   precedence { lex' TokenPrecedence }
+  prim { lex' TokenPrim }
   ":=" { lex' TokenAssign }
   "->" { lex' TokenArrow }
   "=>" { lex' TokenRocket }
@@ -119,6 +120,7 @@ data TokenClass =
   | TokenCond
   | TokenCase
   | TokenPrecedence
+  | TokenPrim
   | TokenAssign
   | TokenArrow
   | TokenRocket
@@ -194,6 +196,7 @@ unlex (TokenSwitch) = "switch"
 unlex (TokenCond) = "cond"
 unlex (TokenCase) = "case"
 unlex (TokenPrecedence) = "precedence"
+unlex (TokenPrim) = "prim"
 unlex (TokenAssign) = ":="
 unlex (TokenArrow) = "->"
 unlex (TokenRocket) = "=>"

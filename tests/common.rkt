@@ -2,6 +2,8 @@
 (require racket/runtime-path)
 (provide compile!
          interp
+         interp-sexp
+         line
          parse-tree
          alpha-convert
          infix-reordered
@@ -36,7 +38,7 @@
       #:exists 'truncate/replace)
     (with-output-to-string
       (λ ()
-        (system (format "latro ~a ~a" (string-join opts) test-source-file))))))
+        (system (format "latro ~a Core.l ~a" (string-join opts) test-source-file))))))
 
 (define (strip-quotation-marks s) s)
 
@@ -46,6 +48,12 @@
       (strip-quotation-marks
         (call-interpreter opts (apply string-append s))))))
 
+(define (line s)
+  (format "~a\n" s))
+
+(define (call opts . s)
+  (strip-quotation-marks
+    (call-interpreter opts (apply string-append s))))
 
 (define (parse-tree . s)
   (call-and-read '("-p") (apply string-append s)))
@@ -66,4 +74,7 @@
   (call-and-read '("-t") (apply string-append s)))
 
 (define (interp . s)
+  (call '() (apply string-append s)))
+
+(define (interp-sexp . s)
   (call-and-read '() (apply string-append s)))

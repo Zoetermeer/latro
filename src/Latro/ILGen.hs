@@ -1,5 +1,6 @@
 module ILGen where
 
+import Data.Char (toLower)
 import Semant
 
 
@@ -34,6 +35,20 @@ ilGenPat patE =
 ilGenFieldInit :: Show a => FieldInit a UniqId -> ILFieldInit a
 ilGenFieldInit (FieldInit p e) = ILFieldInit p $ ilGen e
 
+ilGenPrim :: UniqId -> Prim
+ilGenPrim (UserId id) =
+  case map toLower id of
+    "println" -> PrimPrintln
+    "intadd" -> PrimIntAdd
+    "intsub" -> PrimIntSub
+    "intdiv" -> PrimIntDiv
+    "intmul" -> PrimIntMul
+    "inteq" -> PrimIntEq
+    "intlt" -> PrimIntLt
+    "intleq" -> PrimIntLeq
+    "intgt" -> PrimIntGt
+    "intgeq" -> PrimIntGeq
+    _ -> PrimUnknown id
 
 ilGen :: Show a => Exp a UniqId -> IL a
 ilGen e =
@@ -47,6 +62,8 @@ ilGen e =
       ILApp p (ILRef p id) [ilGen e]
     ExpApp p rator rands ->
       ILApp p (ilGen rator) (map ilGen rands)
+    ExpPrim p ratorId ->
+      ILPrim p $ ilGenPrim ratorId
     ExpAssign p patE e ->
       ILAssign p (ilGenPat patE) (ilGen e)
     ExpTypeDec p typeDec ->

@@ -39,6 +39,7 @@ data Err =
   | ErrInvalidRawModulePath (QualifiedId SourcePos RawId)
   | ErrInvalidUniqModulePath (QualifiedId SourcePos UniqId)
   | ErrInferenceFail (Map.Map UniqId Ty) Ty Ty
+  | ErrPrimUnknown RawId
   | ErrUserFail SourcePos String
   | ErrInterpFailure String
   | ErrNotImplemented String
