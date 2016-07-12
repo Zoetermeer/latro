@@ -78,8 +78,8 @@ module Rope {
 
 
   substring => fun(t, Int, Int) : Maybe{String}
-  fun substring(Leaf(string), i, j) {
-    def %(_, tmp) = string.splitAt(i)
+  fun substring(Leaf(str), i, j) {
+    def %(_, tmp) = str.splitAt(i)
     def %(s, _)   = tmp.splitAt(j - i)
 
     Just(s)

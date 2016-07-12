@@ -38,7 +38,7 @@
       #:exists 'truncate/replace)
     (with-output-to-string
       (λ ()
-        (system (format "latro ~a Core.l ~a" (string-join opts) test-source-file))))))
+        (system (format "latro ~a ../lib/Core.l ~a" (string-join opts) test-source-file))))))
 
 (define (strip-quotation-marks s) s)
 

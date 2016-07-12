@@ -32,6 +32,16 @@
       }
       "False\n"))
 
+  (test-case "it evaluates (in)equality comparisons on ints"
+    (check-match
+      @interp{
+        IO.println(4 < 5)
+        IO.println(99 == 99)
+        IO.println(5 >= 5)
+        IO.println(21 + 3 != 8 * 3)
+      }
+      "True\nTrue\nTrue\nFalse\nUnit\n"))
+
   (test-case "it evaluates literals"
     (check-equal? @interp-sexp{True} 'True)
     (check-equal? @interp-sexp{False} 'False)
@@ -558,7 +568,7 @@
         }
         Prims.Just
       }
-      @line{fun x329 => Int -> IntOption}))
+      @line{fun x612 => Int -> IntOption}))
 
   (test-case "it constructs ADT instances"
     (check-equal?
@@ -576,13 +586,13 @@
       @interp-sexp{
         module m {
           type IntOption =
-            | Just(Int)
+            | Some(Int)
             | None
         }
 
-        Just(42)
+        Some(42)
       }
-      `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier Just))))
+      `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier Some))))
 
   (test-case "it evaluates multi-arity ADT constructors"
     (check-equal?
@@ -878,7 +888,7 @@
       @interp{
         fun(x, y) { x + y }
       }
-      @line{fun x332 => meta@"@"328 -> meta@"@"329 -> meta@"@"330}))
+      @line{fun x615 => meta@"@"607 -> meta@"@"608 -> meta@"@"609}))
 
   (test-case "it evaluates anonymous function application"
     (check-equal?
