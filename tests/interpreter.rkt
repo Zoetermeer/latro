@@ -568,7 +568,7 @@
         }
         Prims.Just
       }
-      @line{fun x612 => Int -> IntOption}))
+      @line{fun x676 => Int -> IntOption}))
 
   (test-case "it constructs ADT instances"
     (check-equal?
@@ -888,7 +888,7 @@
       @interp{
         fun(x, y) { x + y }
       }
-      @line{fun x615 => meta@"@"607 -> meta@"@"608 -> meta@"@"609}))
+      @line{fun x679 => Int -> Int -> Int}))
 
   (test-case "it evaluates anonymous function application"
     (check-equal?

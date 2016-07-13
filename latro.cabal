@@ -21,13 +21,14 @@ executable latro
   other-modules:       Lex, Parse
   other-extensions:    FlexibleContexts, NamedFieldPuns, CPP, FlexibleInstances
   build-depends:       base,
-                       mtl,
+                       array,
+                       bifunctors,
                        containers,
                        errors,
+                       haskeline,
                        MissingH,
-                       array,
                        monadlist,
-                       bifunctors,
+                       mtl,
                        transformers
   hs-source-dirs:      src/Latro
   build-tools:         alex, happy

@@ -1175,9 +1175,9 @@
   (test-case "it checks polymorphic instance functions"
     (check-equal?
       @typecheck{
-        fun (x).id() = x
+        fun (x).identity() = x
         def v = False
-        %(42.id(), v.id())
+        %(42.identity(), v.identity())
       }
       '(App Tuple (Int Bool))))
 

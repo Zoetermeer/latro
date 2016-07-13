@@ -4,6 +4,7 @@ import AlphaConvert
 import Common
 import Control.Monad
 import Control.Monad.Except (runExceptT)
+import Control.Monad.Trans.Class
 import Data.Functor.Identity (runIdentity)
 import Errors
 import Errors.Display
@@ -14,6 +15,7 @@ import Reorder (reorderInfixes)
 import Semant
 import Semant.Display
 import Sexpable
+import System.Console.Haskeline
 import System.Environment (getArgs)
 import Text.Printf (printf)
 import qualified Types as T
@@ -118,7 +120,7 @@ run switch pathsAndSources =
 
 
 getUserSwitch :: [String] -> (UserSwitch, [FilePath])
-getUserSwitch [] = error "Usage: interp [-a|-p|-t] FILEPATH"
+getUserSwitch [] = error "Usage: latro [-a|-p|-t] FILEPATH"
 getUserSwitch ("-p" : paths) = (DumpParseTree, paths)
 getUserSwitch ("-a" : paths) = (DumpAlphaConverted, paths)
 getUserSwitch ("-r" : paths) = (DumpReordered, paths)
@@ -128,8 +130,27 @@ getUserSwitch ("-t" : paths) = (DumpTypedAst, paths)
 getUserSwitch paths = (Evaluate, paths)
 
 
-main = do
-  args <- getArgs
+runInteractive :: IO ()
+runInteractive = runInputT defaultSettings loop
+  where loop :: InputT IO ()
+        loop = do
+          coreSource <- lift $ readFile "./lib/Core.l"
+          input <- getInputLine "λ> "
+          case input of
+            Nothing -> return ()
+            Just ":q" -> return ()
+            Just input ->
+              case run Evaluate [("lib/Core.l", coreSource), ("<<repl>>", input)] of
+                Success (il, alphaEnv) -> do
+                  result <- lift $ Interp.interp il alphaEnv
+                  case result of
+                    Left err -> do { outputStrLn $ showSexp err; loop }
+                    Right v -> do { outputStrLn $ show v; loop }
+                Error err -> do { outputStrLn $ printf "%s" $ showSexp err; loop }
+
+
+runInterp :: [String] -> IO ()
+runInterp args = do
   let (switch, filePaths) = getUserSwitch args
   sources <- mapM readFile filePaths
   case run switch (zip filePaths sources) of
@@ -140,3 +161,10 @@ main = do
         Right v -> putStrLn $ show v
     DumpOutput sexp -> printf "%s" $ show sexp
     Error err -> printf "%s" $ showSexp err
+
+main :: IO ()
+main = do
+  args <- getArgs
+  case args of
+    [] -> runInteractive
+    _ -> runInterp args
