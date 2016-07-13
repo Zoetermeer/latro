@@ -47,6 +47,8 @@ type Result{e, t} =
   | Error(e)
 
 module Core {
+  fun id(v) = v
+
   module List {
     fun length([])    = 0
     fun length(x::xs) = 1 + length(xs)
@@ -58,6 +60,12 @@ module Core {
     fun ([]).at-index(_)    = Nothing()
     fun (x::_).at-index(0)  = Just(x)
     fun (_::xs).at-index(n) = xs.at-index(n - 1)
+
+    fun each(_, []) = ()
+    fun each(f, x::xs) {
+      f(x)
+      each(f, xs)
+    }
   }
 }
 
