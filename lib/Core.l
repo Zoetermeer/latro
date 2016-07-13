@@ -35,9 +35,6 @@ fun &&(_, _)       = False
 precedence || 11
 precedence && 11
 
-
-type String = Char[]
-
 type Maybe{a} =
   | Just(a)
   | Nothing
