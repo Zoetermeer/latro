@@ -53,9 +53,9 @@ module Core {
     fun length([])    = 0
     fun length(x::xs) = 1 + length(xs)
 
-    fun @([], bs)    = bs
-    fun @(as, [])    = as
-    fun @(a::as, bs) = a :: (as @ bs)
+    fun ++([], bs)    = bs
+    fun ++(as, [])    = as
+    fun ++(a::as, bs) = a :: (as ++ bs)
 
     fun ([]).at-index(_)    = Nothing()
     fun (x::_).at-index(0)  = Just(x)

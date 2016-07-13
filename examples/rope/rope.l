@@ -24,7 +24,7 @@ module Rope {
   fun delete(Leaf(string), i, j) {
     def %(s1, tmp)  = string.splitAt(i)
     def %(_, s2)    = tmp.splitAt(j - i)
-    def weight      = List.length(s1 @ s2)
+    def weight      = List.length(s1 ++ s2)
 
     Node(weight, Leaf(s1), Leaf(s2))
   }
@@ -56,8 +56,8 @@ module Rope {
   fun insert(Leaf(oldString), n, newString) {
     def %(s1, s3) = oldString.splitAt(n)
     def s2        = newString
-    def w1        = List.length(s1 @ s2 @ s3)
-    def w2        = List.length(s1 @ s2)
+    def w1        = List.length(s1 ++ s2 ++ s3)
+    def w2        = List.length(s1 ++ s2)
 
     Node(w1, Node(w2, Leaf(s1), Leaf(s2)), Leaf(s3))
   }
@@ -93,5 +93,5 @@ module Rope {
 
   fun (Leaf(string)).show() = string
   fun (Node(_, left, right)).show() =
-    left.show() @ right.show()
+    left.show() ++ right.show()
 }
