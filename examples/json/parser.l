@@ -1,22 +1,10 @@
-module Core {
-  type String = Char[]
-
-  type Result{E, T} {
-    data =
-      | Ok(T)
-      | Error(T)
-
-
-    fun (Ok(_)).isOk() = True
-    fun (_).isOk() = False
-  }
-}
-
 module Json {
   import Core
 
+  type Field = %(String, Value)
+
   type Value =
-    | JsonObject(%(String, Value)[])
+    | JsonObject(Field[])
     | JsonArray(Value[])
     | JsonString(String)
     | JsonNumber(Int)
@@ -96,8 +84,3 @@ module Json {
     }
   }
 }
-
-import Core
-import Json
-
-read("{}")
