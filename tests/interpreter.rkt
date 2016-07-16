@@ -1078,6 +1078,18 @@
       }
       42))
 
+  (test-case "it allows direct references/application to operators"
+    (check-equal?
+      @interp-sexp{
+        (+)(1, 2)
+      }
+      3))
+
+  (test-case "it returns operator function values"
+    (check-equal?
+      @interp{(*)}
+      @lines{fun * => Int -> Int -> Int}))
+
   (test-case "it binds imported values"
     (check-equal?
       @interp-sexp{

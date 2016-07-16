@@ -159,6 +159,7 @@ FunHeader : SingleParamFunHeader { (fst $1, [snd $1]) }
 
 AtomExp : '(' Exp ')' { ExpInParens (nodeData $2) $2 }
         | '(' ')' { ExpUnit (pos $1) }
+        | '(' SpecialId ')' { ExpRef (pos $1) (tokValue $2) }
         | '%(' Exp TupleRestExps ')' { ExpTuple (pos $1) ($2:$3) }
         | ListExp { $1 }
         | QualifiedId '%{' StructFieldInitializers '}' { ExpStruct (nodeData $1) $1 $3 }
