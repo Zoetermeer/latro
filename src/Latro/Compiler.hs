@@ -63,6 +63,11 @@ instance Environment AlphaEnv where
     where i = 1
 
 
+-- |Infix-application reordering environment
+type PrecLevel = Int
+type InfixReorderEnv = Env PrecLevel
+
+
 -- |Type checking environment
 type VarEnv = Map.Map UniqId Ty
 
@@ -121,6 +126,7 @@ mtInterpEnv aEnv = mt { interpAlphaEnv = aEnv } :: InterpEnv
 
 data CompilerEnv =
   CompilerEnv { alphaEnv  :: AlphaEnv
+              , opPrecEnv :: InfixReorderEnv
               , tcEnv     :: TCEnv
               , interpEnv :: InterpEnv
               }
@@ -129,6 +135,7 @@ data CompilerEnv =
 instance Environment CompilerEnv where
   mt =
     CompilerEnv { alphaEnv  = mt
+                , opPrecEnv = Map.empty
                 , tcEnv     = mt
                 , interpEnv = mt
                 }

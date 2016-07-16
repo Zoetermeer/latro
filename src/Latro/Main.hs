@@ -176,6 +176,7 @@ runInteractive = runInputT defaultSettings $ loop mt
               let (semantResult, compilerEnv') = runState (runExceptT (repl source)) compilerEnv
               in case semantResult of
                   Right typedIL -> do
+                    outputStrLn $ showSexp typedIL
                     (result, compilerEnv'') <- lift $ runStateT (runExceptT (runInterp typedIL)) compilerEnv'
                     case result of
                       Left err  -> outputStrLn $ showSexp err

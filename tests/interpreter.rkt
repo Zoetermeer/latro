@@ -60,7 +60,8 @@
     (check-equal? @interp-sexp{4 - 3 / 3} 3)
     (check-equal? @interp-sexp{3 * 2 + 4} 10)
     (check-equal? @interp-sexp{((4 + 3) - 42 * 3) + 100 / 10} -109)
-    (check-equal? @interp-sexp{(4 + 3) * 2} 14))
+    (check-equal? @interp-sexp{(4 + 3) * 2} 14)
+    (check-equal? @interp-sexp{4 + 8 / 4} 6))
 
   (test-case "it evaluates arithmetic expressions involving application"
     (check-equal?

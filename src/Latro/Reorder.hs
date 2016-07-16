@@ -9,9 +9,6 @@ import Errors
 import Semant
 
 
-type PrecLevel = Int
-
-
 precLevel :: Env PrecLevel -> UniqId -> Maybe PrecLevel
 precLevel env id = Map.lookup id env
 
@@ -33,10 +30,10 @@ runBuildPrecEnv (ExpBegin p bodyEs) = do
 runBuildPrecEnv e = return e
 
 
-buildPrecEnv :: UniqAst CompUnit -> (UniqAst CompUnit, Env PrecLevel)
-buildPrecEnv (CompUnit p bodyEs) =
+buildPrecEnv :: UniqAst CompUnit -> Env PrecLevel -> (UniqAst CompUnit, Env PrecLevel)
+buildPrecEnv (CompUnit p bodyEs) precEnv =
     (CompUnit p bodyEs', env)
-  where (bodyEs', env) = runState (mapM runBuildPrecEnv bodyEs) mtEnv
+  where (bodyEs', env) = runState (mapM runBuildPrecEnv bodyEs) precEnv
 
 
 reorderCaseClause :: Env PrecLevel -> UniqAst CaseClause -> UniqAst CaseClause
@@ -184,6 +181,7 @@ type Reordered a = CompilerPass CompilerEnv a
 
 runReorderInfixes :: UniqAst CompUnit -> Reordered (UniqAst CompUnit)
 runReorderInfixes cu = do
-    return $ CompUnit p $ map rewriteInfix bodyEs'
-  where (CompUnit p bodyEs, env) = buildPrecEnv cu
-        bodyEs' = map (reorder env) bodyEs
+    precEnv <- gets opPrecEnv
+    let (CompUnit p bodyEs, precEnv') = buildPrecEnv cu precEnv
+    modify (\cEnv -> cEnv { opPrecEnv = precEnv' })
+    return $ CompUnit p $ map rewriteInfix $ map (reorder precEnv') bodyEs
