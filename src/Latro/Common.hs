@@ -2,6 +2,8 @@
 module Common where
 
 import Control.Monad.Except
+import Control.Monad.State
+import Data.Functor.Identity
 import Data.List
 import Data.Monoid
 import Errors

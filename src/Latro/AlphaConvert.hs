@@ -13,10 +13,12 @@ module AlphaConvert where
 
 import Collapse
 import Common
+import Compiler
 import Control.Applicative
 import Control.Monad.Except
 import Control.Monad.State
 import Data.List (all, find, nub)
+import Debug.Trace
 import qualified Data.Map as Map (insert, lookup, union)
 import Errors
 import Prelude hiding (lookup)
@@ -27,50 +29,8 @@ import Text.Printf (printf)
 reportErrorAt a = reportPosOnFail a "AlphaConvert"
 
 
-data Frame = Frame
-  { index :: Int
-  , varIdEnv  :: RawIdEnv AlphaEntry
-  , typeIdEnv :: RawIdEnv AlphaEntry
-  }
-  deriving (Eq, Show)
-
-
-mtFrame :: Int -> Frame
-mtFrame ind = Frame { index = ind
-                    , varIdEnv = mtRawIdEnv
-                    , typeIdEnv = mtRawIdEnv
-                    }
-
-
-data AlphaEntry =
-    UniqIdEntry UniqId
-  | FrameEntry UniqId Frame
-  | UnknownEntry UniqId
-  deriving (Eq, Show)
-
-
-data AlphaEnv = AlphaEnv
-  { counter :: Int
-  , stack   :: [Frame]
-  , pass    :: Int
-  }
-  deriving (Eq, Show)
-
-
-mtAlphaEnv :: AlphaEnv
-mtAlphaEnv =
-    AlphaEnv { counter = i
-             , stack   = [mtFrame i]
-             , pass    = 0
-             }
-  where i = 1
-
-
-type AlphaConverted a = ExceptT Err (State AlphaEnv) a
-
-
 isFirstPass :: AlphaConverted Bool
-isFirstPass = gets pass >>= \p -> return $ p == 0
+isFirstPass = getsAC pass >>= \p -> return $ p == 0
 
 
 pushNewFrame :: AlphaConverted ()
@@ -82,7 +42,7 @@ pushNewFrame = do
 pushFrame :: Frame -> AlphaConverted ()
 pushFrame frame = do
   index <- nextIdIndexM
-  modify (\aEnv -> aEnv { stack = frame : stack aEnv })
+  modifyAC (\aEnv -> aEnv { stack = frame : stack aEnv })
 
 
 pushNewOrExistingFrame :: UniqId -> AlphaConverted UniqId
@@ -90,7 +50,7 @@ pushNewOrExistingFrame id = do
   entry <- lookupVarEntry id
   case entry of
     FrameEntry uid frame ->
-      do modify (\aEnv -> aEnv { stack = frame : stack aEnv })
+      do modifyAC (\aEnv -> aEnv { stack = frame : stack aEnv })
          return uid
     _ ->
       do pushNewFrame
@@ -99,8 +59,8 @@ pushNewOrExistingFrame id = do
 
 popFrame :: AlphaConverted Frame
 popFrame = do
-  (frame : frames) <- gets stack
-  modify (\aEnv -> aEnv { stack = frames })
+  (frame : frames) <- getsAC stack
+  modifyAC (\aEnv -> aEnv { stack = frames })
   return frame
 
 
@@ -114,15 +74,15 @@ inNewFrame thunk = do
 
 modifyFrame :: (Frame -> Frame) -> AlphaConverted ()
 modifyFrame fModify = do
-  (frame : frames) <- gets stack
-  modify (\aEnv -> aEnv { stack = fModify frame : frames })
+  (frame : frames) <- getsAC stack
+  modifyAC (\aEnv -> aEnv { stack = fModify frame : frames })
 
 
 bindInCurrentFrame :: UniqId -> AlphaEntry -> AlphaConverted ()
 bindInCurrentFrame (UserId rawId) entry = do
-  (frame : frames) <- gets stack
+  (frame : frames) <- getsAC stack
   let updatedVars = Map.insert rawId entry $ varIdEnv frame
-  modify (\aEnv -> aEnv { stack = (frame { varIdEnv = updatedVars }) : frames })
+  modifyAC (\aEnv -> aEnv { stack = (frame { varIdEnv = updatedVars }) : frames })
 
 bindInCurrentFrame _ _ = return ()
 
@@ -155,9 +115,9 @@ freshTypeId id aEnv = (id, aEnv)
 
 freshM :: UniqId -> (UniqId -> AlphaEnv -> (UniqId, AlphaEnv)) -> AlphaConverted UniqId
 freshM userId@(UserId id) fMake = do
-  alphaEnv <- get
+  alphaEnv <- getAC
   let (uniqId, alphaEnv') = fMake userId alphaEnv
-  lift $ put alphaEnv'
+  putAC alphaEnv'
   return uniqId
 
 freshM id _ = return id
@@ -170,7 +130,7 @@ freshVarIdM id = freshM id $ freshVarId True
 freshVarIdIfNotBoundM :: UniqId -> AlphaConverted UniqId
 freshVarIdIfNotBoundM uid@UniqId{} = return uid
 freshVarIdIfNotBoundM userId = do
-  curFrame <- gets $ head . stack
+  curFrame <- getsAC $ head . stack
   if isBoundIn userId [curFrame] varIdEnv
     then throwError $ ErrIdAlreadyBound userId
     else freshVarIdM userId
@@ -186,9 +146,9 @@ nextIdIndex AlphaEnv{ counter } = counter
 
 nextIdIndexM :: AlphaConverted Int
 nextIdIndexM = do
-  aEnv <- get
+  aEnv <- getAC
   let next = nextIdIndex aEnv
-  put $ aEnv { counter = next }
+  putAC $ aEnv { counter = next }
   return next
 
 
@@ -227,7 +187,7 @@ lookupVarIn userId frames = do
 
 lookupEntry :: UniqId -> (Frame -> RawIdEnv AlphaEntry) -> AlphaConverted AlphaEntry
 lookupEntry id fGetEnv = do
-  aEnv <- get
+  aEnv <- getAC
   lookupEntryIn id (stack aEnv) fGetEnv
 
 
@@ -292,7 +252,7 @@ lookupTypeQualId (Path p qid id) = do
 -- qualified ID.  If it's not a path, just return the current
 -- frame.
 baseFrame :: UniqAst QualifiedId -> AlphaConverted Frame
-baseFrame Id{} = gets $ head . stack
+baseFrame Id{} = getsAC $ head . stack
 baseFrame (Path _ qid _) = do
   (FrameEntry _ frame) <- lookupVarQualId qid
   return frame
@@ -588,7 +548,7 @@ convert (ExpFunDefClauses p id funDefs) = do
 convert (ExpAssign p (PatExpId pp rawId) (ExpModule mp paramIds bodyEs)) = do
   id' <- freshM rawId $ freshVarId False
   id'' <- pushNewOrExistingFrame rawId
-  aEnv <- get
+  aEnv <- getAC
   bodyEs' <- mapM convert bodyEs
   moduleFrame <- popFrame
   bindInCurrentFrame id'' $ FrameEntry id'' moduleFrame
@@ -858,12 +818,30 @@ instance InjectUserIds Exp where
     where r = inject
 
 
-alphaConvert :: RawAst CompUnit -> Either Err (UniqAst CompUnit, AlphaEnv)
-alphaConvert (CompUnit pos exps) = do
-  collapsedEs <- collapseEs exps
-  let withUserIds = map inject collapsedEs
-  let (eithExps, alphaEnv) = runState (runExceptT $ mapM convert withUserIds) mtAlphaEnv
-  exps' <- eithExps
-  let (eithExps', alphaEnv') = runState (runExceptT $ mapM convert exps') $ alphaEnv { pass = 1 }
-  exps'' <- eithExps'
-  return (CompUnit pos exps'', alphaEnv')
+type AlphaConverted a = CompilerPass CompilerEnv a
+
+
+getAC :: AlphaConverted AlphaEnv
+getAC = gets alphaEnv
+
+
+getsAC :: (AlphaEnv -> a) -> AlphaConverted a
+getsAC f = gets (\cEnv -> f (alphaEnv cEnv))
+
+
+putAC :: AlphaEnv -> AlphaConverted ()
+putAC aEnv = modify (\cEnv -> cEnv { alphaEnv = aEnv })
+
+
+modifyAC :: (AlphaEnv -> AlphaEnv) -> AlphaConverted ()
+modifyAC f = modify (\cEnv -> cEnv { alphaEnv = f (alphaEnv cEnv) })
+
+
+runAlphaConvert :: RawAst CompUnit -> AlphaConverted (UniqAst CompUnit)
+runAlphaConvert (CompUnit pos exps) = do
+  modifyAC (\acEnv -> acEnv { pass = 0 })
+  let withUserIds = map inject exps
+  exps' <- mapM convert withUserIds
+  modifyAC (\acEnv -> acEnv { pass = 1 })
+  exps'' <- mapM convert exps'
+  return $ CompUnit pos exps''

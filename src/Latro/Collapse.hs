@@ -5,6 +5,7 @@ Description : Collapses all multi-clause functions into single-body ones
 module Collapse where
 
 import Common
+import Compiler
 import Control.Monad.Except
 import Errors
 import Semant
@@ -31,7 +32,7 @@ collectInstFunDefs id (eFunDef@(ExpFunDef funDef@(FunDefInstFun _ _ fid _ _)) : 
 collectInstFunDefs _ es = ([], es)
 
 
-collapseBindingExp :: RawId -> [RawAst Exp] -> Either Err (RawAst Exp, [RawAst Exp])
+collapseBindingExp :: RawId -> [RawAst Exp] -> Collapsed (RawAst Exp, [RawAst Exp])
 collapseBindingExp id (e@(ExpAssign _ (PatExpId _ pid) _) : es)
   | id == pid = return (e, es)
   | otherwise = throwError $ ErrNoBindingAfterTyAnn id
@@ -39,7 +40,7 @@ collapseBindingExp id (e@(ExpAssign _ (PatExpId _ pid) _) : es)
 collapseBindingExp id _ = throwError $ ErrNoBindingAfterTyAnn id
 
 
-collapse :: RawAst Exp -> Either Err (RawAst Exp)
+collapse :: RawAst Exp -> Collapsed (RawAst Exp)
 collapse (ExpAssign p patE e) = do
   e' <- collapse e
   return $ ExpAssign p patE e'
@@ -55,7 +56,7 @@ collapse (ExpModule p paramIds bodyEs) = do
 collapse e = return e
 
 
-collapseEs :: [RawAst Exp] -> Either Err [RawAst Exp]
+collapseEs :: [RawAst Exp] -> Collapsed [RawAst Exp]
 collapseEs [] = return []
 collapseEs (ExpTyAnn tyAnn@(TyAnn ap aid _ synTy) : es) =
   case synTy of
@@ -91,3 +92,12 @@ collapseEs (e : es) = do
   e' <- collapse e
   es' <- collapseEs es
   return (e' : es')
+
+
+type Collapsed a = CompilerPass CompilerEnv a
+
+
+runCollapseFunClauses :: RawAst CompUnit -> Collapsed (RawAst CompUnit)
+runCollapseFunClauses (CompUnit pos exps) = do
+  exps' <- collapseEs exps
+  return $ CompUnit pos exps'

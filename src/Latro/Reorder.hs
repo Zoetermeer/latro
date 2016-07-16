@@ -1,6 +1,7 @@
 module Reorder where
 
 import Common
+import Compiler
 import Control.Monad.State
 import Data.Map as Map hiding (map)
 import Data.Maybe
@@ -178,8 +179,11 @@ rewriteInfix (ExpBegin p bodyEs) =
 rewriteInfix e = e
 
 
-reorderInfixes :: UniqAst CompUnit -> Either Err (UniqAst CompUnit)
-reorderInfixes cu =
+type Reordered a = CompilerPass CompilerEnv a
+
+
+runReorderInfixes :: UniqAst CompUnit -> Reordered (UniqAst CompUnit)
+runReorderInfixes cu = do
     return $ CompUnit p $ map rewriteInfix bodyEs'
   where (CompUnit p bodyEs, env) = buildPrecEnv cu
         bodyEs' = map (reorder env) bodyEs

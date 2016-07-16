@@ -1,5 +1,6 @@
 module ILGen where
 
+import Compiler
 import Data.Char (toLower)
 import Semant
 
@@ -106,5 +107,8 @@ ilGen e =
     e -> error $ show e
 
 
-ilGenCompUnit :: Show a => CompUnit a UniqId -> ILCompUnit a
-ilGenCompUnit (CompUnit p es) = ILCompUnit p $ map ilGen es
+type ILGenM a = CompilerPass CompilerEnv a
+
+
+runILGen :: UniqAst CompUnit -> ILGenM (Untyped ILCompUnit)
+runILGen (CompUnit p es) = return $ ILCompUnit p $ map ilGen es

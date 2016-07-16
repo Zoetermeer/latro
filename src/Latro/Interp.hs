@@ -3,6 +3,7 @@ module Interp where
 
 import AlphaConvert hiding (lookup, lookupVarId, reportErrorAt)
 import Common
+import Compiler
 import Control.Error.Util (hoistEither)
 import Control.Monad (unless)
 import Control.Monad.Except
@@ -23,43 +24,6 @@ import Text.Printf (printf)
 reportErrorAt a = reportPosOnFail a "Interp"
 
 
--- An evaluator monad is a possibly-failing computation
--- with a state: (type environment, variable environment, current module)
--- The variable environment maps ID --o--> Value
--- The "current module" is the module currently being evaluated,
--- at the top level it's an invented anonymous one.
--- The top-level anonymous module gives the nice property
--- that bindings at the top (not in any explicitly defined
--- module) are closed over in submodules, but will
--- not be accessible from other compilation units.
--- Each new binding occurrence adds the id to the current
--- module's list of exports
-data InterpEnv = InterpEnv
-  { varEnv  :: VEnv
-  , curModule :: Module
-  , alphaEnv :: AlphaEnv
-  }
-  deriving (Eq)
-
-type Eval a = ExceptT Err (StateT InterpEnv IO) a
-
-
-mtExports :: Exports
-mtExports = Exports { exportTypes = Map.empty
-                    , exportVars =  Map.empty
-                    }
-
-mtInterpEnv :: AlphaEnv -> InterpEnv
-mtInterpEnv alphaEnv =
-    InterpEnv
-      { varEnv = Map.empty
-      , curModule = mod
-      , alphaEnv = alphaEnv
-      }
-  where
-    mod = Module mtEnv [] mtExports
-
-
 lookupId :: UniqId -> Map.Map UniqId v -> Eval v
 lookupId id map =
     hoistEither eithV
@@ -72,30 +36,41 @@ lookupVarId :: UniqId -> Eval Value
 lookupVarId id = getVarEnv >>= lookupId id
 
 
+markValEnv :: Eval VEnv
+markValEnv = gets (\cEnv -> valEnv $ interpEnv cEnv)
+
+
+setValEnv :: VEnv -> Eval ()
+setValEnv vEnv = do
+  cEnv <- get
+  put (cEnv { interpEnv = (interpEnv cEnv) { valEnv = vEnv } })
+
+
 getVarEnv :: Eval VEnv
-getVarEnv = gets varEnv
+getVarEnv = getsInterp valEnv
 
 
 bindVar :: UniqId -> Value -> Eval ()
 bindVar id v =
-  modify (\intEnv -> intEnv { varEnv = Map.insert id v (varEnv intEnv) })
+  modifyInterp (\intEnv -> intEnv { valEnv = Map.insert id v (valEnv intEnv) })
 
 
 exportVar :: UniqId -> Value -> Eval ()
 exportVar id v =
-  modify (\intEnv ->
-            let (Module cloEnv paramIds exports) = curModule intEnv
-                exports' = exports { exportVars = Map.insert id v (exportVars exports) }
-            in
-              intEnv { curModule = Module cloEnv paramIds exports' })
+  modifyInterp
+    (\intEnv ->
+        let (Module cloEnv paramIds exports) = curMod intEnv
+            exports' = exports { exportVars = Map.insert id v (exportVars exports) }
+        in
+          intEnv { curMod = Module cloEnv paramIds exports' })
 
 
 getClosureEnv :: Eval VEnv
-getClosureEnv = gets varEnv
+getClosureEnv = getsInterp valEnv
 
 
 restoreEnv :: InterpEnv -> Eval ()
-restoreEnv = put
+restoreEnv = putInterp
 
 
 freshId :: Eval UniqId
@@ -103,7 +78,7 @@ freshId = do
   alphaEnv <- gets alphaEnv
   let index = nextIdIndex alphaEnv
   let (uniqId, alphaEnv') = freshVarId True (UserId (printf "%s%i" "x" index)) alphaEnv
-  modify (\interpEnv -> interpEnv { alphaEnv = alphaEnv' })
+  modify (\cEnv -> cEnv { alphaEnv = alphaEnv' })
   return uniqId
 
 
@@ -260,8 +235,10 @@ evalE (ILApp _ e argEs) = do
     ValueFun (Closure fid fTy fenv paramIds bodyEs) -> do
       argVs <- mapM evalE argEs
 
-      preApplyInterpEnv <- get
-      put (preApplyInterpEnv { varEnv = fenv })
+      -- preApplyInterpEnv <- get
+      -- put (preApplyInterpEnv { valEnv = fenv })
+      preApplyInterpEnv <- getInterp
+      putInterp (preApplyInterpEnv { valEnv = fenv })
 
       bindVar fid fv
       let argVTbl = zip paramIds argVs
@@ -292,7 +269,7 @@ evalE e = throwError $ ErrCantEvaluate e
 evalCases :: Value -> [Typed ILCase] -> Eval (Maybe Value)
 evalCases _ [] = return Nothing
 evalCases v (ILCase _ patE bodyEs : clauses) = do
-  oldEnv <- get
+  oldEnv <- getInterp
   result <- do { r <- evalPat patE v; return $ Just () } `catchError` (\_ -> return Nothing)
   case result of
     Nothing -> do
@@ -315,7 +292,24 @@ eval :: Typed ILCompUnit -> Eval Value
 eval (ILCompUnit _ es) = evalEs es
 
 
-interp :: Typed ILCompUnit -> AlphaEnv -> IO (Either Err Value)
-interp alphaConverted alphaEnv = do
-  v <- liftIO $ evalStateT (runExceptT $ eval alphaConverted) $ mtInterpEnv alphaEnv
-  return v
+type Eval a = CompilerPassT CompilerEnv IO a
+
+
+getInterp :: Eval InterpEnv
+getInterp = gets interpEnv
+
+
+getsInterp :: (InterpEnv -> a) -> Eval a
+getsInterp f = gets (\cEnv -> f $ interpEnv cEnv)
+
+
+putInterp :: InterpEnv -> Eval ()
+putInterp intEnv = modifyInterp $ const intEnv
+
+
+modifyInterp :: (InterpEnv -> InterpEnv) -> Eval ()
+modifyInterp f = modify (\cEnv -> cEnv { interpEnv = f (interpEnv cEnv) })
+
+
+runInterp :: Typed ILCompUnit -> Eval Value
+runInterp cu = eval cu

@@ -3,10 +3,11 @@ module Types where
 
 import AlphaConvert hiding (lookupVarIn, markVarEnv, reportErrorAt)
 import Common
+import Compiler
 import Control.Error.Util (hoistEither)
 import Control.Monad.Except
 import Control.Monad.ListM (sortByM)
-import Control.Monad.State.Strict
+import Control.Monad.State
 import Data.Either.Utils (maybeToEither)
 import Data.List
 import qualified Data.Map.Strict as Map
@@ -28,70 +29,44 @@ traceIt :: Show a => a -> a
 traceIt v = trace (show v) v
 
 
-type VarEnv = Map.Map UniqId Ty
-
-
-data TCEnv = TCEnv
-  { curModule :: TCModule
-  , varEnv :: VarEnv
-  , alphaEnv :: AlphaEnv
-  , polyEnv :: Map.Map UniqId Ty
-  , metaEnv :: Map.Map UniqId Ty
-  }
-  deriving (Eq)
-
-
-mtTCEnv :: AlphaEnv -> TCEnv
-mtTCEnv alphaEnv =
-  TCEnv
-    { curModule   = mtTCModule
-    , varEnv      = Map.empty
-    , alphaEnv    = alphaEnv
-    , polyEnv     = Map.empty
-    , metaEnv     = Map.empty
-    }
-
-
 showHum :: Show v => Map.Map UniqId v -> String
 showHum =
   Map.foldlWithKey
     (\str key val -> str ++ "\n" ++ show key ++ " --> " ++ show val)
     ""
 
-type Checked a = ExceptT Err (State TCEnv) a
-
 
 -- Debugging
 traceMetaEnv :: Checked ()
 traceMetaEnv = do
   traceM "META ENV:  "
-  metaEnv <- gets metaEnv
+  metaEnv <- getsTC metaEnv
   traceM $ showHum metaEnv
 
 traceVarEnv :: Checked ()
 traceVarEnv = do
   traceM "VAR ENV:  "
-  varEnv <- gets varEnv
+  varEnv <- getsTC varEnv
   traceM $ showHum varEnv
 
 tracePolyEnv :: Checked ()
 tracePolyEnv = do
   traceM "POLY Env:  "
-  polyEnv <- gets polyEnv
+  polyEnv <- getsTC polyEnv
   traceM $ showHum polyEnv
 
 traceFieldIndices :: Checked ()
 traceFieldIndices = do
   traceM "Field indices:  "
-  curMod <- gets curModule
+  curMod <- getsTC curModule
   traceM $ showHum $ fieldIndices curMod
 
 
 -- Convenience methods for manipulating the environment
 newContextWith :: (TCEnv -> TCEnv) -> Checked TCEnv
 newContextWith fupdate = do
-  oldEnv <- get
-  modify fupdate
+  oldEnv <- getTC
+  modifyTC fupdate
   return oldEnv
 
 
@@ -100,67 +75,67 @@ newContextWith fupdate = do
 -- the update function is the identity function
 markVarEnv :: Checked VarEnv
 markVarEnv =
-  gets varEnv
+  getsTC varEnv
 
 
 restoreVarEnv :: VarEnv -> Checked ()
 restoreVarEnv varEnv =
-  modify (\tcEnv -> tcEnv { varEnv = varEnv })
+  modifyTC (\tcEnv -> tcEnv { varEnv = varEnv })
 
 
 restoreContext :: TCEnv -> Checked ()
-restoreContext = put
+restoreContext = putTC
 
 
 putModuleVarBinding :: UniqId -> Ty -> Checked ()
 putModuleVarBinding id ty =
-  modify (\tcEnv -> tcEnv { curModule = addModuleVar (curModule tcEnv) id ty })
+  modifyTC (\tcEnv -> tcEnv { curModule = addModuleVar (curModule tcEnv) id ty })
 
 
 exportTy :: UniqId -> TyCon -> Checked ()
 exportTy id tyCon =
-  modify (\tcEnv -> tcEnv { curModule = addModuleTy (curModule tcEnv) id tyCon })
+  modifyTC (\tcEnv -> tcEnv { curModule = addModuleTy (curModule tcEnv) id tyCon })
 
 
 bindVar :: UniqId -> Ty -> Checked ()
 bindVar id ty =
-  modify (\tcEnv -> tcEnv { varEnv = Map.insert id ty (varEnv tcEnv) })
+  modifyTC (\tcEnv -> tcEnv { varEnv = Map.insert id ty (varEnv tcEnv) })
 
 
 bindVarIfNotBound :: UniqId -> Ty -> Checked ()
 bindVarIfNotBound id ty =
-  modify (\tcEnv -> tcEnv { varEnv = Map.insertWith (\new old -> old) id ty (varEnv tcEnv) })
+  modifyTC (\tcEnv -> tcEnv { varEnv = Map.insertWith (\new old -> old) id ty (varEnv tcEnv) })
 
 
 putPatBinding :: UniqId -> Ty -> Checked ()
 putPatBinding id ty =
-  modify (\tcEnv -> tcEnv { curModule = addModulePat (curModule tcEnv) id ty })
+  modifyTC (\tcEnv -> tcEnv { curModule = addModulePat (curModule tcEnv) id ty })
 
 
 bindPoly :: UniqId -> Ty -> Checked ()
 bindPoly id ty =
-  modify (\tcEnv -> tcEnv { polyEnv = Map.insert id ty (polyEnv tcEnv) })
+  modifyTC (\tcEnv -> tcEnv { polyEnv = Map.insert id ty (polyEnv tcEnv) })
 
 
 bindMeta :: UniqId -> Ty -> Checked ()
 bindMeta id (TyMeta otherMetaId) = do
   newMeta <- freshMeta
-  modify (\tcEnv ->
-            let env = metaEnv tcEnv
-                metaEnv' = Map.insert id newMeta env
-                metaEnv'' = Map.insert otherMetaId newMeta metaEnv'
-            in
-              tcEnv { metaEnv = metaEnv'' })
+  modifyTC (\tcEnv ->
+              let env = metaEnv tcEnv
+                  metaEnv' = Map.insert id newMeta env
+                  metaEnv'' = Map.insert otherMetaId newMeta metaEnv'
+              in
+                tcEnv { metaEnv = metaEnv'' })
 
 bindMeta id ty =
-  modify (\tcEnv -> tcEnv { metaEnv = Map.insert id ty (metaEnv tcEnv) })
+  modifyTC (\tcEnv -> tcEnv { metaEnv = Map.insert id ty (metaEnv tcEnv) })
 
 
 bindFieldIndex :: UniqId -> Int -> Checked ()
 bindFieldIndex id ind = do
-  curMod <- gets curModule
+  curMod <- getsTC curModule
   let indices = fieldIndices curMod
-  modify (\tcEnv -> tcEnv { curModule = curMod { fieldIndices = Map.insert id ind indices } })
+  modifyTC (\tcEnv -> tcEnv { curModule = curMod { fieldIndices = Map.insert id ind indices } })
 
 
 mtApp :: TyCon -> Ty
@@ -187,9 +162,9 @@ tyUnit = mtApp TyConUnit
 
 makeFresh :: RawId -> Checked UniqId
 makeFresh raw = do
-  alphaEnv <- gets alphaEnv
-  let (uniqId, alphaEnv') = freshTypeId (UserId raw) alphaEnv
-  modify (\tcEnv -> tcEnv { alphaEnv = alphaEnv' })
+  tcAlphaEnv <- getsTC tcAlphaEnv
+  let (uniqId, tcAlphaEnv') = freshTypeId (UserId raw) tcAlphaEnv
+  modifyTC (\tcEnv -> tcEnv { tcAlphaEnv = tcAlphaEnv' })
   return uniqId
 
 
@@ -211,7 +186,7 @@ lookupOrFail table id =
 
 envLookup :: (TCEnv -> Map.Map UniqId a) -> UniqId -> Checked (Maybe a)
 envLookup getTable id = do
-  table <- gets getTable
+  table <- getsTC getTable
   return $ Map.lookup id table
 
 
@@ -223,7 +198,7 @@ envLookupOrFail getTable id = do
 
 lookupFieldIndex :: UniqId -> UniqId -> Checked Int
 lookupFieldIndex tyId id = do
-  mod <- gets curModule
+  mod <- getsTC curModule
   lookupOrFail (fieldIndices mod) id
 
 
@@ -242,19 +217,19 @@ isFreeMeta (TyMeta id) = do
 
 
 markPolyEnv :: Checked (Map.Map UniqId Ty)
-markPolyEnv = gets polyEnv
+markPolyEnv = getsTC polyEnv
 
 
 restorePolyEnv :: Map.Map UniqId Ty -> Checked ()
-restorePolyEnv env = modify (\tcEnv -> tcEnv { polyEnv = env })
+restorePolyEnv env = modifyTC (\tcEnv -> tcEnv { polyEnv = env })
 
 
 markMetaEnv :: Checked (Map.Map UniqId Ty)
-markMetaEnv = gets metaEnv
+markMetaEnv = getsTC metaEnv
 
 
 restoreMetaEnv :: Map.Map UniqId Ty -> Checked ()
-restoreMetaEnv env = modify (\tcEnv -> tcEnv { metaEnv = env })
+restoreMetaEnv env = modifyTC (\tcEnv -> tcEnv { metaEnv = env })
 
 
 lookupPoly :: UniqId -> Checked (Maybe Ty)
@@ -278,13 +253,13 @@ lookupPatIn table id =
 
 lookupPat :: SourcePos -> UniqId -> Checked Ty
 lookupPat p id = do
-  curMod <- gets curModule
+  curMod <- getsTC curModule
   lookupPatIn (patFuns curMod `Map.union` closedPatFuns curMod) id `reportErrorAt` p
 
 
 lookupTy :: UniqId -> Checked TyCon
 lookupTy id = do
-  curMod <- gets curModule
+  curMod <- getsTC curModule
   lookupTyIn (types curMod `Map.union` closedTys curMod) id
 
 
@@ -375,7 +350,7 @@ referencedMetaIds metaId = do
 
 allMetasInEnv :: Checked [UniqId]
 allMetasInEnv = do
-  varEnv <- gets varEnv
+  varEnv <- getsTC varEnv
   let allTys = snd $ unzip $ Map.toList varEnv
       metaTys  = filter (\ty -> case ty of
                                   TyMeta _ -> True
@@ -1042,9 +1017,27 @@ makeSymTables (ILAssign _ (ILPatId _ id) _) =
 makeSymTables e = return ()
 
 
-typeCheck :: Untyped ILCompUnit -> AlphaEnv -> Either Err (Typed ILCompUnit, AlphaEnv)
-typeCheck cu aEnv = do
-  (tyResult, tcEnv) <- return $ runState (runExceptT (tcCompUnit cu True)) $ mtTCEnv aEnv
-  (tyResult', tcEnv') <- return $ runState (runExceptT (tcCompUnit cu False)) tcEnv
-  (ty, cu') <- tyResult'
-  return (cu', alphaEnv tcEnv')
+type Checked a = CompilerPass CompilerEnv a
+
+
+getTC :: Checked TCEnv
+getTC = gets tcEnv
+
+
+getsTC :: (TCEnv -> a) -> Checked a
+getsTC f = gets (\cEnv -> f $ tcEnv cEnv)
+
+
+putTC :: TCEnv -> Checked ()
+putTC tcEnv = modify (\cEnv -> cEnv { tcEnv = tcEnv })
+
+
+modifyTC :: (TCEnv -> TCEnv) -> Checked ()
+modifyTC f = modify (\cEnv -> cEnv { tcEnv = f (tcEnv cEnv) })
+
+
+runTypecheck :: Untyped ILCompUnit -> Checked (Typed ILCompUnit)
+runTypecheck cu = do
+  (ty, typedIL) <- tcCompUnit cu True
+  (ty', typedIL') <- tcCompUnit cu False
+  return typedIL'
