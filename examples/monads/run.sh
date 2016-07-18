@@ -1,3 +1,3 @@
 #!/bin/bash
 
-../../dist/build/latro/latro maybe.l
+../../dist/build/latro/latro ../../lib/Core.l maybe.l tests.l
