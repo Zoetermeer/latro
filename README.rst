@@ -814,6 +814,26 @@ had been evaluating any arbitrary expression.  The result value of evaluating
 a definition such as a function or module is ``Unit``, hence the answer we see
 above.
 
+Once we have Core, we can use some of the basic operators and values
+defined there:
+
+::
+
+  λ> :l lib/Core.l
+  Unit
+  λ> 1 + 1
+  2
+  λ> def add = (+)
+  Unit
+  λ> add(3, 4)
+  7
+  λ> import Core.List
+  Unit
+  λ> length [1, 2, 3]
+  3
+  λ> :t length
+  {t} t[] -> Int
+
 In addition to evaluating code directly, we can ask Latro about the type of any
 expression using the ``:t`` command like so:
 
