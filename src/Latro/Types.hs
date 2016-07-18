@@ -634,6 +634,13 @@ tcTyDec (TypeDecTy _ id tyParamIds synTy@(SynTyRef _ qid synTyArgs)) = do
   exportTy id tycon
   return (tycon, [])
 
+tcTyDec (TypeDecTy _ id tyParamIds synTy@(SynTyTuple _ stys)) = do
+  mapM_ (\tyParamId -> exportTy tyParamId $ TyConTyVar tyParamId) tyParamIds
+  elemTys <- mapM tcTy stys
+  let tycon = TyConTyFun tyParamIds $ TyApp TyConTuple elemTys
+  exportTy id tycon
+  return (tycon, [])
+
 tcTyDec (TypeDecTy _ id tyParamIds (SynTyList _ sty)) = do
   mapM_ (\tyParamId -> exportTy tyParamId $ TyConTyVar tyParamId) tyParamIds
   elemTy <- tcTy sty
