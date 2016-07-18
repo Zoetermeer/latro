@@ -1025,7 +1025,7 @@ getTC = gets tcEnv
 
 
 getsTC :: (TCEnv -> a) -> Checked a
-getsTC f = gets (\cEnv -> f $ tcEnv cEnv)
+getsTC f = gets (f . tcEnv)
 
 
 putTC :: TCEnv -> Checked ()

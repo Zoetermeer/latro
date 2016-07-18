@@ -826,7 +826,7 @@ getAC = gets alphaEnv
 
 
 getsAC :: (AlphaEnv -> a) -> AlphaConverted a
-getsAC f = gets (\cEnv -> f (alphaEnv cEnv))
+getsAC f = gets (f . alphaEnv)
 
 
 putAC :: AlphaEnv -> AlphaConverted ()

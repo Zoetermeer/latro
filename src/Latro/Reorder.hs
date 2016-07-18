@@ -184,4 +184,4 @@ runReorderInfixes cu = do
     precEnv <- gets opPrecEnv
     let (CompUnit p bodyEs, precEnv') = buildPrecEnv cu precEnv
     modify (\cEnv -> cEnv { opPrecEnv = precEnv' })
-    return $ CompUnit p $ map rewriteInfix $ map (reorder precEnv') bodyEs
+    return $ CompUnit p $ map (rewriteInfix . reorder precEnv') bodyEs

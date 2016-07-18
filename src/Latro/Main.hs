@@ -70,11 +70,11 @@ data SourceBuf = SourceBuf FilePath ProgramText
 
 
 replSourceBuf :: ProgramText -> SourceBuf
-replSourceBuf source = SourceBuf "<<repl>>" source
+replSourceBuf = SourceBuf "<<repl>>"
 
 
 sourceBufs :: [FilePath] -> [ProgramText] -> [SourceBuf]
-sourceBufs paths sources = map (uncurry SourceBuf) $ zip paths sources
+sourceBufs = zipWith SourceBuf
 
 
 breakIfOpt :: Sexpable a => [Opt] -> Opt -> CompilerPass CompilerEnv a -> GenericCompilerPass Sexp CompilerEnv a
@@ -113,7 +113,7 @@ eval sourceBufs opts = do
   case semantResult of
     Left sxp -> ExceptT . return $ Left sxp
     Right typedIL -> do put compilerEnv'
-                        withExceptT sexp $ runInterp typedIL
+                        withExceptT sexp $ interp typedIL
 
 
 readInput :: InputT IO (Maybe (ProgramText, [Opt]))
@@ -126,7 +126,7 @@ readInput = do
         [] -> return Nothing
         [":q"] -> return Nothing
         (":t" : rest) ->
-          return $ Just ((concat . intersperse " ") rest, [OptDumpType])
+          return $ Just (unwords rest, [OptDumpType])
         [":l", inputFilePath] -> do
           content <- lift $ readFile inputFilePath
           return $ Just (content, [])
@@ -154,8 +154,8 @@ runProgram args = do
   sources <- mapM readFile filePaths
   (result, _) <- runStateT (runExceptT (eval (sourceBufs filePaths sources) opts)) mt
   case result of
-    Left sxp  -> putStrLn $ show sxp
-    Right v   -> putStrLn $ show v
+    Left sxp  -> print sxp
+    Right v   -> print v
 
 
 main :: IO ()

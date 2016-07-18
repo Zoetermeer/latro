@@ -37,7 +37,7 @@ lookupVarId id = getVarEnv >>= lookupId id
 
 
 markValEnv :: Eval VEnv
-markValEnv = gets (\cEnv -> valEnv $ interpEnv cEnv)
+markValEnv = gets (valEnv . interpEnv)
 
 
 setValEnv :: VEnv -> Eval ()
@@ -166,14 +166,14 @@ interpPrimApp prim argEs = do
   case prim of
     PrimIntAdd -> return $ primArith (+) argVs
     PrimIntSub -> return $ primArith (-) argVs
-    PrimIntDiv -> return $ primArith (quot) argVs
+    PrimIntDiv -> return $ primArith quot argVs
     PrimIntMul -> return $ primArith (*) argVs
     PrimIntEq -> return $ primCmp (==) argVs
     PrimIntLt -> return $ primCmp (<) argVs
     PrimIntLeq -> return $ primCmp (<=) argVs
     PrimIntGt -> return $ primCmp (>) argVs
     PrimIntGeq -> return $ primCmp (>=) argVs
-    PrimPrintln -> do liftIO $ putStrLn $ show $ head argVs
+    PrimPrintln -> do liftIO $ print $ head argVs
                       return ValueUnit
 
 
@@ -300,7 +300,7 @@ getInterp = gets interpEnv
 
 
 getsInterp :: (InterpEnv -> a) -> Eval a
-getsInterp f = gets (\cEnv -> f $ interpEnv cEnv)
+getsInterp f = gets (f . interpEnv)
 
 
 putInterp :: InterpEnv -> Eval ()
@@ -309,7 +309,3 @@ putInterp intEnv = modifyInterp $ const intEnv
 
 modifyInterp :: (InterpEnv -> InterpEnv) -> Eval ()
 modifyInterp f = modify (\cEnv -> cEnv { interpEnv = f (interpEnv cEnv) })
-
-
-runInterp :: Typed ILCompUnit -> Eval Value
-runInterp cu = interp cu
