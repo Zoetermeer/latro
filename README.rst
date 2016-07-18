@@ -436,6 +436,14 @@ Would be parsed as:
 Note that built-in operators such as ``::``, and terms
 such as function application, have precedence 0 and cannot
 be preceded by user-defined ones.
+
+An infix operator can be referred to like a normal function
+by enclosing it in parentheses, e.g.:
+
+.. code:: ocaml
+
+    (+)(1, 2) // 3
+
   
 Instance functions
 ------------------
@@ -735,10 +743,17 @@ A few more sophisticated examples can be found in the examples directory.
 All of the examples work on the latest version of Latro at HEAD.
 
   - `Rope data structure implementation`_
+  - `Maybe monad`_
   - `Basic string-utilities module implementation`_
   
 .. _Rope data structure implementation: https://github.com/Zoetermeer/L/blob/master/examples/rope/rope.l
+.. _Maybe monad: https://github.com/Zoetermeer/L/blob/master/examples/monads/maybe.l
 .. _Basic string-utilities module implementation: https://github.com/Zoetermeer/L/blob/master/examples/string/string.l
+
+Each of these example directories contains a file called ``tests.l`` with examples,
+and a corresponding file called ``expected.out.txt`` with the expected output from running the
+tests.  To run the tests, simply run the ``run.sh`` shell script located in each respective
+example directory.
 
 
 Using the interpreter
@@ -765,11 +780,54 @@ and build the ``latro`` interpreter executable:
   $> cabal configure
   $> cabal build
 
-Running
--------
+Running the REPL
+----------------
 
-There is no REPL as of yet; the interpreter only operates on
-source files.
+Latro supports evaluation of both full programs in source files,
+and interactive evaluation at the command line (a read-eval-print loop).
+To start Latro in interactive (REPL) mode, simply run the executable:
+
+::
+
+  $> latro
+  λ> //type some code here!
+
+Sometimes it is convenient to load a source file directly into the REPL.
+To do so, type the following:
+
+::
+
+  λ> :l <path-to-your-source-file>
+
+Most programs will require the use of the core library.  Since the core
+is still experimental, it's not loaded in the REPL by default; it must be loaded
+manually.  The core is currently located in the repository at ``lib/Core.l``.
+
+::
+
+  λ> :l lib/Core.l
+  Unit
+
+Note that because Latro is loading the source for Core and evaluating all
+of its definitions, it will still print a "result value" just as if we
+had been evaluating any arbitrary expression.  The result value of evaluating
+a definition such as a function or module is ``Unit``, hence the answer we see
+above.
+
+In addition to evaluating code directly, we can ask Latro about the type of any
+expression using the ``:t`` command like so:
+
+::
+
+  λ> :l lib/Core.l
+  Unit
+  λ> :t 1 + 1
+  Int
+  λ> :t (+)
+  Int -> Int -> Int
+
+Running source-file programs
+----------------------------
 
 ::
 
@@ -841,13 +899,12 @@ As mentioned, Latro is still in the experimental/pre-alpha stage and is *not* su
 for use in real-world scenarios.  All features are subject to change.  There are a number of
 non-trivial enhancements planned for the language:
 
-  - Parameterized, higher-order modules (ML-style functors)
   - Support for ad hoc polymorphism via protocols.  Protocols will be
     fused with the module system similar to the approach being taken in the work
     on `OCaml implicit modules`_, which is a derivative of the implicit semantics
     in Scala.
-  - Custom operator definitions with fixity directives
-  - Separate compilation
+  - Fixity directives for custom infix operators
+  - Separate compilation (module dependencies only recompiled when changed)
   - Support for runtime type reflection, with reification
   - Runtime system with garbage collecition
   - Cross-platform binary compilation using an LLVM backend
