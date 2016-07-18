@@ -25,8 +25,6 @@ import System.Environment (getArgs)
 import Text.Printf (printf)
 import Types
 
-type ProgramText = String
-
 
 combineAsts :: [RawAst CompUnit] -> RawAst CompUnit
 combineAsts cus =
@@ -65,6 +63,20 @@ data Cmd =
   deriving (Eq, Show)
 
 
+type ProgramText = String
+
+
+data SourceBuf = SourceBuf FilePath ProgramText
+
+
+replSourceBuf :: ProgramText -> SourceBuf
+replSourceBuf source = SourceBuf "<<repl>>" source
+
+
+sourceBufs :: [FilePath] -> [ProgramText] -> [SourceBuf]
+sourceBufs paths sources = map (uncurry SourceBuf) $ zip paths sources
+
+
 breakIfOpt :: Sexpable a => [Opt] -> Opt -> CompilerPass CompilerEnv a -> GenericCompilerPass Sexp CompilerEnv a
 breakIfOpt opts opt m = do
   result <- withExceptT sexp m
@@ -73,14 +85,14 @@ breakIfOpt opts opt m = do
     else return result
 
 
-parse :: (FilePath, ProgramText) -> GenericCompilerPass Sexp CompilerEnv (RawAst CompUnit)
-parse (path, source) =
+parse :: SourceBuf -> GenericCompilerPass Sexp CompilerEnv (RawAst CompUnit)
+parse (SourceBuf path source) =
   withExceptT sexp $ ExceptT . return $ parseExp path source
 
 
-semAnal :: [(FilePath, ProgramText)] -> [Opt] -> GenericCompilerPass Sexp CompilerEnv (Typed ILCompUnit)
-semAnal pathsAndSources opts = do
-  asts <- mapM parse pathsAndSources
+semAnal :: [SourceBuf] -> [Opt] -> GenericCompilerPass Sexp CompilerEnv (Typed ILCompUnit)
+semAnal sourceBufs opts = do
+  asts <- mapM parse sourceBufs
   let ast = combineAsts asts
   collapsedAst <- withExceptT sexp $ runCollapseFunClauses ast
   alphaConvertedAst <- dumpOn OptDumpAlphaConverted $ runAlphaConvert collapsedAst
@@ -94,10 +106,10 @@ semAnal pathsAndSources opts = do
     dumpOn opt = breakIfOpt opts opt
 
 
-eval :: [(FilePath, ProgramText)] -> [Opt] -> GenericCompilerPassT Sexp CompilerEnv IO Value
-eval pathsAndSources opts = do
+eval :: [SourceBuf] -> [Opt] -> GenericCompilerPassT Sexp CompilerEnv IO Value
+eval sourceBufs opts = do
   compilerEnv <- get
-  let (semantResult, compilerEnv') = runState (runExceptT (semAnal pathsAndSources opts)) compilerEnv
+  let (semantResult, compilerEnv') = runState (runExceptT (semAnal sourceBufs opts)) compilerEnv
   case semantResult of
     Left sxp -> ExceptT . return $ Left sxp
     Right typedIL -> do put compilerEnv'
@@ -129,7 +141,7 @@ runRepl = runInputT defaultSettings $ loop mt
           case inputAndOpts of
             Nothing -> return ()
             Just (source, opts) -> do
-              (result, compilerEnv') <- lift $ runStateT (runExceptT (eval [("<<repl>>", source)] opts)) compilerEnv
+              (result, compilerEnv') <- lift $ runStateT (runExceptT (eval [replSourceBuf source] opts)) compilerEnv
               case result of
                 Left sxp -> outputStrLn $ show sxp
                 Right v   -> outputStrLn $ show v
@@ -140,7 +152,7 @@ runProgram :: [String] -> IO ()
 runProgram args = do
   let (opts, filePaths) = getUserOpts args
   sources <- mapM readFile filePaths
-  (result, _) <- runStateT (runExceptT (eval (zip filePaths sources) opts)) mt
+  (result, _) <- runStateT (runExceptT (eval (sourceBufs filePaths sources) opts)) mt
   case result of
     Left sxp  -> putStrLn $ show sxp
     Right v   -> putStrLn $ show v
