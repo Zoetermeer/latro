@@ -1036,8 +1036,7 @@ modifyTC :: (TCEnv -> TCEnv) -> Checked ()
 modifyTC f = modify (\cEnv -> cEnv { tcEnv = f (tcEnv cEnv) })
 
 
-runTypecheck :: Untyped ILCompUnit -> Checked (Typed ILCompUnit)
+runTypecheck :: Untyped ILCompUnit -> Checked (Ty, Typed ILCompUnit)
 runTypecheck cu = do
   (ty, typedIL) <- tcCompUnit cu True
-  (ty', typedIL') <- tcCompUnit cu False
-  return typedIL'
+  tcCompUnit cu False

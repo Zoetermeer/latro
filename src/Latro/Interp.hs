@@ -82,65 +82,65 @@ freshId = do
   return uniqId
 
 
-evalPat :: Typed ILPat -> Value -> Eval ()
-evalPat (ILPatWildcard _) _ = return ()
-evalPat e@(ILPatInt (OfTy p _) ni) v =
+interpPat :: Typed ILPat -> Value -> Eval ()
+interpPat (ILPatWildcard _) _ = return ()
+interpPat e@(ILPatInt (OfTy p _) ni) v =
     unless (i == ni) $ throwError (ErrPatMatchFail e v) `reportErrorAt` p
   where
     (ValueInt i) = v
 
-evalPat e@(ILPatBool (OfTy p _) b) v =
+interpPat e@(ILPatBool (OfTy p _) b) v =
     unless (bv == b) $ throwError (ErrPatMatchFail e v) `reportErrorAt` p
   where
     (ValueBool bv) = v
 
-evalPat e@(ILPatStr (OfTy p _) s) v =
+interpPat e@(ILPatStr (OfTy p _) s) v =
     unless (vStr == s) $ throwError (ErrPatMatchFail e v) `reportErrorAt` p
   where
     (ValueList cvs) = v
     vStr = map (\(ValueChar c) -> c) cvs
 
-evalPat e@(ILPatChar (OfTy p _) [c]) v =
+interpPat e@(ILPatChar (OfTy p _) [c]) v =
     unless (cv == c) $ throwError (ErrPatMatchFail e v) `reportErrorAt` p
   where
     (ValueChar cv) = v
 
-evalPat e@(ILPatTuple _ patEs) v =
+interpPat e@(ILPatTuple _ patEs) v =
     if length patEs /= length vs
     then throwError $ ErrPatMatchFail e v
     else do
       let evPairs = zip patEs vs
-      mapM_ (uncurry evalPat) evPairs
+      mapM_ (uncurry interpPat) evPairs
       return ()
   where
     (ValueTuple vs) = v
 
-evalPat patE@(ILPatAdt (OfTy p _) id patEs) v@(ValueAdt (Adt ctorId _ vs))
+interpPat patE@(ILPatAdt (OfTy p _) id patEs) v@(ValueAdt (Adt ctorId _ vs))
     | id == ctorId =
       let evPairs = zip patEs vs
-      in do mapM_ (uncurry evalPat) evPairs
+      in do mapM_ (uncurry interpPat) evPairs
             return ()
     | otherwise = throwError (ErrPatMatchFail patE v) `reportErrorAt` p
 
-evalPat e@(ILPatList (OfTy p _) es) v =
+interpPat e@(ILPatList (OfTy p _) es) v =
     if length es /= length vs
     then throwError (ErrPatMatchFail e v) `reportErrorAt` p
     else do
       let evPairs = zip es vs
-      mapM_ (uncurry evalPat) evPairs
+      mapM_ (uncurry interpPat) evPairs
       return ()
   where
     (ValueList vs) = v
 
-evalPat e@ILPatCons{} v@(ValueList []) =
+interpPat e@ILPatCons{} v@(ValueList []) =
   throwError $ ErrPatMatchFail e v
 
-evalPat (ILPatCons _ eHd eTl) (ValueList (v:vs)) = do
-  evalPat eHd v
-  evalPat eTl $ ValueList vs
+interpPat (ILPatCons _ eHd eTl) (ValueList (v:vs)) = do
+  interpPat eHd v
+  interpPat eTl $ ValueList vs
   return ()
 
-evalPat (ILPatId _ id) v = do
+interpPat (ILPatId _ id) v = do
   bindVar id v
   exportVar id v
   return ()
@@ -160,9 +160,9 @@ printV act = do
   return ValueUnit
 
 
-evalPrimApp :: Prim -> [Typed IL] -> Eval Value
-evalPrimApp prim argEs = do
-  argVs <- mapM evalE argEs
+interpPrimApp :: Prim -> [Typed IL] -> Eval Value
+interpPrimApp prim argEs = do
+  argVs <- mapM interpE argEs
   case prim of
     PrimIntAdd -> return $ primArith (+) argVs
     PrimIntSub -> return $ primArith (-) argVs
@@ -177,38 +177,38 @@ evalPrimApp prim argEs = do
                       return ValueUnit
 
 
-evalE :: Typed IL -> Eval Value
-evalE (ILInt _ i) = return $ ValueInt i
-evalE (ILBool _ b) = return $ ValueBool b
-evalE (ILStr _ s) = return $ ValueList $ map ValueChar s
-evalE (ILChar _ [c]) = return $ ValueChar c
+interpE :: Typed IL -> Eval Value
+interpE (ILInt _ i) = return $ ValueInt i
+interpE (ILBool _ b) = return $ ValueBool b
+interpE (ILStr _ s) = return $ ValueList $ map ValueChar s
+interpE (ILChar _ [c]) = return $ ValueChar c
 
-evalE (ILCons _ a b) = do
-  vHd <- evalE a
-  (ValueList vs) <- evalE b
+interpE (ILCons _ a b) = do
+  vHd <- interpE a
+  (ValueList vs) <- interpE b
   return $ ValueList (vHd:vs)
 
-evalE (ILTuple _ es) = do
-  vs <- mapM evalE es
+interpE (ILTuple _ es) = do
+  vs <- mapM interpE es
   return $ ValueTuple vs
 
-evalE (ILList _ es) = do
-  vs <- mapM evalE es
+interpE (ILList _ es) = do
+  vs <- mapM interpE es
   return $ ValueList vs
 
-evalE (ILMakeAdt _ ty i ctorArgEs) = do
-  argVs <- mapM evalE ctorArgEs
+interpE (ILMakeAdt _ ty i ctorArgEs) = do
+  argVs <- mapM interpE ctorArgEs
   return $ ValueAdt $ Adt ty i argVs
 
-evalE (ILGetAdtField _ e index) = do
-  (ValueAdt (Adt _ _ fieldVs)) <- evalE e
+interpE (ILGetAdtField _ e index) = do
+  (ValueAdt (Adt _ _ fieldVs)) <- interpE e
   return (fieldVs !! index)
 
-evalE (ILStruct (OfTy _ ty) _ fieldInits) = do
-  fieldInitVs <- mapM (\(ILFieldInit id e) -> do { v <- evalE e; return (id, v) }) fieldInits
+interpE (ILStruct (OfTy _ ty) _ fieldInits) = do
+  fieldInitVs <- mapM (\(ILFieldInit id e) -> do { v <- interpE e; return (id, v) }) fieldInits
   return $ ValueStruct $ Struct ty fieldInitVs
 
-evalE (ILFunDef (OfTy p ty) funId paramIds bodyEs) =
+interpE (ILFunDef (OfTy p ty) funId paramIds bodyEs) =
   let ef = ILFun (OfTy p ty) paramIds bodyEs
   in do cloEnv <- getClosureEnv
         let f = ValueFun $ Closure funId ty cloEnv paramIds bodyEs
@@ -216,24 +216,24 @@ evalE (ILFunDef (OfTy p ty) funId paramIds bodyEs) =
         exportVar funId f
         return ValueUnit
 
-evalE (ILAssign _ patE e) = do
-  v <- evalE e
-  evalPat patE v
+interpE (ILAssign _ patE e) = do
+  v <- interpE e
+  interpPat patE v
   return ValueUnit
 
-evalE (ILRef (OfTy p _) id) =
+interpE (ILRef (OfTy p _) id) =
   lookupVarId id `reportErrorAt` p
 
-evalE (ILUnit _) = return ValueUnit
+interpE (ILUnit _) = return ValueUnit
 
-evalE (ILBegin _ es) = evalEs es
+interpE (ILBegin _ es) = interpEs es
 
-evalE (ILApp _ e argEs) = do
-  fv <- evalE e
+interpE (ILApp _ e argEs) = do
+  fv <- interpE e
   case fv of
-    ValuePrim prim -> evalPrimApp prim argEs
+    ValuePrim prim -> interpPrimApp prim argEs
     ValueFun (Closure fid fTy fenv paramIds bodyEs) -> do
-      argVs <- mapM evalE argEs
+      argVs <- mapM interpE argEs
 
       -- preApplyInterpEnv <- get
       -- put (preApplyInterpEnv { valEnv = fenv })
@@ -243,53 +243,53 @@ evalE (ILApp _ e argEs) = do
       bindVar fid fv
       let argVTbl = zip paramIds argVs
       mapM_ (uncurry bindVar) argVTbl
-      retV <- evalEs bodyEs
+      retV <- interpEs bodyEs
 
       restoreEnv preApplyInterpEnv
       return retV
 
-evalE (ILPrim _ prim) = return $ ValuePrim prim
+interpE (ILPrim _ prim) = return $ ValuePrim prim
 
-evalE (ILFun (OfTy _ ty) paramIds bodyEs) = do
+interpE (ILFun (OfTy _ ty) paramIds bodyEs) = do
   cloEnv <- getClosureEnv
   newId <- freshId
   return $ ValueFun $ Closure newId ty cloEnv paramIds bodyEs
 
-evalE switchE@(ILSwitch (OfTy p _) e clauses) = do
-  v <- evalE e
-  matchResult <- evalCases v clauses
+interpE switchE@(ILSwitch (OfTy p _) e clauses) = do
+  v <- interpE e
+  matchResult <- interpCases v clauses
   hoistEither (maybeToEither (ErrNonExhaustivePattern switchE v) matchResult) `reportErrorAt` p
 
-evalE (ILFail (OfTy pos _) msg) =
+interpE (ILFail (OfTy pos _) msg) =
   throwError $ ErrUserFail pos msg
 
-evalE e = throwError $ ErrCantEvaluate e
+interpE e = throwError $ ErrCantEvaluate e
 
 
-evalCases :: Value -> [Typed ILCase] -> Eval (Maybe Value)
-evalCases _ [] = return Nothing
-evalCases v (ILCase _ patE bodyEs : clauses) = do
+interpCases :: Value -> [Typed ILCase] -> Eval (Maybe Value)
+interpCases _ [] = return Nothing
+interpCases v (ILCase _ patE bodyEs : clauses) = do
   oldEnv <- getInterp
-  result <- do { r <- evalPat patE v; return $ Just () } `catchError` (\_ -> return Nothing)
+  result <- do { r <- interpPat patE v; return $ Just () } `catchError` (\_ -> return Nothing)
   case result of
     Nothing -> do
       restoreEnv oldEnv
-      evalCases v clauses
+      interpCases v clauses
     Just _ -> do
-      retV <- evalEs bodyEs
+      retV <- interpEs bodyEs
       return $ Just retV
 
 
-evalEs :: [Typed IL] -> Eval Value
-evalEs [] = return ValueUnit
-evalEs [e] = evalE e
-evalEs es = do
-  vs <- mapM evalE es
+interpEs :: [Typed IL] -> Eval Value
+interpEs [] = return ValueUnit
+interpEs [e] = interpE e
+interpEs es = do
+  vs <- mapM interpE es
   return $ last vs
 
 
-eval :: Typed ILCompUnit -> Eval Value
-eval (ILCompUnit _ es) = evalEs es
+interp :: Typed ILCompUnit -> Eval Value
+interp (ILCompUnit _ es) = interpEs es
 
 
 type Eval a = CompilerPassT CompilerEnv IO a
@@ -312,4 +312,4 @@ modifyInterp f = modify (\cEnv -> cEnv { interpEnv = f (interpEnv cEnv) })
 
 
 runInterp :: Typed ILCompUnit -> Eval Value
-runInterp cu = eval cu
+runInterp cu = interp cu

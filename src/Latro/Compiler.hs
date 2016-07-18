@@ -7,7 +7,9 @@ import Data.Map as Map
 import Errors
 import Semant
 
-type CompilerPassT env m a = ExceptT Err (StateT env m) a
+type GenericCompilerPassT e env m a = ExceptT e (StateT env m) a
+type GenericCompilerPass e env a = GenericCompilerPassT e env Identity a
+type CompilerPassT env m a = GenericCompilerPassT Err env m a
 type CompilerPass env a = CompilerPassT env Identity a
 
 class RunCompilerModule a where

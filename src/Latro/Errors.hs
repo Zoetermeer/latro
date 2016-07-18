@@ -44,4 +44,5 @@ data Err =
   | ErrInterpFailure String
   | ErrNotImplemented String
   | ErrAtPos SourcePos String Err
+  | ErrBreak
   deriving (Show)

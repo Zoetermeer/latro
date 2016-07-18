@@ -4,11 +4,13 @@ import AlphaConvert
 import Collapse
 import Common
 import Compiler
+import Control.Exception.Base (evaluate)
 import Control.Monad
 import Control.Monad.Except
 import Control.Monad.State
 import Control.Monad.Trans.Class
 import Data.Functor.Identity (runIdentity)
+import Data.List (intersperse)
 import Errors
 import Errors.Display
 import ILGen
@@ -25,132 +27,85 @@ import Types
 
 type ProgramText = String
 
-data UserSwitch =
-    Evaluate
-  | DumpParseTree
-  | DumpAlphaConverted
-  | DumpReordered
-  | DumpIL
-  | DumpTypecheckResult
-  | DumpTypedAst
-  deriving (Eq, Show)
-
-data CommandResult a =
-    Success a
-  | DumpOutput Sexpable.Sexp
-  | Error Err
-
-
-instance Functor CommandResult where
-  fmap = liftM
-
-
-instance Applicative CommandResult where
-  pure = Success
-
-  (<*>) = ap
-
-  DumpOutput sexp *> _ = DumpOutput sexp
-  _ *> b = b
-
-
-instance Monad CommandResult where
-  Success v >>= f = f v
-  DumpOutput sexp >>= _ = DumpOutput sexp
-  Error err >>= _ = Error err
-
-  (>>) = (*>)
-
-  return = pure
-
-
-data Command a = Command UserSwitch (a -> Sexpable.Sexp) (Either Err a)
-
-
--- parseCmd :: FilePath -> ProgramText -> Command (RawAst CompUnit)
--- parseCmd filePath program =
---   Command DumpParseTree sexp $ parseExp filePath program
--- 
--- alphaConvertCmd :: RawAst CompUnit -> AlphaEnv -> Command (UniqAst CompUnit, AlphaEnv)
--- alphaConvertCmd compUnit alphaEnv =
---   Command DumpAlphaConverted (\\(ac, _) -> sexp ac) $ alphaConvert compUnit alphaEnv
--- 
--- reorderInfixesCmd :: UniqAst CompUnit -> Command (UniqAst CompUnit)
--- reorderInfixesCmd compUnit =
---   Command DumpReordered sexp $ reorderInfixes compUnit
--- 
--- ilGenCmd :: UniqAst CompUnit -> Command (Untyped ILCompUnit)
--- ilGenCmd cu =
---   Command DumpIL sexp $ return $ ilGenCompUnit cu
--- 
--- tcCmd :: Untyped ILCompUnit -> AlphaEnv -> Command (Typed ILCompUnit, AlphaEnv)
--- tcCmd untypedIL alphaEnv =
---   Command DumpTypecheckResult
---           (\\(ILCompUnit (OfTy _ ty) _, _) -> sexp ty)
---           $ T.typeCheck untypedIL alphaEnv
--- 
--- showTypedAstCmd :: Typed ILCompUnit -> Command (Typed ILCompUnit)
--- showTypedAstCmd typedIL =
---   Command DumpTypedAst sexp $ return typedIL
--- 
--- 
--- runCmd :: UserSwitch -> Command a -> CommandResult a
--- runCmd switch (Command dumpOnSwitch dumpSexp result) =
---   case result of
---     Left err -> Error err
---     Right v ->
---       if switch == dumpOnSwitch
---       then DumpOutput $ dumpSexp v
---       else Success v
-
 
 combineAsts :: [RawAst CompUnit] -> RawAst CompUnit
 combineAsts cus =
   CompUnit mtSourcePos $ concatMap (\(CompUnit _ bodyEs) -> bodyEs) cus
 
 
-getUserSwitch :: [String] -> (UserSwitch, [FilePath])
-getUserSwitch [] = error "Usage: latro [-a|-p|-t] FILEPATH"
-getUserSwitch ("-p" : paths) = (DumpParseTree, paths)
-getUserSwitch ("-a" : paths) = (DumpAlphaConverted, paths)
-getUserSwitch ("-r" : paths) = (DumpReordered, paths)
-getUserSwitch ("-il" : paths) = (DumpIL, paths)
-getUserSwitch ("-tc" : paths) = (DumpTypecheckResult, paths)
-getUserSwitch ("-t" : paths) = (DumpTypedAst, paths)
-getUserSwitch paths = (Evaluate, paths)
+getUserOpts :: [String] -> ([Opt], [FilePath])
+getUserOpts [] = error "Usage: latro [-a|-p|-t] FILEPATH"
+getUserOpts ("-p" : paths) = ([OptDumpParseTree], paths)
+getUserOpts ("-a" : paths) = ([OptDumpAlphaConverted], paths)
+getUserOpts ("-r" : paths) = ([OptDumpReordered], paths)
+getUserOpts ("-il" : paths) = ([OptDumpIL], paths)
+getUserOpts ("-tc" : paths) = ([OptDumpType], paths)
+getUserOpts ("-t" : paths) = ([OptDumpTypedAst], paths)
+getUserOpts paths = ([], paths)
 
 
-type Repl a = ExceptT Err (StateT CompilerEnv IO) a
+data Opt =
+    OptDumpParseTree
+  | OptDumpAlphaConverted
+  | OptDumpReordered
+  | OptDumpIL
+  | OptDumpType
+  | OptDumpTypedAst
+  deriving (Eq, Show)
 
 
--- run :: CompilerEnv -> UserSwitch -> [(FilePath, ProgramText)] -> CommandResult (Typed ILCompUnit, AlphaEnv)
--- run env switch pathsAndSources =
---   let runCmd' = runCmd switch
---   in do asts <- mapM (runCmd' . uncurry parseCmd) pathsAndSources
---         let ast = combineAsts asts
---         (alphaConvertedAst, alphaEnv) <- runCmd' $ alphaConvertCmd ast $ alphaEnv env
---         reorderedAst <- runCmd' $ reorderInfixesCmd alphaConvertedAst
---         il <- runCmd' $ ilGenCmd reorderedAst
---         (typedIL, alphaEnv') <- runCmd' $ tcCmd il alphaEnv
---         runCmd' $ showTypedAstCmd typedIL
---         return (typedIL, alphaEnv')
+optEnabled :: Opt -> [Opt] -> Bool
+optEnabled = elem
 
 
-repl :: ProgramText -> CompilerPass CompilerEnv (Typed ILCompUnit)
-repl input = do
-  let parseResult = parseExp "<<repl>>" input
-  case parseResult of
-    Left err -> throwError err
-    Right ast -> do collapsedAst <- runCollapseFunClauses ast
-                    alphaConvertedAst <- runAlphaConvert collapsedAst
-                    reorderedAst <- runReorderInfixes alphaConvertedAst
-                    untypedIL <- runILGen reorderedAst
-                    typedIL <- runTypecheck untypedIL
-                    return typedIL
+data Cmd =
+    CmdQuit
+  | CmdInterpFiles [FilePath] [Opt]
+  | CmdInterp ProgramText [Opt]
+  deriving (Eq, Show)
 
 
-getReplInput :: InputT IO (Maybe ProgramText)
-getReplInput = do
+breakIfOpt :: Sexpable a => [Opt] -> Opt -> CompilerPass CompilerEnv a -> GenericCompilerPass Sexp CompilerEnv a
+breakIfOpt opts opt m = do
+  result <- withExceptT sexp m
+  if optEnabled opt opts
+    then ExceptT . return $ Left $ sexp result
+    else return result
+
+
+parse :: (FilePath, ProgramText) -> GenericCompilerPass Sexp CompilerEnv (RawAst CompUnit)
+parse (path, source) =
+  withExceptT sexp $ ExceptT . return $ parseExp path source
+
+
+semAnal :: [(FilePath, ProgramText)] -> [Opt] -> GenericCompilerPass Sexp CompilerEnv (Typed ILCompUnit)
+semAnal pathsAndSources opts = do
+  asts <- mapM parse pathsAndSources
+  let ast = combineAsts asts
+  collapsedAst <- withExceptT sexp $ runCollapseFunClauses ast
+  alphaConvertedAst <- dumpOn OptDumpAlphaConverted $ runAlphaConvert collapsedAst
+  reorderedAst <- dumpOn OptDumpReordered $ runReorderInfixes alphaConvertedAst
+  untypedIL <- dumpOn OptDumpIL $ runILGen reorderedAst
+  (ty, typedIL) <- withExceptT sexp $ runTypecheck untypedIL
+  if optEnabled OptDumpType opts
+    then throwError $ sexp ty
+    else return typedIL
+  where
+    dumpOn opt = breakIfOpt opts opt
+
+
+eval :: [(FilePath, ProgramText)] -> [Opt] -> GenericCompilerPassT Sexp CompilerEnv IO Value
+eval pathsAndSources opts = do
+  compilerEnv <- get
+  let (semantResult, compilerEnv') = runState (runExceptT (semAnal pathsAndSources opts)) compilerEnv
+  case semantResult of
+    Left sxp -> ExceptT . return $ Left sxp
+    Right typedIL -> do put compilerEnv'
+                        withExceptT sexp $ runInterp typedIL
+
+
+readInput :: InputT IO (Maybe (ProgramText, [Opt]))
+readInput = do
   input <- getInputLine "λ> "
   case input of
     Nothing -> return Nothing
@@ -158,48 +113,42 @@ getReplInput = do
       case words input of
         [] -> return Nothing
         [":q"] -> return Nothing
+        (":t" : rest) ->
+          return $ Just ((concat . intersperse " ") rest, [OptDumpType])
         [":l", inputFilePath] -> do
           content <- lift $ readFile inputFilePath
-          return $ Just content
-        _ -> return $ Just input
+          return $ Just (content, [])
+        _ -> return $ Just (input, [])
 
 
-runInteractive :: IO ()
-runInteractive = runInputT defaultSettings $ loop mt
+runRepl :: IO ()
+runRepl = runInputT defaultSettings $ loop mt
   where loop :: CompilerEnv -> InputT IO ()
         loop compilerEnv = do
-          coreSource <- lift $ readFile "./lib/Core.l"
-          input <- getReplInput
-          case input of
+          inputAndOpts <- readInput
+          case inputAndOpts of
             Nothing -> return ()
-            Just source ->
-              let (semantResult, compilerEnv') = runState (runExceptT (repl source)) compilerEnv
-              in case semantResult of
-                  Right typedIL -> do
-                    (result, compilerEnv'') <- lift $ runStateT (runExceptT (runInterp typedIL)) compilerEnv'
-                    case result of
-                      Left err  -> outputStrLn $ showSexp err
-                      Right v   -> outputStrLn $ show v
-                    loop compilerEnv''
-                  Left err -> do { outputStrLn $ printf "%s" $ showSexp err; loop compilerEnv }
+            Just (source, opts) -> do
+              (result, compilerEnv') <- lift $ runStateT (runExceptT (eval [("<<repl>>", source)] opts)) compilerEnv
+              case result of
+                Left sxp -> outputStrLn $ show sxp
+                Right v   -> outputStrLn $ show v
+              loop compilerEnv'
 
 
--- runInterp :: [String] -> IO ()
--- runInterp args = do
---   let (switch, filePaths) = getUserSwitch args
---   sources <- mapM readFile filePaths
---   case run mt switch (zip filePaths sources) of
---     Success (il, alphaEnv) -> do
---       result <- Interp.interp il alphaEnv
---       case result of
---         Left err -> putStrLn $ showSexp err
---         Right v -> putStrLn $ show v
---     DumpOutput sexp -> printf "%s" $ show sexp
---     Error err -> printf "%s" $ showSexp err
+runProgram :: [String] -> IO ()
+runProgram args = do
+  let (opts, filePaths) = getUserOpts args
+  sources <- mapM readFile filePaths
+  (result, _) <- runStateT (runExceptT (eval (zip filePaths sources) opts)) mt
+  case result of
+    Left sxp  -> putStrLn $ show sxp
+    Right v   -> putStrLn $ show v
+
 
 main :: IO ()
 main = do
   args <- getArgs
   case args of
-    [] -> runInteractive
-    -- _ -> runInterp args
+    [] -> runRepl
+    _ -> runProgram args

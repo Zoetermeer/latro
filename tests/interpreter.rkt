@@ -569,7 +569,7 @@
         }
         Prims.Just
       }
-      @line{fun x676 => Int -> IntOption}))
+      @line{fun x125 => Int -> IntOption}))
 
   (test-case "it constructs ADT instances"
     (check-equal?
@@ -889,7 +889,7 @@
       @interp{
         fun(x, y) { x + y }
       }
-      @line{fun x679 => Int -> Int -> Int}))
+      @line{fun x122 => Int -> Int -> Int}))
 
   (test-case "it evaluates anonymous function application"
     (check-equal?
@@ -1089,7 +1089,7 @@
   (test-case "it returns operator function values"
     (check-equal?
       @interp{(*)}
-      @lines{fun * => Int -> Int -> Int}))
+      @line{fun * => Int -> Int -> Int}))
 
   (test-case "it binds imported values"
     (check-equal?
