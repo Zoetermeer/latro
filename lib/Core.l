@@ -47,21 +47,46 @@ module Core {
   fun id(v) = v
 
   module List {
+    length{a} => fun(a[]) : Int
     fun length([])    = 0
     fun length(x::xs) = 1 + length(xs)
+
 
     fun ++([], bs)    = bs
     fun ++(as, [])    = as
     fun ++(a::as, bs) = a :: (as ++ bs)
 
-    fun ([]).at-index(_)    = Nothing()
-    fun (x::_).at-index(0)  = Just(x)
-    fun (_::xs).at-index(n) = xs.at-index(n - 1)
 
+    fun ([]).atIndex(_)    = Nothing()
+    fun (x::_).atIndex(0)  = Just(x)
+    fun (_::xs).atIndex(n) = xs.atIndex(n - 1)
+
+
+    each{a} => fun(fun(a) : Unit, a[]) : Unit
     fun each(_, []) = ()
     fun each(f, x::xs) {
       f(x)
       each(f, xs)
+    }
+
+
+    foldr{a, b} => fun(fun(a, b) : b, b, a[]) : b
+    fun foldr(f, a, x::xs) = f(x, foldr(f, a, xs))
+    fun foldr(f, a, [])    = a
+
+
+    select{a} => fun(fun(a) : Bool, a, %(a[], a[])) : %(a[], a[])
+    fun select(p, x, %(ts, fs)) =
+      cond {
+        case p(x) -> %(x :: ts, fs)
+        case _    -> %(ts, x :: fs)
+      }
+
+
+    partition{a} => fun(fun(a) : Bool, a[]) : %(a[], a[])
+    fun partition(p, xs) {
+      def selector = fun(x, pr) = select(p, x, pr)
+      foldr(selector, %([], []), xs)
     }
   }
 }

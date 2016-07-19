@@ -560,7 +560,8 @@
       4))
 
   (test-case "it exports algebraic data type constructors"
-    (check-equal?
+    (check-regexp-match
+      #px"fun x\\d* => Int -> IntOption"
       @interp{
         module Prims {
           type IntOption =
@@ -568,8 +569,7 @@
             | None
         }
         Prims.Just
-      }
-      @line{fun x125 => Int -> IntOption}))
+      }))
 
   (test-case "it constructs ADT instances"
     (check-equal?
@@ -885,11 +885,11 @@
       @line{%(1, 2)}))
 
   (test-case "it evaluates anonymous lambda expressions"
-    (check-equal?
+    (check-regexp-match
+      #px"fun x\\d* => Int -> Int -> Int"
       @interp{
         fun(x, y) { x + y }
-      }
-      @line{fun x122 => Int -> Int -> Int}))
+      }))
 
   (test-case "it evaluates anonymous function application"
     (check-equal?
