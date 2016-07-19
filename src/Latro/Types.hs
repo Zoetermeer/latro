@@ -268,7 +268,11 @@ lookupTyQual (Id p id) = lookupTy id `reportErrorAt` p
 
 
 lookupVar :: UniqId -> Checked Ty
-lookupVar = envLookupOrFail varEnv
+lookupVar id = do
+  maybeTy <- envLookup varEnv id
+  case maybeTy of
+    Nothing -> freshMeta
+    Just ty -> return ty
 
 
 occursInTyCon :: Ty -> TyCon -> Bool
