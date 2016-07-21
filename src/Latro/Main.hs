@@ -14,7 +14,7 @@ import Data.List (intersperse)
 import Errors
 import Errors.Display
 import ILGen
-import Parse (parseExp)
+import Parse
 import Interp
 import Reorder
 import Semant
@@ -66,15 +66,13 @@ data Cmd =
 type ProgramText = String
 
 
-data SourceBuf = SourceBuf FilePath ProgramText
+data SourceBuf =
+    SourceBufFile FilePath ProgramText
+  | SourceBufRepl ProgramText
 
 
-replSourceBuf :: ProgramText -> SourceBuf
-replSourceBuf = SourceBuf "<<repl>>"
-
-
-sourceBufs :: [FilePath] -> [ProgramText] -> [SourceBuf]
-sourceBufs = zipWith SourceBuf
+fileSourceBufs :: [FilePath] -> [ProgramText] -> [SourceBuf]
+fileSourceBufs = zipWith SourceBufFile
 
 
 breakIfOpt :: Sexpable a => [Opt] -> Opt -> CompilerPass CompilerEnv a -> GenericCompilerPass Sexp CompilerEnv a
@@ -85,14 +83,18 @@ breakIfOpt opts opt m = do
     else return result
 
 
-parse :: SourceBuf -> GenericCompilerPass Sexp CompilerEnv (RawAst CompUnit)
-parse (SourceBuf path source) =
-  withExceptT sexp $ ExceptT . return $ parseExp path source
+parseBuf :: SourceBuf -> GenericCompilerPass Sexp CompilerEnv (RawAst CompUnit)
+parseBuf buf =
+    withExceptT sexp $ ExceptT . return $ syntaxRule path source
+  where
+    (path, source, syntaxRule) = case buf of
+      SourceBufFile path source -> (path, source, parseTopLevel)
+      SourceBufRepl source      -> ("<<repl>>", source, parseInteractive)
 
 
 semAnal :: [SourceBuf] -> [Opt] -> GenericCompilerPass Sexp CompilerEnv (Typed ILCompUnit)
 semAnal sourceBufs opts = do
-  asts <- mapM parse sourceBufs
+  asts <- mapM parseBuf sourceBufs
   let ast = combineAsts asts
   collapsedAst <- withExceptT sexp $ runCollapseFunClauses ast
   alphaConvertedAst <- dumpOn OptDumpAlphaConverted $ runAlphaConvert collapsedAst
@@ -141,7 +143,7 @@ runRepl = runInputT defaultSettings $ loop mt
           case inputAndOpts of
             Nothing -> return ()
             Just (source, opts) -> do
-              (result, compilerEnv') <- lift $ runStateT (runExceptT (eval [replSourceBuf source] opts)) compilerEnv
+              (result, compilerEnv') <- lift $ runStateT (runExceptT (eval [SourceBufRepl source] opts)) compilerEnv
               case result of
                 Left sxp -> outputStrLn $ show sxp
                 Right v   -> outputStrLn $ show v
@@ -152,7 +154,7 @@ runProgram :: [String] -> IO ()
 runProgram args = do
   let (opts, filePaths) = getUserOpts args
   sources <- mapM readFile filePaths
-  (result, _) <- runStateT (runExceptT (eval (sourceBufs filePaths sources) opts)) mt
+  (result, _) <- runStateT (runExceptT (eval (fileSourceBufs filePaths sources) opts)) mt
   case result of
     Left sxp  -> print sxp
     Right v   -> print v

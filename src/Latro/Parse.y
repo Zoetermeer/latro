@@ -67,11 +67,14 @@ import Semant
   string { Token _ (TokenString _) }
   char { Token _ (TokenChar _) }
 
-%name parse
+%name ruleParseTopLevel CompUnit
+%name ruleParseInteractive InteractiveCompUnit
 
 %%
 
 CompUnit : OneOrMoreModuleLevelExps { CompUnit (firstPos $1) $1 }
+
+InteractiveCompUnit : InteractiveExp { CompUnit (nodeData $1) [$1] }
 
 OneOrMoreExps : Exp { [$1] }
               | OneOrMoreExps Exp { $1 ++ [$2] }
@@ -89,7 +92,9 @@ ZeroOrMoreModuleLevelExps : ModuleLevelExp { [$1] }
 OneOrMoreModuleLevelExps : ModuleLevelExp { [$1] }
                          | OneOrMoreModuleLevelExps ModuleLevelExp { $1 ++ [$2] }
 
-ModuleLevelExp : InterfaceDecExp { $1 }
+ModuleLevelExp : InteractiveExp { $1 }
+
+InteractiveExp : InterfaceDecExp { $1 }
                | TypeDec { ExpTypeDec (nodeData $1) $1 }
                | ModuleDec { $1 }
                | PrecedenceAssign { $1 }
@@ -328,7 +333,16 @@ happyError :: Token -> Alex a
 happyError (Token (SourcePos _ line col) t) =
   alexError' (AlexPn 0 line col) ("parse error at token '" ++ unlex t ++ "'")
 
-parseExp :: FilePath -> String -> Either Err (CompUnit SourcePos RawId)
-parseExp filePath input = first (\errMsg -> ErrSyntax errMsg) $ runAlex' parse filePath input
+
+parse :: Alex a -> FilePath -> String -> Either Err a
+parse rule filePath input = first (\errMsg -> ErrSyntax errMsg) $ runAlex' rule filePath input
+
+
+parseInteractive :: FilePath -> String -> Either Err (CompUnit SourcePos RawId)
+parseInteractive = parse ruleParseInteractive
+
+
+parseTopLevel :: FilePath -> String -> Either Err (CompUnit SourcePos RawId)
+parseTopLevel = parse ruleParseTopLevel
 
 }
