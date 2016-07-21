@@ -2,6 +2,7 @@
 (require racket/runtime-path)
 (provide compile!
          interp
+         interp-lines
          interp-sexp
          line
          parse-tree
@@ -75,6 +76,9 @@
 
 (define (interp . s)
   (call '() (apply string-append s)))
+
+(define (interp-lines . s)
+  (string-split (call '() (apply string-append s))))
 
 (define (interp-sexp . s)
   (call-and-read '() (apply string-append s)))

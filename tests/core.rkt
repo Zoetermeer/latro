@@ -4,6 +4,24 @@
   (require "common.rkt"
            rackunit)
 
+  (test-case "length"
+    (check-equal?
+      @interp-lines{
+        import Core.List
+
+        IO.println(length([]))
+        IO.println(length([1]))
+        IO.println(length([1, 2]))
+
+        def xs = [1, 2, 3]
+        IO.println(length(xs))
+      }
+      '("0"
+        "1"
+        "2"
+        "3"
+        "Unit")))
+
   (test-case "partition"
     (check-equal?
       @interp{
