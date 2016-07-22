@@ -92,7 +92,7 @@ module Core {
 }
 
 module IO {
-  def println = prim(println)
+  fun println(v) = prim(println)(v)
 }
 
 type String = Char[]

@@ -41,13 +41,15 @@ fun stressTests() {
   IO.println(r5.length'())
 }
 
-def tests = [
-  itWrapsTwoRopesByASingleNode,
-  itDeletesRangeForLeaf,
-  itReturnsTheCharAtIndex,
-  itInsertsTheStringAtIndexForLeaf,
-  itInsertsTheStringAtIndexForNode,
-  stressTests
-]
+fun main(_) {
+  def tests = [
+    itWrapsTwoRopesByASingleNode,
+    itDeletesRangeForLeaf,
+    itReturnsTheCharAtIndex,
+    itInsertsTheStringAtIndexForLeaf,
+    itInsertsTheStringAtIndexForNode,
+    stressTests
+  ]
 
-Core.List.each(fun(testFun) { testFun() }, tests)
+  Core.List.each(fun(testFun) { testFun() }, tests)
+}

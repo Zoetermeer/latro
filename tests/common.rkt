@@ -2,6 +2,8 @@
 (require racket/runtime-path)
 (provide compile!
          interp
+         interp-e
+         interp-e-sexp
          interp-lines
          interp-sexp
          line
@@ -39,7 +41,7 @@
       #:exists 'truncate/replace)
     (with-output-to-string
       (λ ()
-        (system (format "latro ~a ../lib/Core.l ~a" (string-join opts) test-source-file))))))
+        (system (format "latro ../lib/Core.l ~a ~a" (string-join opts) test-source-file))))))
 
 (define (strip-quotation-marks s) s)
 
@@ -77,8 +79,15 @@
 (define (interp . s)
   (call '() (apply string-append s)))
 
+(define (interp-e . s)
+  (call '("-e") (apply string-append s)))
+
 (define (interp-lines . s)
   (string-split (call '() (apply string-append s))))
 
 (define (interp-sexp . s)
   (call-and-read '() (apply string-append s)))
+
+(define (interp-e-sexp . s)
+  (call-and-read '("-e") (apply string-append s)))
+

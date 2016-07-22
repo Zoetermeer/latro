@@ -92,7 +92,11 @@ ZeroOrMoreModuleLevelExps : ModuleLevelExp { [$1] }
 OneOrMoreModuleLevelExps : ModuleLevelExp { [$1] }
                          | OneOrMoreModuleLevelExps ModuleLevelExp { $1 ++ [$2] }
 
-ModuleLevelExp : InteractiveExp { $1 }
+ModuleLevelExp : InterfaceDecExp { $1 }
+               | TypeDec { ExpTypeDec (nodeData $1) $1 }
+               | ModuleDec { $1 }
+               | PrecedenceAssign { $1 }
+               | TopLevelBindingExp { $1 }
 
 InteractiveExp : InterfaceDecExp { $1 }
                | TypeDec { ExpTypeDec (nodeData $1) $1 }
@@ -162,6 +166,12 @@ FunHeader : SingleParamFunHeader { (fst $1, [snd $1]) }
           | MultiParamFunHeader { $1 }
           | fun '(' ')' { (pos $1, []) }
 
+LiteralExp : num { ExpNum (pos $1) (tokValue $1) }
+           | True { ExpBool (pos $1) True }
+           | False { ExpBool (pos $1) False }
+           | string { ExpString (pos $1) (tokValue $1) }
+           | char { ExpChar (pos $1) (tokValue $1) }
+
 AtomExp : '(' Exp ')' { ExpInParens (nodeData $2) $2 }
         | '(' ')' { ExpUnit (pos $1) }
         | '(' SpecialId ')' { ExpRef (pos $1) (tokValue $2) }
@@ -170,11 +180,7 @@ AtomExp : '(' Exp ')' { ExpInParens (nodeData $2) $2 }
         | QualifiedId '%{' StructFieldInitializers '}' { ExpStruct (nodeData $1) $1 $3 }
         | FunHeader FunBody { ExpFun (fst $1) (snd $1) $2 }
         | prim '(' simple_id ')' { ExpPrim (pos $1) (tokValue $3) }
-        | num { ExpNum (pos $1) (tokValue $1) }
-        | True { ExpBool (pos $1) True }
-        | False { ExpBool (pos $1) False }
-        | string { ExpString (pos $1) (tokValue $1) }
-        | char { ExpChar (pos $1) (tokValue $1) }
+        | LiteralExp { $1 }
         | QualifiedId { ExpQualifiedRef (nodeData $1) $1 }
 
 MemberAccessExp : AppExp '.' SimpleOrMixedId { ExpMemberAccess (nodeData $1) $1 (tokValue $3) }
@@ -202,6 +208,11 @@ ExpOrAssign : def PatExp '=' Exp { ExpAssign (pos $1) $2 $4 }
 
 ExpOrAssigns : ExpOrAssign { [$1] }
              | ExpOrAssigns ExpOrAssign { $1 ++ [$2] }
+
+TopLevelBindingExp : def PatExp '=' LiteralExp { ExpAssign (pos $1) $2 $4 }
+                   | FunDef { ExpFunDef $1 }
+                   | TyAnn { ExpTyAnn $1 }
+                   | import QualifiedId { ExpImport (pos $1) $2 }
 
 PrecedenceAssign : precedence SpecialId num { ExpPrecAssign (pos $1) (tokValue $2) (read (tokValue $3)) }
 
