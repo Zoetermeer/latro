@@ -2,31 +2,22 @@ module Main where
 
 import AlphaConvert
 import Collapse
-import Common
 import Compiler
-import Control.Exception.Base (evaluate)
-import Control.Monad
 import Control.Monad.Except
 import Control.Monad.State
-import Control.Monad.Trans.Class
 import Data.Char (toLower)
-import Data.Functor.Identity (runIdentity)
-import Data.List (intersperse)
-import Errors
-import Errors.Display
+import Errors.Display ()
 import ILGen
 import Parse
 import Interp
 import Reorder
 import Semant
-import Semant.Display
 import Sexpable
 import System.Console.GetOpt
 import System.Console.Haskeline
 import System.Environment (getArgs)
 import System.Exit
 import System.IO (hPutStrLn, stderr)
-import Text.Printf (printf)
 import Types
 
 
@@ -169,7 +160,7 @@ readReplCmd = do
 
 
 loadLibFiles :: [Opt] -> CompilerEnv -> InputT IO (Either Sexp Value, CompilerEnv)
-loadLibFiles ((OptLoadFile path) : opts) compilerEnv = do
+loadLibFiles (OptLoadFile path : opts) compilerEnv = do
   content <- lift $ readFile path
   (_, compilerEnv') <- lift $ runStateT (runExceptT (eval [SourceBufFile path content] opts)) compilerEnv
   loadLibFiles opts compilerEnv'
@@ -238,7 +229,7 @@ main = do
   case () of
     _ | optEnabled OptHelp opts -> do
         hPutStrLn stderr (usageInfo header flags)
-        exitWith ExitSuccess
+        exitSuccess
       | null inputFiles -> runRepl opts
       | optEnabled OptInteractive opts -> runRepl opts
       | otherwise -> runProgram opts inputFiles

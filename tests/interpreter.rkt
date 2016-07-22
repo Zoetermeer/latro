@@ -42,7 +42,6 @@
       }
       "True\nTrue\nTrue\nFalse\nUnit\n"))
 
-#|
   (test-case "it evaluates literals"
     (check-equal? @interp-sexp{True} 'True)
     (check-equal? @interp-sexp{False} 'False)
@@ -1151,5 +1150,4 @@
         foo(2, 4)
       }
       6))
-|#
 )

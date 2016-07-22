@@ -33,3 +33,4 @@ executable latro
   hs-source-dirs:      src/Latro
   build-tools:         alex, happy
   default-language:    Haskell2010
+  GHC-Options:         -fwarn-unused-imports
