@@ -60,6 +60,7 @@ import Semant
   ':' { Token _ TokenColon }
   ',' { Token _ TokenComma }
   '_' { Token _ TokenUnderscore }
+  '@' { Token _ TokenAtSymbol }
   num { Token _ (TokenNumLit _) }
   simple_id { Token _ (TokenSimpleId _) }
   mixed_id { Token _ (TokenMixedId _) }
@@ -201,7 +202,6 @@ Exp : CustomInfixExp { $1 }
     | cond '{' CondCaseClauses '}' { ExpCond (pos $1) $3 }
 
 ExpOrAssign : def PatExp '=' Exp { ExpAssign (pos $1) $2 $4 }
-            | FunDef { ExpFunDef $1 }
             | TyAnn { ExpTyAnn $1 }
             | import QualifiedId { ExpImport (pos $1) $2 }
             | Exp { $1 }
@@ -216,7 +216,8 @@ TopLevelBindingExp : def PatExp '=' LiteralExp { ExpAssign (pos $1) $2 $4 }
 
 PrecedenceAssign : precedence SpecialId num { ExpPrecAssign (pos $1) (tokValue $2) (read (tokValue $3)) }
 
-FunDef : fun AnyId '(' PatExpList ')' FunBody { FunDefFun (pos $1) (tokValue $2) $4 $6 }
+FunDef : SimpleOrMixedId '(' PatExpList ')' FunBody { FunDefFun (pos $1) (tokValue $1) $3 $5 }
+       | '@' '(' SpecialId ')' '(' PatExpList ')' FunBody { FunDefFun (pos $1) (tokValue $3) $6 $8 }
        | SingleParamFunHeader '.' SimpleOrMixedId '(' PatExpList ')' FunBody { FunDefInstFun (fst $1) (snd $1) (tokValue $3) $5 $7 }
 
 FunBody : '{' ExpOrAssigns '}' { $2 }
@@ -225,7 +226,7 @@ FunBody : '{' ExpOrAssigns '}' { $2 }
 TyParams : '{' CommaSeparatedIds '}' { $2 }
          | {- empty -} { [] }
 
-TyAnn : SimpleOrMixedId TyParams '=>' Ty { TyAnn (pos $1) (tokValue $1) $2 $4 }
+TyAnn : SimpleOrMixedId TyParams ':' Ty { TyAnn (pos $1) (tokValue $1) $2 $4 }
 
 
 TyAnns : TyAnn { [$1] }
@@ -287,16 +288,20 @@ OptionalImpClause : ':' Ty { Just $2 }
 TyArgs : '{' CommaSeparatedTys '}' { $2 }
        | {- empty -} { [] }
 
-Ty : Int { SynTyInt (pos $1)  }
-   | Bool { SynTyBool (pos $1) }
-   | Char { SynTyChar (pos $1) }
-   | Unit { SynTyUnit (pos $1) }
-   | fun '(' ')' ':' Ty { SynTyArrow (pos $1) [] $5 }
-   | fun '(' CommaSeparatedTys ')' ':' Ty { SynTyArrow (pos $1) $3 $6 }
-   | struct '{' TyStructFields '}' { SynTyStruct (pos $1) $3 }
-   | TyTuple { $1 }
-   | QualifiedSimpleId TyArgs { SynTyRef (nodeData $1) $1 $2 }
-   | Ty '[' ']' { SynTyList (nodeData $1) $1 }
+SimpleTy : Int { SynTyInt (pos $1)  }
+         | Bool { SynTyBool (pos $1) }
+         | Char { SynTyChar (pos $1) }
+         | Unit { SynTyUnit (pos $1) }
+         | struct '{' TyStructFields '}' { SynTyStruct (pos $1) $3 }
+         | TyTuple { $1 }
+         | QualifiedSimpleId TyArgs { SynTyRef (nodeData $1) $1 $2 }
+         | SimpleTy '[' ']' { SynTyList (nodeData $1) $1 }
+         | '(' Ty ')' { $2 }
+
+TyArrow : SimpleTy { [$1] }
+        | SimpleTy '->' TyArrow { $1 : $3 }
+
+Ty : TyArrow { if length $1 == 1 then head $1 else SynTyArrow (firstPos $1) (take (length $1 - 1) $1) (last $1) }
 
 TyStructField : Ty SimpleOrMixedId ';' { (tokValue $2, $1) }
 

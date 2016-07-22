@@ -21,7 +21,7 @@ import Semant (SourcePos(..))
 
 $digit = 0-9
 $alpha = [a-zA-Z]
-$special = [\!\/\\\@\|\~\&\=\<\>\+\-\*]
+$special = [\!\/\\\|\~\&\=\<\>\+\-\*]
 
 tokens :-
   $white+ ;
@@ -70,6 +70,7 @@ tokens :-
   [\:] { lex' TokenColon }
   [\,] { lex' TokenComma }
   [\_] { lex' TokenUnderscore }
+  [\@] { lex' TokenAtSymbol }
   $digit+ { lex TokenNumLit }
   [$alpha] [$alpha $digit \_ \']* { lex TokenSimpleId }
   [$alpha] [$alpha $digit \_ \' \- $special]+ { lex TokenMixedId }
@@ -138,6 +139,7 @@ data TokenClass =
   | TokenColon
   | TokenComma
   | TokenUnderscore
+  | TokenAtSymbol
   | TokenNumLit String
   | TokenSimpleId String
   | TokenMixedId String
@@ -210,6 +212,7 @@ unlex (TokenEq) = "="
 unlex (TokenColon) = ":"
 unlex (TokenComma) = ","
 unlex (TokenUnderscore) = "_"
+unlex (TokenAtSymbol) = "@"
 unlex (TokenNumLit s) = s
 unlex (TokenSimpleId s) = s
 unlex (TokenMixedId s) = s

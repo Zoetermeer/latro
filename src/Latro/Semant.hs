@@ -376,6 +376,11 @@ data SynTy a id =
   deriving (Eq, Show)
 
 
+synTyArrowTys :: SynTy a id -> [SynTy a id]
+synTyArrowTys (SynTyArrow _ tyArgs retTy) = tyArgs ++ [retTy]
+synTyArrowTys sty = [sty]
+
+
 instance AstNode SynTy where
   nodeData sty =
     case sty of

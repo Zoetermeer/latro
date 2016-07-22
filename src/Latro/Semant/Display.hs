@@ -1,9 +1,8 @@
 {-# LANGUAGE NamedFieldPuns, FlexibleInstances #-}
 module Semant.Display where
 
-import Data.List (find, intersperse)
+import Data.List (intersperse)
 import qualified Data.Map as Map
-import Data.Maybe (fromJust)
 import Semant
 import Sexpable
 import Text.Printf (printf)

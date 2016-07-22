@@ -231,10 +231,8 @@ interpE (ILApp _ e argEs) = do
     ValueFun (Closure fid fTy fenv paramIds bodyEs) -> do
       argVs <- mapM interpE argEs
 
-      -- preApplyInterpEnv <- get
-      -- put (preApplyInterpEnv { valEnv = fenv })
       preApplyInterpEnv <- getInterp
-      putInterp (preApplyInterpEnv { valEnv = fenv })
+      -- putInterp (preApplyInterpEnv { valEnv = fenv })
 
       bindVar fid fv
       let argVTbl = zip paramIds argVs
