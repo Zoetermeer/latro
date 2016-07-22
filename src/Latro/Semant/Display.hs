@@ -427,6 +427,12 @@ instance (Sexpable a) => Sexpable (IL a) where
       ILRef d id -> List [ Symbol "ILRef", sexp d, sexp id ]
       ILBegin d es -> List [ Symbol "ILBegin", sexp d, toSexpList es ]
       ILFail d msg -> List [ Symbol "ILFail", sexp d, Atom $ printf "\"%s\"" msg ]
+      ILMain d paramIds bodyEs ->
+        List  [ Symbol "ILMain"
+              , sexp d
+              , toSexpList paramIds
+              , toSexpList bodyEs
+              ]
 
 
 instance (Sexpable a) => Sexpable (ILCompUnit a) where

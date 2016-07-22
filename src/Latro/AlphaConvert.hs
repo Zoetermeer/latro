@@ -11,14 +11,12 @@ altogether.
 -}
 module AlphaConvert where
 
-import Collapse
 import Common
 import Compiler
 import Control.Applicative
 import Control.Monad.Except
 import Control.Monad.State
-import Data.List (all, find, nub)
-import Debug.Trace
+import Data.List (nub)
 import qualified Data.Map as Map (insert, lookup, union)
 import Errors
 import Prelude hiding (lookup)

@@ -9,15 +9,12 @@ import Control.Monad.Except
 import Control.Monad.ListM (sortByM)
 import Control.Monad.State
 import Data.Either.Utils (maybeToEither)
-import Data.List
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromMaybe, isNothing)
 import qualified Data.Set as Set
-import Debug.Trace (trace, traceM, traceShowId, traceShowM)
+import Debug.Trace (trace, traceM)
 import Errors
 import Semant
-import Semant.Display
-import Sexpable (showSexp)
 import Text.Printf (printf)
 
 
@@ -158,6 +155,12 @@ tyChar = mtApp TyConChar
 
 tyUnit :: Ty
 tyUnit = mtApp TyConUnit
+
+tyList :: Ty -> Ty
+tyList elemTy = TyApp TyConList [elemTy]
+
+tyMain :: Ty
+tyMain = TyApp TyConArrow [tyList tyStr, tyUnit]
 
 
 makeFresh :: RawId -> Checked UniqId
@@ -796,6 +799,17 @@ tc (ILUnit p) = return (mtApp TyConUnit, ILUnit (OfTy p (mtApp TyConUnit)))
 tc (ILFail p msg) = do
   ty <- freshMeta
   return (ty, ILFail (OfTy p ty) msg)
+
+tc (ILMain p [paramId] bodyEs) = do
+  oldVarEnv <- markVarEnv
+  bindVar paramId $ tyList tyStr
+  (bodyTy, bodyEs') <- tcEs bodyEs
+  unify bodyTy tyUnit
+  restoreVarEnv oldVarEnv
+  return (tyUnit, ILMain (OfTy p tyMain) [paramId] bodyEs')
+
+tc ilMain@ILMain{} = do
+  throwError (ErrWrongMainArity ilMain) `reportErrorAt` ilNodeData ilMain
 
 tc (ILRef p id) = do
   -- traceM $ printf "tc ILRef %s" $ show id

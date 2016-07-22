@@ -140,7 +140,7 @@ eval sourceBufs opts = do
   case semantResult of
     Left sxp -> ExceptT . return $ Left sxp
     Right typedIL -> do put compilerEnv'
-                        withExceptT sexp $ interp typedIL
+                        withExceptT sexp $ interp typedIL $ not $ optEnabled OptInteractive opts
 
 
 readReplCmd :: InputT IO ReplCmd
@@ -230,6 +230,6 @@ main = do
     _ | optEnabled OptHelp opts -> do
         hPutStrLn stderr (usageInfo header flags)
         exitSuccess
-      | null inputFiles -> runRepl opts
       | optEnabled OptInteractive opts -> runRepl opts
+      | null inputFiles -> runRepl (OptInteractive : opts)
       | otherwise -> runProgram opts inputFiles

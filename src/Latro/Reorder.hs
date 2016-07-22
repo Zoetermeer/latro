@@ -1,11 +1,9 @@
 module Reorder where
 
-import Common
 import Compiler
 import Control.Monad.State
 import Data.Map as Map hiding (map)
 import Data.Maybe
-import Errors
 import Semant
 
 

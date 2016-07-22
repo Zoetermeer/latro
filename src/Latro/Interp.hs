@@ -5,19 +5,15 @@ import AlphaConvert hiding (lookup, lookupVarId, reportErrorAt)
 import Common
 import Compiler
 import Control.Error.Util (hoistEither)
-import Control.Monad (unless)
 import Control.Monad.Except
 import Control.Monad.State
 import Data.Either.Utils (maybeToEither)
 import Data.List
 import qualified Data.Map as Map
-import Data.Maybe (fromJust, isJust)
-import Data.Monoid ((<>), mempty)
 import Errors
-import Parse
 import Prelude hiding (lookup)
 import Semant
-import Semant.Display
+import Semant.Display ()
 import Text.Printf (printf)
 
 
@@ -263,6 +259,14 @@ interpE switchE@(ILSwitch (OfTy p _) e clauses) = do
 interpE (ILFail (OfTy pos _) msg) =
   throwError $ ErrUserFail pos msg
 
+interpE ilMain@(ILMain (OfTy pos _) _ _) = do
+  maybeEntry <- getsInterp entrypoint
+  case maybeEntry of
+    Nothing -> do modifyInterp (\interpEnv -> interpEnv { entrypoint = Just ilMain })
+                  return ValueUnit
+    Just (ILMain (OfTy exPos _) _ _) ->
+      throwError (ErrMainAlreadyDefined exPos) `reportErrorAt` pos
+
 interpE e = throwError $ ErrCantEvaluate e
 
 
@@ -288,8 +292,22 @@ interpEs es = do
   return $ last vs
 
 
-interp :: Typed ILCompUnit -> Eval Value
-interp (ILCompUnit _ es) = interpEs es
+interp :: Typed ILCompUnit -> Bool -> Eval Value
+interp (ILCompUnit _ es) runMain = do
+  v <- interpEs es
+  if runMain
+  then do
+    maybeEntry <- getsInterp entrypoint
+    case maybeEntry of
+      Nothing -> throwError ErrMainUndefined `reportErrorAt` mtSourcePos
+      Just (ILMain _ [paramId] bodyEs) -> do
+        preInterpEnv <- getInterp
+        bindVar paramId $ ValueList []
+        retV <- interpEs bodyEs
+        restoreEnv preInterpEnv
+
+        return retV
+  else return v
 
 
 type Eval a = CompilerPassT CompilerEnv IO a

@@ -4,7 +4,6 @@ Description : Collapses all multi-clause functions into single-body ones
 -}
 module Collapse where
 
-import Common
 import Compiler
 import Control.Monad.Except
 import Errors

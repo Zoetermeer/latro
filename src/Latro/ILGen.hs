@@ -68,9 +68,12 @@ ilGen e =
       ILTypeDec p typeDec
     ExpWithAnn tyAnn e ->
       ILWithAnn (nodeData tyAnn) tyAnn $ ilGen e
-    ExpFunDef (FunDefFun p fid argPatEs bodyEs) ->
+    ExpFunDef (FunDefFun p fid@(UniqId _ fName) argPatEs bodyEs) ->
       let argIds = map (\(PatExpId _ id) -> id) argPatEs
-      in ILFunDef p fid argIds $ map ilGen bodyEs
+          bodyIL = map ilGen bodyEs
+      in if fName == "main"
+         then ILMain p argIds bodyIL
+         else ILFunDef p fid argIds bodyIL
     ExpFunDef (FunDefInstFun p instPatE fid argPatEs bodyEs) ->
       let (PatExpId _ instId) = instPatE
           argIds = map (\(PatExpId _ id) -> id) argPatEs

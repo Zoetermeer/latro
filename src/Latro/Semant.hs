@@ -196,6 +196,7 @@ data IL a =
   | ILRef a UniqId
   | ILBegin a [IL a]
   | ILFail a String
+  | ILMain a [UniqId] [IL a]
   deriving (Eq, Show)
 
 
@@ -225,6 +226,7 @@ instance ILNode IL where
       ILRef d _ -> d
       ILBegin d _ -> d
       ILFail d _ -> d
+      ILMain d _ _ -> d
 
 
 data ILCompUnit a = ILCompUnit a [IL a]

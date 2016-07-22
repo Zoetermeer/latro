@@ -104,6 +104,7 @@ data InterpEnv = InterpEnv
   { valEnv         :: VEnv
   , curMod         :: Module
   , interpAlphaEnv :: AlphaEnv
+  , entrypoint     :: Maybe (Typed IL)
   }
   deriving (Eq, Show)
 
@@ -118,6 +119,7 @@ instance Environment InterpEnv where
     InterpEnv { valEnv          = Map.empty
               , curMod          = mod
               , interpAlphaEnv  = mt
+              , entrypoint      = Nothing
               }
     where
       mod = Module mtEnv [] mtExports

@@ -1,10 +1,9 @@
 module Errors.Display where
 
 import Errors
-import Semant
+import Semant ()
 import Semant.Display
 import Sexpable
-import Text.Printf (printf)
 
 
 instance Sexpable Err where
@@ -125,6 +124,12 @@ instance Sexpable Err where
           , List [ Symbol "ExpectedArity", Symbol $ show arity ]
           , List [ Symbol "ArgLen", Symbol $ show argLen ]
           ]
+
+  sexp (ErrWrongMainArity il) =
+    List  [ Symbol "WrongMainArity", sexp il ]
+
+  sexp (ErrMainAlreadyDefined prevPos) =
+    List  [ Symbol "MainAlreadyDefined", sexp prevPos ]
 
   sexp (ErrMultipleDefsInSimpleAnnDec id) =
     List  [ Symbol "MultipleDefsInSimpleAnnDec"

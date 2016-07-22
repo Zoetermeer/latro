@@ -23,6 +23,9 @@ data Err =
   | ErrFunDefIdMismatch UniqId UniqId
   | ErrFunDefArityMismatch UniqId
   | ErrWrongArity (Typed IL) Int Int
+  | ErrWrongMainArity (Untyped IL)
+  | ErrMainAlreadyDefined SourcePos
+  | ErrMainUndefined
   | ErrCantEvaluate (Typed IL)
   | ErrUnboundRawIdentifier RawId
   | ErrUnboundUniqIdentifier UniqId
