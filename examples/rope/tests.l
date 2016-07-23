@@ -1,47 +1,47 @@
 import Rope
 
-fun itWrapsTwoRopesByASingleNode() {
+itWrapsTwoRopesByASingleNode() {
   def r1 = Leaf("hello ")
   def r2 = Leaf("world")
 
   IO.println(concat'(r1, r2))
 }
 
-fun itDeletesRangeForLeaf() {
+itDeletesRangeForLeaf() {
   def leaf = Leaf("hello")
   IO.println(delete(leaf, 1, 4))
 }
 
-fun itReturnsTheCharAtIndex() {
+itReturnsTheCharAtIndex() {
   def rope = Node(11, Leaf("hello "), Leaf("world"))
   IO.println(index(rope, 4))
   IO.println(index(rope, 8))
 }
 
-fun itInsertsTheStringAtIndexForLeaf() {
+itInsertsTheStringAtIndexForLeaf() {
   def rope = Leaf("hello")
-  IO.println(insert(rope, 4, " n").show())
+  IO.println(show(insert(rope, 4, " n")))
 }
 
-fun itInsertsTheStringAtIndexForNode() {
+itInsertsTheStringAtIndexForNode() {
   def rope = Node(11, Leaf("hello "), Leaf("world"))
-  IO.println(insert(rope, 5, " wicked").show())
-  IO.println(insert(rope, 9, "d go").show())
-  IO.println(insert(rope, 6, "great ").show())
+  IO.println(show(insert(rope, 5, " wicked")))
+  IO.println(show(insert(rope, 9, "d go")))
+  IO.println(show(insert(rope, 6, "great ")))
 }
 
-fun stressTests() {
+stressTests() {
   def r1 = Leaf("hello")
   def r2 = insert(r1, 5, " world")
   def r3 = insert(r2, 5, " wicked")
   def r4 = insert(r3, 0, "well, ")
   def r5 = insert(r4, 24, ".")
 
-  IO.println(r5.show())
-  IO.println(r5.length'())
+  IO.println(show(r5))
+  IO.println(length'(r5))
 }
 
-fun main(_) {
+main(_) {
   def tests = [
     itWrapsTwoRopesByASingleNode,
     itDeletesRangeForLeaf,

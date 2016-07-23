@@ -1,8 +1,8 @@
 module Maybe {
   module MonadInfix {
-    fun >>=(Just(x), f) = f(x)
-    fun >>=(_, _) = Nothing()
+    @(>>=)(Just(x), f) = f(x)
+    @(>>=)(_, _) = Nothing()
 
-    fun return(x) = Just(x)
+    return(x) = Just(x)
   }
 }

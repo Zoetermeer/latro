@@ -57,9 +57,10 @@ module Core {
     @(++)(a::as, bs) = a :: (as ++ bs)
 
 
-    fun ([]).atIndex(_)    = Nothing()
-    fun (x::_).atIndex(0)  = Just(x)
-    fun (_::xs).atIndex(n) = xs.atIndex(n - 1)
+    atIndex{a} : a[] -> Int -> Maybe{a}
+    atIndex([], _)    = Nothing()
+    atIndex(x::_, 0)  = Just(x)
+    atIndex(_::xs, n) = atIndex(xs, n - 1)
 
 
     each{a} : (a -> Unit) -> a[] -> Unit
@@ -98,11 +99,12 @@ module IO {
 type String = Char[]
 
 module String {
-  fun (s).splitAt(0)      = %("", s)
-  fun ("").splitAt(_)     = %("", "")
-  fun (c::cs).splitAt(1)  = %([c], cs)
-  fun (c::cs).splitAt(n) {
-    def %(a, b) = cs.splitAt(n - 1)
+  splitAt : String -> Int -> %(String, String)
+  splitAt(s, 0)      = %("", s)
+  splitAt("", _)     = %("", "")
+  splitAt(c::cs, 1)  = %([c], cs)
+  splitAt(c::cs, n) {
+    def %(a, b) = splitAt(cs, n - 1)
     %(c :: a, b)
   }
 }

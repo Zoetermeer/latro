@@ -1,4 +1,6 @@
 import Core
 import Json
 
-read("{}")
+main(_) {
+  read("{}")
+}

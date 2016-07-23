@@ -1,7 +1,7 @@
 import Core.List
 import Maybe.MonadInfix
 
-fun itWorksOnDisparateTypeParamsToMaybe() {
+itWorksOnDisparateTypeParamsToMaybe() {
   def result =
     Just("hello") >>= fun(str) =
     Just(length(str)) >>= fun(len) =
@@ -10,7 +10,7 @@ fun itWorksOnDisparateTypeParamsToMaybe() {
   IO.println(result)
 }
 
-fun itShortCircuitsOnNothing() {
+itShortCircuitsOnNothing() {
   def result =
     Just("hello") >>= fun(str) =
     Nothing() >>= fun(len) =
@@ -19,5 +19,7 @@ fun itShortCircuitsOnNothing() {
   IO.println(result)
 }
 
-itWorksOnDisparateTypeParamsToMaybe()
-itShortCircuitsOnNothing()
+main(_) {
+  itWorksOnDisparateTypeParamsToMaybe()
+  itShortCircuitsOnNothing()
+}

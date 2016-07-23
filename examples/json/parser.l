@@ -1,16 +1,20 @@
 module Result {
   module MonadInfix {
-    fun >>=(Ok(x), f) = f(x)
-    fun >>=(err, _)   = err
+    @(>>=)(Ok(x), f) = f(x)
+    @(>>=)(err, _)   = err
 
-    fun return(x) = Ok(x)
+    return(x) = Ok(x)
 
-    partition{e, t} => fun(Result{e, t}[]) : %(e[], t[])
-    fun partition([
+    partition{e, t} : Result{e, t}[] -> %(e[], t[])
+    partition([]) = %([], [])
+    partition(r :: rs) =
+      switch (r) {
+        case Ok(x) -> 
+      }
 
-    packResults{e, t} => fun(Result{e, t}[]) : Result{e, t}
-    fun packResults([]) = Ok([])
-    fun packResults(r :: rs) =
+    packResults{e, t} : Result{e, t}[] -> Result{e, t}
+    packResults([]) = Ok([])
+    packResults(r :: rs) =
       switch (r) {
         case Ok(x) -> 
       }
@@ -46,8 +50,8 @@ module Json {
     | TokEof
 
 
-  fun lex([]) = Ok(%(TokEof(), ""))
-  fun lex(c :: cs) {
+  lex([]) = Ok(%(TokEof(), ""))
+  lex(c :: cs) {
     switch (c) {
       case '{' -> Ok(%(TokLBrace(), cs))
       case '}' -> Ok(%(TokRBrace(), cs))
@@ -59,7 +63,7 @@ module Json {
   }
 
 
-  fun read(input) {
+  read(input) {
     lex(input) >>= fun(%(token, input')) =
     switch (token) {
       case TokEof() -> Ok([])
@@ -79,7 +83,7 @@ module Json {
   }
 
 
-  fun parseArray(ts) {
+  parseArray(ts) {
     def rv = parseValue(ts)
     switch (rv) {
       case Ok(%(value, t :: ts')) -> {
@@ -93,8 +97,8 @@ module Json {
   }
 
 
-  fun parseValue([]) = Ok(%(JsonNull(), []))
-  fun parseValue(t :: ts) {
+  parseValue([]) = Ok(%(JsonNull(), []))
+  parseValue(t :: ts) {
     switch (t) {
       case TokLBracket() -> parseArray(ts)
       case TokNull       -> Ok(%(JsonNull(), ts))
@@ -102,7 +106,7 @@ module Json {
   }
 
 
-  fun parse(input) {
+  parse(input) {
     read(input)         >>= fun(tokens) =
     parseValue(tokens)  >>= fun(rv) =
     switch (rv) {

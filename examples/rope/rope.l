@@ -9,28 +9,29 @@ module Rope {
     | Leaf(String)
     | Node(Int, Rope, Rope)
 
-  fun (Leaf(string)).length'() = List.length(string)
-  fun (Node(weight, _, _)).length'() = weight
+  length' : Rope -> Int
+  length'(Leaf(string)) = List.length(string)
+  length'(Node(weight, _, _)) = weight
 
 
-  concat' => fun(Rope, Rope) : Rope
-  fun concat'(r1, r2) {
-    def weight = r1.length'() + r2.length'()
+  concat' : Rope -> Rope -> Rope
+  concat'(r1, r2) {
+    def weight = length'(r1) + length'(r2)
     Node(weight, r1, r2)
   }
 
 
-  delete => fun(Rope, Int, Int) : Rope
-  fun delete(Leaf(string), i, j) {
-    def %(s1, tmp)  = string.splitAt(i)
-    def %(_, s2)    = tmp.splitAt(j - i)
+  delete : Rope -> Int -> Int -> Rope
+  delete(Leaf(string), i, j) {
+    def %(s1, tmp)  = String.splitAt(string, i)
+    def %(_, s2)    = String.splitAt(tmp, j - i)
     def weight      = List.length(s1 ++ s2)
 
     Node(weight, Leaf(s1), Leaf(s2))
   }
 
-  fun delete(Node(weight, left, right), i, j) {
-    def llen  = left.length'()
+  delete(Node(weight, left, right), i, j) {
+    def llen  = length'(left)
     def w     = weight - (j - i)
 
     cond {
@@ -42,19 +43,19 @@ module Rope {
   }
 
 
-  index => fun(Rope, Int) : Maybe{Char}
-  fun index(Leaf(string), n) = string.at-index(n)
-  fun index(Node(weight, left, right), n) {
+  index : Rope -> Int -> Maybe{Char}
+  index(Leaf(string), n) = atIndex(string, n)
+  index(Node(weight, left, right), n) {
     cond {
-      case n < left.length'() -> index(left, n)
-      case _                  -> index(right, n - left.length'())
+      case n < length'(left)  -> index(left, n)
+      case _                  -> index(right, n - length'(left))
     }
   }
 
 
-  insert => fun(Rope, Int, String) : Rope
-  fun insert(Leaf(oldString), n, newString) {
-    def %(s1, s3) = oldString.splitAt(n)
+  insert : Rope -> Int -> String -> Rope
+  insert(Leaf(oldString), n, newString) {
+    def %(s1, s3) = String.splitAt(oldString, n)
     def s2        = newString
     def w1        = List.length(s1 ++ s2 ++ s3)
     def w2        = List.length(s1 ++ s2)
@@ -62,8 +63,8 @@ module Rope {
     Node(w1, Node(w2, Leaf(s1), Leaf(s2)), Leaf(s3))
   }
 
-  fun insert(Node(_, left, right), n, string) {
-    def llen = left.length'()
+  insert(Node(_, left, right), n, string) {
+    def llen = length'(left)
     cond {
       case n < llen -> concat'(insert(left, n, string), right)
       case n > llen -> concat'(left, insert(right, n - llen, string))
@@ -72,16 +73,16 @@ module Rope {
   }
 
 
-  substring => fun(Rope, Int, Int) : Maybe{String}
-  fun substring(Leaf(str), i, j) {
-    def %(_, tmp) = str.splitAt(i)
-    def %(s, _)   = tmp.splitAt(j - i)
+  substring : Rope -> Int -> Int -> Maybe{String}
+  substring(Leaf(str), i, j) {
+    def %(_, tmp) = String.splitAt(str, i)
+    def %(s, _)   = String.splitAt(tmp, j - i)
 
     Just(s)
   }
 
-  fun substring(Node(_, left, right), i, j) {
-    def llen = left.length'()
+  substring(Node(_, left, right), i, j) {
+    def llen = length'(left)
 
     cond {
       case i > j                      -> Nothing()
@@ -91,7 +92,7 @@ module Rope {
   }
 
 
-  fun (Leaf(string)).show() = string
-  fun (Node(_, left, right)).show() =
-    left.show() ++ right.show()
+  show : Rope -> String
+  show(Leaf(string)) = string
+  show(Node(_, left, right)) = show(left) ++ show(right)
 }
