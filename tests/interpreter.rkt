@@ -6,80 +6,117 @@
 
   (test-case "it applies built-in primitives"
     (check-equal?
-      @interp{
-        prim(println)(42)
+      @interp-lines{
+        main(_) = prim(println)(42)
       }
-      "42\nUnit\n"))
+      '("42"
+        "Unit")))
 
   (test-case "it applies functions from core modules"
     (check-equal?
-      @interp{
-        IO.println(42)
+      @interp-lines{
+        main(_) = IO.println(42)
       }
-      "42\nUnit\n"))
+      '("42"
+        "Unit")))
 
   (test-case "it rejects application of unknown primitives"
     (check-match
       @interp-sexp{
-        prim(foo)(42)
+        main(_) = prim(foo)(42)
       }
       `(AtPos ,_ (CompilerModule Types) (PrimUnknown foo))))
 
   (test-case "it evaluates built-in integer primitives"
     (check-match
-      @interp{
-        prim(intEq)(3, 4)
+      @interp-lines{
+        main(_) = IO.println(prim(intEq)(3, 4))
       }
-      "False\n"))
+      '("False"
+        "Unit")))
 
   (test-case "it evaluates (in)equality comparisons on ints"
     (check-match
-      @interp{
-        IO.println(4 < 5)
-        IO.println(99 == 99)
-        IO.println(5 >= 5)
-        IO.println(21 + 3 != 8 * 3)
+      @interp-lines{
+        main(_) {
+          IO.println(4 < 5)
+          IO.println(99 == 99)
+          IO.println(5 >= 5)
+          IO.println(21 + 3 != 8 * 3)
+        }
       }
-      "True\nTrue\nTrue\nFalse\nUnit\n"))
+      '("True"
+        "True"
+        "True"
+        "False"
+        "Unit")))
 
   (test-case "it evaluates literals"
-    (check-equal? @interp-sexp{True} 'True)
-    (check-equal? @interp-sexp{False} 'False)
-    (check-equal? @interp-sexp{42} 42)
-    (check-equal? @interp-sexp{"hello"} "hello")
-    (check-equal? @interp{'f'} "'f'\n"))
+    (check-equal?
+      @interp-lines{
+        main(_) {
+          IO.println(True)
+          IO.println(False)
+          IO.println(42)
+          IO.println("hello")
+          IO.println('f')
+        }
+      }
+      '("True"
+        "False"
+        "42"
+        "\"hello\""
+        "'f'"
+        "Unit")))
 
   (test-case "it returns an error for unbound identifiers"
     (check-match
-      @interp-sexp{x}
+      @interp-sexp{main(_) = x}
       `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier x))))
 
   (test-case "it evaluates arithmetic exps"
-    (check-equal? @interp-sexp{4 + 3} 7)
-    (check-equal? @interp-sexp{4 + 3 * 2} 10)
-    (check-equal? @interp-sexp{4 - 3 / 3} 3)
-    (check-equal? @interp-sexp{3 * 2 + 4} 10)
-    (check-equal? @interp-sexp{((4 + 3) - 42 * 3) + 100 / 10} -109)
-    (check-equal? @interp-sexp{(4 + 3) * 2} 14)
-    (check-equal? @interp-sexp{4 + 8 / 4} 6))
+    (check-equal?
+      @interp-lines{
+        main(_) {
+          IO.println(4 + 3)
+          IO.println(4 + 3 * 2)
+          IO.println(4 - 3 / 3)
+          IO.println(3 * 2 + 4)
+          IO.println(((4 + 3) - 42 * 3) + 100 / 10)
+          IO.println((4 + 3) * 2)
+          IO.println(4 + 8 / 4)
+        }
+      }
+      '("7"
+        "10"
+        "3"
+        "10"
+        "-109"
+        "14"
+        "6"
+        "Unit")))
 
   (test-case "it evaluates arithmetic expressions involving application"
     (check-equal?
       @interp-sexp{
-        f => fun(Int) : Int
-        fun f(x) = x
+        f : Int -> Int
+        f(x) = x
 
-        3 + f(4)
+        main(_) = IO.println(3 + f(4))
       }
       7))
 
   (test-case "it evaluates string patterns"
     (check-equal?
       @interp-sexp{
-        switch ("hello") {
-          case "foo" -> "bar"
-          case "hello" -> "world"
-          case _ -> "no match"
+        main(_) {
+          def s = switch ("hello") {
+            case "foo" -> "bar"
+            case "hello" -> "world"
+            case _ -> "no match"
+          }
+
+          IO.println(s)
         }
       }
       "world"))
@@ -87,29 +124,21 @@
   (test-case "it evaluates if-else expressions"
     (check-equal?
       @interp-sexp{
-        if (True) {
-          42
-        } else {
-          43
-        }
+        main(_) = IO.println(if (True) { 42 } else { 43 })
       }
       42))
 
   (test-case "it takes the else branch on false"
     (check-equal?
       @interp-sexp{
-        if (False) {
-          42
-        } else {
-          43
-        }
+        main(_) = IO.println(if (False) { 42 } else { 43 })
       }
       43))
 
   (test-case "it does not allow argument bindings to escape"
     (check-match
       @typecheck{
-        fun f(x, runForever) {
+        f(x, runForever) {
           if (runForever) {
             f(x, runForever)
           } else {
@@ -117,21 +146,23 @@
           }
         }
 
-        runForever(3, False)
+        main(_) = IO.println(runForever(3, False))
       }
       `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier runForever))))
 
   (test-case "it evaluates non-literals in the test position"
     (check-equal?
       @interp-sexp{
-        def f = fun(x) {
+        f(x) {
           if (x) { True } else { False }
         }
 
-        if (f(True)) {
-          42
-        } else {
-          43
+        main(_) {
+          if (f(True)) {
+            IO.println(42)
+          } else {
+            IO.println(43)
+          }
         }
       }
       42))
@@ -139,45 +170,48 @@
   (test-case "it evaluates nested if-else expressions"
     (check-equal?
       @interp-sexp{
-        42 + (if (True) { 1 } else { 2 })
+        main(_) = IO.println(42 + (if (True) { 1 } else { 2 }))
       }
       43))
 
   (test-case "it returns function values"
     (check-equal?
-      @interp{
-        fun f() = 42
+      @interp-lines{
+        f() = 42
 
-        f
+        main(_) = IO.println(f)
       }
-      @line{fun f => Int}))
+      '("fun f : Int"
+        "Unit")))
 
   (test-case "it returns function values with closures"
     (check-equal?
-      @interp{
+      @interp-lines{
         def v = 1
-        fun f() = v
+        f() = v
 
-        f
+        main(_) = IO.println(f)
       }
-      @line{fun f => Int}))
+      '("fun f : Int"
+        "Unit")))
 
   (test-case "it evaluates the shorthand syntax for single-expression function bodies"
     (check-equal?
-      @typecheck{
-        weird => fun(Int, Int) : Int
-        fun weird(0, 0) = 100
-        fun weird(x, y) = x + y
+      @interp-lines{
+        weird : Int -> Int -> Int
+        weird(0, 0) = 100
+        weird(x, y) = x + y
 
-        weird(1, 2)
+        main(_) = IO.println(weird(1, 2))
       }
-      'Int))
+      '("3"
+        "Unit")))
 
   (test-case "it adds definitions to module exports"
     (check-match
       @interp-sexp{
         module m { def v = 42 }
-        m.v
+        main(_) = IO.println(m.v)
       }
       42))
 
@@ -185,11 +219,11 @@
     (check-equal?
       @interp-sexp{
         module m {
-          fun f() = 42
-          fun g() = 43
+          f() = 42
+          g() = 43
         }
 
-        m.g()
+        main(_) = IO.println(m.g())
       }
       43))
 
@@ -197,7 +231,7 @@
     (check-equal?
       @interp-sexp{
         module m { def v = 42 }
-        m.v
+        main(_) = IO.println(m.v)
       }
       42))
 
@@ -205,10 +239,11 @@
     (check-equal?
       @interp-sexp{
         module m {
-          f => fun() : Int
-          fun f() = 42
+          f : (-> Int)
+          f() = 42
         }
-        m.f()
+
+        main(_) = IO.println(m.f())
       }
       42))
 
@@ -218,10 +253,11 @@
         module m {
           module n { }
 
-          f => fun() : Int
-          fun f() = 42
+          f : (-> Int)
+          f() = 42
         }
-        m.f()
+
+        main(_) = IO.println(m.f())
       }
       42))
 
@@ -229,12 +265,12 @@
     (check-equal?
       @interp-sexp{
         module m {
-          f => fun() : Int
-          fun f() = 42
+          f : (-> Int)
+          f() = 42
 
-           module n { }
+          module n { }
         }
-        m.f()
+        main(_) = IO.println(m.f())
       }
       42))
 
@@ -247,25 +283,26 @@
           }
         }
 
-        a.b.v
+        main(_) = IO.println(a.b.v)
       }
       42))
 
   (test-case "it applies defined functions"
     (check-equal?
       @interp-sexp{
-        f => fun() : Int
-        fun f() = 42
-        f()
+        f : (-> Int)
+        f() = 42
+
+        main(_) = IO.println(f())
       }
       42))
 
   (test-case "it substitutes function args"
     (check-equal?
       @interp-sexp{
-        f => fun(Int) : Int
-        fun f(x) = x
-        f(42)
+        f : Int -> Int
+        f(x) = x
+        main(_) = IO.println(f(42))
       }
       42))
 
@@ -273,9 +310,9 @@
     (check-equal?
       @interp-sexp{
         module m { }
-        f => fun(Int) : Int
-        fun f(m) = m
-        f(42)
+        f : Int -> Int
+        f(m) = m
+        main(_) = IO.println(f(42))
       }
       42))
 
@@ -283,9 +320,9 @@
     (check-equal?
       @interp-sexp{
         def v = 42
-        f => fun() : Int
-        fun f() = v
-        f()
+        f : (-> Int)
+        f() = v
+        main(_) = IO.println(f())
       }
       42))
 
@@ -294,15 +331,15 @@
       @interp-sexp{
         module m {
           module m' {
-            g => fun() : Int
-            fun g() { 43 }
+            g : (-> Int)
+            g() { 43 }
           }
 
-          f => fun() : Int
-          fun f() { 42 }
+          f : (-> Int)
+          f() { 42 }
         }
 
-        m.m'.g()
+        main(_) = IO.println(m.m'.g())
       }
       43))
 
@@ -311,15 +348,15 @@
       @interp-sexp{
         module m {
           module m' {
-            g => fun() : Int
-            fun g() = 43
+            g : (-> Int)
+            g() = 43
           }
 
-          f => fun() : Int
-          fun f() = 42
+          f : (-> Int)
+          f() = 42
         }
 
-        m.m'.g()
+        main(_) = IO.println(m.m'.g())
       }
       43))
 
@@ -328,32 +365,32 @@
       @interp-sexp{
         module m {
           module m1 {
-            g => fun(Int, Int) : Int
-            fun g(x, y) { y + x }
+            g : Int -> Int -> Int
+            g(x, y) { y + x }
           }
 
-          f => fun() : Int
-          fun f() = 42
+          f : (-> Int)
+          f() = 42
         }
 
-        m.m1.g(m.f(), 1)
+        main(_) = IO.println(m.m1.g(m.f(), 1))
       }
       43))
 
   (test-case "it evaluates higher-order functions"
     (check-equal?
       @interp-sexp{
-        f => fun(fun(Int) : Int, Int) : Int
-        fun f(g, x) {
+        f : (Int -> Int) -> Int -> Int
+        f(g, x) {
           g(10) + x
         }
 
-        h => fun(Int) : Int
-        fun h(x) {
+        h : Int -> Int
+        h(x) {
           x + 1
         }
 
-        f(h, 3)
+        main(_) = IO.println(f(h, 3))
       }
       14))
 
@@ -362,14 +399,14 @@
       @interp-sexp{
         module m {
           module m1 {
-            g => fun(Int, Int) : Int
-            fun g(x, y) {
+            g : Int -> Int -> Int
+            g(x, y) {
               y + x
             }
           }
         }
 
-        m1.g(1, 1)
+        main(_) = IO.println(m1.g(1, 1))
       }
       `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier m1))))
 
@@ -377,24 +414,24 @@
     (check-match
       @interp-sexp{
         module m {
-          f => fun() : Int
-          fun f() = 42
+          f : (-> Int)
+          f() = 42
 
           module n { }
         }
 
-        m.n.f()
+        main(_) = IO.println(m.n.f())
       }
       `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier f))))
 
   (test-case "it evaluates recursive functions"
     (check-equal?
       @interp-sexp{
-        fun not(True) = False
-        fun not(_) = True
+        not(True) = False
+        not(_) = True
 
-        f => fun(Int) : Int
-        fun f(x) {
+        f : Int -> Int
+        f(x) {
           def isZero = switch (x) {
             case 0 -> True
             case _ -> False
@@ -406,7 +443,8 @@
             x
           }
         }
-        f(4)
+
+        main(_) = IO.println(f(4))
       }
       10))
 
@@ -420,11 +458,11 @@
             }
           }
 
-          f => fun() : Int
-          fun f() = n.o.v
+          f : (-> Int)
+          f() = n.o.v
         }
 
-        m.f()
+        main(_) = IO.println(m.f())
       }
       42))
 
@@ -435,7 +473,7 @@
           def v = 6
         }
 
-        m.v
+        main(_) = IO.println(m.v)
       }
       6))
 
@@ -443,18 +481,18 @@
     (check-match
       @interp-sexp{
         module m {
-          f => fun() : Int
-          fun f() = 2
+          f : (-> Int)
+          f() = 2
         }
 
-        g => fun() : Int
-        fun g() = 1
+        g : (-> Int)
+        g() = 1
 
         module n {
-          def v = m.f() + g()
+          h() = m.f() + g()
         }
 
-        n.v
+        main(_) = IO.println(n.h())
       }
       3))
 
@@ -467,7 +505,7 @@
           }
         }
 
-        m.n.v
+        main(_) = IO.println(m.n.v)
       }
       6))
 
@@ -475,11 +513,12 @@
     (check-match
       @interp-sexp{
         type t = struct { }
-        t %{ }
+
+        main(_) = IO.println(t %{ })
       }
       't))
 
-  (test-case "it evaluates struct instances"
+  #;(test-case "it evaluates struct instances"
     (check-match
       @interp-sexp{
         type Point = struct {
@@ -487,11 +526,11 @@
           Int Y;
         }
 
-        Point %{ X = 3; Y = 4; }
+        main(_) = IO.println(Point %{ X = 3; Y = 4; })
       }
       'Point))
 
-  (test-case "it evaluates struct field accesses"
+  #;(test-case "it evaluates struct field accesses"
     (check-equal?
       @interp-sexp{
         type Point = struct {
@@ -499,8 +538,10 @@
           Int Y;
         }
 
-        def p = Point %{ X = 3; Y = 4; }
-        Y(p)
+        main(_) {
+          def p = Point %{ X = 3; Y = 4; }
+          IO.println(Y(p))
+        }
       }
       4))
 
@@ -508,12 +549,15 @@
     (check-match
       @interp-sexp{
         type t = struct { }
-        def v = t %{ }
-        x(v)
+
+        main(_) {
+          def v = t %{ }
+          IO.println(x(v))
+        }
       }
       `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier x))))
 
-  (test-case "it evaluates nested struct field accesses"
+  #;(test-case "it evaluates nested struct field accesses"
     (check-equal?
       @interp-sexp{
         type Point = struct {
@@ -526,12 +570,14 @@
           Point B;
         }
 
-        def l = Line %{
-          A = Point %{ X = 0; Y = 0; };
-          B = Point %{ X = 3; Y = 4; };
-        }
+        main(_) {
+          def l = Line %{
+            A = Point %{ X = 0; Y = 0; };
+            B = Point %{ X = 3; Y = 4; };
+          }
 
-        Y(B(l))
+          IO.println(Y(B(l)))
+        }
       }
       4))
 
@@ -550,37 +596,41 @@
           }
         }
 
-        def l = Geometry.Line %{
-          A = Geometry.Point %{ X = 0; Y = 0; };
-          B = Geometry.Point %{ X = 3; Y = 4; };
-        }
+        main(_) {
+          def l = Geometry.Line %{
+            A = Geometry.Point %{ X = 0; Y = 0; };
+            B = Geometry.Point %{ X = 3; Y = 4; };
+          }
 
-        Geometry.Y(Geometry.B(l))
+          IO.println(Geometry.Y(Geometry.B(l)))
+        }
       }
       4))
 
   (test-case "it exports algebraic data type constructors"
     (check-regexp-match
-      #px"fun x\\d* => Int -> IntOption"
+      #px"fun x\\d* : Int -> IntOption"
       @interp{
         module Prims {
           type IntOption =
             | Just(Int)
             | None
         }
-        Prims.Just
+
+        main(_) = IO.println(Prims.Just)
       }))
 
   (test-case "it constructs ADT instances"
     (check-equal?
-      @interp{
+      @interp-lines{
         type IntOption =
           | Just(Int)
           | None
 
-        Just(42)
+        main(_) = IO.println(Just(42))
       }
-      @line{Just(42)}))
+      '("Just(42)"
+        "Unit")))
 
   (test-case "it scopes ADT defs/ctors to module exports"
     (check-match
@@ -591,160 +641,194 @@
             | None
         }
 
-        Some(42)
+        main(_) = IO.println(Some(42))
       }
       `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier Some))))
 
   (test-case "it evaluates multi-arity ADT constructors"
     (check-equal?
-      @interp{
+      @interp-lines{
         type T =
           | IBTuple(Int, Bool)
           | B(Bool)
 
-        %(B(True), IBTuple(2, False))
+        main(_) = IO.println(%(B(True), IBTuple(2, False)))
       }
-      @line{%(B(True), IBTuple(2, False))}))
+      '("%(B(True), IBTuple(2, False))"
+        "Unit")))
 
   (test-case "it evaluates tuple expressions"
     (check-equal?
-      @interp{
-        %(4, False)
+      @interp-lines{
+        main(_) = IO.println(%(4, False))
       }
-      @line{%(4, False)}))
+      '("%(4, False)"
+        "Unit")))
 
   (test-case "it evaluates 3-tuples"
     (check-equal?
-      @interp{
-        %(3, True, 4)
+      @interp-lines{
+        main(_) = IO.println(%(3, True, 4))
       }
-      @line{%(3, True, 4)}))
+      '("%(3, True, 4)"
+        "Unit")))
 
   (test-case "it applies functions with tuple arguments"
     (check-equal?
-      @interp{
-        f => fun(%(Int, Bool)) : %(Int, Bool)
-        fun f(pair) = pair
+      @interp-lines{
+        f : %(Int, Bool) -> %(Int, Bool)
+        f(pair) = pair
 
-        f(%(5, False))
+        main(_) = IO.println(f(%(5, False)))
       }
-      @line{%(5, False)}))
+      '("%(5, False)"
+        "Unit")))
 
   (test-case "it evaluates list expressions"
     (check-equal?
-      @interp{
-        [1, 2, 3]
+      @interp-lines{
+        main(_) = IO.println([1, 2, 3])
       }
-      @line{[1, 2, 3]}))
+      '("[1, 2, 3]"
+        "Unit")))
 
   (test-case "it evaluates list bindings"
     (check-equal?
-      @interp{
-        def ls = [1, 2, 3, 4]
-        ls
+      @interp-lines{
+        main(_) {
+          def ls = [1, 2, 3, 4]
+          IO.println(ls)
+        }
       }
-      @line{[1, 2, 3, 4]}))
+      '("[1, 2, 3, 4]"
+        "Unit")))
 
   (test-case "it evaluates list cons operations"
     (check-equal?
-      @interp{
-        1 :: [2, 3, 4]
+      @interp-lines{
+        main(_) = IO.println(1 :: [2, 3, 4])
       }
-      @line{[1, 2, 3, 4]}))
+      '("[1, 2, 3, 4]"
+        "Unit")))
 
   (test-case "it makes cons right-associative"
     (check-equal?
-      @interp{
-        f => fun(Int, Int) : Int[]
-        fun f(x, y) {
+      @interp-lines{
+        f : Int -> Int -> Int[]
+        f(x, y) {
           x :: y :: [3, 4, 5]
         }
 
-        f(1, 2)
+        main(_) = IO.println(f(1, 2))
       }
-      @line{[1, 2, 3, 4, 5]}))
+      '("[1, 2, 3, 4, 5]"
+        "Unit")))
 
   (test-case "it evaluates list patterns"
     (check-equal?
       @interp-sexp{
-        def [a, b, c] = [1, 2, 3]
-        a + b + c
+        main(_) {
+          def [a, b, c] = [1, 2, 3]
+          IO.println(a + b + c)
+        }
       }
       6))
 
   (test-case "it evaluates list patterns with pattern subexpressions"
     (check-equal?
       @interp-sexp{
-        def [_, b, 3] = [1, 2, 3]
-        b
+        main(_) {
+          def [_, b, 3] = [1, 2, 3]
+          IO.println(b)
+        }
       }
       2))
 
   (test-case "it fails to bind to list patterns if lengths don't match"
     (check-match
       @interp-sexp{
-        def [a, b] = []
-        a
+        main(_) {
+          def [a, b] = []
+          IO.println(a)
+        }
       }
       `(AtPos ,_ (CompilerModule Interp) (PatMatchFail ,_ (List ())))))
 
   (test-case "it evaluates list cons patterns"
     (check-equal?
-      @interp{
-        def x::xs = [1, 2, 3, 4]
-        %(x, xs)
+      @interp-lines{
+        main(_) {
+          def x::xs = [1, 2, 3, 4]
+          IO.println(%(x, xs))
+        }
       }
-      @line{%(1, [2, 3, 4])}))
+      '("%(1, [2, 3, 4])"
+        "Unit")))
 
   (test-case "it evaluates cons patterns with list pat subexpressions"
     (check-equal?
       @interp-sexp{
-        def x::[] = [3]
-        x
+        main(_) {
+          def x::[] = [3]
+          IO.println(x)
+        }
       }
       3))
 
   (test-case "it evaluates cons patterns in sublists"
     (check-equal?
-      @interp{
-        def xs::[[3, 4], [x, _, z]] = [[1, 2], [3, 4], [5, 6, 7]]
-        %(xs, x, z)
+      @interp-lines{
+        main(_) {
+          def xs::[[3, 4], [x, _, z]] = [[1, 2], [3, 4], [5, 6, 7]]
+          IO.println(%(xs, x, z))
+        }
       }
-      @line{%([1, 2], 5, 7)}))
+      '("%([1, 2], 5, 7)"
+        "Unit")))
 
   (test-case "it evaluates tuple pattern bindings"
     (check-equal?
       @interp-sexp{
-        def %(a, b) = %(1, True)
-        b
+        main(_) {
+          def %(a, b) = %(1, True)
+          IO.println(b)
+        }
       }
       'True))
 
   (test-case "it evaluates wildcards in tuple patterns"
     (check-equal?
       @interp-sexp{
-        def %(_, b) = %(1, 43)
-        b
+        main(_) {
+          def %(_, b) = %(1, 43)
+          IO.println(b)
+        }
       }
       43))
 
   (test-case "it throws away expressions bound to wildcards"
     (check-equal?
       @interp-sexp{
-        def _ = 42
-        43
+        main(_) {
+          def _ = 42
+          IO.println(43)
+        }
       }
       43))
 
   (test-case "it evaluates switch expressions"
     (check-equal?
       @interp-sexp{
-        def v = %(4, False)
-        switch (v) {
-          case %(0, _) -> 1
-          case %(4, True) -> 2
-          case %(_, False) -> 3
-          case _ -> 4
+        main(_) {
+          def v = %(4, False)
+          def x = switch (v) {
+            case %(0, _) -> 1
+            case %(4, True) -> 2
+            case %(_, False) -> 3
+            case _ -> 4
+          }
+
+          IO.println(x)
         }
       }
       3))
@@ -752,48 +836,55 @@
   (test-case "it evaluates switch expressions with mixed block-style and short-form bodies"
     (check-equal?
       @interp-sexp{
-        switch ([1, 2, 3]) {
-          case [x, y, z] -> {
-            def v = z + y
-            v * 2
-          }
-          case _ -> 3
+        main(_) {
+          IO.println(switch ([1, 2, 3]) {
+              case [x, y, z] -> {
+                def v = z + y
+                v * 2
+              }
+              case _ -> 3
+            }
+          )
         }
       }
       10))
 
   (test-case "it evaluates patterns in argument-binding position"
     (check-equal?
-      @interp{
-        IsZero => fun(Int) : Bool
-        fun IsZero(0) = True
-        fun IsZero(_) = False
+      @interp-lines{
+        IsZero : Int -> Bool
+        IsZero(0) = True
+        IsZero(_) = False
 
-        %(IsZero(1), IsZero(0))
+        main(_) = IO.println(%(IsZero(1), IsZero(0)))
       }
-      @line{%(False, True)}))
+      '("%(False, True)"
+        "Unit")))
 
   (test-case "it evaluates tuple patterns in argument bindings"
     (check-equal?
-      @interp{
-        Fst => fun(%(Int, Bool)) : Int
-        fun Fst(%(a, _)) = a
+      @interp-lines{
+        Fst : %(Int, Bool) -> Int
+        Fst(%(a, _)) = a
 
-        Snd => fun(%(Int, Bool)) : Bool
-        fun Snd(%(_, b)) = b
+        Snd : %(Int, Bool) -> Bool
+        Snd(%(_, b)) = b
 
-        def v = %(42, False)
-        %(Snd(v), Fst(v))
+        main(_) {
+          def v = %(42, False)
+          IO.println(%(Snd(v), Fst(v)))
+        }
       }
-      @line{%(False, 42)}))
+      '("%(False, 42)"
+        "Unit")))
 
   (test-case "it returns an error for non-exhaustive patterns in argument bindings"
     (check-match
       @interp-sexp{
-        IsZero => fun(Int) : Bool
-        fun IsZero(0) = True
+        IsZero : Int -> Bool
+        IsZero(0) = True
 
-        IsZero(1)
+        main(_) = IO.println(IsZero(1))
       }
       `(AtPos ,_ (CompilerModule Interp) (NonExhaustivePattern ,_ (Tuple (1))))))
 
@@ -805,8 +896,10 @@
           | Some(String)
           | None
 
-        def Some(x) = Some("hello world")
-        x
+        main(_) {
+          def Some(x) = Some("hello world")
+          IO.println(x)
+        }
       }
       "hello world"))
 
@@ -817,7 +910,10 @@
           | Some(Int)
           | None
 
-        def None() = Some(10)
+        main(_) {
+          def None() = Some(10)
+          IO.println("OMG!")
+        }
       }
       `(AtPos
          ,_
@@ -828,81 +924,92 @@
 
   (test-case "it evaluates ADT argument patterns"
     (check-equal?
-      @interp{
+      @interp-lines{
         type IntOption = | Some(Int) | None
 
-        IsSome => fun(IntOption) : Bool
-        fun IsSome(Some(_)) = True
-        fun IsSome(_) = False
+        IsSome : IntOption -> Bool
+        IsSome(Some(_)) = True
+        IsSome(_) = False
 
-        def s = Some(42)
-        def Some(v) = s
-        %(IsSome(None()), IsSome(s), v)
+        main(_) {
+          def s = Some(42)
+          def Some(v) = s
+          IO.println(%(IsSome(None()), IsSome(s), v))
+        }
       }
-      @line{%(False, True, 42)}))
+      '("%(False, True, 42)"
+        "Unit")))
 
   (test-case "can encode a module with common list operations"
     (check-equal?
-      @typecheck{
+      @interp-lines{
         module IntList {
           type t = Int[]
           type BoolList = Bool[]
 
 
-          Concat => fun(t, t) : t
-          fun Concat(xs, []) = xs
-          fun Concat([], ys) = ys
-          fun Concat(x::xs, ys) {
+          Concat : t -> t -> t
+          Concat(xs, []) = xs
+          Concat([], ys) = ys
+          Concat(x::xs, ys) {
             x :: Concat(xs, ys)
           }
 
-          Map => fun(fun(Int) : Bool, t) : BoolList
-          fun Map(f, []) = []
-          fun Map(f, x::xs) {
+          Map : (Int -> Bool) -> t -> BoolList
+          Map(f, []) = []
+          Map(f, x::xs) {
             f(x) :: Map(f, xs)
           }
         }
 
-        [
-          IntList.Concat([], []),
-          IntList.Concat([1, 2], []),
-          IntList.Concat([1, 2], [3, 4, 5])
-        ]
+        main(_) {
+          IO.println(
+            [
+              IntList.Concat([], []),
+              IntList.Concat([1, 2], []),
+              IntList.Concat([1, 2], [3, 4, 5])
+            ]
+          )
+        }
       }
-      '(App List ((App List (Int))))))
+      '("[[], [1, 2], [1, 2, 3, 4, 5]]"
+        "Unit")))
 
   (test-case "it evaluates recursive function defs that depend on pattern ordering"
     (check-equal?
-      @interp{
-        GetTwoOrLess => fun(Int) : Int
-        fun GetTwoOrLess(0) = 0
-        fun GetTwoOrLess(1) = 1
-        fun GetTwoOrLess(2) = 2
-        fun GetTwoOrLess(x) = GetTwoOrLess(x - 1)
+      @interp-lines{
+        GetTwoOrLess : Int -> Int
+        GetTwoOrLess(0) = 0
+        GetTwoOrLess(1) = 1
+        GetTwoOrLess(2) = 2
+        GetTwoOrLess(x) = GetTwoOrLess(x - 1)
 
-        %(GetTwoOrLess(1), GetTwoOrLess(4))
+        main(_) {
+          IO.println(%(GetTwoOrLess(1), GetTwoOrLess(4)))
+        }
       }
-      @line{%(1, 2)}))
+      '("%(1, 2)"
+        "Unit")))
 
   (test-case "it evaluates anonymous lambda expressions"
     (check-regexp-match
-      #px"fun x\\d* => Int -> Int -> Int"
+      #px"fun x\\d* : Int -> Int -> Int"
       @interp{
-        fun(x, y) { x + y }
+        main(_) = IO.println(fun(x, y) { x + y })
       }))
 
   (test-case "it evaluates anonymous function application"
     (check-equal?
       @interp-sexp{
-        fun (x, y) { x + y }(1, 2)
+        main(_) = IO.println(fun (x, y) { x + y }(1, 2))
       }
       3))
 
   (test-case "it evaluates polymorphic functions"
     (check-equal?
-      @interp{
-        IsEven => fun(Int) : Bool
-        fun IsEven(x) {
+      @interp-lines{
+        IsEven : Int -> Bool
+        IsEven(x) {
           switch (x) {
             case 0 -> True
             case 1 -> False
@@ -912,104 +1019,113 @@
         }
 
         module Lists {
-          Map{a, b} => fun(fun(a) : b, a[]) : b[]
-          fun Map(_, []) = []
-          fun Map(f, x::xs) {
+          Map{a, b} : (a -> b) -> a[] -> b[]
+          Map(_, []) = []
+          Map(f, x::xs) {
             f(x) :: Map(f, xs)
           }
         }
 
-        Lists.Map(fun(n) { IsEven(n) }, [1, 2, 3, 4])
+        main(_) {
+          IO.println(Lists.Map(fun(n) { IsEven(n) }, [1, 2, 3, 4]))
+        }
       }
-      @line{[False, True, False, True]}))
+      '("[False, True, False, True]"
+        "Unit")))
 
   (test-case "it evaluates a string-length function"
     (check-equal?
       @interp-sexp{
         type String = Char[]
 
-        len => fun(String) : Int
-        fun len("") = 0
-        fun len(c::cs) { 1 + len(cs) }
+        len : String -> Int
+        len("") = 0
+        len(c::cs) { 1 + len(cs) }
 
-        len("hello")
+        main(_) = IO.println(len("hello"))
       }
       5))
 
-  (test-case "it evaluates instance function applications"
+  #;(test-case "it evaluates instance function applications"
     (check-equal?
       @interp-sexp{
         fun (True).isTrue() = True
         fun (_).isFalse() = False
 
-        True.isFalse()
+        main(_) {
+          IO.println(True.isFalse())
+        }
       }
       'False))
 
-  (test-case "it evaluates recursive instance functions"
+  #;(test-case "it evaluates recursive instance functions"
     (check-equal?
       @interp-sexp{
         fun ([]).len() = 0
         fun (x::xs).len() = 1 + xs.len()
 
-        [1, 2, 3].len()
+        main(_) {
+          IO.println([1, 2, 3].len())
+        }
       }
       3))
 
   (test-case "it accepts identifiers with non-alphanumeric characters"
     (check-equal?
       @interp-sexp{
-        def x/! = 1 + 2
-        x/!
+        main(_) {
+          def x/! = 1 + 2
+          IO.println(x/!)
+        }
       }
       3))
 
   (test-case "it accepts special characters in function names"
     (check-equal?
       @interp-sexp{
-        fun foo/bar(n) = n + 1
-        foo/bar(19) / 2
+        foo/bar(n) = n + 1
+        main(_) = IO.println(foo/bar(19) / 2)
       }
       10))
 
   (test-case "it evaluates infix application of binary functions"
     (check-equal?
       @interp-sexp{
-        fun !!(a, b) = a * b
+        @"@"(!!)(a, b) = a * b
         precedence !! 10
 
-        2 !! 3 + 4
+        main(_) = IO.println(2 !! 3 + 4)
       }
       14))
 
   (test-case "it evaluates clauses on custom infix operators"
     (check-equal?
       @interp-sexp{
-        True || False || False
+        main(_) = IO.println(True || False || False)
       }
       'True))
 
   (test-case "it evaluates a boolean AND infix operator"
     (check-equal?
       @interp-sexp{
-        True && False
+        main(_) = IO.println(True && False)
       }
       'False))
 
   (test-case "it evaluates recursive infix operators"
     (check-equal?
       @interp-sexp{
-        fun ~(0, 0) = False
-        fun ~(0, _) = True
-        fun ~(_, 0) = False
-        fun ~(x, y) = (x - 1) ~ (y - 1)
+        @"@"(~)(0, 0) = False
+        @"@"(~)(0, _) = True
+        @"@"(~)(_, 0) = False
+        @"@"(~)(x, y) = (x - 1) ~ (y - 1)
 
-        fun ~!(0, 0) = True
-        fun ~!(0, _) = True
-        fun ~!(_, 0) = False
-        fun ~!(x, y) = (x - 1) ~! (y - 1)
+        @"@"(~!)(0, 0) = True
+        @"@"(~!)(0, _) = True
+        @"@"(~!)(_, 0) = False
+        @"@"(~!)(x, y) = (x - 1) ~! (y - 1)
 
-        3 ~ 4 && (10 ~! 10)
+        main(_) = IO.println(3 ~ 4 && (10 ~! 10))
       }
       'True))
 
@@ -1017,19 +1133,19 @@
   (test-case "it evaluates user-defined precedence assignments"
     (check-equal?
       @interp-sexp{
-        fun ||(True, _) = True
-        fun ||(_, True) = True
-        fun ||(_, _) = False
+        @"@"(||)(True, _) = True
+        @"@"(||)(_, True) = True
+        @"@"(||)(_, _) = False
 
         //XOR
-        fun !!(False, False) = False
-        fun !!(True, True) = False
-        fun !!(_, _) = True
+        @"@"(!!)(False, False) = False
+        @"@"(!!)(True, True) = False
+        @"@"(!!)(_, _) = True
 
         precedence || 1
         precedence !! 2
 
-        True !! True || True
+        main(_) = IO.println(True !! True || True)
       }
       'False))
 
@@ -1040,41 +1156,45 @@
         //!! = *
         //~ = -
         //| = /
-        fun &(a, b) = a + b
-        fun !(a, b) = a * b
-        fun ~(a, b) = a - b
-        fun |(a, b) = a / b
+        @"@"(&)(a, b) = a + b
+        @"@"(!)(a, b) = a * b
+        @"@"(~)(a, b) = a - b
+        @"@"(|)(a, b) = a / b
 
         precedence ! 1
         precedence | 1
         precedence & 2
         precedence ~ 2
 
-        1 & 2 ! 3 ~ 4 | 4
+        main(_) = IO.println(1 & 2 ! 3 ~ 4 | 4)
       }
       6))
 
   (test-case "it reorders expressions by user-defined precedence"
     (check-equal?
       @interp-sexp{
-        fun <(0, 0) = False
-        fun <(0, _) = True
-        fun <(_, 0) = False
-        fun <(a, b) = a - 1 < b - 1
+        @"@"(<)(0, 0) = False
+        @"@"(<)(0, _) = True
+        @"@"(<)(_, 0) = False
+        @"@"(<)(a, b) = a - 1 < b - 1
 
         precedence < 10
 
-        fun &&(True, True) = True
-        fun &&(_, _) = False
+        @"@"(&&)(True, True) = True
+        @"@"(&&)(_, _) = False
 
         precedence && 11
 
-        def i = 1
-        def j = 2
-        def k = 3
-        cond {
-          case i < k && j < k -> 42
-          case _ -> 43
+        main(_) {
+          def i = 1
+          def j = 2
+          def k = 3
+          def l = cond {
+            case i < k && j < k -> 42
+            case _ -> 43
+          }
+
+          IO.println(l)
         }
       }
       42))
@@ -1082,14 +1202,15 @@
   (test-case "it allows direct references/application to operators"
     (check-equal?
       @interp-sexp{
-        (+)(1, 2)
+        main(_) = IO.println((+)(1, 2))
       }
       3))
 
   (test-case "it returns operator function values"
     (check-equal?
-      @interp{(*)}
-      @line{fun * => Int -> Int -> Int}))
+      @interp-lines{main(_) = IO.println((*))}
+      '("fun * : Int -> Int -> Int"
+        "Unit")))
 
   (test-case "it binds imported values"
     (check-equal?
@@ -1103,7 +1224,7 @@
           def x = v
         }
 
-        Bar.x
+        main(_) = IO.println(Bar.x)
       }
       42))
 
@@ -1111,17 +1232,17 @@
     (check-equal?
       @interp-sexp{
         module Prims {
-          fun &&(True, True) = True
-          fun &&(_, _) = False
+          @"@"(&&)(True, True) = True
+          @"@"(&&)(_, _) = False
         }
 
         module Foo {
           import Prims
 
-          def v = True && False
+          f() = True && False
         }
 
-        Foo.v
+        main(_) = IO.println(Foo.f())
       }
       'False))
 
@@ -1130,24 +1251,24 @@
       @interp-sexp{
         module Prims {
           module BoolOps {
-            fun &&(True, True) = True
-            fun &&(_, _) = False
+            @"@"(&&)(True, True) = True
+            @"@"(&&)(_, _) = False
           }
         }
 
         import Prims.BoolOps
 
-        True && False
+        main(_) = IO.println(True && False)
       }
       'False))
 
   (test-case "it distinguishes between types and values with the same name"
     (check-equal?
       @interp-sexp{
-        fun foo(a, b) = a + b
+        foo(a, b) = a + b
         type foo = Int
 
-        foo(2, 4)
+        main(_) = IO.println(foo(2, 4))
       }
       6))
 )

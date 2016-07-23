@@ -499,7 +499,7 @@ instance Show Value where
       ValueInt i -> show i
       ValueBool b -> show b
       ValueChar c -> printf "'%c'" c
-      ValueFun (Closure fid fty _ paramIds _) -> printf "fun %s => %s" (show fid) (show fty)
+      ValueFun (Closure fid fty _ paramIds _) -> printf "fun %s : %s" (show fid) (show fty)
       ValueStruct struct -> "struct"
       ValueAdt (Adt uid i vs) ->
         printf "%s(%s)" (show uid) (concat . intersperse ", " $ map show vs)

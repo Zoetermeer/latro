@@ -59,22 +59,22 @@
     (call-interpreter opts (apply string-append s))))
 
 (define (parse-tree . s)
-  (call-and-read '("-p") (apply string-append s)))
+  (call-and-read '("-a parse") (apply string-append s)))
 
 (define (alpha-convert . s)
-  (call-and-read '("-a") (apply string-append s)))
+  (call-and-read '("-a alpha") (apply string-append s)))
 
 (define (infix-reordered . s)
-  (call-and-read '("-r") (apply string-append s)))
+  (call-and-read '("-a infix") (apply string-append s)))
 
 (define (il-gen . s)
-  (call-and-read '("-il") (apply string-append s)))
+  (call-and-read '("-a ilgen") (apply string-append s)))
 
 (define (typecheck . s)
-  (call-and-read '("-tc") (apply string-append s)))
+  (call-and-read '("-a type") (apply string-append s)))
 
 (define (show-typed-ast . s)
-  (call-and-read '("-t") (apply string-append s)))
+  (call-and-read '("-a typed") (apply string-append s)))
 
 (define (interp . s)
   (call '() (apply string-append s)))
@@ -83,7 +83,7 @@
   (call '("-e") (apply string-append s)))
 
 (define (interp-lines . s)
-  (string-split (call '() (apply string-append s))))
+  (string-split (call '() (apply string-append s)) "\n"))
 
 (define (interp-sexp . s)
   (call-and-read '() (apply string-append s)))

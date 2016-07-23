@@ -172,6 +172,7 @@ LiteralExp : num { ExpNum (pos $1) (tokValue $1) }
            | False { ExpBool (pos $1) False }
            | string { ExpString (pos $1) (tokValue $1) }
            | char { ExpChar (pos $1) (tokValue $1) }
+           | QualifiedId { ExpQualifiedRef (nodeData $1) $1 }
 
 AtomExp : '(' Exp ')' { ExpInParens (nodeData $2) $2 }
         | '(' ')' { ExpUnit (pos $1) }
@@ -182,7 +183,6 @@ AtomExp : '(' Exp ')' { ExpInParens (nodeData $2) $2 }
         | FunHeader FunBody { ExpFun (fst $1) (snd $1) $2 }
         | prim '(' simple_id ')' { ExpPrim (pos $1) (tokValue $3) }
         | LiteralExp { $1 }
-        | QualifiedId { ExpQualifiedRef (nodeData $1) $1 }
 
 MemberAccessExp : AppExp '.' SimpleOrMixedId { ExpMemberAccess (nodeData $1) $1 (tokValue $3) }
                 | AtomExp { $1 }
@@ -300,6 +300,7 @@ SimpleTy : Int { SynTyInt (pos $1)  }
 
 TyArrow : SimpleTy { [$1] }
         | SimpleTy '->' TyArrow { $1 : $3 }
+        | '(' '->' Ty ')' { [SynTyArrow (pos $1) [] $3] }
 
 Ty : TyArrow { if length $1 == 1 then head $1 else SynTyArrow (firstPos $1) (take (length $1 - 1) $1) (last $1) }
 
