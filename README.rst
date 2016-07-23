@@ -60,7 +60,7 @@ these types in annotations like so:
   - ``t[]`` is a list with elements of type ``t``
   - ``Int[]`` is a list of integers
   - ``%(Int, Bool)`` is the type of 2-tuples with an ``Int`` and ``Bool`` component
-  - ``fun(Int, Bool) : Bool`` is the type of functions accepting an
+  - ``Int -> Bool -> Bool`` is the type of functions accepting an
     ``Int`` and ``Bool`` argument, and returning a ``Bool``
 
 Literal values for each of the built-in types can be written directly, e.g:
@@ -88,17 +88,17 @@ the type of a value using an annotation:
 
 .. code:: ocaml
 
-  f => fun(Int, Bool) : Bool
-  fun f(i, b) = b
+  f : Int -> Bool -> Bool
+  f(i, b) = b
 
 If we were to omit the annotation from above, like so:
 
 .. code:: ocaml
 
-  fun f(i, b) = b
+  f(i, b) = b
 
 Latro would infer the type of this function to be a polymorphic one returning
-its second argument: ``fun{t1, t2}(t1, t2) : t2``.
+its second argument: ``{t1, t2} t1 -> t2 -> t2``.
 
 Sometimes we may want to define *type aliases* for types to give them special 
 meaning; for example, we may want to define a name ``String`` that really
@@ -262,14 +262,13 @@ Or bind them to names:
 
 .. code:: ocaml
 
-  fun add1(x) = x + 1
-  add1(2) // 3
+  add1(x) = x + 1
 
 They can also use a long-form "block" for the body:
 
 .. code:: ocaml
 
-  fun add1AndMultBy3(x) {
+  add1AndMultBy3(x) {
     (x + 1) * 3
   }
 
@@ -279,19 +278,19 @@ For example, here is the Fibonacci sequence in Latro:
 
 .. code:: ocaml
 
-  fun fib(0) = 0
-  fun fib(1) = 1
-  fun fib(n) = fib(n - 1) + fib(n - 2)
+  fib(0) = 0
+  fib(1) = 1
+  fib(n) = fib(n - 1) + fib(n - 2)
 
 As shown above, we can annotate functions with types to avoid over-generalizing
 by the type inference engine (or just to be clearer about a function's prototype):
 
 .. code:: ocaml
 
-  fib => fun(Int) : Int
-  fun fib(0) = 0
-  fun fib(1) = 1
-  fun fib(n) = fib(n - 1) + fib(n - 2)
+  fib : Int -> Int
+  fib(0) = 0
+  fib(1) = 1
+  fib(n) = fib(n - 1) + fib(n - 2)
 
 Clauses are a nice, declarative way of expressing functions as sets of
 rules.  As another example, we could define a set of common boolean operations,
@@ -299,17 +298,17 @@ where each function definition looks very much like a truth table:
 
 ::
 
-  fun or(_, True) = True
-  fun or(True, _) = True
-  fun or(_, _) = False
+  or(_, True) = True
+  or(True, _) = True
+  or(_, _) = False
   
-  fun and(True, True) = True
-  fun and(_, _) = False
+  and(True, True) = True
+  and(_, _) = False
   
-  fun xor(False, False) = False
-  fun xor(True, False) = True
-  fun xor(False, True) = True
-  fun xor(_, _) = False
+  xor(False, False) = False
+  xor(True, False) = True
+  xor(False, True) = True
+  xor(_, _) = False
 
 Note also that clauses are evaluated *in order*, so the ``xor`` example is
 correct as the ``xor(_, _)`` case is guaranteed to only operate on cases
@@ -321,7 +320,7 @@ like the following:
 
 .. code:: ocaml
 
-  fun xor(a, b) {
+  xor(a, b) {
     def args = %(a, b)
     switch (args) {
       case %(False, False) -> False
@@ -361,7 +360,7 @@ All functions *close* over bindings in their surrounding scope, e.g.:
 
 ::
 
-  fun adder(x) = fun(y) = x + y
+  adder(x) = fun(y) = x + y
   def add5 = adder(5)
   
   add5(6) // 11
@@ -381,7 +380,7 @@ alphanumeric identifier could be used, e.g.:
 
 .. code:: ocaml
 
-  fun foo/special!(a, b) = a + b
+  foo/special!(a, b) = a + b
   foo/special!(2, 3)
 
 Additionally, Latro supports the definition of custom infix operators.  Any
@@ -390,8 +389,8 @@ given above, e.g.:
 
 .. code:: ocaml
 
-  fun &&(True, True) = True
-  fun &&(_, _) = False
+  @(&&)(True, True) = True
+  @(&&)(_, _) = False
 
 Can only be applied as an infix operator, e.g.:
 
@@ -406,8 +405,8 @@ a *precedence assignment*:
 
 .. code:: ocaml
 
-  fun &&(True, True) = True
-  fun &&(_, _) = False
+  @(&&)(True, True) = True
+  @(&&)(_, _) = False
   
   precedence && 1
 
@@ -417,12 +416,12 @@ highest.)  Thus the program:
 
 .. code:: ocaml
 
-  fun ||(True, _) = True
-  fun ||(_, True) = True
-  fun ||(_, _) = False
+  @(||)(True, _) = True
+  @(||)(_, True) = True
+  @(||)(_, _) = False
 
-  fun &&(True, True) = True
-  fun &&(_, _) = False
+  @(&&)(True, True) = True
+  @(&&)(_, _) = False
   
   precedence && 1
   precedence || 2
@@ -443,40 +442,6 @@ by enclosing it in parentheses, e.g.:
 .. code:: ocaml
 
     (+)(1, 2) // 3
-
-  
-Instance functions
-------------------
-
-We can "decorate" types with functions that can be called as if they
-are members of values directly, using dot notation (``.``).  We do so
-using Go-style post-hoc instance function definitions:
-
-.. code:: ocaml
-
-  fun ([]).length() = 0
-  fun (x::xs).length() = 1 + xs.length()
-
-Notice that we may use patterns and clauses to destructure values of the instance
-value, just as we do for arguments in regular function clauses -- and
-in doing so we allow the compiler to infer the allowed type of instances
-for which this function will be defined.  Here we have defined 
-an instance function ``length`` for lists with any element type.  We
-could clarify the type of this function with an annotation:
-
-.. code:: ocaml
-
-  length{a} => fun(a[])() : Int
-  fun ([]).length() = 0
-  fun (x::xs).length() = 1 + xs.length()
-
-Note that for polymorphic functions such as ``length``, we define the names of its type parameters
-using curly braces (``{a}`` means that this function's type includes a type parameter called ``a``).
-We can call this function on any list:
-
-.. code:: ocaml
-
-  [1, 2, 3].length() // 3
 
 
 Algebraic data types
@@ -510,8 +475,8 @@ the name of a constructor:
     | Present(a)
     | Absent
   
-  fun (Present(_)).isPresent() = True
-  fun (_).isPresent() = False
+  isPresent(Present(_)) = True
+  isPresent(_) = False
   
   def a = Present(False)
   def Present(x) = a
@@ -526,17 +491,17 @@ We might use this particular ADT to define some useful operations on lists:
     | Present(a)
     | Absent
   
-  fun ([]).head() = Absent()
-  fun (x::_).head() = Present(x)
+  head([]) = Absent()
+  head(x::_) = Present(x)
   
-  fun ([]).tail() = Absent()
-  fun (_::xs).tail() = Present(xs)
+  tail([]) = Absent()
+  tail(_::xs) = Present(xs)
   
-  [1, 2, 3].head() // Present(1)
-  ["hello", "world"].tail() // Present(["world"])
+  head([1, 2, 3]) // Present(1)
+  tail(["hello", "world"]) // Present(["world"])
   
-  "hello".head() // Present("h")
-  "hello".tail() // Present("ello")
+  head("hello") // Present("h")
+  tail("hello") // Present("ello")
   
 
 Structures
@@ -588,8 +553,8 @@ simple binary-tree implementation:
     | Node(a, BTree{a}, BTree{a})
     | Leaf(a)
   
-  fun size(Leaf(_)) = 1
-  fun size(Node(_, left, right)) =
+  size(Leaf(_)) = 1
+  size(Node(_, left, right)) =
     1 + size(left) + size(right)
   
   size(Node("a", Leaf("b"), Leaf("c"))) // 3
@@ -605,9 +570,9 @@ grouped into modules like so:
   module String {
     type t = Char[]
     
-    len => fun(t) : Int
-    fun len("") = 0
-    fun len(c::cs) = 1 + len(cs)
+    len : t -> Int
+    len("") = 0
+    len(c::cs) = 1 + len(cs)
   }
   
   String.len("hello world") // 11
@@ -622,9 +587,9 @@ Modules can also be arbitrarily nested:
   module StringStuff {
     type t = Char[]
     module ExtraStringStuff {
-      append => fun(t, t) : t
-      fun append(c::cs, b) = c :: append(cs, b)
-      fun append(_, b) = b
+      append : t -> t -> t
+      append(c::cs, b) = c :: append(cs, b)
+      append(_, b) = b
     }
   }
   
@@ -643,9 +608,9 @@ they can be referred to without using a qualified module path:
   module StringStuff {
     type t = Char[]
     module ExtraStringStuff {
-      append => fun(t, t) : t
-      fun append(c::cs, b) = c :: append(cs, b)
-      fun append(_, b) = b
+      append : t -> t -> t
+      append(c::cs, b) = c :: append(cs, b)
+      append(_, b) = b
     }
   }
   
@@ -727,7 +692,7 @@ directly in ``N`` that refers to ``M``:
       def bar = 43
     }
     
-    fun f() = M.foo //ERROR: Unbound identifier 'M.foo'!
+    f() = M.foo //ERROR: Unbound identifier 'M.foo'!
   }
 
 We can refer directly to the submodule ``M`` inside ``N``, so here
@@ -743,11 +708,11 @@ A few more sophisticated examples can be found in the examples directory.
 All of the examples work on the latest version of Latro at HEAD.
 
   - `Rope data structure implementation`_
-  - `Maybe monad`_
+  - `Monads`_
   - `Basic string-utilities module implementation`_
   
 .. _Rope data structure implementation: https://github.com/Zoetermeer/L/blob/master/examples/rope/rope.l
-.. _Maybe monad: https://github.com/Zoetermeer/L/blob/master/examples/monads/maybe.l
+.. _Monads: https://github.com/Zoetermeer/L/blob/master/examples/monads/
 .. _Basic string-utilities module implementation: https://github.com/Zoetermeer/L/blob/master/examples/string/string.l
 
 Each of these example directories contains a file called ``tests.l`` with examples,
@@ -829,7 +794,7 @@ defined there:
   7
   λ> import Core.List
   Unit
-  λ> length [1, 2, 3]
+  λ> length([1, 2, 3])
   3
   λ> :t length
   {t} t[] -> Int
@@ -885,13 +850,13 @@ For example, here's an example test from the interpreter suite:
       @interp{
         type IntOption = | Some(Int) | None
   
-        IsSome => fun(IntOption) : Bool
-        fun IsSome(Some(_)) = True
-        fun IsSome(_) = False
+        IsSome : IntOption -> Bool
+        IsSome(Some(_)) = True
+        IsSome(_) = False
   
         def s = Some(42)
         def Some(v) = s
-        (IsSome(None()), IsSome(s), v)
+        %(IsSome(None()), IsSome(s), v)
       }
       '(Tuple (False True 42))))
 
