@@ -8,11 +8,12 @@ import Control.Monad.State
 import Data.Char (toLower)
 import Errors.Display ()
 import ILGen
-import Parse
 import Interp
+import Output
+import Parse
 import Reorder
 import Semant
-import Sexpable
+import Semant.Display ()
 import System.Console.GetOpt
 import System.Console.Haskeline
 import System.Environment (getArgs)
@@ -99,48 +100,53 @@ fileSourceBufs :: [FilePath] -> [ProgramText] -> [SourceBuf]
 fileSourceBufs = zipWith SourceBufFile
 
 
-breakIfOpt :: Sexpable a => [Opt] -> Opt -> CompilerPass CompilerEnv a -> GenericCompilerPass Sexp CompilerEnv a
+renderOutput :: CompilerOutput a => [Opt] -> (a -> String)
+renderOutput opts | optEnabled OptSexp opts = renderSexp
+                  | otherwise               = render
+
+
+breakIfOpt :: CompilerOutput a => [Opt] -> Opt -> CompilerPass CompilerEnv a -> GenericCompilerPass HumanReadable CompilerEnv a
 breakIfOpt opts opt m = do
-  result <- withExceptT sexp m
+  result <- withExceptT (renderOutput opts) m
   if optEnabled opt opts
-    then ExceptT . return $ Left $ sexp result
+    then ExceptT . return $ Left $ (renderOutput opts) result
     else return result
 
 
-parseBuf :: SourceBuf -> GenericCompilerPass Sexp CompilerEnv (RawAst CompUnit)
-parseBuf buf =
-    withExceptT sexp $ ExceptT . return $ syntaxRule path source
+parseBuf :: [Opt] -> SourceBuf -> GenericCompilerPass HumanReadable CompilerEnv (RawAst CompUnit)
+parseBuf opts buf =
+    withExceptT (renderOutput opts) $ ExceptT . return $ syntaxRule path source
   where
     (path, source, syntaxRule) = case buf of
       SourceBufFile path source -> (path, source, parseTopLevel)
       SourceBufRepl source      -> ("<<repl>>", source, parseInteractive)
 
 
-semAnal :: [SourceBuf] -> [Opt] -> GenericCompilerPass Sexp CompilerEnv (Typed ILCompUnit)
+semAnal :: [SourceBuf] -> [Opt] -> GenericCompilerPass HumanReadable CompilerEnv (Typed ILCompUnit)
 semAnal sourceBufs opts = do
-    asts <- mapM parseBuf sourceBufs
+    asts <- mapM (parseBuf opts) sourceBufs
     let ast = combineAsts asts
-    collapsedAst <- withExceptT sexp $ runCollapseFunClauses ast
+    collapsedAst <- withExceptT (renderOutput opts) $ runCollapseFunClauses ast
     alphaConvertedAst <- dumpOnPhase PhaseAlphaConvert $ runAlphaConvert collapsedAst
     reorderedAst <- dumpOnPhase PhaseInfixReorder $ runReorderInfixes alphaConvertedAst
     untypedIL <- dumpOnPhase PhaseILGen $ runILGen reorderedAst
-    (ty, typedIL) <- withExceptT sexp $ runTypecheck untypedIL
+    (ty, typedIL) <- withExceptT (renderOutput opts) $ runTypecheck untypedIL
     case opts of
-      _ | optEnabled (OptShowPhaseOutput PhaseTypecheckType) opts -> throwError $ sexp ty
-        | optEnabled (OptShowPhaseOutput PhaseTypecheckAst) opts  -> throwError $ sexp typedIL
+      _ | optEnabled (OptShowPhaseOutput PhaseTypecheckType) opts -> throwError $ (renderOutput opts) ty
+        | optEnabled (OptShowPhaseOutput PhaseTypecheckAst) opts  -> throwError $ (renderOutput opts) typedIL
         | otherwise -> return typedIL
   where
     dumpOnPhase ph = breakIfOpt opts $ OptShowPhaseOutput ph
 
 
-eval :: [SourceBuf] -> [Opt] -> GenericCompilerPassT Sexp CompilerEnv IO Value
+eval :: [SourceBuf] -> [Opt] -> GenericCompilerPassT HumanReadable CompilerEnv IO Value
 eval sourceBufs opts = do
   compilerEnv <- get
   let (semantResult, compilerEnv') = runState (runExceptT (semAnal sourceBufs opts)) compilerEnv
   case semantResult of
     Left sxp -> ExceptT . return $ Left sxp
     Right typedIL -> do put compilerEnv'
-                        withExceptT sexp $ interp typedIL $ not $ optEnabled OptInteractive opts
+                        withExceptT (renderOutput opts) $ interp typedIL $ not $ optEnabled OptInteractive opts
 
 
 readReplCmd :: InputT IO ReplCmd
@@ -159,7 +165,7 @@ readReplCmd = do
         _ -> return $ ReplCmdEval input
 
 
-loadLibFiles :: [Opt] -> CompilerEnv -> InputT IO (Either Sexp Value, CompilerEnv)
+loadLibFiles :: [Opt] -> CompilerEnv -> InputT IO (Either HumanReadable Value, CompilerEnv)
 loadLibFiles (OptLoadFile path : opts) compilerEnv = do
   content <- lift $ readFile path
   (_, compilerEnv') <- lift $ runStateT (runExceptT (eval [SourceBufFile path content] opts)) compilerEnv
@@ -170,12 +176,12 @@ loadLibFiles [] compilerEnv = return (Right ValueUnit, compilerEnv)
 
 handleEvalResult :: (CompilerEnv -> InputT IO ())
                  -> (Value -> InputT IO ())
-                 -> InputT IO (Either Sexp Value, CompilerEnv)
+                 -> InputT IO (Either HumanReadable Value, CompilerEnv)
                  -> InputT IO ()
 handleEvalResult k vHandler result = do
   (result, compilerEnv) <- result
   case result of
-    Left sxp -> outputStrLn $ show sxp
+    Left output -> outputStrLn output
     Right v  -> vHandler v
   k compilerEnv
 
@@ -206,8 +212,8 @@ runProgram opts filePaths = do
   sources <- mapM readFile filePaths
   (result, _) <- runStateT (runExceptT (eval (fileSourceBufs filePaths sources) opts)) mt
   case result of
-    Left sxp  -> print sxp
-    Right v   -> print v
+    Left output -> putStrLn output
+    Right v     -> print v
 
 
 header = "Usage: latro [-aelis] [FILE ...]"

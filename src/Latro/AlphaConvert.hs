@@ -496,7 +496,7 @@ convert (ExpInParens p e) = do
 convert (ExpCustomInfix p lhe id rhe) = do
   lhe' <- convert lhe
   rhe' <- convert rhe
-  id' <- lookupVarId id
+  id' <- lookupVarId id `reportErrorAt` p
   return $ ExpCustomInfix p lhe' id' rhe'
 
 convert (ExpMemberAccess p e id) = do

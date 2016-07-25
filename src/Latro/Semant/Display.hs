@@ -1,8 +1,9 @@
 {-# LANGUAGE NamedFieldPuns, FlexibleInstances #-}
 module Semant.Display where
 
-import Data.List (intersperse)
+import Data.List (intercalate, intersperse)
 import qualified Data.Map as Map
+import Output
 import Semant
 import Sexpable
 import Text.Printf (printf)
@@ -41,6 +42,12 @@ instance (Sexpable a, Sexpable id) => Sexpable (QualifiedId a id) where
     Symbol $ printf "%s.%s" (showSexp qid) (showSexp raw)
 
 
+instance (Sexpable a, CompilerOutput id) => CompilerOutput (QualifiedId a id) where
+  render (Id _ raw) = render raw
+  render (Path _ qid raw) =
+    printf "%s.%s" (render qid) (render raw)
+
+
 instance (Sexpable a, Sexpable id) => Sexpable (SynTy a id) where
   sexp (SynTyInt d) = List [ Symbol "Int", sexp d ]
   sexp (SynTyBool d) = List [ Symbol "Bool", sexp d ]
@@ -77,9 +84,12 @@ instance (Sexpable a, Sexpable id) => Sexpable (SynTy a id) where
 
 instance Sexpable UniqId where
   sexp (UserId raw) = Symbol raw
-  -- sexp (UniqId _ raw) = Symbol raw
-  -- sexp (UniqId i raw) = Symbol $ printf "%s@%i" raw i
   sexp (UniqId i raw) = List [ Symbol "Id", Symbol raw, Symbol $ show i ]
+
+
+instance CompilerOutput UniqId where
+  render (UserId raw) = raw
+  render (UniqId i raw) = printf "%s@%i" raw i
 
 
 instance (Sexpable a, Sexpable id) => Sexpable (CompUnit a id) where
@@ -88,6 +98,10 @@ instance (Sexpable a, Sexpable id) => Sexpable (CompUnit a id) where
           , sexp d
           , toSexpList es
           ]
+
+
+instance (Sexpable a, Sexpable id) => CompilerOutput (CompUnit a id) where
+  render = showSexp
 
 
 instance (Sexpable a, Sexpable id) => Sexpable (AdtAlternative a id) where
@@ -438,6 +452,10 @@ instance (Sexpable a) => Sexpable (ILCompUnit a) where
   sexp (ILCompUnit d es) = List [ Symbol "ILCompUnit", sexp d, toSexpList es ]
 
 
+instance (Sexpable a) => CompilerOutput (ILCompUnit a) where
+  render = showSexp
+
+
 sexpOfMap :: (Sexpable k, Sexpable v) => Map.Map k v -> Sexp
 -- sexpOfMap m = List $ map (\\(k, v) -> List [ sexp k, sexp v]) $ Map.toList m
 sexpOfMap m = toSexpList $ Map.keys m
@@ -511,10 +529,9 @@ instance Sexpable Ty where
   sexp (TyApp TyConBool []) = Symbol "Bool"
   sexp (TyApp TyConChar []) = Symbol "Char"
   sexp (TyApp tyCon tys) =
-    List  [ Symbol "App"
-          , sexp tyCon
-          , toSexpList tys
-          ]
+    Symbol $ printf "%s{%s}"
+                    (showSexp tyCon)
+                    (intercalate ", " (map showSexp tys))
 
   sexp (TyPoly tyVars ty) =
     List  [ Symbol "Poly"
@@ -526,6 +543,23 @@ instance Sexpable Ty where
   sexp (TyMeta id) = List [ Symbol "Meta", sexp id ]
   sexp (TyRef qid) = List [ Symbol "Ref", sexp qid ]
   sexp (TyInstFun instTy funTy) = List [ Symbol "InstFun", sexp instTy, sexp funTy ]
+
+
+instance CompilerOutput Ty where
+  render (TyApp TyConInt []) = "Int"
+  render (TyApp TyConBool []) = "Bool"
+  render (TyApp TyConChar []) = "Char"
+  render (TyApp tyCon tys) =
+    printf "%s{%s}"
+           (render tyCon)
+           (renderCommaSep tys)
+
+  render (TyPoly _ ty) = render ty
+
+  render (TyVar tyVar) = render tyVar
+  render (TyMeta id) = render id
+  render (TyRef qid) = render qid
+  render ty = showSexp ty
 
 
 instance Sexpable TCModule where
@@ -550,3 +584,18 @@ instance Sexpable TyCon where
     List [ Symbol "Unique", sexp id, sexp tyCon ]
   sexp (TyConTyVar varId) =
     List [ Symbol "TyVar", sexp varId ]
+
+
+instance CompilerOutput TyCon where
+  render TyConInt = "Int"
+  render TyConBool = "Bool"
+  render TyConChar = "Char"
+  render TyConUnit = "Unit"
+  render TyConList = "List"
+  render TyConTuple = "Tuple"
+  render TyConArrow = "(->)"
+  render (TyConStruct _) = "<<struct>>"
+  render (TyConAdt _) = "<<adt>>"
+  render (TyConUnique id TyConTyFun{}) = render id
+  render (TyConTyFun tyVarIds ty) = "<<tyfun>>"
+  render (TyConTyVar varId) = render varId

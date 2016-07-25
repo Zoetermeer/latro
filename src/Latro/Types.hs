@@ -828,9 +828,9 @@ tc (ILCons p headE listE) = do
   tyListE' <- instantiate tyListE
   listTy <- case tyListE' of
               TyApp TyConList _ ->
-                unify tyListE' (TyApp TyConList [tyHeadE]) >>= subst
+                unify tyListE' (TyApp TyConList [tyHeadE]) `reportErrorAt` p >>= subst
               _ -> -- Failure case, we unify expecting a (ListOf(<headTy>)) to fail
-                unify (TyApp TyConList [tyHeadE]) tyListE'
+                unify (TyApp TyConList [tyHeadE]) tyListE' `reportErrorAt` p
   return (listTy, ILCons (OfTy p listTy) headE' listE')
 
 tc (ILApp p ratorE randEs) = do

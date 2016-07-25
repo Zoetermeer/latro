@@ -29,6 +29,7 @@ executable latro
                        MissingH,
                        monadlist,
                        mtl,
+                       pretty,
                        transformers
   hs-source-dirs:      src/Latro
   build-tools:         alex, happy

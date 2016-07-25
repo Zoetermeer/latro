@@ -1,9 +1,15 @@
 module Errors.Display where
 
 import Errors
-import Semant ()
+import Output
+import Semant
 import Semant.Display
 import Sexpable
+import Text.PrettyPrint hiding (render)
+import Text.Printf (printf)
+
+
+indentLevel = 4
 
 
 instance Sexpable Err where
@@ -131,6 +137,8 @@ instance Sexpable Err where
   sexp (ErrMainAlreadyDefined prevPos) =
     List  [ Symbol "MainAlreadyDefined", sexp prevPos ]
 
+  sexp ErrMainUndefined = Symbol "MainUndefined"
+
   sexp (ErrMultipleDefsInSimpleAnnDec id) =
     List  [ Symbol "MultipleDefsInSimpleAnnDec"
           , sexp id
@@ -180,3 +188,24 @@ instance Sexpable Err where
           ]
 
   sexp err = List  [ Symbol "Error", Atom $ show err ]
+
+
+instance CompilerOutput Err where
+  render (ErrAtPos (SourcePos path line col) moduleName err) =
+      show msgDoc
+    where srcPos = printf "%s:%i:%i (in compiler phase '%s'):"
+                          path
+                          line
+                          col
+                          moduleName
+          msgDoc = text srcPos $+$ nest indentLevel (text (render err))
+
+  render (ErrCantUnify a b) =
+    printf "Can't unify: expected '%s' but got '%s'"
+           (render a)
+           (render b)
+
+  render ErrMainUndefined = "No 'main' function found"
+
+  render (ErrUnboundRawIdentifier id) =
+    printf "Unbound raw identifier '%s'" id

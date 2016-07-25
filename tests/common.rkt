@@ -86,7 +86,7 @@
   (string-split (call '() (apply string-append s)) "\n"))
 
 (define (interp-sexp . s)
-  (call-and-read '() (apply string-append s)))
+  (call-and-read '("-s") (apply string-append s)))
 
 (define (interp-e-sexp . s)
   (call-and-read '("-e") (apply string-append s)))

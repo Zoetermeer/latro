@@ -137,7 +137,7 @@
 
   (test-case "it does not allow argument bindings to escape"
     (check-match
-      @typecheck{
+      @interp-sexp{
         f(x, runForever) {
           if (runForever) {
             f(x, runForever)
