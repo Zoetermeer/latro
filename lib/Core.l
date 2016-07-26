@@ -35,6 +35,9 @@ precedence != 10
 precedence || 11
 precedence && 11
 
+@(|>)(x, f) = f(x)
+precedence |> 12
+
 type Maybe{a} =
   | Just(a)
   | Nothing

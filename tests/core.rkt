@@ -39,4 +39,31 @@
       }
       '("%([\"hello\", \"world\", \"fubar\"], [\"he\", \"foo\", \"bar\"])"
         "Unit")))
+
+  (test-case "|>"
+    (check-equal?
+      @interp-lines{
+        main(_) {
+          IO.println(42 |> (fun(x) = x + 1) |> (fun(y) = 2 * y))
+        }
+      }
+      '("86"
+        "Unit")))
+
+  (test-case "|>"
+    (check-equal?
+      @interp-lines{
+        lessThan5(x) = x < 5
+        andTrue(b) = b && True
+
+        main(_) {
+          IO.println(3
+            |> (fun(x) = x + 1)
+            |> lessThan5
+            |> andTrue
+          )
+        }
+      }
+      '("True"
+        "Unit")))
 )
