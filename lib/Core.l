@@ -66,6 +66,11 @@ module Core {
     atIndex(_::xs, n) = atIndex(xs, n - 1)
 
 
+    map{a, b} : (a -> b) -> a[] -> b[]
+    map(_, []) = []
+    map(f, x::xs) = f(x) :: map(f, xs)
+
+
     each{a} : (a -> Unit) -> a[] -> Unit
     each(_, []) = ()
     each(f, x::xs) {

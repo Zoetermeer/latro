@@ -40,6 +40,26 @@
       '("%([\"hello\", \"world\", \"fubar\"], [\"he\", \"foo\", \"bar\"])"
         "Unit")))
 
+  (test-case "map"
+    (check-equal?
+      @interp-lines{
+        import Core.List
+
+        main(_) {
+          def strs = [
+            "hello",
+            "ab",
+            "helloworld",
+            "hello world"
+          ]
+          def lengths = map(length, strs)
+          IO.println(lengths)
+        }
+      }
+      '("[5, 2, 10, 11]"
+        "Unit")))
+
+
   (test-case "|>"
     (check-equal?
       @interp-lines{
