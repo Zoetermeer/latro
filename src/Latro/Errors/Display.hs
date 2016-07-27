@@ -207,5 +207,7 @@ instance CompilerOutput Err where
 
   render ErrMainUndefined = "No 'main' function found"
 
+  render (ErrSyntax str) = str
+
   render (ErrUnboundRawIdentifier id) =
     printf "Unbound raw identifier '%s'" id
