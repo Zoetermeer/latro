@@ -1,3 +1,5 @@
+import Core
+
 isEven(x) = mod(x, 2) == 0
 
 sumEvens([]) = 0
