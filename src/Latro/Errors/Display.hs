@@ -211,3 +211,5 @@ instance CompilerOutput Err where
 
   render (ErrUnboundRawIdentifier id) =
     printf "Unbound raw identifier '%s'" id
+
+  render err = showSexp err

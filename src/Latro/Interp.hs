@@ -232,7 +232,7 @@ interpE (ILApp _ e argEs) = do
       argVs <- mapM interpE argEs
 
       preApplyInterpEnv <- getInterp
-      -- putInterp (preApplyInterpEnv { valEnv = fenv })
+      putInterp (preApplyInterpEnv { valEnv = fenv })
 
       bindVar fid fv
       let argVTbl = zip paramIds argVs
