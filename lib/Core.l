@@ -81,9 +81,14 @@ module Core {
     }
 
 
+    foldl{a, b} : (a -> b -> b) -> b -> a[] -> b
+    foldl(f, b, []) = b
+    foldl(f, b, x::xs) = foldl(f, f(x, b), xs)
+
+
     foldr{a, b} : (a -> b -> b) -> b -> a[] -> b
-    foldr(f, a, x::xs) = f(x, foldr(f, a, xs))
-    foldr(f, a, [])    = a
+    foldr(f, b, x::xs) = f(x, foldr(f, b, xs))
+    foldr(f, b, [])    = b
 
 
     select{a} : (a -> Bool) -> a -> %(a[], a[]) -> %(a[], a[])

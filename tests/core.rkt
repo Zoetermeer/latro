@@ -20,6 +20,18 @@
         "3"
         "Unit")))
 
+  (test-case "foldl"
+    (check-equal?
+      @interp-lines{
+        import Core.List
+
+        main(_) {
+          IO.println(foldl((+), 0, [1, 2, 3, 4]))
+        }
+      }
+      '("10"
+        "Unit")))
+
   (test-case "length"
     (check-equal?
       @interp-lines{
