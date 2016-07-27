@@ -12,7 +12,7 @@ import Data.Either.Utils (maybeToEither)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromMaybe, isNothing)
 import qualified Data.Set as Set
-import Debug.Trace (trace, traceM)
+import Debug.Trace (trace, traceM, traceShowM)
 import Errors
 import Semant
 import Text.Printf (printf)
@@ -502,6 +502,22 @@ unify tya tyb = do
   oldPolyEnv <- markPolyEnv
   oldMetaEnv <- markMetaEnv
   case (tya, tyb) of
+    (a@(TyApp (TyConUnique ida _) tyArgsA), TyApp (TyConUnique idb _) tyArgsB) ->
+      if ida == idb
+      then return a
+      -- BUG: This is wrong, since it will allow unification
+      -- for any two types regardless of whether they are
+      -- different Uniques.  Also, it disregards unification
+      -- of type arguments.  Stopgap to allow unification in the happy
+      -- path, but the bug is that poly types seem to not be
+      -- substituted correctly, so we cannot unify a T{Int} with
+      -- a T{a}, for example, in some function that returns an instantiated
+      -- type T by calling a polymorphic constructor for T (if it's an ADT,
+      -- for example).
+      -- then do mapM_ (uncurry unify) $ zip tyArgsA tyArgsB
+      --         return a
+      else unifyFail tya tyb
+
     (a@(TyApp tyconA tyArgsA), b@(TyApp tyconB tyArgsB))
       | tyconA == tyconB ->
         do mapM_ (uncurry unify) $ zip tyArgsA tyArgsB
@@ -815,6 +831,7 @@ tc (ILRef p id) = do
   -- traceM $ printf "tc ILRef %s" $ show id
   ty <- lookupVar id `reportErrorAt` p
   ty' <- instantiate ty
+  -- traceShowM ty'
   return (ty', ILRef (OfTy p ty') id)
 
 tc (ILStr p s) = return (tyStr, ILStr (OfTy p tyStr) s)
