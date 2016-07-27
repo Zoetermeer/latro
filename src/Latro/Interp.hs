@@ -164,6 +164,7 @@ interpPrimApp prim argEs = do
     PrimIntSub -> return $ primArith (-) argVs
     PrimIntDiv -> return $ primArith quot argVs
     PrimIntMul -> return $ primArith (*) argVs
+    PrimIntMod -> return $ primArith mod argVs
     PrimIntEq -> return $ primCmp (==) argVs
     PrimIntLt -> return $ primCmp (<) argVs
     PrimIntLeq -> return $ primCmp (<=) argVs

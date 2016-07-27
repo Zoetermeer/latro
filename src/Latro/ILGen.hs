@@ -44,6 +44,7 @@ ilGenPrim (UserId id) =
     "intsub" -> PrimIntSub
     "intdiv" -> PrimIntDiv
     "intmul" -> PrimIntMul
+    "intmod" -> PrimIntMod
     "inteq" -> PrimIntEq
     "intlt" -> PrimIntLt
     "intleq" -> PrimIntLeq

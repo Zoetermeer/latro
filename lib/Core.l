@@ -8,6 +8,8 @@ precedence - 6
 precedence * 5
 precedence / 5
 
+mod(n, d) = prim(intMod)(n, d)
+
 not(True) = False
 not(_)    = True
 

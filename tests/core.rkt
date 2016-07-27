@@ -4,6 +4,22 @@
   (require "common.rkt"
            rackunit)
 
+  (test-case "mod"
+    (check-equal?
+      @interp-lines{
+        main(_) {
+          IO.println(mod(1, 1))
+          IO.println(mod(10, 2))
+          IO.println(mod(10, 3))
+          IO.println(mod(14, 11))
+        }
+      }
+      '("0"
+        "0"
+        "1"
+        "3"
+        "Unit")))
+
   (test-case "length"
     (check-equal?
       @interp-lines{

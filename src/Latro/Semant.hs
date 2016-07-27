@@ -163,6 +163,7 @@ data Prim =
   | PrimIntSub
   | PrimIntDiv
   | PrimIntMul
+  | PrimIntMod
   | PrimIntEq
   | PrimIntLt
   | PrimIntLeq

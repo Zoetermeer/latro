@@ -858,6 +858,7 @@ tc (ILPrim p prim) = do
                 PrimIntSub -> intArithTy
                 PrimIntDiv -> intArithTy
                 PrimIntMul -> intArithTy
+                PrimIntMod -> intArithTy
                 PrimIntEq -> intCmpTy
                 PrimIntLt -> intCmpTy
                 PrimIntLeq -> intCmpTy
