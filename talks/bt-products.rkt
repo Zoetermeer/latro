@@ -146,7 +146,7 @@
     "  if (x < 5) {"
     "    \"it's less than 5\""
     "  } else {"
-    "    \"it's greater than 5\""
+    "    \"it's greater than or equal to 5\""
     "  }"))
 
 (code-display-slide
