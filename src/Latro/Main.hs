@@ -182,7 +182,10 @@ handleEvalResult k vHandler result = do
   (result, compilerEnv) <- result
   case result of
     Left output -> outputStrLn output
-    Right v  -> vHandler v
+    Right v ->
+      case v of
+        ValueUnit -> return ()
+        _         -> vHandler v
   k compilerEnv
 
 
@@ -199,9 +202,10 @@ runRepl opts =
               content <- lift $ readFile filePath
               let result = lift $ runStateT (runExceptT (eval [SourceBufFile filePath content] opts)) compilerEnv
               handleEvalResult loop (outputStrLn . show) result
-            ReplCmdShowType input -> do
-              outputStrLn "some type"
-              loop compilerEnv
+            ReplCmdShowType input ->
+              let opts' = OptShowPhaseOutput PhaseTypecheckType : opts
+                  result = lift $ runStateT (runExceptT (eval [SourceBufRepl input] opts')) compilerEnv
+              in handleEvalResult loop (outputStrLn . show) result
             ReplCmdEval input -> do
               let result = lift $ runStateT (runExceptT (eval [SourceBufRepl input] opts)) compilerEnv
               handleEvalResult loop (outputStrLn . show) result
@@ -213,7 +217,10 @@ runProgram opts filePaths = do
   (result, _) <- runStateT (runExceptT (eval (fileSourceBufs filePaths sources) opts)) mt
   case result of
     Left output -> putStrLn output
-    Right v     -> print v
+    Right v     ->
+      case v of
+        ValueUnit -> return ()
+        _         -> print v
 
 
 header = "Usage: latro [-aelis] [FILE ...]"
