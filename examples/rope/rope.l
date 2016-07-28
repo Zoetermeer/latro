@@ -35,10 +35,10 @@ module Rope {
     def w     = weight - (j - i)
 
     cond {
-      case i > j                      -> Node(weight, left, right)
-      case i < llen && j < llen       -> Node(w, delete(left, i, j), right)
-      case i < llen && j >= llen      -> Node(w, delete(left, i, llen), delete(right, 0, j - llen))
-      case i >= llen                  -> Node(w, left, delete(right, i - llen, j - llen))
+      i > j                      -> Node(weight, left, right)
+      i < llen && j < llen       -> Node(w, delete(left, i, j), right)
+      i < llen && j >= llen      -> Node(w, delete(left, i, llen), delete(right, 0, j - llen))
+      i >= llen                  -> Node(w, left, delete(right, i - llen, j - llen))
     }
   }
 
@@ -47,8 +47,8 @@ module Rope {
   index(Leaf(string), n) = atIndex(string, n)
   index(Node(weight, left, right), n) {
     cond {
-      case n < length'(left)  -> index(left, n)
-      case _                  -> index(right, n - length'(left))
+      n < length'(left)  -> index(left, n)
+      _                  -> index(right, n - length'(left))
     }
   }
 
@@ -66,9 +66,9 @@ module Rope {
   insert(Node(_, left, right), n, string) {
     def llen = length'(left)
     cond {
-      case n < llen -> concat'(insert(left, n, string), right)
-      case n > llen -> concat'(left, insert(right, n - llen, string))
-      case _        -> concat'(left, concat'(Leaf(string), right))
+      n < llen -> concat'(insert(left, n, string), right)
+      n > llen -> concat'(left, insert(right, n - llen, string))
+      _        -> concat'(left, concat'(Leaf(string), right))
     }
   }
 
@@ -85,9 +85,9 @@ module Rope {
     def llen = length'(left)
 
     cond {
-      case i > j                      -> Nothing()
-      case i < llen && j >= llen      -> substring(left, i, j)
-      case i >= llen                  -> substring(right, i - llen, j - llen)
+      i > j                      -> Nothing()
+      i < llen && j >= llen      -> substring(left, i, j)
+      i >= llen                  -> substring(right, i - llen, j - llen)
     }
   }
 

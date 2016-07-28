@@ -237,14 +237,14 @@ InterfaceDecExp: interface SimpleOrMixedId TyParams '{' TyAnns '}' { ExpInterfac
 CaseClauses : CaseClause { [$1] }
             | CaseClauses CaseClause { $1 ++ [$2] }
 
-CaseClause : case PatExp '->' Exp { CaseClause (pos $1) $2 [$4] }
-           | case PatExp '->' Block { CaseClause (pos $1) $2 $4 }
+CaseClause : PatExp '->' Exp { CaseClause (nodeData $1) $1 [$3] }
+           | PatExp '->' Block { CaseClause (nodeData $1) $1 $3 }
 
 CondCaseClauses : CondCaseClause { [$1] }
                 | CondCaseClauses CondCaseClause { $1 ++ [$2] }
 
-CondCaseClause : case Exp '->' OneOrMoreExps { CondCaseClause (pos $1) $2 $4 }
-               | case '_' '->' OneOrMoreExps { CondCaseClauseWildcard (pos $1) $4 }
+CondCaseClause : Exp '->' Exp { CondCaseClause (nodeData $1) $1 [$3] }
+               | '_' '->' Exp { CondCaseClauseWildcard (pos $1) [$3] }
 
 ArgExps : Exp { [$1] }
         | ArgExps ',' Exp { $1 ++ [$3] }

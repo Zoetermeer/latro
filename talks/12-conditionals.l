@@ -9,9 +9,9 @@ aboutThisNumber(x) =
 moreAboutThisNumber : Int -> String
 moreAboutThisNumber(x) =
   cond {
-    case x < 5 -> "it's less than 5"
-    case x > 5 -> "it's greater than 5"
-    case _     -> "it's 5"
+    x < 5 -> "it's less than 5"
+    x > 5 -> "it's greater than 5"
+    _     -> "it's 5"
   }
 
 main(_) {

@@ -213,9 +213,9 @@
     (check-equal?
       @typecheck{
         switch ("hello") {
-          case "foo" -> "bar"
-          case "hello" -> "world"
-          case _ -> "no match"
+          "foo" -> "bar"
+          "hello" -> "world"
+          _ -> "no match"
         }
       }
       '(App List (Char))))
@@ -496,8 +496,8 @@
       @typecheck{
         fun len(xs) {
           switch (xs) {
-            case [] -> 0
-            case a::as -> 1 + len(as)
+            [] -> 0
+            a::as -> 1 + len(as)
           }
         }
 
@@ -509,9 +509,9 @@
     (check-match
       @typecheck{
         switch (42) {
-          case 0 -> "hello"
-          case 2 -> 43
-          case _ -> 44
+          0 -> "hello"
+          2 -> 43
+          _ -> 44
         }
       }
       `(AtPos
@@ -523,8 +523,8 @@
     (check-match
       @typecheck{
         switch (42) {
-          case 0 -> "hello"
-          case False -> "world"
+          0 -> "hello"
+          False -> "world"
         }
       }
       `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
@@ -534,7 +534,7 @@
       @typecheck{
         def x = [1, 2]
         switch (x) {
-          case x::xs -> x
+          x::xs -> x
         }
       }
       'Int))
@@ -543,8 +543,8 @@
     (check-equal?
       @typecheck{
         switch ([2]) {
-          case [] -> [1]
-          case x::xs -> xs
+          [] -> [1]
+          x::xs -> xs
         }
       }
       '(App List (Int))))
@@ -553,8 +553,8 @@
     (check-equal?
       @typecheck{
         switch (%([1], 42)) {
-          case %([], _) -> []
-          case %(x::xs, _) -> xs
+          %([], _) -> []
+          %(x::xs, _) -> xs
         }
       }
       '(App List (Int))))
@@ -564,8 +564,8 @@
       @typecheck{
         fun len(ls) {
           switch (ls) {
-            case [] -> 0
-            case x::xs -> 1 + len(xs)
+            [] -> 0
+            x::xs -> 1 + len(xs)
           }
         }
 
@@ -578,7 +578,7 @@
       @typecheck{
         def unwrap = fun(x) {
           switch (x) {
-            case y -> y
+            y -> y
           }
         }
 
@@ -590,11 +590,11 @@
     (check-equal?
       @typecheck{
         switch ([1, 2, 3]) {
-          case [x, y] -> {
+          [x, y] -> {
             def z = x + y
             z + 1
           }
-          case _ -> 3
+          _ -> 3
         }
       }
       'Int))
@@ -868,9 +868,9 @@
           | S(String)
 
         switch (B(True)) {
-          case I(x) -> x
-          case B(b) -> 1
-          case _ -> 0
+          I(x) -> x
+          B(b) -> 1
+          _ -> 0
         }
       }
       'Int))
@@ -910,8 +910,8 @@
         }
 
         switch (Opt.GetOne()) {
-          case Some(43) -> False
-          case _ -> True
+          Some(43) -> False
+          _ -> True
         }
       }
       `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier Some))))
@@ -926,8 +926,8 @@
         }
 
         switch (Opt.GetOne()) {
-          case Opt.Some(43) -> False
-          case _ -> True
+          Opt.Some(43) -> False
+          _ -> True
         }
       }
       'Bool))
@@ -971,7 +971,7 @@
 
         def unwrap = fun(o) {
           switch (o) {
-            case Some(x) -> x
+            Some(x) -> x
           }
         }
 
@@ -989,8 +989,8 @@
 
         def isSome = fun(o) {
           switch (o) {
-            case Some(_) -> True
-            case _ -> False
+            Some(_) -> True
+            _ -> False
           }
         }
 
@@ -1011,8 +1011,8 @@
 
         fun sizeImp(tree) {
           switch (tree) {
-            case Leaf(_) -> 1
-            case Node(_, left, right) ->
+            Leaf(_) -> 1
+            Node(_, left, right) ->
               1 + sizeImp(left) + sizeImp(right)
           }
         }
@@ -1031,8 +1031,8 @@
     (check-equal?
       @typecheck{
         cond {
-          case False -> "hello"
-          case _ -> "world"
+          False -> "hello"
+          _ -> "world"
         }
       }
       '(App List (Char))))

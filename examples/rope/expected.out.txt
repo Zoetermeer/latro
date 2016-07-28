@@ -8,4 +8,3 @@ Just('r')
 "hello great world"
 "well, hello wicked world."
 25
-Unit

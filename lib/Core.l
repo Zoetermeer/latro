@@ -104,8 +104,8 @@ module Core {
     select{a} : (a -> Bool) -> a -> %(a[], a[]) -> %(a[], a[])
     select(p, x, %(ts, fs)) =
       cond {
-        case p(x) -> %(x :: ts, fs)
-        case _    -> %(ts, x :: fs)
+        p(x) -> %(x :: ts, fs)
+        _    -> %(ts, x :: fs)
       }
 
 

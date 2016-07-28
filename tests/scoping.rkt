@@ -212,8 +212,8 @@
 
         main(_) {
           def _ = switch (I(42)) {
-              case I(x) -> x
-              case B(b) -> x
+              I(x) -> x
+              B(b) -> x
             }
         }
       }
@@ -393,8 +393,8 @@
           module M {
             f(a) {
               switch (a) {
-                case Foo(x) -> x
-                case _ -> 0
+                Foo(x) -> x
+                _ -> 0
               }
             }
           }
@@ -413,8 +413,8 @@
 
         main(_) {
           def v = switch (Foo(42)) {
-            case M.Foo(x) -> x
-            case _ -> 0
+            M.Foo(x) -> x
+            _ -> 0
           }
 
           IO.println(v)

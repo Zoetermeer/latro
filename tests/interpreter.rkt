@@ -111,9 +111,9 @@
       @interp-sexp{
         main(_) {
           def s = switch ("hello") {
-            case "foo" -> "bar"
-            case "hello" -> "world"
-            case _ -> "no match"
+            "foo" -> "bar"
+            "hello" -> "world"
+            _ -> "no match"
           }
 
           IO.println(s)
@@ -433,8 +433,8 @@
         f : Int -> Int
         f(x) {
           def isZero = switch (x) {
-            case 0 -> True
-            case _ -> False
+            0 -> True
+            _ -> False
           }
 
           if (not(isZero)) {
@@ -822,10 +822,10 @@
         main(_) {
           def v = %(4, False)
           def x = switch (v) {
-            case %(0, _) -> 1
-            case %(4, True) -> 2
-            case %(_, False) -> 3
-            case _ -> 4
+            %(0, _) -> 1
+            %(4, True) -> 2
+            %(_, False) -> 3
+            _ -> 4
           }
 
           IO.println(x)
@@ -838,11 +838,11 @@
       @interp-sexp{
         main(_) {
           IO.println(switch ([1, 2, 3]) {
-              case [x, y, z] -> {
+              [x, y, z] -> {
                 def v = z + y
                 v * 2
               }
-              case _ -> 3
+              _ -> 3
             }
           )
         }
@@ -1011,10 +1011,10 @@
         IsEven : Int -> Bool
         IsEven(x) {
           switch (x) {
-            case 0 -> True
-            case 1 -> False
-            case 2 -> True
-            case _ -> IsEven(x - 2)
+            0 -> True
+            1 -> False
+            2 -> True
+            _ -> IsEven(x - 2)
           }
         }
 
@@ -1190,8 +1190,8 @@
           def j = 2
           def k = 3
           def l = cond {
-            case i < k && j < k -> 42
-            case _ -> 43
+            i < k && j < k -> 42
+            _ -> 43
           }
 
           IO.println(l)

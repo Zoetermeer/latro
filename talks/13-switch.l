@@ -2,9 +2,9 @@ import Core
 
 fibSwitch : Int -> Int
 fibSwitch(x) = switch(x) {
-  case 0 -> 0
-  case 1 -> 1
-  case n -> fibSwitch(n - 1) + fibSwitch(n - 2)
+  0 -> 0
+  1 -> 1
+  n -> fibSwitch(n - 1) + fibSwitch(n - 2)
 }
 
 fibClauses : Int -> Int

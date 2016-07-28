@@ -205,9 +205,9 @@
   (lines
     "fib : Int -> Int"
     "fib(x) = switch(x) {"
-    "  case 0 -> 0"
-    "  case 1 -> 1"
-    "  case n -> fib(n - 1) + fib(n - 2)"
+    "  0 -> 0"
+    "  1 -> 1"
+    "  n -> fib(n - 1) + fib(n - 2)"
     "}"))
 
 (code-display-slide
@@ -225,9 +225,9 @@
   (lines
     "moreAboutThisNumber(x) ="
     "  cond {"
-    "    case x < 5 -> \"it's less than 5\""
-    "    case x > 5 -> \"it's greater than 5\""
-    "    case _     -> \"it's 5\""
+    "    x < 5 -> \"it's less than 5\""
+    "    x > 5 -> \"it's greater than 5\""
+    "    _     -> \"it's 5\""
     "  }"))
 
 (code-display-slide
@@ -341,9 +341,9 @@
       "and(a, b) {"
       "  def args = %(a, b)"
       "  switch (args) {"
-      "    case %(True, True) -> True"
-      "    case %(_, _)       -> False"
-      "    case _             -> fail(\"Match fail!\")"
+      "    %(True, True) -> True"
+      "    %(_, _)       -> False"
+      "    _             -> fail(\"Match fail!\")"
       "  }"
       "}")))
 
