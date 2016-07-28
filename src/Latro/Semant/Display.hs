@@ -549,6 +549,9 @@ instance CompilerOutput Ty where
   render (TyApp TyConInt []) = "Int"
   render (TyApp TyConBool []) = "Bool"
   render (TyApp TyConChar []) = "Char"
+  render (TyApp TyConArrow tys) =
+    let tyStrs = map render tys
+    in intercalate " -> " tyStrs
   render (TyApp tyCon tys) =
     printf "%s{%s}"
            (render tyCon)
