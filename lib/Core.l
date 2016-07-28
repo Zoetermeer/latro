@@ -62,6 +62,16 @@ module Core {
     @(++)(a::as, bs) = a :: (as ++ bs)
 
 
+    head{a} : a[] -> Maybe{a}
+    head([]) = Nothing()
+    head(x::_) = Just(x)
+
+
+    tail{a} : a[] -> Maybe{a[]}
+    tail([]) = Nothing()
+    tail(_::xs) = Just(xs)
+
+
     atIndex{a} : a[] -> Int -> Maybe{a}
     atIndex([], _)    = Nothing()
     atIndex(x::_, 0)  = Just(x)
@@ -105,6 +115,14 @@ module Core {
       foldr(selector, %([], []), xs)
     }
   }
+}
+
+module Tuple {
+  fst{a, b} : %(a, b) -> a
+  fst(%(a, _)) = a
+
+  snd{a, b} : %(a, b) -> b
+  snd(%(_, b)) = b
 }
 
 module IO {

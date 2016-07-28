@@ -5,6 +5,7 @@
          pict/tree-layout
          racket/draw
          racket/file
+         (only-in scribble/base hyperlink)
          (only-in scribble/manual racketblock racketblock0)
          unstable/gui/scribble)
 
@@ -42,6 +43,76 @@
 
 (define (small-box #:color [color "white"])
   (filled-rectangle #:color color 50 50))
+
+(slide
+  (titlet "The Latro Programming Language"))
+
+(slide
+  #:title "So why are you doing this?"
+  'next
+  (item "I love programming languages")
+  'next
+  (item "The \"state of the art\" leaves plenty to be desired")
+  'next
+  (item "Learning"))
+
+(slide
+  #:title "Why Existing Languages Are Not Good Enough"
+  'next
+  (item "Semantic baggage")
+  'next
+  (item "Tooling/library baggage")
+  (subitem "OCaml: 3 standard libraries, 4 build systems")
+  'next
+  (item "Inherited baggage from piggybacked ecosystems")
+  'next
+  (item "Ugly syntax")
+  'next
+  (item "Too many features")
+  'next
+  (item "Too few features"))
+
+(slide
+  #:title "Why Existing Languages Are Good Enough"
+  'next
+  (item "Too many already")
+  'next
+  (item "Stable, mature, performant")
+  'next
+  (item "Lots of libraries")
+  'next
+  (item "We're intimately familiar with their idiosyncracies and shortcomings")
+  'next
+  (item "Interoperability")
+  'next
+  (item "Importance of things like syntax is overstated"))
+
+(slide
+  #:title "How I Approach Design"
+  'next
+  (item "What is my ideal language?")
+  'next
+  (item "What do other people hate in their everyday languages? (see #talk-java)")
+  'next
+  (item "Writing fake programs")
+  'next
+  (item "Cost vs. benefit")
+  'next
+  (item "Bottom up"))
+
+(slide
+  #:title "What is Latro?"
+  'next
+  (item "Functional")
+  'next
+  (item "Strict, call-by-value")
+  'next
+  (item "Static typing, with type inference")
+  'next
+  (item "Parametric polymorphism")
+  'next
+  (item "Some side effects allowed (IO), but no mutation/rebinding"))
+
 
 #| Code in the following (commented) slides
  | is going to be demo'ed via the REPL and/or
@@ -574,6 +645,14 @@
   (cblock "(ValueInt 3)"))
 
 
+(require browser/external)
+
+(slide
+  #:title "Thanks!"
+  (item "Special thanks to Ayo and Drew")
+  (item (clickback (t "https://github.com/Zoetermeer/latro") (λ () (send-url "https://github.com/Zoetermeer/latro"))))
+  (item (clickback (t "https://github.com/Zoetermeer/latro/tree/master/papers") (λ () (send-url "https://github.com/Zoetermeer/latro/tree/master/papers"))))
+  (item (clickback (t "https://github.com/Zoetermeer/latro/blob/master/talks/bt-products.rkt") (λ () (send-url "https://github.com/Zoetermeer/latro/blob/master/talks/bt-products.rkt")))))
 
 
 
