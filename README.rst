@@ -162,16 +162,16 @@ the ``cond`` form:
   def b1 = True
   def b2 = False
   cond {
-    case and(b1, b2) -> 42
-    case or(b1, b2)  -> 43
-    case _           -> 44
+    and(b1, b2) -> 42
+    or(b1, b2)  -> 43
+    _           -> 44
   } // 43
 
 Note that we can use arbitrary expressions and/or functions in the test
-expression for a ``case``, as long as each test expression is of type ``Bool``.
+expression for a case, as long as each test expression is of type ``Bool``.
 The compiler will not verify exhaustiveness for a ``cond``,
 so we may end up with a runtime exception if we don't include an explicit catch-all case
-(e.g. ``case _ -> ...``).
+(e.g. ``_ -> ...``).
 
 Patterns and ``switch``
 -----------------------
@@ -230,10 +230,10 @@ arbitrary patterns on the test expression.
 .. code:: ocaml
 
   switch (%([1, 2], [3, 4])) {
-    case %(_, [a, b, c]) -> a + b + c
-    case %([a, b], [c, 5]) -> a + b + c
-    case %([a, b], [_, c]) -> a + b + c
-    case _ -> 0
+    %(_, [a, b, c]) -> a + b + c
+    %([a, b], [c, 5]) -> a + b + c
+    %([a, b], [_, c]) -> a + b + c
+    _ -> 0
   }
   // 7
 
@@ -242,7 +242,7 @@ We can also use expression blocks for more complex case clauses:
 .. code:: ocaml
 
   switch ([1, 2, 3]) {
-    case [x, y, z] -> {
+    [x, y, z] -> {
       def v = z + y
       v * 2
     }
@@ -323,11 +323,11 @@ like the following:
   xor(a, b) {
     def args = %(a, b)
     switch (args) {
-      case %(False, False) -> False
-      case %(True, False) -> True
-      case %(False, True) -> True
-      case %(_, _) -> False
-      case _ -> fail("Inexhaustive pattern clauses in function 'xor'!")
+      %(False, False) -> False
+      %(True, False) -> True
+      %(False, True) -> True
+      %(_, _) -> False
+      _ -> fail("Inexhaustive pattern clauses in function 'xor'!")
     }
   }
 
@@ -347,9 +347,9 @@ The compiler will complain if we try to implement Fibonacci using this form:
 
   def fib = fun(x) {
     switch (x) {
-      case 0 -> 0
-      case 1 -> 1
-      case n -> fib(n - 1) + fib(n - 2) // ERROR: Unbound identifier 'fib'!
+      0 -> 0
+      1 -> 1
+      n -> fib(n - 1) + fib(n - 2) // ERROR: Unbound identifier 'fib'!
     }
   }
 
