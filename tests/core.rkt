@@ -17,8 +17,7 @@
       '("0"
         "0"
         "1"
-        "3"
-        "Unit")))
+        "3")))
 
   (test-case "foldl"
     (check-equal?
@@ -29,8 +28,7 @@
           IO.println(foldl((+), 0, [1, 2, 3, 4]))
         }
       }
-      '("10"
-        "Unit")))
+      '("10")))
 
   (test-case "length"
     (check-equal?
@@ -49,8 +47,7 @@
       '("0"
         "1"
         "2"
-        "3"
-        "Unit")))
+        "3")))
 
   (test-case "partition"
     (check-equal?
@@ -65,8 +62,7 @@
               isFiveChars, ["he", "hello", "world", "foo", "bar", "fubar"]))
         }
       }
-      '("%([\"hello\", \"world\", \"fubar\"], [\"he\", \"foo\", \"bar\"])"
-        "Unit")))
+      '("%([\"hello\", \"world\", \"fubar\"], [\"he\", \"foo\", \"bar\"])")))
 
   (test-case "map"
     (check-equal?
@@ -84,8 +80,7 @@
           IO.println(lengths)
         }
       }
-      '("[5, 2, 10, 11]"
-        "Unit")))
+      '("[5, 2, 10, 11]")))
 
 
   (test-case "|>"
@@ -95,8 +90,7 @@
           IO.println(42 |> (fun(x) = x + 1) |> (fun(y) = 2 * y))
         }
       }
-      '("86"
-        "Unit")))
+      '("86")))
 
   (test-case "|>"
     (check-equal?
@@ -112,6 +106,5 @@
           )
         }
       }
-      '("True"
-        "Unit")))
+      '("True")))
 )

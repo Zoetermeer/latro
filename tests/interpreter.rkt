@@ -9,16 +9,14 @@
       @interp-lines{
         main(_) = prim(println)(42)
       }
-      '("42"
-        "Unit")))
+      '("42")))
 
   (test-case "it applies functions from core modules"
     (check-equal?
       @interp-lines{
         main(_) = IO.println(42)
       }
-      '("42"
-        "Unit")))
+      '("42")))
 
   (test-case "it rejects application of unknown primitives"
     (check-match
@@ -32,8 +30,7 @@
       @interp-lines{
         main(_) = IO.println(prim(intEq)(3, 4))
       }
-      '("False"
-        "Unit")))
+      '("False")))
 
   (test-case "it evaluates (in)equality comparisons on ints"
     (check-match
@@ -48,8 +45,7 @@
       '("True"
         "True"
         "True"
-        "False"
-        "Unit")))
+        "False")))
 
   (test-case "it evaluates literals"
     (check-equal?
@@ -66,8 +62,7 @@
         "False"
         "42"
         "\"hello\""
-        "'f'"
-        "Unit")))
+        "'f'")))
 
   (test-case "it returns an error for unbound identifiers"
     (check-match
@@ -93,8 +88,7 @@
         "10"
         "-109"
         "14"
-        "6"
-        "Unit")))
+        "6")))
 
   (test-case "it evaluates arithmetic expressions involving application"
     (check-equal?
@@ -181,8 +175,7 @@
 
         main(_) = IO.println(f)
       }
-      '("fun f : Int"
-        "Unit")))
+      '("fun f : Int")))
 
   (test-case "it returns function values with closures"
     (check-equal?
@@ -192,8 +185,7 @@
 
         main(_) = IO.println(f)
       }
-      '("fun f : Int"
-        "Unit")))
+      '("fun f : Int")))
 
   (test-case "it evaluates the shorthand syntax for single-expression function bodies"
     (check-equal?
@@ -204,8 +196,7 @@
 
         main(_) = IO.println(weird(1, 2))
       }
-      '("3"
-        "Unit")))
+      '("3")))
 
   (test-case "it adds definitions to module exports"
     (check-match
@@ -629,8 +620,7 @@
 
         main(_) = IO.println(Just(42))
       }
-      '("Just(42)"
-        "Unit")))
+      '("Just(42)")))
 
   (test-case "it scopes ADT defs/ctors to module exports"
     (check-match
@@ -654,24 +644,21 @@
 
         main(_) = IO.println(%(B(True), IBTuple(2, False)))
       }
-      '("%(B(True), IBTuple(2, False))"
-        "Unit")))
+      '("%(B(True), IBTuple(2, False))")))
 
   (test-case "it evaluates tuple expressions"
     (check-equal?
       @interp-lines{
         main(_) = IO.println(%(4, False))
       }
-      '("%(4, False)"
-        "Unit")))
+      '("%(4, False)")))
 
   (test-case "it evaluates 3-tuples"
     (check-equal?
       @interp-lines{
         main(_) = IO.println(%(3, True, 4))
       }
-      '("%(3, True, 4)"
-        "Unit")))
+      '("%(3, True, 4)")))
 
   (test-case "it applies functions with tuple arguments"
     (check-equal?
@@ -681,16 +668,14 @@
 
         main(_) = IO.println(f(%(5, False)))
       }
-      '("%(5, False)"
-        "Unit")))
+      '("%(5, False)")))
 
   (test-case "it evaluates list expressions"
     (check-equal?
       @interp-lines{
         main(_) = IO.println([1, 2, 3])
       }
-      '("[1, 2, 3]"
-        "Unit")))
+      '("[1, 2, 3]")))
 
   (test-case "it evaluates list bindings"
     (check-equal?
@@ -700,16 +685,14 @@
           IO.println(ls)
         }
       }
-      '("[1, 2, 3, 4]"
-        "Unit")))
+      '("[1, 2, 3, 4]")))
 
   (test-case "it evaluates list cons operations"
     (check-equal?
       @interp-lines{
         main(_) = IO.println(1 :: [2, 3, 4])
       }
-      '("[1, 2, 3, 4]"
-        "Unit")))
+      '("[1, 2, 3, 4]")))
 
   (test-case "it makes cons right-associative"
     (check-equal?
@@ -721,8 +704,7 @@
 
         main(_) = IO.println(f(1, 2))
       }
-      '("[1, 2, 3, 4, 5]"
-        "Unit")))
+      '("[1, 2, 3, 4, 5]")))
 
   (test-case "it evaluates list patterns"
     (check-equal?
@@ -762,8 +744,7 @@
           IO.println(%(x, xs))
         }
       }
-      '("%(1, [2, 3, 4])"
-        "Unit")))
+      '("%(1, [2, 3, 4])")))
 
   (test-case "it evaluates cons patterns with list pat subexpressions"
     (check-equal?
@@ -783,8 +764,7 @@
           IO.println(%(xs, x, z))
         }
       }
-      '("%([1, 2], 5, 7)"
-        "Unit")))
+      '("%([1, 2], 5, 7)")))
 
   (test-case "it evaluates tuple pattern bindings"
     (check-equal?
@@ -858,8 +838,7 @@
 
         main(_) = IO.println(%(IsZero(1), IsZero(0)))
       }
-      '("%(False, True)"
-        "Unit")))
+      '("%(False, True)")))
 
   (test-case "it evaluates tuple patterns in argument bindings"
     (check-equal?
@@ -875,8 +854,7 @@
           IO.println(%(Snd(v), Fst(v)))
         }
       }
-      '("%(False, 42)"
-        "Unit")))
+      '("%(False, 42)")))
 
   (test-case "it returns an error for non-exhaustive patterns in argument bindings"
     (check-match
@@ -937,8 +915,7 @@
           IO.println(%(IsSome(None()), IsSome(s), v))
         }
       }
-      '("%(False, True, 42)"
-        "Unit")))
+      '("%(False, True, 42)")))
 
   (test-case "can encode a module with common list operations"
     (check-equal?
@@ -972,8 +949,7 @@
           )
         }
       }
-      '("[[], [1, 2], [1, 2, 3, 4, 5]]"
-        "Unit")))
+      '("[[], [1, 2], [1, 2, 3, 4, 5]]")))
 
   (test-case "it evaluates recursive function defs that depend on pattern ordering"
     (check-equal?
@@ -988,8 +964,7 @@
           IO.println(%(GetTwoOrLess(1), GetTwoOrLess(4)))
         }
       }
-      '("%(1, 2)"
-        "Unit")))
+      '("%(1, 2)")))
 
   (test-case "it evaluates anonymous lambda expressions"
     (check-regexp-match
@@ -1030,8 +1005,7 @@
           IO.println(Lists.Map(fun(n) { IsEven(n) }, [1, 2, 3, 4]))
         }
       }
-      '("[False, True, False, True]"
-        "Unit")))
+      '("[False, True, False, True]")))
 
   (test-case "it evaluates a string-length function"
     (check-equal?
@@ -1209,8 +1183,7 @@
   (test-case "it returns operator function values"
     (check-equal?
       @interp-lines{main(_) = IO.println((*))}
-      '("fun * : Int -> Int -> Int"
-        "Unit")))
+      '("fun * : Int -> Int -> Int")))
 
   (test-case "it binds imported values"
     (check-equal?
