@@ -504,7 +504,6 @@ unify tya tyb = do
   case (tya, tyb) of
     (a@(TyApp (TyConUnique ida _) tyArgsA), TyApp (TyConUnique idb _) tyArgsB) ->
       if ida == idb
-      then return a
       -- BUG: This is wrong, since it will allow unification
       -- for any two types regardless of whether they are
       -- different Uniques.  Also, it disregards unification
@@ -514,8 +513,9 @@ unify tya tyb = do
       -- a T{a}, for example, in some function that returns an instantiated
       -- type T by calling a polymorphic constructor for T (if it's an ADT,
       -- for example).
-      -- then do mapM_ (uncurry unify) $ zip tyArgsA tyArgsB
-      --         return a
+      -- then return a
+      then do mapM_ (uncurry unify) $ zip tyArgsA tyArgsB
+              return a
       else unifyFail tya tyb
 
     (a@(TyApp tyconA tyArgsA), b@(TyApp tyconB tyArgsB))

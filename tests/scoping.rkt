@@ -59,7 +59,7 @@
           def x = 43
         }
 
-        main(_) = ()
+        main(_) = IO.println("Uh oh it worked!")
       }
       `(AtPos ,_ (CompilerModule AlphaConvert) (IdAlreadyBound m))))
 
@@ -96,9 +96,7 @@
           IO.println(b)
         }
       }
-      '("Unit"
-        "False"
-        "Unit")))
+      '("Unit" "False")))
 
   (test-case "it refers to the correct value after a rebinding in a nested scope"
     (check-equal?
@@ -271,8 +269,7 @@
 
         main(_) = IO.println([ StmDef("x", ExprNum(42)) ])
       }
-      '("[StmDef(\"x\", ExprNum(42))]"
-        "Unit")))
+      '("[StmDef(\"x\", ExprNum(42))]")))
 
   (test-case "it allows circular dependencies between module-level types"
     (check-equal?
@@ -290,8 +287,7 @@
 
         main(_) = IO.println([ Stm.StmDef("x", Expr.ExprNum(42)) ])
       }
-      '("[StmDef(\"x\", ExprNum(42))]"
-        "Unit")))
+      '("[StmDef(\"x\", ExprNum(42))]")))
 
   (test-case "it allows use-before-defines in top-level definitions"
     (check-equal?
@@ -373,7 +369,7 @@
 
   (test-case "it does not extend variable name resolution to closures of closed modules"
     (check-match
-      @interp{
+      @interp-sexp{
         def foo = 42
 
         module M {
@@ -406,7 +402,7 @@
 
   (test-case "does not re-export pattern names from the module closure"
     (check-match
-      @typecheck{
+      @interp-sexp{
         type A = | Foo(Int) | Bar(Int)
 
         module M { }
@@ -424,7 +420,7 @@
 
   (test-case "it does not allow module-exported type bindings to escape"
     (check-match
-      @typecheck{
+      @interp-sexp{
         module Geometry {
           type Point = struct {
             Int X;
@@ -438,4 +434,54 @@
         }
       }
       `(AtPos (SourcePos ,_ 9 ,_) (CompilerModule AlphaConvert) (UnboundRawIdentifier Point))))
+
+  (test-case "it imports infix operators"
+    (check-equal?
+      @interp-lines{
+        module Prims {
+          @"@"(&&)(True, True) = True
+          @"@"(&&)(_, _) = False
+        }
+
+        module Foo {
+          import Prims
+
+          main(_) {
+            IO.println(True && False)
+          }
+        }
+      }
+      '("False")))
+
+  (test-case "it binds imported values"
+    (check-equal?
+      @interp-lines{
+        module Foo {
+          def v = 42
+        }
+
+        module Bar {
+          import Foo
+          def x = v
+        }
+
+        main(_) = IO.println(Bar.x)
+      }
+      '("42")))
+
+  (test-case "it binds struct field initializer names at the top level"
+    (check-equal?
+      @interp-lines{
+        type Person = struct {
+          String Name;
+          Int Age;
+        }
+
+        main(_) {
+          def p = Person %{ Name = "james"; Age = 22; }
+          IO.println(p.Name)
+          IO.println(Age(p))
+        }
+      }
+      '("\"james\"" "22")))
 )

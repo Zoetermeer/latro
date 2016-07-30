@@ -529,9 +529,10 @@ instance Sexpable Ty where
   sexp (TyApp TyConBool []) = Symbol "Bool"
   sexp (TyApp TyConChar []) = Symbol "Char"
   sexp (TyApp tyCon tys) =
-    Symbol $ printf "%s{%s}"
-                    (showSexp tyCon)
-                    (intercalate ", " (map showSexp tys))
+    List  [ Symbol "App"
+          , sexp tyCon
+          , toSexpList tys
+          ]
 
   sexp (TyPoly tyVars ty) =
     List  [ Symbol "Poly"
