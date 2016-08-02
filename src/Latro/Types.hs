@@ -965,9 +965,7 @@ tc (ILStruct p id fieldInitEs) = do
                         return $ compare aInd bInd)
                     fieldInitEs
   let initEs = map (\(ILFieldInit _ e) -> e) sorted
-  (ctorTy, ctorRef) <- tc (ILRef p id) `reportErrorAt` p
-  (_, initEs') <- tcEs initEs
-  return (ty, ILApp (OfTy p ty) ctorRef initEs')
+  tc $ ILApp p (ILRef p id) initEs
 
 tc (ILTypeDec p tyDec) =
   let id = getTypeDecId tyDec

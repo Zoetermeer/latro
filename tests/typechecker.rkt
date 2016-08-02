@@ -138,7 +138,7 @@
 
   (test-case "it checks module-exported struct field initializers/getters"
     (check-match
-      @interp-sexp{
+      @interp-lines{
         module Geometry {
           type Point = struct {
             Int X;
@@ -166,6 +166,22 @@
   (test-case "it rejects invalid arguments to struct field initializers"
     (check-match
       @interp-sexp{
+        type S = struct {
+          Int X;
+          Int Y;
+        }
+
+        main(_) {
+          def s = S %{ X = 42; Y = False; }
+          def x = s.Y + 2
+          IO.println(x)
+        }
+      }
+      `(AtPos (SourcePos ,_ 7 ,_) (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
+
+  (test-case "it rejects invalid arguments to nested struct field initializers"
+    (check-match
+      @interp-sexp{
         module Geometry {
           type Point = struct {
             Int X;
@@ -184,7 +200,7 @@
             B = Geometry.Point %{ X = 3; Y = 4; };
           }
 
-          IO.println(l)
+          IO.println(l.A.Y + 1)
         }
       }
       `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
@@ -528,11 +544,11 @@
       @interp-sexp{
         len{a} : a[] -> Int
         len([]) = 0
-        len(x::xs) = 1 + len(x)
+        len(x::xs) = 1 + len(3)
 
         main(_) = IO.println(len([1, 2]))
       }
-      `(AtPos (SourcePos ,_ 3 ,_) (CompilerModule Types) (CantUnify (Expected (App List (Var a))) (Got (Var a))))))
+      `(AtPos (SourcePos ,_ 3 ,_) (CompilerModule Types) (CantUnify (Expected (App List ((Meta ,_)))) (Got Int)))))
 
   (test-case "it fails in ill-typed application of annotated functions"
     (check-match
