@@ -562,14 +562,28 @@
       @interp-lines{
         type Person = struct {
           String Name;
-          Int Age;
         }
 
         main(_) {
-          def p = Person %{ Name = "james"; Age = 22; }
+          def p = Person %{ Name = "james"; }
           IO.println(p.Name)
-          IO.println(Age(p))
         }
       }
-      '("\"james\"" "22")))
+      '("\"james\"")))
+
+  (test-case "it binds struct field initializers on locals returned by a function"
+    (check-equal?
+      @interp-lines{
+        type Person = struct {
+          String Name;
+        }
+
+        mkPerson(name) = Person %{ Name = name; }
+
+        main(_) {
+          def p = mkPerson("james")
+          IO.println(p.Name)
+        }
+      }
+      '("\"james\"")))
 )
