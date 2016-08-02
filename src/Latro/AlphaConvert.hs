@@ -249,11 +249,11 @@ lookupTypeQualId (Path p qid id) = do
 -- |Find the environment for the module at the base path of the given
 -- qualified ID.  If it's not a path, just return the current
 -- frame.
-baseFrame :: UniqAst QualifiedId -> AlphaConverted Frame
-baseFrame Id{} = getsAC $ head . stack
-baseFrame (Path _ qid _) = do
+baseStackFrame :: UniqAst QualifiedId -> AlphaConverted [Frame]
+baseStackFrame Id{} = getsAC stack
+baseStackFrame (Path _ qid _) = do
   (FrameEntry _ frame) <- lookupVarQualId qid
-  return frame
+  return [frame]
 
 
 convertVarQualId :: UniqAst QualifiedId -> AlphaConverted (UniqAst QualifiedId)
@@ -608,11 +608,11 @@ convert (ExpWithAnn (TyAnn p aid tyParamIds synTy) e) = do
     _ -> throwError $ ErrInterpFailure $ "in convert ExpWithAnn: " ++ show e
 
 convert (ExpStruct p qid fields) = do
-  definitionFrame <- baseFrame qid
+  definitionContext <- baseStackFrame qid
   qid' <- convertTypeQualId qid `reportErrorAt` nodeData qid
   fields' <- mapM (\(FieldInit fieldId fieldE) ->
                       do fieldE' <- convert fieldE
-                         fieldId' <- lookupVarIn fieldId [definitionFrame]
+                         fieldId' <- lookupVarIn fieldId definitionContext `reportErrorAt` p
                          return $ FieldInit fieldId' fieldE')
                   fields
   return $ ExpStruct p qid' fields'
