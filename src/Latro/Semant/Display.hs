@@ -384,6 +384,7 @@ instance Sexpable Prim where
       PrimIntSub -> Symbol "PrimIntSub"
       PrimIntDiv -> Symbol "PrimIntDiv"
       PrimIntMul -> Symbol "PrimIntMul"
+      PrimIntMod -> Symbol "PrimIntMod"
       PrimIntEq -> Symbol "PrimIntEq"
       PrimIntLt -> Symbol "PrimIntLt"
       PrimIntLeq -> Symbol "PrimIntLeq"
