@@ -224,8 +224,10 @@ lookupVarQualId (Path p qid id) = do
       if firstPass
         then return entry
         else throwError (ErrInvalidUniqModulePath qid) `reportErrorAt` p
-    UniqIdEntry _ ->
-      throwError (ErrInvalidUniqModulePath qid) `reportErrorAt` p
+    entry@UniqIdEntry{} ->
+      if firstPass
+        then return entry
+        else throwError (ErrInvalidUniqModulePath qid) `reportErrorAt` p
     FrameEntry _ frame ->
       lookupEntryIn id [frame] varIdEnv
 
@@ -666,7 +668,9 @@ convert (ExpQualifiedRef p path@(Path pp qid id)) = do
   entry <- lookupVarQualId qid `reportErrorAt` pp
   case entry of
     UnknownEntry _ -> return $ ExpQualifiedRef p path
-    UniqIdEntry uid -> return $ ExpMemberAccess p (ExpRef pp uid) id
+    UniqIdEntry uid -> do
+      innerE <- convert (ExpQualifiedRef (nodeData qid) qid)
+      return $ ExpMemberAccess p innerE id
     FrameEntry _ frame -> do
       memberUid <- lookupVarIn id [frame] `reportErrorAt` pp
       return $ ExpRef p memberUid

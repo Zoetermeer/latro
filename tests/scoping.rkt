@@ -586,4 +586,56 @@
         }
       }
       '("\"james\"")))
+
+  (test-case "it resolves nested struct field initializers"
+    (check-equal?
+      @interp-lines{
+        module Geometry {
+          type Point = struct {
+            Int X;
+            Int Y;
+          }
+
+          type Line = struct {
+            Point A;
+            Point B;
+          }
+        }
+
+        main(_) {
+          def l = Geometry.Line %{
+            A = Geometry.Point %{ X = 0; Y = 42; };
+            B = Geometry.Point %{ X = 3; Y = 4; };
+          }
+
+          IO.println(l.A.Y + 1)
+        }
+      }
+      '("43")))
+
+  (test-case "it rejects unbound id's on nested struct field references"
+    (check-match
+      @interp-sexp{
+        module Geometry {
+          type Point = struct {
+            Int X;
+            Int Y;
+          }
+
+          type Line = struct {
+            Point A;
+            Point B;
+          }
+        }
+
+        main(_) {
+          def l = Geometry.Line %{
+            A = Geometry.Point %{ X = 0; Y = 42; };
+            B = Geometry.Point %{ X = 3; Y = 4; };
+          }
+
+          IO.println(l.A.BogusId + 1)
+        }
+      }
+      `(AtPos (SourcePos ,_ 19 ,_) (CompilerModule AlphaConvert) (UnboundRawIdentifier BogusId))))
 )
