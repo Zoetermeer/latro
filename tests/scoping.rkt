@@ -4,6 +4,38 @@
   (require "common.rkt"
            rackunit)
 
+  (test-case "it binds identifiers introduced in cons patterns in switches"
+    (check-equal?
+      @interp-lines{
+        main(_) {
+          IO.println(
+            switch ([2, 3]) {
+              [] -> [1]
+              x::xs -> xs
+            }
+          )
+        }
+      }
+      '("[3]")))
+
+  (test-case "it allows arbitrary rebinding in nested switch scopes"
+    (check-equal?
+      @interp-lines{
+        f(x) =
+          switch (x) {
+            %(x, y) -> {
+              switch (x) {
+                x::_ -> x + 1
+                _    -> 0
+              }
+            }
+            _       -> 1
+          }
+
+        main(_) = IO.println(%([10], False))
+      }
+      '("[11]")))
+
   (test-case "it distinguishes between type and value names in annotations"
     (check-equal?
       @interp-sexp{
@@ -39,6 +71,62 @@
         main(_) = IO.println(M.v)
       }
       `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier v))))
+
+  (test-case "it can resolve submodule members of modules in the closure"
+    (check-equal?
+      @interp-lines{
+        module M {
+          foo = 42
+        }
+
+        module M' {
+          bar = M.foo
+        }
+
+        main(_) = {
+          IO.println(M'.bar)
+        }
+      }
+      '("42")))
+
+  (test-case "it can resolve types defined on sibling modules"
+    (check-equal?
+      @interp-lines{
+        module Number {
+          type t = Int
+        }
+
+        module Arith {
+          add : Number.t -> Number.t -> Number.t
+          add(x, y) = x + y
+        }
+
+        main(_) = IO.println(Arith.add(1, 2))
+      }
+      '("3")))
+
+  (test-case "it can resolve qualified type names with matching local id's"
+    (check-equal?
+      @typecheck{
+        module Number {
+          type t = Int
+        }
+
+        module Div {
+          type t =
+            | Num(Number.t)
+            | ByZero
+
+          div(x, 0) = ByZero()
+          div(x, y) = Num(x / y)
+        }
+
+        main(_) = {
+          def Div.Num(answer) = Div.div(100, 10)
+          IO.println(answer)
+        }
+      }
+      'Int))
 
   (test-case "it does not allow rebinding in the same scope"
     (check-match

@@ -4,162 +4,141 @@
   (require "common.rkt"
            rackunit)
 
+  (test-case "it rejects incorrect annotations on locals"
+    (check-match
+      @interp-sexp{
+        main(_) {
+          x : Int
+          def x = "hello"
+          IO.println(x)
+        }
+      }
+      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got (App List (Char)))))))
+
   (test-case "it typechecks tuples"
     (check-equal?
-      @typecheck{%(1, False)}
-      '(App Tuple (Int Bool))))
+      @interp-lines{
+        main(_) {
+          x : %(Int, Bool)
+          def x = %(1, False)
+          IO.println(x)
+        }
+      }
+      '("%(1, False)")))
+
+  (test-case "it rejects incorrect tuple annotations"
+    (check-match
+      @interp-sexp{
+        main(_) {
+          x : %(Int, Bool)
+          def x = %(1, 2)
+          IO.println(x)
+        }
+      }
+      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Bool) (Got Int)))))
 
   (test-case "it typechecks tuples of tuples"
     (check-equal?
-      @typecheck{%(42, %("hello", True))}
-      '(App Tuple (Int (App Tuple ((App List (Char)) Bool))))))
-
-  (test-case "it typechecks arithmetic expressions"
-    (check-equal? @typecheck{1 + 1} 'Int)
-    (check-equal? @typecheck{1 - 1} 'Int)
-    (check-equal? @typecheck{42 + 3 * 1 / 33} 'Int))
+      @interp-lines{
+        main(_) {
+          x : %(%(Int, Bool), %(String, Char))
+          def x = %(%(1, False), %("hello", 'c'))
+          IO.println(x)
+        }
+      }
+      '("%(%(1, False), %(\"hello\", 'c'))")))
 
   (test-case "it fails to typecheck using non-numerics in arithmetic"
     (check-match
-      @typecheck{1 + True}
+      @interp-sexp{main(_) = IO.println(1 + True)}
       `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
 
   (test-case "it fails to typecheck using non-numerics on the LHS of arithmetic exps"
     (check-match
-      @typecheck{False + 42}
+      @interp-sexp{main(_) = IO.println(False + 42)}
       `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
 
   (test-case "it fails to typecheck if no numerics are given in arithmetic"
     (check-match
-      @typecheck{False + True}
+      @interp-sexp{main(_) = IO.println(False + True)}
       `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
 
   (test-case "it typechecks list expressions"
     (check-equal?
-      @typecheck{[1, 2, 3]}
-      '(App List (Int))))
+      @interp-lines{
+        main(_) {
+          xs : Bool[]
+          def xs = [False, True]
+          IO.println(xs)
+        }
+      }
+      '("[False, True]")))
 
   (test-case "it makes empty-list expressions polymorphic"
     (check-match
-      @typecheck{[]}
-      `(Poly (,t) (App List ((Var ,t))))))
+      @interp-lines{
+        main(_) {
+          xs{a} : a[]
+          def xs = []
+          IO.println(xs)
+        }
+      }
+      '("[]")))
 
   (test-case "it fails non-uniformly-typed list expressions"
     (check-match
-      @typecheck{[1, False]}
+      @interp-sexp{main(_) = IO.println([1, False])}
       `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
 
-  (test-case "it checks cons expressions"
-    (check-equal?
-      @typecheck{1::[2, 3]}
-      '(App List (Int))))
-
   (test-case "it fails ill-typed conses"
-    (check-equal?
-      @typecheck{1::[False, True]}
-      '(CantUnify (Expected Bool) (Got Int))))
+    (check-match
+      @interp-sexp{main(_) = IO.println(1::[False, True])}
+      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Bool) (Got Int)))))
 
   (test-case "it fails if the right-hand side of a cons is not a list"
-    (check-equal?
-      @typecheck{1::2}
-      '(CantUnify (Expected (App List (Int))) (Got Int))))
-
-  (test-case "it checks if-else expressions"
-    (check-equal?
-      @typecheck{if (True) { 42 } else { 43 }}
-      'Int))
+    (check-match
+      @interp-sexp{main(_) = IO.println(1::2)}
+      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected (App List (Int))) (Got Int)))))
 
   (test-case "it fails to typecheck if an if-else test is not a boolean"
     (check-match
-      @typecheck{if (0) { 42 } else { 43 }}
+      @interp-sexp{
+        main(_) {
+          if (0) { IO.println("zero") }
+          else   { IO.println("not zero?") }
+        }
+      }
       `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
 
   (test-case "it fails to typecheck if an if-else's branch types do not unify"
     (check-match
-      @typecheck{if (True) { 42 } else { "hello" }}
-      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got (App List (Char)))))))
-
-  (test-case "it checks module-value accesses"
-    (check-equal?
-      @typecheck{
-        module M {
-          def v = 42
+      @interp-sexp{
+        main(_) {
+          def x = if (True) { 42 } else { "hello" }
+          IO.println(x)
         }
-
-        M.v
       }
-      'Int))
+      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got (App List (Char)))))))
 
   (test-case "it searches the module closure for type names"
     (check-equal?
-      @typecheck{
+      @interp-lines{
         module Root {
           type Foo = Int
 
           module Leaf {
-            add => fun(Foo, Int) : Int
-            fun add(x, y) = x + y
+            add : Foo -> Int -> Int
+            add(x, y) = x + y
           }
         }
-        Root.Leaf.add(1, 2)
+
+        main(_) = IO.println(Root.Leaf.add(1, 2))
       }
-      'Int))
-
-  (test-case "it can resolve submodule members of modules in the closure"
-    (check-equal?
-      @typecheck{
-        module M {
-          def foo = 42
-        }
-
-        module M' {
-          def bar = M.foo
-        }
-
-        M'.bar
-      }
-      'Int))
-
-  (test-case "it can resolve types defined on sibling modules"
-    (check-equal?
-      @typecheck{
-        module Number {
-          type t = Int
-        }
-
-        module Arith {
-          add => fun(Number.t, Number.t) : Number.t
-          fun add(x, y) = x + y
-        }
-
-        Arith.add(1, 2)
-      }
-      'Int))
-
-  (test-case "it can resolve qualified type names with matching local id's"
-    (check-equal?
-      @typecheck{
-        module Number {
-          type t = Int
-        }
-
-        module Div {
-          type t =
-            | Num(Number.t)
-            | ByZero
-
-          fun div(x, 0) = ByZero()
-          fun div(x, y) = Num(x / y)
-        }
-
-        def Div.Num(answer) = Div.div(100, 10)
-        answer
-      }
-      'Int))
+      '("3")))
 
   (test-case "it checks module-exported struct field initializers/getters"
-    (check-equal?
-      @typecheck{
+    (check-match
+      @interp-sexp{
         module Geometry {
           type Point = struct {
             Int X;
@@ -172,269 +151,271 @@
           }
         }
 
-        def l = Geometry.Line %{
-          A = Geometry.Point %{ X = 0; Y = 0; };
-          B = Geometry.Point %{ X = 3; Y = 4; };
-        }
+        main(_) {
+          def l = Geometry.Line %{
+            A = Geometry.Point %{ X = 0; Y = 0; };
+            B = Geometry.Point %{ X = 3; Y = 4; };
+          }
 
-        Geometry.Y(Geometry.B(l))
-      }
-      'Int))
-
-  (test-case "it checks expressions with module-binding components"
-    (check-equal?
-      @typecheck{
-        module M {
-          def v = 42
-        }
-
-        1 + M.v
-      }
-      'Int))
-
-  (test-case "it infers qualified-reference function application"
-    (check-equal?
-      @typecheck{
-        module M {
-          def f = fun(x) { x }
-        }
-
-        M.f("hello world")
-      }
-      '(App List (Char))))
-
-  (test-case "it checks string patterns"
-    (check-equal?
-      @typecheck{
-        switch ("hello") {
-          "foo" -> "bar"
-          "hello" -> "world"
-          _ -> "no match"
+          def x = Geometry.Y(Geometry.B(l))
+          IO.println(x)
         }
       }
-      '(App List (Char))))
+      '("4")))
 
-  (test-case "it checks tuple patterns"
-    (check-equal?
-      @typecheck{
-        def %(x, y) = %(1, False)
-        y
-      }
-      'Bool))
-
-  (test-case "it reports an error for tuple patterns with non-tuple right-hand exps"
+  (test-case "it rejects invalid arguments to struct field initializers"
     (check-match
-      @typecheck{
-        def %(a, b) = 42
-        a
-      }
-      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected (App Tuple (,_ ,_))) (Got Int)))))
+      @interp-sexp{
+        module Geometry {
+          type Point = struct {
+            Int X;
+            Int Y;
+          }
 
-  (test-case "it checks compound tuple patterns"
-    (check-equal?
-      @typecheck{
-        def %(%(x, y), z) = %(%(1, True), %(3, 4))
-        z
-      }
-      '(App Tuple (Int Int))))
+          type Line = struct {
+            Point A;
+            Point B;
+          }
+        }
 
-  (test-case "it reports an error if inner tuple patterns are ill-typed"
-    (check-match
-      @typecheck{
-        def %(%(a, b), %(c, d)) = %(%(1, 2), 3)
-        b
-      }
-      `(AtPos
-         ,_
-         (CompilerModule Types)
-         (CantUnify
-           (Expected
-             (App Tuple (,t1 ,t2)))
-           (Got Int)))))
+        main(_) {
+          def l = Geometry.Line %{
+            A = Geometry.Point %{ X = 0; Y = False; };
+            B = Geometry.Point %{ X = 3; Y = 4; };
+          }
 
-  (test-case "it checks simple list patterns"
-    (check-equal?
-      @typecheck{
-        def [x] = [42]
-        x
-      }
-      'Int))
-
-  (test-case "it checks tuple sub-patterns in list patterns"
-    (check-equal?
-      @typecheck{
-        def [%(1, x), %(2, y)] = [%(1, False), %(2, True)]
-        %(x, y)
-      }
-      '(App Tuple (Bool Bool))))
-
-  (test-case "it checks nested list patterns"
-    (check-equal?
-      @typecheck{
-        def [[1, 2], [3, 4, 5], x] = [[1, 2], [3, 4, 5], [7]]
-        x
-      }
-      '(App List (Int))))
-
-  (test-case "it unifies concrete types with the empty list"
-    (check-equal?
-      @typecheck{
-        42 :: []
-      }
-      '(App List (Int))))
-
-  (test-case "it checks cons patterns"
-    (check-equal?
-      @typecheck{
-        def x::[] = [1]
-        x
-      }
-      'Int))
-
-  (test-case "it unifies concrete types with empty lists in tuples"
-    (check-equal?
-      @typecheck{
-        %(42 :: [], False :: [])
-      }
-      '(App Tuple ((App List (Int)) (App List (Bool))))))
-
-  (test-case "it checks list patterns with concrete types against the empty list"
-    (check-equal?
-      @typecheck{
-        def %([1, 2, 3], x) = %([], False)
-        x
-      }
-      'Bool))
-
-  (test-case "it checks list patterns against the empty list"
-    (check-match
-      @typecheck{
-        def [x] = []
-        x
-      }
-      `(Meta ,_)))
-
-  (test-case "it checks list patterns against applications returning empty lists"
-    (check-match
-      @typecheck{
-        def mt = fun() { [] }
-        def [x] = mt()
-
-        x
-      }
-      `(Meta ,_)))
-
-  (test-case "it returns an error for ill-typed list patterns"
-    (check-match
-      @typecheck{
-        def [True, 1, x] = [1, 2, 3]
-        x
-      }
-      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Bool) (Got Int)))))
-
-  (test-case "it fails regardless of subexpression order in list pats"
-    (check-match
-      @typecheck{
-        def [x, 1] = [True, False]
-        x
+          IO.println(l)
+        }
       }
       `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
 
+  (test-case "it checks expressions with module-binding components"
+    (check-match
+      @interp-sexp{
+        module M {
+          def v = False
+        }
+
+        main(_) = IO.println(1 + M.v)
+      }
+      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
+
+  (test-case "it checks string patterns"
+    (check-match
+      @interp-sexp{
+        main(_) {
+          def x = switch ("hello") {
+            "foo" -> "bar"
+            42 -> "world"
+            _ -> "no match"
+          }
+
+          ()
+        }
+      }
+      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected (App List (Char))) (Got Int)))))
+
+  (test-case "it checks tuple patterns"
+    (check-match
+      @interp-sexp{
+        main(_) {
+          def %("hello", y) = %(1, False)
+          IO.println(y)
+        }
+      }
+      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected (App List (Char))) (Got Int)))))
+
+  (test-case "it rejects tuple patterns with non-tuple right-hand exps"
+    (check-match
+      @interp-sexp{
+        main(_) {
+          def %(a, b) = 42
+          IO.println(a)
+        }
+      }
+      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected (App Tuple (,_ ,_))) (Got Int)))))
+
+  (test-case "rejects ill-typed inner tuple patterns"
+    (check-match
+      @interp-sexp{
+        main(_) {
+          def %(%(x, 4), z) = %(%(1, True), %(3, 4))
+          IO.println(z)
+        }
+      }
+      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
+
+  (test-case "rejects ill-typed tuple sub-patterns in list patterns"
+    (check-match
+      @interp-sexp{
+        main(_) {
+          def [%(1, x), %(2, 3)] = [%(1, False), %(2, True)]
+          IO.println(%(x, 1))
+        }
+      }
+      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
+
+  (test-case "it rejects ill-typed nested list patterns"
+    (check-match
+      @interp-sexp{
+        main(_) {
+          def [[1, 2], [3, 4, 5], x] = [[False]]
+          x
+        }
+      }
+      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
+
+  (test-case "it unifies concrete types with the empty list"
+    (check-match
+      @interp-sexp{
+        main(_) {
+          def xs = 42 :: []
+          def xs' = 43 :: xs
+          def xs'' = True :: xs'
+          IO.println(xs'')
+        }
+      }
+      `(AtPos (SourcePos ,_ 4 ,_) (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
+
+  (test-case "it rejects ill-typed cons patterns"
+    (check-match
+      @interp-sexp{
+        main(_) {
+          def x::[1] = [False, True]
+          IO.println(x)
+        }
+      }
+      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
+
+  (test-case "it unifies concrete types with empty lists in tuples"
+    (check-match
+      @interp-sexp{
+        main(_) {
+          def %(is, bs) = %(42 :: [], False :: [])
+          IO.println(True :: is)
+        }
+      }
+      `(AtPos (SourcePos ,_ 3 ,_) (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
+
+  (test-case "it checks list patterns with concrete types against the empty list"
+    (check-match
+      @interp-sexp{
+        main(_) {
+          def %([1, 2, 3, x], y) = %([], False)
+          IO.println(x :: "hello")
+        }
+      }
+      `(AtPos (SourcePos ,_ 3 ,_) (CompilerModule Types) (CantUnify (Expected Char) (Got Int)))))
+
+  (test-case "it checks list patterns against applications returning empty lists"
+    (check-equal?
+      @interp-lines{
+        mt() = []
+
+        main(_) {
+          def xs = mt()
+          IO.println(1 :: xs)
+        }
+      }
+      '("[1]")))
+
   (test-case "it fails if the right-hand side of a list-pat binding is ill-typed"
     (check-match
-      @typecheck{
-        def [x, y] = [1, "hello"]
-        y
+      @interp-sexp{
+        main(_) {
+          def [x, y] = [1, "hello"]
+          IO.println(y)
+        }
       }
       `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got (App List (Char)))))))
 
   (test-case "it infers function types"
-    (check-equal?
-      @typecheck{
-        def f = fun() { 42 }
-        f()
+    (check-match
+      @interp-sexp{
+        f() = 42
+
+        main(_) {
+          IO.println(f() :: [False])
+        }
       }
-      'Int))
+      `(AtPos (SourcePos ,_ 4 ,_) (CompilerModule Types) (CantUnify (Expected Bool) (Got Int)))))
 
   (test-case "it infers the identity function"
     (check-equal?
-      @typecheck{
-        def id = fun(x) { x }
-        id(False)
-      }
-      'Bool))
+      @interp-lines{
+        id(x) = x
 
-  (test-case "it allows polymorphic behavior for different callsites"
-    (check-equal?
-      @typecheck{
-        def id = fun(x) { x }
-        %(id(42), id(False), id("hello"))
+        main(_) {
+          IO.println(%(id(1), id(False), id("hello")))
+        }
       }
-      '(App Tuple (Int Bool (App List (Char))))))
+      '("%(1, False, \"hello\")")))
 
   (test-case "it infers types for expressions with polymorphic applications"
     (check-equal?
-      @typecheck{
-        def id = fun(x) { x }
+      @interp-lines{
+        id(x) = x
 
-        id(42) + id(43)
+        main(_) = IO.println(id(42) + id(43))
       }
-      'Int))
+      '("85")))
 
   (test-case "it infers type relationships when generalizing"
     (check-match
-      @typecheck{
-        def randomzap = fun(x) {
-          def f = fun(y) {
-            if (False) { y } else { x }
-          }
-
-          f
+      @interp-sexp{
+        randomzap(x) {
+          fun(y) = if (False) { y } else { x }
         }
 
-        randomzap
+        main(_) {
+          def str = randomzap(3)("hello")
+          IO.println(str)
+        }
       }
-      `(Poly (,t) (App Arrow ((Var ,t) (App Arrow ((Var ,t) (Var ,t))))))))
+      `(AtPos (SourcePos ,_ 6 ,_) (CompilerModule Types) (CantUnify (Expected Int) (Got (App List (Char)))))))
 
   (test-case "it infers nested function types"
     (check-equal?
-      @typecheck{
-        def randomzap = fun(x) {
-          def f = fun(y) {
-            if (False) { y } else { x }
-          }
-          f
+      @interp-lines{
+        randomzap(x) {
+          fun(y) = if (False) { y } else { x }
         }
-        %(randomzap(42)(43), randomzap(False)(True))
+
+        main(_) {
+          IO.println(%(randomzap(42)(43), randomzap(False)(True)))
+        }
       }
-      '(App Tuple (Int Bool))))
+      '("%(42, False)")))
 
   (test-case "it fails to unify if we apply the nested function with a different type"
     (check-match
-      @typecheck{
-        def randomzap = fun(x) {
-          def f = fun(y) {
+      @interp-sexp{
+        randomzap(x) {
+          fun(y) {
             if (False) { y } else { x }
           }
-          f
         }
 
-        randomzap(42)(False)
+        main(_) {
+          IO.println(randomzap(42)(False))
+        }
       }
       `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
 
   (test-case "it infers list types in implicitly polymorphic functions"
-    (check-equal?
-      @typecheck{
-        def toList = fun(x) { x::[] }
-        toList(42)
+    (check-match
+      @interp-sexp{
+        toList(x) { x::[] }
+        main(_) {
+          IO.println(False :: toList(42))
+        }
       }
-      '(App List (Int))))
+      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
 
   (test-case "it can infer empty list element types based on other occurrences"
-    (check-equal?
-      @typecheck{
-        def make = fun(makeTwo, x) {
+    (check-match
+      @interp-sexp{
+        make(makeTwo, x) {
           if (makeTwo) {
             [x, x]
           } else {
@@ -442,11 +423,16 @@
           }
         }
 
-        make(False, 1)
+        main(_) {
+          IO.println(False :: make(False, 1))
+        }
       }
-      '(App List (Int))))
+      `(AtPos (SourcePos ,_ 10 ,_) (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
 
-  (test-case "it preserves polymorphism for the empty list for function results"
+  ; This is a bigger issue than it first appears.
+  ; We should decide whether we need a monomorphism restriction,
+  ; as in Haskell, Ocaml, F#.
+  #;(test-case "it preserves polymorphism for the empty list for function results"
     (check-match
       @typecheck{
         def toList = fun(x) { [] }
@@ -454,26 +440,10 @@
       }
       `(Poly (,t) (App List ((Var ,t))))))
 
-  (test-case "it makes the empty list polymorphic in tuple expressions"
-    (check-equal?
-      @typecheck{
-        def toList = fun(x) { x::[] }
-        %(toList(42), toList("foo"))
-      }
-      '(App Tuple ((App List (Int)) (App List ((App List (Char))))))))
-
-  (test-case "it checks recursive functions"
-    (check-equal?
-      @typecheck{
-        fun inf(x) { 1 + inf(x) }
-        inf(3)
-      }
-      'Int))
-
   (test-case "it checks recursive functions with conditions"
-    (check-equal?
-      @typecheck{
-        fun f(x, runForever) {
+    (check-match
+      @interp-sexp{
+        f(x, runForever) {
           if (runForever) {
             f(x, runForever)
           } else {
@@ -481,239 +451,132 @@
           }
         }
 
-        f(3, False)
+        main(_) = IO.println(f("hello world", False) + 1)
       }
-      'Int))
-
-  (test-case "it checks switch expressions"
-    (check-equal?
-      @typecheck{
-        fun len(xs) {
-          switch (xs) {
-            [] -> 0
-            a::as -> 1 + len(as)
-          }
-        }
-
-        len([42])
-      }
-      'Int))
-
-  (test-case "it fails if switch clauses return different types"
-    (check-match
-      @typecheck{
-        switch (42) {
-          0 -> "hello"
-          2 -> 43
-          _ -> 44
-        }
-      }
-      `(AtPos
-         ,_
-         (CompilerModule Types)
-         (CantUnify (Expected (App List (Char))) (Got Int)))))
+      `(AtPos (SourcePos ,_ 9 ,_) (CompilerModule Types) (CantUnify (Expected Int) (Got (App List (Char)))))))
 
   (test-case "it fails if switch clauses don't unify with the test expression"
     (check-match
-      @typecheck{
-        switch (42) {
-          0 -> "hello"
-          False -> "world"
+      @interp-sexp{
+        main(_) {
+          def v = switch (42) {
+            0 -> "hello"
+            False -> "world"
+          }
+
+          IO.println(v)
         }
       }
       `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
 
-  (test-case "it allows id shadowing in switch pattern bindings"
-    (check-equal?
-      @typecheck{
-        def x = [1, 2]
-        switch (x) {
-          x::xs -> x
-        }
-      }
-      'Int))
-
-  (test-case "it binds identifiers introduced in cons patterns in switches"
-    (check-equal?
-      @typecheck{
-        switch ([2]) {
-          [] -> [1]
-          x::xs -> xs
-        }
-      }
-      '(App List (Int))))
-
-  (test-case "it binds identifiers introduced in nested cons patterns (in tuple pats)"
-    (check-equal?
-      @typecheck{
-        switch (%([1], 42)) {
-          %([], _) -> []
-          %(x::xs, _) -> xs
-        }
-      }
-      '(App List (Int))))
-
   (test-case "it checks switches in function bodies"
-    (check-equal?
-      @typecheck{
-        fun len(ls) {
+    (check-match
+      @interp-sexp{
+        len(ls) {
           switch (ls) {
             [] -> 0
-            x::xs -> 1 + len(xs)
+            xs -> xs
           }
         }
 
-        len([1])
+        main(_) = IO.println(len([1]))
       }
-      'Int))
+      `(AtPos (SourcePos ,_ 2 ,_) (CompilerModule Types) (CantUnify (Expected (App List (,_))) (Got Int)))))
 
   (test-case "it allows polymorphic behavior of functions with switches at different callsites"
     (check-equal?
-      @typecheck{
-        def unwrap = fun(x) {
+      @interp-lines{
+        unwrap{a} : a -> a
+        unwrap(x) {
           switch (x) {
             y -> y
           }
         }
 
-        %(unwrap("hello"), unwrap(42))
-      }
-      '(App Tuple ((App List (Char)) Int))))
-
-  (test-case "it checks switch expressions with mixed block-style and short-form bodies"
-    (check-equal?
-      @typecheck{
-        switch ([1, 2, 3]) {
-          [x, y] -> {
-            def z = x + y
-            z + 1
-          }
-          _ -> 3
+        main(_) {
+          IO.println(%(unwrap("hello"), unwrap(42)))
         }
       }
-      'Int))
-
-  (test-case "it checks non-polymorphic annotated function definitions"
-    (check-equal?
-      @typecheck{
-        weird => fun(Int, Int) : Int
-        fun weird(0, 0) = 100
-        fun weird(x, y) { x + y }
-
-        weird(1, 2)
-      }
-      'Int))
-
-  (test-case "it checks annotations on variable bindings"
-    (check-equal?
-      @typecheck{
-        v => Int
-        def v = 42
-
-        v
-      }
-      'Int))
+      '("%(\"hello\", 42)")))
 
   (test-case "it checks annotations on variable bindings involving custom type aliases"
-    (check-equal?
-      @typecheck{
-        type String = Char[]
-        s => String
-        def s = "hello world"
+    (check-match
+      @interp-sexp{
+        type Str = Char[]
 
-        s
-      }
-      '(App List (Char))))
+        main(_) {
+          s : Str
+          def s = 'c'
 
-  (test-case "it checks annotations on variable bindings in functions"
-    (check-equal?
-      @typecheck{
-        fun f() {
-          x => Int
-          def x = 1
-          x + 2
+          IO.println(s)
         }
-
-        f()
       }
-      'Int))
+      `(AtPos (SourcePos ,_ 4 ,_) (CompilerModule Types) (CantUnify (Expected (App List (Char))) (Got Char)))))
 
   (test-case "it fails if annotations don't match inferred types (monomorphic)"
     (check-match
-      @typecheck{
-        add => fun(Int, Int) : Int
-        fun add(x, y) = False
-      }
-      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
+      @interp-sexp{
+        add : Int -> Int -> Int
+        add(x, y) = False
 
-  (test-case "it checks annotated function definitions"
-    (check-equal?
-      @typecheck{
-        f{a} => fun(a) : a
-        fun f(x) = x
-
-        f(42)
+        main(_) = ()
       }
-      'Int))
+      `(AtPos (SourcePos ,_ 1 ,_) (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
 
   (test-case "it checks annotated functions with recursive application"
-    (check-equal?
-      @typecheck{
-        len{a} => fun(a[]) : Int
-        fun len([]) = 0
-        fun len(x::xs) { 1 + len(xs) }
+    (check-match
+      @interp-sexp{
+        len{a} : a[] -> Int
+        len([]) = 0
+        len(x::xs) = 1 + len(x)
 
-        len([1, 2])
+        main(_) = IO.println(len([1, 2]))
       }
-      'Int))
+      `(AtPos (SourcePos ,_ 3 ,_) (CompilerModule Types) (CantUnify (Expected (App List (Var a))) (Got (Var a))))))
 
   (test-case "it fails in ill-typed application of annotated functions"
     (check-match
-      @typecheck{
-        len{a} => fun(a[]) : Int
-        fun len([]) = 0
-        fun len(x::xs) { 1 + len(xs) }
+      @interp-sexp{
+        len{a} : a[] -> Int
+        len([]) = 0
+        len(x::xs) { 1 + len(xs) }
 
-        len(3)
+        main(_) = IO.println(len(3))
       }
       `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected (App List (,t))) (Got Int)))))
 
-  (test-case "it fails if return values are of different type params"
-    (check-match
-      @typecheck{
-        def f = fun(x, y) { if (True) { x } else { y } }
-        f(1, False)
-      }
-      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
-
   (test-case "it unifies different type params if an application matches their types"
-    (check-equal?
-      @typecheck{
-        def f = fun(x, y) { if (True) { x } else { y } }
-        f(1, 3)
+    (check-match
+      @interp-sexp{
+        f(x, y) { if (True) { x } else { y } }
+        main(_) {
+          IO.println(f(1, 'c'))
+        }
       }
-      'Int))
+      `(AtPos (SourcePos ,_ 3 ,_) (CompilerModule Types) (CantUnify (Expected Int) (Got Char)))))
+
+  (test-case "it unifies different explicit type params if an application matches their types"
+    (check-match
+      @interp-sexp{
+        f{a, a} : a -> a -> a
+        f(x, y) { if (True) { x } else { y } }
+        main(_) {
+          IO.println(f(1, 'c'))
+        }
+      }
+      `(AtPos (SourcePos ,_ 4 ,_) (CompilerModule Types) (CantUnify (Expected Int) (Got Char)))))
 
   (test-case "it checks ADT constructors"
     (check-match
-      @typecheck{
+      @interp-lines{
         type String = Char[]
         type Foo =
           | A(Int)
           | B(String)
 
-        A(42)
+        main(_) = IO.println(A(42))
       }
-      `(App
-         (Unique
-           (Id Foo ,_)
-           (TyFun
-             ()
-             (App
-               (Adt ((Id A ,_) (Id B ,_)))
-               ((App Tuple (Int))
-                (App Tuple ((App (TyFun () (App List (Char))) ())))))))
-         ())))
+      '("A(42)")))
 
   (test-case "it fails on ill-typed ADT constructor applications"
     (check-match

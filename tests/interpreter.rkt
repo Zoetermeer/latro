@@ -798,7 +798,7 @@
 
   (test-case "it evaluates switch expressions"
     (check-equal?
-      @interp-sexp{
+      @interp-lines{
         main(_) {
           def v = %(4, False)
           def x = switch (v) {
@@ -811,11 +811,28 @@
           IO.println(x)
         }
       }
-      3))
+      '("3")))
 
   (test-case "it evaluates switch expressions with mixed block-style and short-form bodies"
     (check-equal?
-      @interp-sexp{
+      @interp-lines{
+        main(_) {
+          def x = switch ([1, 2, 3]) {
+            [x, y] -> {
+              def z = x + y
+              z + 1
+            }
+            _ -> 3
+          }
+
+          IO.println(x)
+        }
+      }
+      '("3")))
+
+  (test-case "it evaluates switch expressions with mixed block-style and short-form bodies"
+    (check-equal?
+      @interp-lines{
         main(_) {
           IO.println(switch ([1, 2, 3]) {
               [x, y, z] -> {
@@ -827,7 +844,7 @@
           )
         }
       }
-      10))
+      '("10")))
 
   (test-case "it evaluates patterns in argument-binding position"
     (check-equal?
