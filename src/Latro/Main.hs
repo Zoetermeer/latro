@@ -126,6 +126,7 @@ semAnal :: [SourceBuf] -> [Opt] -> GenericCompilerPass HumanReadable CompilerEnv
 semAnal sourceBufs opts = do
     asts <- mapM (parseBuf opts) sourceBufs
     let ast = combineAsts asts
+    ast' <- dumpOnPhase PhaseParse $ return ast
     collapsedAst <- withExceptT (renderOutput opts) $ runCollapseFunClauses ast
     alphaConvertedAst <- dumpOnPhase PhaseAlphaConvert $ runAlphaConvert collapsedAst
     reorderedAst <- dumpOnPhase PhaseInfixReorder $ runReorderInfixes alphaConvertedAst

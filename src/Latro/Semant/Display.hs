@@ -162,15 +162,6 @@ instance (Sexpable a, Sexpable id) => Sexpable (CaseClause a id) where
           ]
 
 
-instance (Sexpable a, Sexpable id) => Sexpable (CondCaseClause a id) where
-  sexp (CondCaseClause d e es) =
-    List  [ Symbol "CondCaseClause"
-          , sexp d
-          , sexp e
-          , toSexpList es
-          ]
-
-
 instance (Sexpable a, Sexpable id) => Sexpable (FunDef a id) where
   sexp (FunDefFun d id argPatEs es) =
     List  [ Symbol "FunDefFun"
@@ -196,6 +187,17 @@ instance (Sexpable a, Sexpable id) => Sexpable (FieldInit a id) where
 instance (Sexpable a, Sexpable id) => Sexpable (AnnDef a id) where
   sexp (AnnDefModule d id e) = List [ Symbol "AnnDefModule", sexp d, sexp e ]
   sexp (AnnDefFun d funDef) = List [ Symbol "AnnDefFun", sexp d, sexp funDef ]
+
+
+instance (Sexpable a, Sexpable id) => Sexpable (CondCaseClause a id) where
+  sexp (CondCaseClause d pExp bodyEs) =
+    List  [ Symbol "CondCaseClause"
+          , sexp d
+          , sexp pExp
+          , toSexpList bodyEs
+          ]
+  sexp (CondCaseClauseWildcard d bodyEs) =
+    List  [ Symbol "CondCaseClauseWildcard", sexp d, toSexpList bodyEs ]
 
 
 instance (Sexpable a, Sexpable id) => Sexpable (Exp a id) where
@@ -301,6 +303,11 @@ instance (Sexpable a, Sexpable id) => Sexpable (Exp a id) where
           ]
   sexp (ExpTuple d es) = List [ Symbol "ExpTuple", sexp d, toSexpList es ]
   sexp (ExpSwitch d e clauses) = List [ Symbol "ExpSwitch", sexp d, sexp e, toSexpList clauses ]
+  sexp (ExpCond d clauses) =
+    List  [ Symbol "ExpCond"
+          , sexp d
+          , toSexpList clauses
+          ]
   sexp (ExpList d es) = List [ Symbol "ExpList", sexp d, toSexpList es ]
   sexp (ExpFun d paramIds es) =
     List  [ Symbol "ExpFun"
