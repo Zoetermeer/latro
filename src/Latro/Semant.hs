@@ -1,8 +1,10 @@
-{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE DeriveGeneric, TypeSynonymInstances #-}
 module Semant where
 
 import Data.List (intersperse)
 import qualified Data.Map as Map
+import Text.PrettyPrint
+import Text.PrettyPrint.GenericPretty
 import Text.Printf (printf)
 
 
@@ -10,7 +12,10 @@ type LineNumber = Int
 type ColNumber = Int
 type SourceFilePath = String
 data SourcePos = SourcePos SourceFilePath LineNumber ColNumber
-  deriving (Eq, Show)
+  deriving (Eq, Generic, Show)
+
+
+instance Out SourcePos
 
 
 mtSourcePos :: SourcePos
@@ -23,7 +28,10 @@ type RawId = String
 data QualifiedId a id =
     Id a id
   | Path a (QualifiedId a id) id
-  deriving (Eq, Show)
+  deriving (Eq, Generic, Show)
+
+
+instance (Out a, Out id) => Out (QualifiedId a id)
 
 class AstNode a where
   nodeData :: a b id -> b
@@ -401,6 +409,9 @@ instance AstNode SynTy where
 data UniqId =
     UserId RawId
   | UniqId Int RawId
+  deriving (Generic)
+
+instance Out UniqId
 
 instance Show UniqId where
   show (UserId raw) = raw
@@ -525,19 +536,24 @@ data Ty =
   | TyMeta TyVarId
   | TyRef (QualifiedId SourcePos UniqId) -- Only for recursive type definitions
   | TyInstFun Ty Ty
-  deriving (Eq)
+  deriving (Eq, Generic)
 
 
+instance Out Ty
 instance Show Ty where
-  show (TyApp tyCon []) = show tyCon
-  show (TyApp TyConArrow tyArgs) = concat . intersperse " -> " $ map show tyArgs
-  show (TyApp tyCon tyArgs) = printf "%s{%s}" (show tyCon) (concat . intersperse ", " $ map show tyArgs)
-  show (TyPoly [] ty) = show ty
-  show (TyPoly tyParams ty) = printf "{%s} %s" (concat . intersperse ", " $ map show tyParams) (show ty)
-  show (TyVar id) = show id
-  show (TyMeta id) = show id
-  show (TyRef qid) = show qid
-  show (TyInstFun instTy ty) = printf "(%s) %s" (show instTy) (show ty)
+  show = pretty
+
+
+-- instance Show Ty where
+--   show (TyApp tyCon []) = show tyCon
+--   show (TyApp TyConArrow tyArgs) = concat . intersperse " -> " $ map show tyArgs
+--   show (TyApp tyCon tyArgs) = printf "%s{%s}" (show tyCon) (concat . intersperse ", " $ map show tyArgs)
+--   show (TyPoly [] ty) = show ty
+--   show (TyPoly tyParams ty) = printf "{%s} %s" (concat . intersperse ", " $ map show tyParams) (show ty)
+--   show (TyVar id) = show id
+--   show (TyMeta id) = show id
+--   show (TyRef qid) = show qid
+--   show (TyInstFun instTy ty) = printf "(%s) %s" (show instTy) (show ty)
 
 
 data ModuleBinding =
@@ -606,15 +622,20 @@ data TyCon =
   | TyConTyFun [TyVarId] Ty
   | TyConUnique UniqId TyCon
   | TyConTyVar TyVarId -- In the body of a tyfun/poly
-  deriving (Eq)
+  deriving (Eq, Generic)
 
 
+instance Out TyCon
 instance Show TyCon where
-  show TyConInt = "Int"
-  show TyConBool = "Bool"
-  show TyConChar = "Char"
-  show TyConUnit = "Unit"
-  show TyConList = "[]"
-  show TyConTuple = "(,)"
-  show (TyConUnique id _) = show id
-  show (TyConTyFun [] ty) = show ty
+  show = pretty
+
+
+-- instance Show TyCon where
+--   show TyConInt = "Int"
+--   show TyConBool = "Bool"
+--   show TyConChar = "Char"
+--   show TyConUnit = "Unit"
+--   show TyConList = "[]"
+--   show TyConTuple = "(,)"
+--   show (TyConUnique id _) = show id
+--   show (TyConTyFun [] ty) = show ty

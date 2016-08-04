@@ -1,6 +1,5 @@
 module Sexpable where
 
-import Data.List
 import Text.Printf (printf)
 
 data Sexp =
@@ -15,6 +14,7 @@ instance Show Sexp where
   show (List vs) =
     printf "(%s)" ((unwords . map show) vs)
 
+  show (Symbol v@('|' : rest)) = printf "(quote %s)" v
   show (Symbol v) = v
   show (Atom v) = show v
 

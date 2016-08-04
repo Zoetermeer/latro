@@ -558,6 +558,8 @@ instance CompilerOutput Ty where
   render (TyApp TyConInt []) = "Int"
   render (TyApp TyConBool []) = "Bool"
   render (TyApp TyConChar []) = "Char"
+  render (TyApp TyConArrow [retTy]) =
+    printf "(-> %s)" $ render retTy
   render (TyApp TyConArrow tys) =
     let tyStrs = map render tys
     in intercalate " -> " tyStrs
@@ -571,7 +573,7 @@ instance CompilerOutput Ty where
   render (TyVar tyVar) = render tyVar
   render (TyMeta id) = render id
   render (TyRef qid) = render qid
-  render ty = showSexp ty
+  -- render ty = showSexp ty
 
 
 instance Sexpable TCModule where
@@ -611,3 +613,23 @@ instance CompilerOutput TyCon where
   render (TyConUnique id TyConTyFun{}) = render id
   render (TyConTyFun tyVarIds ty) = "<<tyfun>>"
   render (TyConTyVar varId) = render varId
+
+
+instance CompilerOutput Value where
+  render v =
+    case v of
+      ValueInt i -> show i
+      ValueBool b -> show b
+      ValueChar c -> printf "'%c'" c
+      ValueFun (Closure fid fty _ paramIds _) -> printf "fun %s : %s" (show fid) (render fty)
+      ValueStruct struct -> "struct"
+      ValueAdt (Adt uid i vs) ->
+        printf "%s(%s)" (show uid) (concat . intersperse ", " $ map render vs)
+      ValueTuple vs -> printf "%%(%s)" $ concat . intersperse ", " $ map render vs
+      ValueList vs@((ValueChar c) : _) ->
+        let str = map (\(ValueChar c) -> c) vs
+        in show str
+      ValueList vs -> printf "[%s]" $ concat . intersperse ", " $ map render vs
+      ValueUnit -> "Unit"
+      ValuePrim prim -> "prim"
+      Err str -> "Error = " ++ str

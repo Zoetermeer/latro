@@ -23,7 +23,7 @@
       @interp-sexp{
         main(_) = prim(foo)(42)
       }
-      `(AtPos ,_ (CompilerModule Types) (PrimUnknown foo))))
+      `(AtPos ,_ (CompilerModule Typecheck) (PrimUnknown foo))))
 
   (test-case "it evaluates built-in integer primitives"
     (check-match
@@ -175,7 +175,7 @@
 
         main(_) = IO.println(f)
       }
-      '("fun f : Int")))
+      '("fun f : (-> Int)")))
 
   (test-case "it returns function values with closures"
     (check-equal?
@@ -185,7 +185,7 @@
 
         main(_) = IO.println(f)
       }
-      '("fun f : Int")))
+      '("fun f : (-> Int)")))
 
   (test-case "it evaluates the shorthand syntax for single-expression function bodies"
     (check-equal?

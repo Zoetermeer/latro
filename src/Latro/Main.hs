@@ -13,7 +13,7 @@ import Output
 import Parse
 import Reorder
 import Semant
-import Semant.Display ()
+import Semant.Display
 import System.Console.GetOpt
 import System.Console.Haskeline
 import System.Environment (getArgs)
@@ -202,14 +202,14 @@ runRepl opts =
             ReplCmdLibFile filePath -> do
               content <- lift $ readFile filePath
               let result = lift $ runStateT (runExceptT (eval [SourceBufFile filePath content] opts)) compilerEnv
-              handleEvalResult loop (outputStrLn . show) result
+              handleEvalResult loop (outputStrLn . render) result
             ReplCmdShowType input ->
               let opts' = OptShowPhaseOutput PhaseTypecheckType : opts
                   result = lift $ runStateT (runExceptT (eval [SourceBufRepl input] opts')) compilerEnv
-              in handleEvalResult loop (outputStrLn . show) result
+              in handleEvalResult loop (outputStrLn . render) result
             ReplCmdEval input -> do
               let result = lift $ runStateT (runExceptT (eval [SourceBufRepl input] opts)) compilerEnv
-              handleEvalResult loop (outputStrLn . show) result
+              handleEvalResult loop (outputStrLn . render) result
 
 
 runProgram :: [Opt] -> [FilePath] -> IO ()
@@ -221,7 +221,7 @@ runProgram opts filePaths = do
     Right v     ->
       case v of
         ValueUnit -> return ()
-        _         -> print v
+        _         -> putStrLn $ (renderOutput opts) v
 
 
 header = "Usage: latro [-aelis] [FILE ...]"

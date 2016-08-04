@@ -15,11 +15,12 @@ import qualified Data.Set as Set
 import Debug.Trace (trace, traceM, traceShowM)
 import Errors
 import Semant
+import Semant.Display ()
 import Text.Printf (printf)
 
 
-reportErrorAt a = reportPosOnFail a "Types"
-withFailPos' p = withFailPos p "Types"
+reportErrorAt a = reportPosOnFail a "Typecheck"
+withFailPos' p = withFailPos p "Typecheck"
 
 
 traceIt :: Show a => a -> a
@@ -424,9 +425,12 @@ generalize ty = do
 
 instantiate :: Ty -> Checked Ty
 instantiate (TyPoly tyParamIds ty) = do
+  oldPolyEnv <- markPolyEnv
   mapM_ (\paramId -> do { meta <- freshMeta; bindPoly paramId meta })
         tyParamIds
-  subst ty
+  ty' <- subst ty
+  restorePolyEnv oldPolyEnv
+  return ty'
 
 instantiate ty = return ty
 
@@ -498,25 +502,14 @@ unifyFail a b = do
 
 unify :: Ty -> Ty -> Checked Ty
 unify tya tyb = do
-  -- traceM $ printf "Unifying %s --> %s" (showSexp tya) (showSexp tyb)
   oldPolyEnv <- markPolyEnv
   oldMetaEnv <- markMetaEnv
   case (tya, tyb) of
     (a@(TyApp (TyConUnique ida _) tyArgsA), TyApp (TyConUnique idb _) tyArgsB) ->
       if ida == idb
-      -- BUG: This is wrong, since it will allow unification
-      -- for any two types regardless of whether they are
-      -- different Uniques.  Also, it disregards unification
-      -- of type arguments.  Stopgap to allow unification in the happy
-      -- path, but the bug is that poly types seem to not be
-      -- substituted correctly, so we cannot unify a T{Int} with
-      -- a T{a}, for example, in some function that returns an instantiated
-      -- type T by calling a polymorphic constructor for T (if it's an ADT,
-      -- for example).
-      -- then return a
-      then do mapM_ (uncurry unify) $ zip tyArgsA tyArgsB
-              return a
-      else unifyFail tya tyb
+        then do mapM_ (uncurry unify) $ zip tyArgsA tyArgsB
+                return a
+        else unifyFail tya tyb
 
     (a@(TyApp tyconA tyArgsA), b@(TyApp tyconB tyArgsB))
       | tyconA == tyconB ->
@@ -715,7 +708,7 @@ tcTyDec (TypeDecTy p id tyParamIds (SynTyStruct _ fields)) =
 
 tcTyDec (TypeDecAdt p id tyParamIds alts) = do
   -- Bind a 'name' type for recursive definitions
-  exportTy id $ TyConTyFun tyParamIds $ TyRef $ Id p id
+  exportTy id $ TyConUnique id $ TyConTyFun tyParamIds $ TyRef $ Id p id
   -- Bind a 'tyvar' tycon for each type parameter
   mapM_ (\tyParamId -> exportTy tyParamId $ TyConTyVar tyParamId) tyParamIds
   altNamesTys <- mapM tcAdtAlt alts
@@ -828,10 +821,8 @@ tc ilMain@ILMain{} = do
   throwError (ErrWrongMainArity ilMain) `reportErrorAt` ilNodeData ilMain
 
 tc (ILRef p id) = do
-  -- traceM $ printf "tc ILRef %s" $ show id
   ty <- lookupVar id `reportErrorAt` p
   ty' <- instantiate ty
-  -- traceShowM ty'
   return (ty', ILRef (OfTy p ty') id)
 
 tc (ILStr p s) = return (tyStr, ILStr (OfTy p tyStr) s)
@@ -864,7 +855,7 @@ tc (ILApp p ratorE randEs) = do
   if arity /= argLen
   then throwError (ErrWrongArity ratorE' arity argLen) `reportErrorAt` p
   else do ty' <- subst ty
-          return (ty', ILApp (OfTy p ty) ratorE' randEs')
+          return (ty', ILApp (OfTy p ty') ratorE' randEs')
 
 tc (ILPrim p prim) = do
     primTy <- case prim of

@@ -13,7 +13,7 @@
           IO.println(x)
         }
       }
-      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got (App List (Char)))))))
+      `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected Int) (Got (App List (Char)))))))
 
   (test-case "it typechecks tuples"
     (check-equal?
@@ -35,7 +35,7 @@
           IO.println(x)
         }
       }
-      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Bool) (Got Int)))))
+      `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected Bool) (Got Int)))))
 
   (test-case "it typechecks tuples of tuples"
     (check-equal?
@@ -51,17 +51,17 @@
   (test-case "it fails to typecheck using non-numerics in arithmetic"
     (check-match
       @interp-sexp{main(_) = IO.println(1 + True)}
-      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
+      `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))
 
   (test-case "it fails to typecheck using non-numerics on the LHS of arithmetic exps"
     (check-match
       @interp-sexp{main(_) = IO.println(False + 42)}
-      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
+      `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))
 
   (test-case "it fails to typecheck if no numerics are given in arithmetic"
     (check-match
       @interp-sexp{main(_) = IO.println(False + True)}
-      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
+      `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))
 
   (test-case "it typechecks list expressions"
     (check-equal?
@@ -88,17 +88,17 @@
   (test-case "it fails non-uniformly-typed list expressions"
     (check-match
       @interp-sexp{main(_) = IO.println([1, False])}
-      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
+      `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))
 
   (test-case "it fails ill-typed conses"
     (check-match
       @interp-sexp{main(_) = IO.println(1::[False, True])}
-      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Bool) (Got Int)))))
+      `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected Bool) (Got Int)))))
 
   (test-case "it fails if the right-hand side of a cons is not a list"
     (check-match
       @interp-sexp{main(_) = IO.println(1::2)}
-      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected (App List (Int))) (Got Int)))))
+      `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected (App List (Int))) (Got Int)))))
 
   (test-case "it fails to typecheck if an if-else test is not a boolean"
     (check-match
@@ -108,7 +108,7 @@
           else   { IO.println("not zero?") }
         }
       }
-      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
+      `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))
 
   (test-case "it fails to typecheck if an if-else's branch types do not unify"
     (check-match
@@ -118,7 +118,7 @@
           IO.println(x)
         }
       }
-      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got (App List (Char)))))))
+      `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected Int) (Got (App List (Char)))))))
 
   (test-case "it searches the module closure for type names"
     (check-equal?
@@ -177,7 +177,7 @@
           IO.println(x)
         }
       }
-      `(AtPos (SourcePos ,_ 7 ,_) (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
+      `(AtPos (SourcePos ,_ 7 ,_) (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))
 
   (test-case "it rejects invalid arguments to nested struct field initializers"
     (check-match
@@ -203,7 +203,7 @@
           IO.println(l.A.Y + 1)
         }
       }
-      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
+      `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))
 
   (test-case "it checks expressions with module-binding components"
     (check-match
@@ -214,7 +214,7 @@
 
         main(_) = IO.println(1 + M.v)
       }
-      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
+      `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))
 
   (test-case "it checks string patterns"
     (check-match
@@ -229,7 +229,7 @@
           ()
         }
       }
-      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected (App List (Char))) (Got Int)))))
+      `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected (App List (Char))) (Got Int)))))
 
   (test-case "it checks tuple patterns"
     (check-match
@@ -239,7 +239,7 @@
           IO.println(y)
         }
       }
-      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected (App List (Char))) (Got Int)))))
+      `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected (App List (Char))) (Got Int)))))
 
   (test-case "it rejects tuple patterns with non-tuple right-hand exps"
     (check-match
@@ -249,7 +249,7 @@
           IO.println(a)
         }
       }
-      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected (App Tuple (,_ ,_))) (Got Int)))))
+      `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected (App Tuple (,_ ,_))) (Got Int)))))
 
   (test-case "rejects ill-typed inner tuple patterns"
     (check-match
@@ -259,7 +259,7 @@
           IO.println(z)
         }
       }
-      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
+      `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))
 
   (test-case "rejects ill-typed tuple sub-patterns in list patterns"
     (check-match
@@ -269,7 +269,7 @@
           IO.println(%(x, 1))
         }
       }
-      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
+      `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))
 
   (test-case "it rejects ill-typed nested list patterns"
     (check-match
@@ -279,7 +279,7 @@
           x
         }
       }
-      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
+      `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))
 
   (test-case "it unifies concrete types with the empty list"
     (check-match
@@ -291,7 +291,7 @@
           IO.println(xs'')
         }
       }
-      `(AtPos (SourcePos ,_ 4 ,_) (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
+      `(AtPos (SourcePos ,_ 4 ,_) (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))
 
   (test-case "it rejects ill-typed cons patterns"
     (check-match
@@ -301,7 +301,7 @@
           IO.println(x)
         }
       }
-      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
+      `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))
 
   (test-case "it unifies concrete types with empty lists in tuples"
     (check-match
@@ -311,7 +311,7 @@
           IO.println(True :: is)
         }
       }
-      `(AtPos (SourcePos ,_ 3 ,_) (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
+      `(AtPos (SourcePos ,_ 3 ,_) (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))
 
   (test-case "it checks list patterns with concrete types against the empty list"
     (check-match
@@ -321,7 +321,7 @@
           IO.println(x :: "hello")
         }
       }
-      `(AtPos (SourcePos ,_ 3 ,_) (CompilerModule Types) (CantUnify (Expected Char) (Got Int)))))
+      `(AtPos (SourcePos ,_ 3 ,_) (CompilerModule Typecheck) (CantUnify (Expected Char) (Got Int)))))
 
   (test-case "it checks list patterns against applications returning empty lists"
     (check-equal?
@@ -343,7 +343,7 @@
           IO.println(y)
         }
       }
-      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got (App List (Char)))))))
+      `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected Int) (Got (App List (Char)))))))
 
   (test-case "it infers function types"
     (check-match
@@ -354,7 +354,7 @@
           IO.println(f() :: [False])
         }
       }
-      `(AtPos (SourcePos ,_ 4 ,_) (CompilerModule Types) (CantUnify (Expected Bool) (Got Int)))))
+      `(AtPos (SourcePos ,_ 4 ,_) (CompilerModule Typecheck) (CantUnify (Expected Bool) (Got Int)))))
 
   (test-case "it infers the identity function"
     (check-equal?
@@ -388,7 +388,7 @@
           IO.println(str)
         }
       }
-      `(AtPos (SourcePos ,_ 6 ,_) (CompilerModule Types) (CantUnify (Expected Int) (Got (App List (Char)))))))
+      `(AtPos (SourcePos ,_ 6 ,_) (CompilerModule Typecheck) (CantUnify (Expected Int) (Got (App List (Char)))))))
 
   (test-case "it infers nested function types"
     (check-equal?
@@ -416,7 +416,7 @@
           IO.println(randomzap(42)(False))
         }
       }
-      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
+      `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))
 
   (test-case "it infers list types in implicitly polymorphic functions"
     (check-match
@@ -426,7 +426,7 @@
           IO.println(False :: toList(42))
         }
       }
-      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
+      `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))
 
   (test-case "it can infer empty list element types based on other occurrences"
     (check-match
@@ -443,7 +443,7 @@
           IO.println(False :: make(False, 1))
         }
       }
-      `(AtPos (SourcePos ,_ 10 ,_) (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
+      `(AtPos (SourcePos ,_ 10 ,_) (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))
 
   ; This is a bigger issue than it first appears.
   ; We should decide whether we need a monomorphism restriction,
@@ -469,7 +469,7 @@
 
         main(_) = IO.println(f("hello world", False) + 1)
       }
-      `(AtPos (SourcePos ,_ 9 ,_) (CompilerModule Types) (CantUnify (Expected Int) (Got (App List (Char)))))))
+      `(AtPos (SourcePos ,_ 9 ,_) (CompilerModule Typecheck) (CantUnify (Expected Int) (Got (App List (Char)))))))
 
   (test-case "it fails if switch clauses don't unify with the test expression"
     (check-match
@@ -483,7 +483,7 @@
           IO.println(v)
         }
       }
-      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
+      `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))
 
   (test-case "it checks switches in function bodies"
     (check-match
@@ -497,7 +497,7 @@
 
         main(_) = IO.println(len([1]))
       }
-      `(AtPos (SourcePos ,_ 2 ,_) (CompilerModule Types) (CantUnify (Expected (App List (,_))) (Got Int)))))
+      `(AtPos (SourcePos ,_ 2 ,_) (CompilerModule Typecheck) (CantUnify (Expected (App List (,_))) (Got Int)))))
 
   (test-case "it allows polymorphic behavior of functions with switches at different callsites"
     (check-equal?
@@ -527,7 +527,7 @@
           IO.println(s)
         }
       }
-      `(AtPos (SourcePos ,_ 4 ,_) (CompilerModule Types) (CantUnify (Expected (App List (Char))) (Got Char)))))
+      `(AtPos (SourcePos ,_ 4 ,_) (CompilerModule Typecheck) (CantUnify (Expected (App List (Char))) (Got Char)))))
 
   (test-case "it fails if annotations don't match inferred types (monomorphic)"
     (check-match
@@ -537,7 +537,7 @@
 
         main(_) = ()
       }
-      `(AtPos (SourcePos ,_ 1 ,_) (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
+      `(AtPos (SourcePos ,_ 1 ,_) (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))
 
   (test-case "it checks annotated functions with recursive application"
     (check-match
@@ -548,7 +548,7 @@
 
         main(_) = IO.println(len([1, 2]))
       }
-      `(AtPos (SourcePos ,_ 3 ,_) (CompilerModule Types) (CantUnify (Expected (App List ((Meta ,_)))) (Got Int)))))
+      `(AtPos (SourcePos ,_ 3 ,_) (CompilerModule Typecheck) (CantUnify (Expected (App List ((Meta ,_)))) (Got Int)))))
 
   (test-case "it fails in ill-typed application of annotated functions"
     (check-match
@@ -559,7 +559,7 @@
 
         main(_) = IO.println(len(3))
       }
-      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected (App List (,t))) (Got Int)))))
+      `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected (App List (,t))) (Got Int)))))
 
   (test-case "it unifies different type params if an application matches their types"
     (check-match
@@ -569,7 +569,7 @@
           IO.println(f(1, 'c'))
         }
       }
-      `(AtPos (SourcePos ,_ 3 ,_) (CompilerModule Types) (CantUnify (Expected Int) (Got Char)))))
+      `(AtPos (SourcePos ,_ 3 ,_) (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Char)))))
 
   (test-case "it unifies different explicit type params if an application matches their types"
     (check-match
@@ -580,7 +580,7 @@
           IO.println(f(1, 'c'))
         }
       }
-      `(AtPos (SourcePos ,_ 4 ,_) (CompilerModule Types) (CantUnify (Expected Int) (Got Char)))))
+      `(AtPos (SourcePos ,_ 4 ,_) (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Char)))))
 
   (test-case "it checks ADT constructors"
     (check-match
@@ -605,7 +605,7 @@
           IO.println(Leaf(False))
         }
       }
-      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected (App List (Char))) (Got Bool)))))
+      `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected (App List (Char))) (Got Bool)))))
 
   (test-case "it checks recursive ADT's"
     (check-equal?
@@ -693,7 +693,7 @@
       }
       `(AtPos
          (SourcePos ,_ 8 ,_)
-         (CompilerModule Types)
+         (CompilerModule Typecheck)
          (CantUnify
            (Expected
              (App
@@ -757,7 +757,7 @@
           IO.println(v)
         }
       }
-      `(AtPos (SourcePos ,_ 8 ,_) (CompilerModule Types) (UnboundUniqIdentifier (Id MakeOpt ,_)))))
+      `(AtPos (SourcePos ,_ 8 ,_) (CompilerModule Typecheck) (UnboundUniqIdentifier (Id MakeOpt ,_)))))
 
   (test-case "it does not allow pattern bindings to escape modules"
     (check-match
@@ -816,7 +816,7 @@
           IO.println(s + i)
         }
       }
-      `(AtPos (SourcePos ,_ 11 ,_) (CompilerModule Types) (CantUnify (Expected Int) (Got (App List (Char)))))))
+      `(AtPos (SourcePos ,_ 11 ,_) (CompilerModule Typecheck) (CantUnify (Expected Int) (Got (App List (Char)))))))
 
   (test-case "it checks implicitly typed functions on polymorphic ADT's"
     (check-match
@@ -833,7 +833,7 @@
           IO.println(s + i)
         }
       }
-      `(AtPos (SourcePos ,_ 10 ,_) (CompilerModule Types) (CantUnify (Expected Int) (Got (App List (Char)))))))
+      `(AtPos (SourcePos ,_ 10 ,_) (CompilerModule Typecheck) (CantUnify (Expected Int) (Got (App List (Char)))))))
 
   (test-case "it checks annotated functions refining the type parameter on polymorphic ADT's"
     (check-match
@@ -850,7 +850,7 @@
           IO.println(s)
         }
       }
-      `(AtPos (SourcePos ,_ 9 ,_) (CompilerModule Types) (CantUnify (Expected Int) (Got (App List (Char)))))))
+      `(AtPos (SourcePos ,_ 9 ,_) (CompilerModule Typecheck) (CantUnify (Expected Int) (Got (App List (Char)))))))
 
   (test-case "it infers function types on ADT values"
     (check-equal?
@@ -1030,7 +1030,7 @@
           IO.println(1 !! True)
         }
       }
-      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
+      `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))
 
   (test-case "it narrows types correctly with annotations"
     (check-match
@@ -1042,5 +1042,5 @@
           foo(True)
         }
       }
-      `(AtPos ,_ (CompilerModule Types) (CantUnify (Expected Int) (Got Bool)))))
+      `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))
 )

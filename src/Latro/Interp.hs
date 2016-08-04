@@ -11,6 +11,7 @@ import Data.Either.Utils (maybeToEither)
 import Data.List
 import qualified Data.Map as Map
 import Errors
+import Output
 import Prelude hiding (lookup)
 import Semant
 import Semant.Display ()
@@ -170,7 +171,7 @@ interpPrimApp prim argEs = do
     PrimIntLeq -> return $ primCmp (<=) argVs
     PrimIntGt -> return $ primCmp (>) argVs
     PrimIntGeq -> return $ primCmp (>=) argVs
-    PrimPrintln -> do liftIO $ print $ head argVs
+    PrimPrintln -> do liftIO $ (putStrLn . render) $ head argVs
                       return ValueUnit
 
 

@@ -25,6 +25,7 @@ executable latro
                        bifunctors,
                        containers,
                        errors,
+                       GenericPretty,
                        haskeline,
                        MissingH,
                        monadlist,
