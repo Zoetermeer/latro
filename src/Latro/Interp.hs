@@ -52,6 +52,10 @@ bindVar id v =
   modifyInterp (\intEnv -> intEnv { valEnv = Map.insert id v (valEnv intEnv) })
 
 
+bindThunk :: UniqId -> Typed IL -> Eval ()
+bindThunk id il = bindVar id $ ValueThunk il
+
+
 exportVar :: UniqId -> Value -> Eval ()
 exportVar id v =
   modifyInterp
@@ -219,8 +223,11 @@ interpE (ILAssign _ patE e) = do
   interpPat patE v
   return ValueUnit
 
-interpE (ILRef (OfTy p _) id) =
-  lookupVarId id `reportErrorAt` p
+interpE (ILRef (OfTy p _) id) = do
+  v <- lookupVarId id `reportErrorAt` p
+  case v of
+    ValueThunk il -> interpE il
+    _             -> return v
 
 interpE (ILUnit _) = return ValueUnit
 
@@ -292,8 +299,22 @@ interpEs es = do
   return $ last vs
 
 
+buildEnvForPat :: Typed ILPat -> Typed IL -> Eval ()
+buildEnvForPat patE e = return ()
+
+
+buildEnv :: Typed IL -> Eval ()
+buildEnv (ILAssign _ (ILPatId _ id) il) = bindThunk id il
+buildEnv (ILAssign _ ilPat il) = return ()
+buildEnv funDef@ILFunDef{} = interpE funDef >> return ()
+buildEnv (ILBegin _ bodyEs) = mapM_ buildEnv bodyEs
+
+buildEnv _ = return ()
+
+
 interp :: Typed ILCompUnit -> Bool -> Eval Value
 interp (ILCompUnit _ es) runMain = do
+  mapM_ buildEnv es
   v <- interpEs es
   if runMain
   then do

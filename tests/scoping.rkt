@@ -453,6 +453,23 @@
       }
       `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier y))))
 
+  (test-case "it allows mutually recursive functions"
+    (check-equal?
+      @interp-lines{
+        import Core.List
+
+        foo(0) = "zero"
+        foo(x) = bar(x)
+
+        bar(0) = foo(0)
+        bar(x) = "not zero"
+
+        main(_) = {
+          IO.println(foo(0) ++ foo(1))
+        }
+      }
+      '("\"zeronot zero\"")))
+
   (test-case "it fails on incorrect qualified paths"
     (check-match
       @interp-sexp{

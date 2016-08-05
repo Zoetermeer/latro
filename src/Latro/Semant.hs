@@ -501,6 +501,7 @@ data Value =
   | ValueList [Value]
   | ValueUnit
   | ValuePrim Prim
+  | ValueThunk (Typed IL)
   | Err String
   deriving (Eq)
 
