@@ -212,7 +212,7 @@ ExpOrAssign : def PatExp '=' Exp { ExpAssign (pos $1) $2 $4 }
 ExpOrAssigns : ExpOrAssign { [$1] }
              | ExpOrAssigns ExpOrAssign { $1 ++ [$2] }
 
-TopLevelBindingExp : def PatExp '=' LiteralExp { ExpAssign (pos $1) $2 $4 }
+TopLevelBindingExp : PatExp '=' LiteralExp { ExpAssign (nodeData $1) $1 $3 }
                    | FunDef { ExpFunDef $1 }
                    | TyAnn { ExpTyAnn $1 }
                    | import QualifiedId { ExpImport (pos $1) $2 }

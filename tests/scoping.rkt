@@ -51,7 +51,7 @@
   (test-case "it respects lexical scope for functions"
     (check-equal?
       @interp-sexp{
-        def v = 42
+        v = 42
         foo(v) = v + 1
 
         main(_) = IO.println(v + foo(3))
@@ -76,11 +76,11 @@
     (check-equal?
       @interp-lines{
         module M {
-          def foo = 42
+          foo = 42
         }
 
         module M' {
-          def bar = M.foo
+          bar = M.foo
         }
 
         main(_) = {
@@ -142,9 +142,9 @@
   (test-case "it does not allow rebinding of a non-module-bound id to a module"
     (check-match
       @interp-sexp{
-        def m = 42
+        m = 42
         module m {
-          def x = 43
+          x = 43
         }
 
         main(_) = IO.println("Uh oh it worked!")
@@ -169,10 +169,10 @@
   (test-case "it does allow rebinding of an id to a module in a nested scope"
     (check-equal?
       @interp-lines{
-        def m = 42
+        m = 42
         module Foo {
           module m {
-            def m = 43
+            m = 43
           }
         }
 
@@ -183,7 +183,7 @@
   (test-case "it does allow rebinding for values in nested scopes"
     (check-equal?
       @interp-sexp{
-        def v = 42
+        v = 42
 
         main(_) = {
           def x = fun(x) = { def v = 43  v }(1)
@@ -196,7 +196,7 @@
     (check-equal?
       @interp-lines{
         module m {
-          def x = False
+          x = False
 
           f() = {
             if (True) {
@@ -217,7 +217,7 @@
   (test-case "it refers to the correct value after a rebinding in a nested scope"
     (check-equal?
       @interp-sexp{
-        def v = 3
+        v = 3
 
         main(_) = {
           def v = fun(x) = { def v = 43  v }(1) + v
@@ -305,7 +305,7 @@
     (check-match
       @interp-sexp{
         module Foo {
-          def v = 42
+          v = 42
         }
 
         module Bar {
@@ -366,7 +366,7 @@
         type bar = Int
 
         x : foo
-        def x = 42
+        x = 42
 
         main(_) = IO.println(x)
       }
@@ -407,8 +407,8 @@
   (test-case "it allows use-before-defines in top-level definitions"
     (check-equal?
       @interp-sexp{
-        def y = x
-        def x = 42
+        y = x
+        x = 42
 
         main(_) = IO.println(y)
       }
@@ -418,8 +418,8 @@
     (check-equal?
       @interp-sexp{
         module M {
-          def y = x
-          def x = 42
+          y = x
+          x = 42
         }
 
         main(_) = IO.println(M.y)
@@ -430,11 +430,11 @@
     (check-equal?
       @interp-sexp{
         module M {
-          def y = N.x
+          y = N.x
         }
 
         module N {
-          def x = 42
+          x = 42
         }
 
         main(_) = IO.println(M.y)
@@ -458,12 +458,12 @@
       @interp-sexp{
         module M {
           module N {
-            def foo = 42
+            foo = 42
           }
         }
 
         module M' {
-          def bar = N.foo
+          bar = N.foo
         }
 
         main(_) = IO.println(M'.bar)
@@ -485,10 +485,10 @@
   (test-case "it does not extend variable name resolution to closures of closed modules"
     (check-match
       @interp-sexp{
-        def foo = 42
+        foo = 42
 
         module M {
-          def bar = foo
+          bar = foo
         }
 
         main(_) = IO.println(M.foo + M.bar)
@@ -572,12 +572,12 @@
     (check-equal?
       @interp-lines{
         module Foo {
-          def v = 42
+          v = 42
         }
 
         module Bar {
           import Foo
-          def x = v
+          x = v
         }
 
         main(_) = IO.println(Bar.x)

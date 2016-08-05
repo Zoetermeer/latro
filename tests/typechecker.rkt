@@ -210,7 +210,7 @@
     (check-match
       @interp-sexp{
         module M {
-          def v = False
+          v = False
         }
 
         main(_) = IO.println(1 + M.v)

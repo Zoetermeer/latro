@@ -178,7 +178,7 @@
   (test-case "it returns function values with closures"
     (check-equal?
       @interp-lines{
-        def v = 1
+        v = 1
         f() = v
 
         main(_) = IO.println(f)
@@ -199,7 +199,7 @@
   (test-case "it adds definitions to module exports"
     (check-match
       @interp-sexp{
-        module m { def v = 42 }
+        module m { v = 42 }
         main(_) = IO.println(m.v)
       }
       42))
@@ -219,7 +219,7 @@
   (test-case "it returns values defined in modules"
     (check-equal?
       @interp-sexp{
-        module m { def v = 42 }
+        module m { v = 42 }
         main(_) = IO.println(m.v)
       }
       42))
@@ -268,7 +268,7 @@
       @interp-sexp{
         module a {
           module b {
-            def v = 42
+            v = 42
           }
         }
 
@@ -308,7 +308,7 @@
   (test-case "it captures bindings from the env in function bodies"
     (check-equal?
       @interp-sexp{
-        def v = 42
+        v = 42
         f : (-> Int)
         f() = v
         main(_) = IO.println(f())
@@ -441,7 +441,7 @@
         module m {
           module n {
             module o {
-              def v = 42
+              v = 42
             }
           }
 
@@ -457,7 +457,7 @@
     (check-equal?
       @interp-sexp{
         module m {
-          def v = 6
+          v = 6
         }
 
         main(_) = IO.println(m.v)
@@ -488,7 +488,7 @@
       @interp-sexp{
         module m {
           module n {
-            def v = 6
+            v = 6
           }
         }
 
@@ -1202,12 +1202,12 @@
     (check-equal?
       @interp-sexp{
         module Foo {
-          def v = 42
+          v = 42
         }
 
         module Bar {
           import Foo
-          def x = v
+          x = v
         }
 
         main(_) = IO.println(Bar.x)
