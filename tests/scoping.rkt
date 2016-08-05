@@ -7,7 +7,7 @@
   (test-case "it binds identifiers introduced in cons patterns in switches"
     (check-equal?
       @interp-lines{
-        main(_) {
+        main(_) = {
           IO.println(
             switch ([2, 3]) {
               [] -> [1]
@@ -32,9 +32,9 @@
             _       -> 1
           }
 
-        main(_) = IO.println(%([10], False))
+        main(_) = IO.println(f(%([10], False)))
       }
-      '("[11]")))
+      '("11")))
 
   (test-case "it distinguishes between type and value names in annotations"
     (check-equal?
@@ -62,7 +62,7 @@
     (check-match
       @interp-sexp{
         module M {
-          f() {
+          f() = {
             def v = 3
             v
           }
@@ -76,11 +76,11 @@
     (check-equal?
       @interp-lines{
         module M {
-          foo = 42
+          def foo = 42
         }
 
         module M' {
-          bar = M.foo
+          def bar = M.foo
         }
 
         main(_) = {
@@ -107,7 +107,7 @@
 
   (test-case "it can resolve qualified type names with matching local id's"
     (check-equal?
-      @typecheck{
+      @interp-lines{
         module Number {
           type t = Int
         }
@@ -126,12 +126,12 @@
           IO.println(answer)
         }
       }
-      'Int))
+      '("10")))
 
   (test-case "it does not allow rebinding in the same scope"
     (check-match
       @interp-sexp{
-        main(_) {
+        main(_) = {
           def v = 42
           def v = 43
           IO.println(v)
@@ -156,8 +156,8 @@
       @interp-sexp{
         def v = 42
 
-        main(_) {
-          def x = fun(x) { def v = 43  v }(1)
+        main(_) = {
+          def x = fun(x) = { def v = 43  v }(1)
           IO.println(x)
         }
       }
@@ -169,16 +169,15 @@
         module m {
           def x = False
 
-          f() {
+          f() = {
             if (True) {
-              def x = 42
-            } else {
+                def x = 42
+              }
               ()
-            }
           }
         }
 
-        main(_) {
+        main(_) = {
           def %(a, b) = %(m.f(), m.x)
           IO.println(a)
           IO.println(b)
@@ -191,8 +190,8 @@
       @interp-sexp{
         def v = 3
 
-        main(_) {
-          def v = fun(x) { def v = 43  v }(1) + v
+        main(_) = {
+          def v = fun(x) = { def v = 43  v }(1) + v
           IO.println(v)
         }
       }
@@ -214,7 +213,7 @@
           div(x, y) = Num(x / y)
         }
 
-        main(_) {
+        main(_) = {
           def Div.Num(answer) = Div.div(100, 10)
           IO.println(answer)
         }
@@ -246,12 +245,11 @@
     (check-match
       @interp-sexp{
         module m {
-          f() {
+          f() = {
             if (True) {
-              def x = 42
-            } else {
+                def x = 42
+              }
               ()
-            }
           }
         }
 
@@ -264,7 +262,7 @@
       @interp-sexp{
         module m {
           f : (-> Int)
-          f() {
+          f() = {
             def x = 42
             x
           }
@@ -296,7 +294,7 @@
           | B(Bool)
           | I(Int)
 
-        main(_) {
+        main(_) = {
           def _ = switch (I(42)) {
               I(x) -> x
               B(b) -> x
@@ -308,11 +306,12 @@
   (test-case "it does not allow bindings to escape from then/else scopes"
     (check-match
       @interp-sexp{
-        main(_) {
+        main(_) = {
           def v = if (True) {
-            def x = 42
-            x
-          } else { 0 }
+              def x = 42
+              x
+            }
+            0
 
           IO.println(x)
         }
@@ -322,12 +321,11 @@
   (test-case "it does not allow bindings to escape the test exp of an if/else"
     (check-match
       @interp-sexp{
-        main(_) {
-          def _ = if (if (True) { def x = 42 True } else { False }) {
+        main(_) = {
+          def _ = if (if (True) { def x = 42 True } False) {
+                x
+              }
               x
-            } else {
-              x
-            }
         }
       }
       `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier x))))
@@ -417,7 +415,7 @@
   (test-case "it does not allow use-before-defines in local contexts"
     (check-match
       @interp-sexp{
-        foo(a) {
+        foo(a) = {
           def x = y
           def y = a
 
@@ -451,7 +449,7 @@
         module M { }
 
         f : M.Str -> M.Str
-        f(s) { s }
+        f(s) = s
       }
       `(AtPos (SourcePos ,_ 5 ,_) (CompilerModule AlphaConvert) (UnboundRawIdentifier Str))))
 
@@ -475,7 +473,7 @@
           type A = | Foo(Int) | Bar(Int)
 
           module M {
-            f(a) {
+            f(a) = {
               switch (a) {
                 Foo(x) -> x
                 _ -> 0
@@ -495,7 +493,7 @@
 
         module M { }
 
-        main(_) {
+        main(_) = {
           def v = switch (Foo(42)) {
             M.Foo(x) -> x
             _ -> 0
@@ -511,12 +509,12 @@
       @interp-sexp{
         module Geometry {
           type Point = struct {
-            Int X;
-            Int Y;
+            X : Int
+            Y : Int
           }
         }
 
-        main(_) {
+        main(_) = {
           def p = Point %{ X = 0; Y = 0; }
           IO.println(p)
         }
@@ -534,7 +532,7 @@
         module Foo {
           import Prims
 
-          main(_) {
+          main(_) = {
             IO.println(True && False)
           }
         }
@@ -561,10 +559,10 @@
     (check-equal?
       @interp-lines{
         type Person = struct {
-          String Name;
+          Name : String
         }
 
-        main(_) {
+        main(_) = {
           def p = Person %{ Name = "james"; }
           IO.println(p.Name)
         }
@@ -575,12 +573,12 @@
     (check-equal?
       @interp-lines{
         type Person = struct {
-          String Name;
+          Name : String
         }
 
         mkPerson(name) = Person %{ Name = name; }
 
-        main(_) {
+        main(_) = {
           def p = mkPerson("james")
           IO.println(p.Name)
         }
@@ -592,17 +590,17 @@
       @interp-lines{
         module Geometry {
           type Point = struct {
-            Int X;
-            Int Y;
+            X : Int
+            Y : Int
           }
 
           type Line = struct {
-            Point A;
-            Point B;
+            A : Point
+            B : Point
           }
         }
 
-        main(_) {
+        main(_) = {
           def l = Geometry.Line %{
             A = Geometry.Point %{ X = 0; Y = 42; };
             B = Geometry.Point %{ X = 3; Y = 4; };
@@ -618,17 +616,17 @@
       @interp-sexp{
         module Geometry {
           type Point = struct {
-            Int X;
-            Int Y;
+            X : Int
+            Y : Int
           }
 
           type Line = struct {
-            Point A;
-            Point B;
+            A : Point
+            B : Point
           }
         }
 
-        main(_) {
+        main(_) = {
           def l = Geometry.Line %{
             A = Geometry.Point %{ X = 0; Y = 42; };
             B = Geometry.Point %{ X = 3; Y = 4; };
