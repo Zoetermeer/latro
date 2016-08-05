@@ -920,6 +920,44 @@
       }
       '("Node(1, Leaf(0), Leaf(0))")))
 
+  (test-case "it rejects ill-typed applications involving recursive polymorphic types"
+    (check-match
+      @interp-sexp{
+        type BTree{a} =
+          | Node(a, BTree{a}, BTree{a})
+          | Leaf(a)
+
+        comp(x) = switch(x) {
+          0 -> Leaf(0)
+          d -> Node(d, comp(d - 1), comp(False))
+        }
+
+        main(_) {
+          IO.println(comp(1))
+        }
+      }
+      `(AtPos (SourcePos ,_ 7 ,_) (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))
+
+  (test-case "it refines annotated functions involving recursive polymorphic types"
+    (check-match
+      @interp-sexp{
+        type BTree{a} =
+          | Node(a, BTree{a}, BTree{a})
+          | Leaf(a)
+
+        intVal : BTree{Int} -> Int
+        intVal(Leaf(v)) = v
+        intVal(Node(v, left, right)) = v + intVal(left) + intVal(right)
+
+        addIntData : BTree{Int} -> BTree{Int} -> Int
+        addIntData(a, b) = intVal(a) + intVal(b)
+
+        main(_) {
+          IO.println(addIntData(Leaf("hello"), Leaf("world")))
+        }
+      }
+      `(AtPos (SourcePos ,_ 13 ,_) (CompilerModule Typecheck) (CantUnify (Expected Int) (Got (App List (Char)))))))
+
   (test-case "it checks cond expressions"
     (check-equal?
       @interp-lines{
