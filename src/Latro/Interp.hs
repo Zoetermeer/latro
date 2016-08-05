@@ -206,10 +206,10 @@ interpE (ILStruct (OfTy _ ty) _ fieldInits) = do
   fieldInitVs <- mapM (\(ILFieldInit id e) -> do { v <- interpE e; return (id, v) }) fieldInits
   return $ ValueStruct $ Struct ty fieldInitVs
 
-interpE (ILFunDef (OfTy p ty) funId paramIds bodyEs) =
-  let ef = ILFun (OfTy p ty) paramIds bodyEs
+interpE (ILFunDef (OfTy p ty) funId paramIds bodyE) =
+  let ef = ILFun (OfTy p ty) paramIds bodyE
   in do cloEnv <- getClosureEnv
-        let f = ValueFun $ Closure funId ty cloEnv paramIds bodyEs
+        let f = ValueFun $ Closure funId ty cloEnv paramIds bodyE
         bindVar funId f
         exportVar funId f
         return ValueUnit
@@ -230,7 +230,7 @@ interpE (ILApp _ e argEs) = do
   fv <- interpE e
   case fv of
     ValuePrim prim -> interpPrimApp prim argEs
-    ValueFun (Closure fid fTy fenv paramIds bodyEs) -> do
+    ValueFun (Closure fid fTy fenv paramIds bodyE) -> do
       argVs <- mapM interpE argEs
 
       preApplyInterpEnv <- getInterp
@@ -239,17 +239,17 @@ interpE (ILApp _ e argEs) = do
       bindVar fid fv
       let argVTbl = zip paramIds argVs
       mapM_ (uncurry bindVar) argVTbl
-      retV <- interpEs bodyEs
+      retV <- interpE bodyE
 
       restoreEnv preApplyInterpEnv
       return retV
 
 interpE (ILPrim _ prim) = return $ ValuePrim prim
 
-interpE (ILFun (OfTy _ ty) paramIds bodyEs) = do
+interpE (ILFun (OfTy _ ty) paramIds bodyE) = do
   cloEnv <- getClosureEnv
   newId <- freshId
-  return $ ValueFun $ Closure newId ty cloEnv paramIds bodyEs
+  return $ ValueFun $ Closure newId ty cloEnv paramIds bodyE
 
 interpE switchE@(ILSwitch (OfTy p _) e clauses) = do
   v <- interpE e
@@ -272,7 +272,7 @@ interpE e = throwError $ ErrCantEvaluate e
 
 interpCases :: Value -> [Typed ILCase] -> Eval (Maybe Value)
 interpCases _ [] = return Nothing
-interpCases v (ILCase _ patE bodyEs : clauses) = do
+interpCases v (ILCase _ patE bodyE : clauses) = do
   oldEnv <- getInterp
   result <- do { r <- interpPat patE v; return $ Just () } `catchError` (\_ -> return Nothing)
   case result of
@@ -280,7 +280,7 @@ interpCases v (ILCase _ patE bodyEs : clauses) = do
       restoreEnv oldEnv
       interpCases v clauses
     Just _ -> do
-      retV <- interpEs bodyEs
+      retV <- interpE bodyE
       return $ Just retV
 
 
@@ -300,10 +300,10 @@ interp (ILCompUnit _ es) runMain = do
     maybeEntry <- getsInterp entrypoint
     case maybeEntry of
       Nothing -> throwError ErrMainUndefined `reportErrorAt` mtSourcePos
-      Just (ILMain _ [paramId] bodyEs) -> do
+      Just (ILMain _ [paramId] bodyE) -> do
         preInterpEnv <- getInterp
         bindVar paramId $ ValueList []
-        retV <- interpEs bodyEs
+        retV <- interpE bodyE
         restoreEnv preInterpEnv
 
         return retV

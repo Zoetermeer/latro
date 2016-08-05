@@ -35,7 +35,7 @@
   (test-case "it evaluates (in)equality comparisons on ints"
     (check-match
       @interp-lines{
-        main(_) {
+        main(_) = {
           IO.println(4 < 5)
           IO.println(99 == 99)
           IO.println(5 >= 5)
@@ -50,7 +50,7 @@
   (test-case "it evaluates literals"
     (check-equal?
       @interp-lines{
-        main(_) {
+        main(_) = {
           IO.println(True)
           IO.println(False)
           IO.println(42)
@@ -72,7 +72,7 @@
   (test-case "it evaluates arithmetic exps"
     (check-equal?
       @interp-lines{
-        main(_) {
+        main(_) = {
           IO.println(4 + 3)
           IO.println(4 + 3 * 2)
           IO.println(4 - 3 / 3)
@@ -103,7 +103,7 @@
   (test-case "it evaluates string patterns"
     (check-equal?
       @interp-sexp{
-        main(_) {
+        main(_) = {
           def s = switch ("hello") {
             "foo" -> "bar"
             "hello" -> "world"
@@ -118,26 +118,24 @@
   (test-case "it evaluates if-else expressions"
     (check-equal?
       @interp-sexp{
-        main(_) = IO.println(if (True) { 42 } else { 43 })
+        main(_) = IO.println(if (True) 42 43)
       }
       42))
 
   (test-case "it takes the else branch on false"
     (check-equal?
       @interp-sexp{
-        main(_) = IO.println(if (False) { 42 } else { 43 })
+        main(_) = IO.println(if (False) 42 43)
       }
       43))
 
   (test-case "it does not allow argument bindings to escape"
     (check-match
       @interp-sexp{
-        f(x, runForever) {
-          if (runForever) {
+        f(x, runForever) = {
+          if (runForever)
             f(x, runForever)
-          } else {
             x
-          }
         }
 
         main(_) = IO.println(runForever(3, False))
@@ -147,16 +145,14 @@
   (test-case "it evaluates non-literals in the test position"
     (check-equal?
       @interp-sexp{
-        f(x) {
-          if (x) { True } else { False }
+        f(x) = {
+          if (x) True False
         }
 
-        main(_) {
-          if (f(True)) {
+        main(_) = {
+          if (f(True))
             IO.println(42)
-          } else {
             IO.println(43)
-          }
         }
       }
       42))
@@ -164,7 +160,9 @@
   (test-case "it evaluates nested if-else expressions"
     (check-equal?
       @interp-sexp{
-        main(_) = IO.println(42 + (if (True) { 1 } else { 2 }))
+        main(_) = {
+          IO.println(42 + (if (True) 1 2))
+        }
       }
       43))
 
@@ -323,11 +321,11 @@
         module m {
           module m' {
             g : (-> Int)
-            g() { 43 }
+            g() = { 43 }
           }
 
           f : (-> Int)
-          f() { 42 }
+          f() = { 42 }
         }
 
         main(_) = IO.println(m.m'.g())
@@ -357,7 +355,7 @@
         module m {
           module m1 {
             g : Int -> Int -> Int
-            g(x, y) { y + x }
+            g(x, y) = { y + x }
           }
 
           f : (-> Int)
@@ -372,12 +370,12 @@
     (check-equal?
       @interp-sexp{
         f : (Int -> Int) -> Int -> Int
-        f(g, x) {
+        f(g, x) = {
           g(10) + x
         }
 
         h : Int -> Int
-        h(x) {
+        h(x) = {
           x + 1
         }
 
@@ -391,7 +389,7 @@
         module m {
           module m1 {
             g : Int -> Int -> Int
-            g(x, y) {
+            g(x, y) = {
               y + x
             }
           }
@@ -422,17 +420,15 @@
         not(_) = True
 
         f : Int -> Int
-        f(x) {
+        f(x) = {
           def isZero = switch (x) {
             0 -> True
             _ -> False
           }
 
-          if (not(isZero)) {
+          if (not(isZero))
             x + f(x - 1)
-          } else {
             x
-          }
         }
 
         main(_) = IO.println(f(4))
@@ -529,7 +525,7 @@
           Y : Int
         }
 
-        main(_) {
+        main(_) = {
           def p = Point %{ X = 3; Y = 4; }
           IO.println(Y(p))
         }
@@ -541,7 +537,7 @@
       @interp-sexp{
         type t = struct { }
 
-        main(_) {
+        main(_) = {
           def v = t %{ }
           IO.println(x(v))
         }
@@ -561,7 +557,7 @@
           B : Point
         }
 
-        main(_) {
+        main(_) = {
           def l = Line %{
             A = Point %{ X = 0; Y = 0; };
             B = Point %{ X = 3; Y = 4; };
@@ -587,7 +583,7 @@
           }
         }
 
-        main(_) {
+        main(_) = {
           def l = Geometry.Line %{
             A = Geometry.Point %{ X = 0; Y = 0; };
             B = Geometry.Point %{ X = 3; Y = 4; };
@@ -680,7 +676,7 @@
   (test-case "it evaluates list bindings"
     (check-equal?
       @interp-lines{
-        main(_) {
+        main(_) = {
           def ls = [1, 2, 3, 4]
           IO.println(ls)
         }
@@ -698,7 +694,7 @@
     (check-equal?
       @interp-lines{
         f : Int -> Int -> Int[]
-        f(x, y) {
+        f(x, y) = {
           x :: y :: [3, 4, 5]
         }
 
@@ -709,7 +705,7 @@
   (test-case "it evaluates list patterns"
     (check-equal?
       @interp-sexp{
-        main(_) {
+        main(_) = {
           def [a, b, c] = [1, 2, 3]
           IO.println(a + b + c)
         }
@@ -719,7 +715,7 @@
   (test-case "it evaluates list patterns with pattern subexpressions"
     (check-equal?
       @interp-sexp{
-        main(_) {
+        main(_) = {
           def [_, b, 3] = [1, 2, 3]
           IO.println(b)
         }
@@ -729,7 +725,7 @@
   (test-case "it fails to bind to list patterns if lengths don't match"
     (check-match
       @interp-sexp{
-        main(_) {
+        main(_) = {
           def [a, b] = []
           IO.println(a)
         }
@@ -739,7 +735,7 @@
   (test-case "it evaluates list cons patterns"
     (check-equal?
       @interp-lines{
-        main(_) {
+        main(_) = {
           def x::xs = [1, 2, 3, 4]
           IO.println(%(x, xs))
         }
@@ -749,7 +745,7 @@
   (test-case "it evaluates cons patterns with list pat subexpressions"
     (check-equal?
       @interp-sexp{
-        main(_) {
+        main(_) = {
           def x::[] = [3]
           IO.println(x)
         }
@@ -759,7 +755,7 @@
   (test-case "it evaluates cons patterns in sublists"
     (check-equal?
       @interp-lines{
-        main(_) {
+        main(_) = {
           def xs::[[3, 4], [x, _, z]] = [[1, 2], [3, 4], [5, 6, 7]]
           IO.println(%(xs, x, z))
         }
@@ -769,7 +765,7 @@
   (test-case "it evaluates tuple pattern bindings"
     (check-equal?
       @interp-sexp{
-        main(_) {
+        main(_) = {
           def %(a, b) = %(1, True)
           IO.println(b)
         }
@@ -779,7 +775,7 @@
   (test-case "it evaluates wildcards in tuple patterns"
     (check-equal?
       @interp-sexp{
-        main(_) {
+        main(_) = {
           def %(_, b) = %(1, 43)
           IO.println(b)
         }
@@ -789,7 +785,7 @@
   (test-case "it throws away expressions bound to wildcards"
     (check-equal?
       @interp-sexp{
-        main(_) {
+        main(_) = {
           def _ = 42
           IO.println(43)
         }
@@ -799,7 +795,7 @@
   (test-case "it evaluates switch expressions"
     (check-equal?
       @interp-lines{
-        main(_) {
+        main(_) = {
           def v = %(4, False)
           def x = switch (v) {
             %(0, _) -> 1
@@ -816,7 +812,7 @@
   (test-case "it evaluates switch expressions with mixed block-style and short-form bodies"
     (check-equal?
       @interp-lines{
-        main(_) {
+        main(_) = {
           def x = switch ([1, 2, 3]) {
             [x, y] -> {
               def z = x + y
@@ -833,7 +829,7 @@
   (test-case "it evaluates switch expressions with mixed block-style and short-form bodies"
     (check-equal?
       @interp-lines{
-        main(_) {
+        main(_) = {
           IO.println(switch ([1, 2, 3]) {
               [x, y, z] -> {
                 def v = z + y
@@ -866,7 +862,7 @@
         Snd : %(Int, Bool) -> Bool
         Snd(%(_, b)) = b
 
-        main(_) {
+        main(_) = {
           def v = %(42, False)
           IO.println(%(Snd(v), Fst(v)))
         }
@@ -891,7 +887,7 @@
           | Some(String)
           | None
 
-        main(_) {
+        main(_) = {
           def Some(x) = Some("hello world")
           IO.println(x)
         }
@@ -905,7 +901,7 @@
           | Some(Int)
           | None
 
-        main(_) {
+        main(_) = {
           def None() = Some(10)
           IO.println("OMG!")
         }
@@ -926,7 +922,7 @@
         IsSome(Some(_)) = True
         IsSome(_) = False
 
-        main(_) {
+        main(_) = {
           def s = Some(42)
           def Some(v) = s
           IO.println(%(IsSome(None()), IsSome(s), v))
@@ -945,18 +941,18 @@
           Concat : t -> t -> t
           Concat(xs, []) = xs
           Concat([], ys) = ys
-          Concat(x::xs, ys) {
+          Concat(x::xs, ys) = {
             x :: Concat(xs, ys)
           }
 
           Map : (Int -> Bool) -> t -> BoolList
           Map(f, []) = []
-          Map(f, x::xs) {
+          Map(f, x::xs) = {
             f(x) :: Map(f, xs)
           }
         }
 
-        main(_) {
+        main(_) = {
           IO.println(
             [
               IntList.Concat([], []),
@@ -977,7 +973,7 @@
         GetTwoOrLess(2) = 2
         GetTwoOrLess(x) = GetTwoOrLess(x - 1)
 
-        main(_) {
+        main(_) = {
           IO.println(%(GetTwoOrLess(1), GetTwoOrLess(4)))
         }
       }
@@ -987,13 +983,13 @@
     (check-regexp-match
       #px"fun x\\d* : Int -> Int -> Int"
       @interp{
-        main(_) = IO.println(fun(x, y) { x + y })
+        main(_) = IO.println(fun(x, y) = { x + y })
       }))
 
   (test-case "it evaluates anonymous function application"
     (check-equal?
       @interp-sexp{
-        main(_) = IO.println(fun (x, y) { x + y }(1, 2))
+        main(_) = IO.println(fun (x, y) = { x + y }(1, 2))
       }
       3))
 
@@ -1001,7 +997,7 @@
     (check-equal?
       @interp-lines{
         IsEven : Int -> Bool
-        IsEven(x) {
+        IsEven(x) = {
           switch (x) {
             0 -> True
             1 -> False
@@ -1013,13 +1009,13 @@
         module Lists {
           Map{a, b} : (a -> b) -> a[] -> b[]
           Map(_, []) = []
-          Map(f, x::xs) {
+          Map(f, x::xs) = {
             f(x) :: Map(f, xs)
           }
         }
 
-        main(_) {
-          IO.println(Lists.Map(fun(n) { IsEven(n) }, [1, 2, 3, 4]))
+        main(_) = {
+          IO.println(Lists.Map(fun(n) = { IsEven(n) }, [1, 2, 3, 4]))
         }
       }
       '("[False, True, False, True]")))
@@ -1031,7 +1027,7 @@
 
         len : String -> Int
         len("") = 0
-        len(c::cs) { 1 + len(cs) }
+        len(c::cs) = { 1 + len(cs) }
 
         main(_) = IO.println(len("hello"))
       }
@@ -1043,7 +1039,7 @@
         fun (True).isTrue() = True
         fun (_).isFalse() = False
 
-        main(_) {
+        main(_) = {
           IO.println(True.isFalse())
         }
       }
@@ -1055,7 +1051,7 @@
         fun ([]).len() = 0
         fun (x::xs).len() = 1 + xs.len()
 
-        main(_) {
+        main(_) = {
           IO.println([1, 2, 3].len())
         }
       }
@@ -1064,7 +1060,7 @@
   (test-case "it accepts identifiers with non-alphanumeric characters"
     (check-equal?
       @interp-sexp{
-        main(_) {
+        main(_) = {
           def x/! = 1 + 2
           IO.println(x/!)
         }
@@ -1176,7 +1172,7 @@
 
         precedence && 11
 
-        main(_) {
+        main(_) = {
           def i = 1
           def j = 2
           def k = 3

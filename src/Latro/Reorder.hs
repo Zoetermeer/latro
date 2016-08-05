@@ -35,8 +35,8 @@ buildPrecEnv (CompUnit p bodyEs) precEnv =
 
 
 reorderCaseClause :: Env PrecLevel -> UniqAst CaseClause -> UniqAst CaseClause
-reorderCaseClause env (CaseClause p patE bodyEs) =
-  CaseClause p patE $ map (reorder env) bodyEs
+reorderCaseClause env (CaseClause p patE bodyE) =
+  CaseClause p patE $ reorder env bodyE
 
 
 reorder :: Env PrecLevel -> UniqAst Exp -> UniqAst Exp
@@ -64,15 +64,15 @@ reorder env e =
     eTy@ExpTypeDec{} -> eTy
     eAnn@ExpTyAnn{} -> eAnn
     ExpWithAnn tyAnn e -> ExpWithAnn tyAnn $ r e
-    ExpFunDef (FunDefFun p id argPatEs bodyEs) ->
-      ExpFunDef $ FunDefFun p id argPatEs $ map r bodyEs
-    ExpFunDef (FunDefInstFun p instPatE id argPatEs bodyEs) ->
-      ExpFunDef $ FunDefInstFun p instPatE id argPatEs $ map r bodyEs
+    ExpFunDef (FunDefFun p id argPatEs bodyE) ->
+      ExpFunDef $ FunDefFun p id argPatEs $ r bodyE
+    ExpFunDef (FunDefInstFun p instPatE id argPatEs bodyE) ->
+      ExpFunDef $ FunDefInstFun p instPatE id argPatEs $ r bodyE
     ExpModule p paramIds bodyEs -> ExpModule p paramIds $ map r bodyEs
     ExpStruct p synTy fieldInits ->
       ExpStruct p synTy $ map (\(FieldInit id e) -> FieldInit id $ r e) fieldInits
-    ExpIfElse p e thenEs elseEs ->
-      ExpIfElse p (r e) (map r thenEs) (map r elseEs)
+    ExpIfElse p e thenE elseE ->
+      ExpIfElse p (r e) (r thenE) (r elseE)
     ExpMakeAdt p id n argEs ->
       ExpMakeAdt p id n $ map r argEs
     ExpGetAdtField p e n ->
@@ -83,8 +83,8 @@ reorder env e =
       ExpSwitch p (r e) $ map (reorderCaseClause env) clauses
     ExpList p es ->
       ExpList p $ map r es
-    ExpFun p argPatEs bodyEs ->
-      ExpFun p argPatEs $ map r bodyEs
+    ExpFun p argPatEs bodyE ->
+      ExpFun p argPatEs $ r bodyE
     ExpBegin p bodyEs ->
       ExpBegin p $ map r bodyEs
     _ -> e
@@ -94,17 +94,17 @@ reorder env e =
 
 
 rewriteCaseClauseInfix :: UniqAst CaseClause -> UniqAst CaseClause
-rewriteCaseClauseInfix (CaseClause p patE bodyEs) =
-    CaseClause p patE $ map rewriteInfix bodyEs
+rewriteCaseClauseInfix (CaseClause p patE bodyE) =
+    CaseClause p patE $ rewriteInfix bodyE
 
 
 rewriteCondCaseClauseInfix :: UniqAst CondCaseClause -> UniqAst CondCaseClause
 rewriteCondCaseClauseInfix clause =
   case clause of
-    CondCaseClause p e bodyEs ->
-      CondCaseClause p (rewriteInfix e) $ map rewriteInfix bodyEs
-    CondCaseClauseWildcard p bodyEs ->
-      CondCaseClauseWildcard p $ map rewriteInfix bodyEs
+    CondCaseClause p e bodyE ->
+      CondCaseClause p (rewriteInfix e) $ rewriteInfix bodyE
+    CondCaseClauseWildcard p bodyE ->
+      CondCaseClauseWildcard p $ rewriteInfix bodyE
 
 
 rewriteInfix :: UniqAst Exp -> UniqAst Exp
@@ -130,11 +130,11 @@ rewriteInfix eAnn@(ExpTyAnn _) = eAnn
 
 rewriteInfix (ExpWithAnn tyAnn e) = ExpWithAnn tyAnn $ rewriteInfix e
 
-rewriteInfix (ExpFunDef (FunDefFun p id argPatEs bodyEs)) =
-  ExpFunDef $ FunDefFun p id argPatEs $ map rewriteInfix bodyEs
+rewriteInfix (ExpFunDef (FunDefFun p id argPatEs bodyE)) =
+  ExpFunDef $ FunDefFun p id argPatEs $ rewriteInfix bodyE
 
-rewriteInfix (ExpFunDef (FunDefInstFun p instPatE id argPatEs bodyEs)) =
-  ExpFunDef $ FunDefInstFun p instPatE id argPatEs $ map rewriteInfix bodyEs
+rewriteInfix (ExpFunDef (FunDefInstFun p instPatE id argPatEs bodyE)) =
+  ExpFunDef $ FunDefInstFun p instPatE id argPatEs $ rewriteInfix bodyE
 
 rewriteInfix (ExpModule p paramIds bodyEs) =
   ExpModule p paramIds $ map rewriteInfix bodyEs
@@ -142,11 +142,11 @@ rewriteInfix (ExpModule p paramIds bodyEs) =
 rewriteInfix (ExpStruct p synTy fieldInits) =
   ExpStruct p synTy $ map (\(FieldInit id e) -> FieldInit id $ rewriteInfix e) fieldInits
 
-rewriteInfix (ExpIfElse p e thenEs elseEs) =
-    ExpIfElse p (rewriteInfix e) thenEs' elseEs'
+rewriteInfix (ExpIfElse p e thenE elseE) =
+    ExpIfElse p (rewriteInfix e) thenE' elseE'
   where
-    thenEs' = map rewriteInfix thenEs
-    elseEs' = map rewriteInfix elseEs
+    thenE' = rewriteInfix thenE
+    elseE' = rewriteInfix elseE
 
 rewriteInfix (ExpMakeAdt p id n argEs) =
   ExpMakeAdt p id n $ map rewriteInfix argEs
@@ -165,8 +165,8 @@ rewriteInfix (ExpCond p clauses) =
 
 rewriteInfix (ExpList p es) = ExpList p $ map rewriteInfix es
 
-rewriteInfix (ExpFun p patEs bodyEs) =
-  ExpFun p patEs $ map rewriteInfix bodyEs
+rewriteInfix (ExpFun p patEs bodyE) =
+  ExpFun p patEs $ rewriteInfix bodyE
 
 rewriteInfix (ExpBegin p bodyEs) =
   ExpBegin p $ map rewriteInfix bodyEs

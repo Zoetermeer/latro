@@ -44,13 +44,17 @@ collapse (ExpAssign p patE e) = do
   e' <- collapse e
   return $ ExpAssign p patE e'
 
-collapse (ExpFunDef (FunDefFun p id argPatEs bodyEs)) = do
-  bodyEs' <- collapseEs bodyEs
-  return $ ExpFunDef $ FunDefFun p id argPatEs bodyEs'
+collapse (ExpFunDef (FunDefFun p id argPatEs bodyE)) = do
+  bodyE' <- collapse bodyE
+  return $ ExpFunDef $ FunDefFun p id argPatEs bodyE'
 
 collapse (ExpModule p paramIds bodyEs) = do
   bodyEs' <- collapseEs bodyEs
   return $ ExpModule p paramIds bodyEs'
+
+collapse (ExpBegin p bodyEs) = do
+  bodyEs' <- collapseEs bodyEs
+  return $ ExpBegin p bodyEs'
 
 collapse e = return e
 
@@ -71,21 +75,26 @@ collapseEs (ExpTyAnn tyAnn@(TyAnn ap aid _ synTy) : es) =
          es'' <- collapseEs es'
          return (ExpWithAnn tyAnn e : es'')
 
-collapseEs (ExpFunDef (FunDefFun p fid argPatEs bodyEs) : es) = do
-  bodyEs' <- collapseEs bodyEs
+collapseEs (ExpFunDef (FunDefFun p fid argPatEs bodyE) : es) = do
+  bodyE' <- collapse bodyE
   let (funDefs, es') = collectFunDefs fid es
-      funDef = FunDefFun p fid argPatEs bodyEs'
+      funDef = FunDefFun p fid argPatEs bodyE'
       eFunDef = ExpFunDefClauses p fid (funDef : funDefs)
   es'' <- collapseEs es'
   return (eFunDef : es'')
 
-collapseEs (ExpFunDef (FunDefInstFun p instPatE fid argPatEs bodyEs) : es) = do
-  bodyEs' <- collapseEs bodyEs
+collapseEs (ExpFunDef (FunDefInstFun p instPatE fid argPatEs bodyE) : es) = do
+  bodyE' <- collapse bodyE
   let (funDefs, es') = collectInstFunDefs fid es
-      funDef = FunDefInstFun p instPatE fid argPatEs bodyEs'
+      funDef = FunDefInstFun p instPatE fid argPatEs bodyE'
       eFunDef = ExpFunDefClauses p fid (funDef : funDefs)
   es'' <- collapseEs es'
   return (eFunDef : es'')
+
+collapseEs (ExpBegin p bodyEs : es) = do
+  bodyEs' <- collapseEs bodyEs
+  es' <- collapseEs es
+  return ((ExpBegin p bodyEs') : es')
 
 collapseEs (e : es) = do
   e' <- collapse e

@@ -7,7 +7,7 @@
   (test-case "mod"
     (check-equal?
       @interp-lines{
-        main(_) {
+        main(_) = {
           IO.println(mod(1, 1))
           IO.println(mod(10, 2))
           IO.println(mod(10, 3))
@@ -24,7 +24,7 @@
       @interp-lines{
         import Core.List
 
-        main(_) {
+        main(_) = {
           IO.println(foldl((+), 0, [1, 2, 3, 4]))
         }
       }
@@ -35,7 +35,7 @@
       @interp-lines{
         import Core.List
 
-        main(_) {
+        main(_) = {
           IO.println(length([]))
           IO.println(length([1]))
           IO.println(length([1, 2]))
@@ -56,7 +56,7 @@
 
         isFiveChars(str) = length(str) == 5
 
-        main(_) {
+        main(_) = {
           IO.println(
             partition(
               isFiveChars, ["he", "hello", "world", "foo", "bar", "fubar"]))
@@ -69,7 +69,7 @@
       @interp-lines{
         import Core.List
 
-        main(_) {
+        main(_) = {
           def strs = [
             "hello",
             "ab",
@@ -86,7 +86,7 @@
   (test-case "|>"
     (check-equal?
       @interp-lines{
-        main(_) {
+        main(_) = {
           IO.println(42 |> (fun(x) = x + 1) |> (fun(y) = 2 * y))
         }
       }
@@ -98,7 +98,7 @@
         lessThan5(x) = x < 5
         andTrue(b) = b && True
 
-        main(_) {
+        main(_) = {
           IO.println(3
             |> (fun(x) = x + 1)
             |> lessThan5

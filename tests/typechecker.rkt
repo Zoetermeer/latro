@@ -7,7 +7,7 @@
   (test-case "it rejects incorrect annotations on locals"
     (check-match
       @interp-sexp{
-        main(_) {
+        main(_) = {
           x : Int
           def x = "hello"
           IO.println(x)
@@ -18,7 +18,7 @@
   (test-case "it typechecks tuples"
     (check-equal?
       @interp-lines{
-        main(_) {
+        main(_) = {
           x : %(Int, Bool)
           def x = %(1, False)
           IO.println(x)
@@ -29,7 +29,7 @@
   (test-case "it rejects incorrect tuple annotations"
     (check-match
       @interp-sexp{
-        main(_) {
+        main(_) = {
           x : %(Int, Bool)
           def x = %(1, 2)
           IO.println(x)
@@ -40,7 +40,7 @@
   (test-case "it typechecks tuples of tuples"
     (check-equal?
       @interp-lines{
-        main(_) {
+        main(_) = {
           x : %(%(Int, Bool), %(String, Char))
           def x = %(%(1, False), %("hello", 'c'))
           IO.println(x)
@@ -66,7 +66,7 @@
   (test-case "it typechecks list expressions"
     (check-equal?
       @interp-lines{
-        main(_) {
+        main(_) = {
           xs : Bool[]
           def xs = [False, True]
           IO.println(xs)
@@ -77,7 +77,7 @@
   (test-case "it makes empty-list expressions polymorphic"
     (check-match
       @interp-lines{
-        main(_) {
+        main(_) = {
           xs{a} : a[]
           def xs = []
           IO.println(xs)
@@ -103,9 +103,10 @@
   (test-case "it fails to typecheck if an if-else test is not a boolean"
     (check-match
       @interp-sexp{
-        main(_) {
-          if (0) { IO.println("zero") }
-          else   { IO.println("not zero?") }
+        main(_) = {
+          if (0)
+            IO.println("zero")
+            IO.println("not zero?")
         }
       }
       `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))
@@ -113,8 +114,8 @@
   (test-case "it fails to typecheck if an if-else's branch types do not unify"
     (check-match
       @interp-sexp{
-        main(_) {
-          def x = if (True) { 42 } else { "hello" }
+        main(_) = {
+          def x = if (True) 42 "hello"
           IO.println(x)
         }
       }
@@ -151,7 +152,7 @@
           }
         }
 
-        main(_) {
+        main(_) = {
           def l = Geometry.Line %{
             A = Geometry.Point %{ X = 0; Y = 0; };
             B = Geometry.Point %{ X = 3; Y = 4; };
@@ -171,7 +172,7 @@
           Y : Int
         }
 
-        main(_) {
+        main(_) = {
           def s = S %{ X = 42; Y = False; }
           def x = s.Y + 2
           IO.println(x)
@@ -194,7 +195,7 @@
           }
         }
 
-        main(_) {
+        main(_) = {
           def l = Geometry.Line %{
             A = Geometry.Point %{ X = 0; Y = False; };
             B = Geometry.Point %{ X = 3; Y = 4; };
@@ -219,7 +220,7 @@
   (test-case "it checks string patterns"
     (check-match
       @interp-sexp{
-        main(_) {
+        main(_) = {
           def x = switch ("hello") {
             "foo" -> "bar"
             42 -> "world"
@@ -234,7 +235,7 @@
   (test-case "it checks tuple patterns"
     (check-match
       @interp-sexp{
-        main(_) {
+        main(_) = {
           def %("hello", y) = %(1, False)
           IO.println(y)
         }
@@ -244,7 +245,7 @@
   (test-case "it rejects tuple patterns with non-tuple right-hand exps"
     (check-match
       @interp-sexp{
-        main(_) {
+        main(_) = {
           def %(a, b) = 42
           IO.println(a)
         }
@@ -254,7 +255,7 @@
   (test-case "rejects ill-typed inner tuple patterns"
     (check-match
       @interp-sexp{
-        main(_) {
+        main(_) = {
           def %(%(x, 4), z) = %(%(1, True), %(3, 4))
           IO.println(z)
         }
@@ -264,7 +265,7 @@
   (test-case "rejects ill-typed tuple sub-patterns in list patterns"
     (check-match
       @interp-sexp{
-        main(_) {
+        main(_) = {
           def [%(1, x), %(2, 3)] = [%(1, False), %(2, True)]
           IO.println(%(x, 1))
         }
@@ -274,7 +275,7 @@
   (test-case "it rejects ill-typed nested list patterns"
     (check-match
       @interp-sexp{
-        main(_) {
+        main(_) = {
           def [[1, 2], [3, 4, 5], x] = [[False]]
           x
         }
@@ -284,7 +285,7 @@
   (test-case "it unifies concrete types with the empty list"
     (check-match
       @interp-sexp{
-        main(_) {
+        main(_) = {
           def xs = 42 :: []
           def xs' = 43 :: xs
           def xs'' = True :: xs'
@@ -296,7 +297,7 @@
   (test-case "it rejects ill-typed cons patterns"
     (check-match
       @interp-sexp{
-        main(_) {
+        main(_) = {
           def x::[1] = [False, True]
           IO.println(x)
         }
@@ -306,7 +307,7 @@
   (test-case "it unifies concrete types with empty lists in tuples"
     (check-match
       @interp-sexp{
-        main(_) {
+        main(_) = {
           def %(is, bs) = %(42 :: [], False :: [])
           IO.println(True :: is)
         }
@@ -316,7 +317,7 @@
   (test-case "it checks list patterns with concrete types against the empty list"
     (check-match
       @interp-sexp{
-        main(_) {
+        main(_) = {
           def %([1, 2, 3, x], y) = %([], False)
           IO.println(x :: "hello")
         }
@@ -328,7 +329,7 @@
       @interp-lines{
         mt() = []
 
-        main(_) {
+        main(_) = {
           def xs = mt()
           IO.println(1 :: xs)
         }
@@ -338,7 +339,7 @@
   (test-case "it fails if the right-hand side of a list-pat binding is ill-typed"
     (check-match
       @interp-sexp{
-        main(_) {
+        main(_) = {
           def [x, y] = [1, "hello"]
           IO.println(y)
         }
@@ -350,7 +351,7 @@
       @interp-sexp{
         f() = 42
 
-        main(_) {
+        main(_) = {
           IO.println(f() :: [False])
         }
       }
@@ -361,7 +362,7 @@
       @interp-lines{
         id(x) = x
 
-        main(_) {
+        main(_) = {
           IO.println(%(id(1), id(False), id("hello")))
         }
       }
@@ -379,11 +380,11 @@
   (test-case "it infers type relationships when generalizing"
     (check-match
       @interp-sexp{
-        randomzap(x) {
-          fun(y) = if (False) { y } else { x }
+        randomzap(x) = {
+          fun(y) = if (False) y x
         }
 
-        main(_) {
+        main(_) = {
           def str = randomzap(3)("hello")
           IO.println(str)
         }
@@ -393,11 +394,11 @@
   (test-case "it infers nested function types"
     (check-equal?
       @interp-lines{
-        randomzap(x) {
-          fun(y) = if (False) { y } else { x }
+        randomzap(x) = {
+          fun(y) = if (False) y x
         }
 
-        main(_) {
+        main(_) = {
           IO.println(%(randomzap(42)(43), randomzap(False)(True)))
         }
       }
@@ -406,13 +407,13 @@
   (test-case "it fails to unify if we apply the nested function with a different type"
     (check-match
       @interp-sexp{
-        randomzap(x) {
-          fun(y) {
-            if (False) { y } else { x }
+        randomzap(x) = {
+          fun(y) = {
+            if (False) y x
           }
         }
 
-        main(_) {
+        main(_) = {
           IO.println(randomzap(42)(False))
         }
       }
@@ -421,8 +422,8 @@
   (test-case "it infers list types in implicitly polymorphic functions"
     (check-match
       @interp-sexp{
-        toList(x) { x::[] }
-        main(_) {
+        toList(x) = { x::[] }
+        main(_) = {
           IO.println(False :: toList(42))
         }
       }
@@ -431,19 +432,17 @@
   (test-case "it can infer empty list element types based on other occurrences"
     (check-match
       @interp-sexp{
-        make(makeTwo, x) {
-          if (makeTwo) {
+        make(makeTwo, x) = {
+          if (makeTwo)
             [x, x]
-          } else {
             []
-          }
         }
 
-        main(_) {
+        main(_) = {
           IO.println(False :: make(False, 1))
         }
       }
-      `(AtPos (SourcePos ,_ 10 ,_) (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))
+      `(AtPos (SourcePos ,_ 8 ,_) (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))
 
   ; This is a bigger issue than it first appears.
   ; We should decide whether we need a monomorphism restriction,
@@ -459,22 +458,20 @@
   (test-case "it checks recursive functions with conditions"
     (check-match
       @interp-sexp{
-        f(x, runForever) {
-          if (runForever) {
+        f(x, runForever) = {
+          if (runForever)
             f(x, runForever)
-          } else {
             x
-          }
         }
 
         main(_) = IO.println(f("hello world", False) + 1)
       }
-      `(AtPos (SourcePos ,_ 9 ,_) (CompilerModule Typecheck) (CantUnify (Expected Int) (Got (App List (Char)))))))
+      `(AtPos (SourcePos ,_ 7 ,_) (CompilerModule Typecheck) (CantUnify (Expected Int) (Got (App List (Char)))))))
 
   (test-case "it fails if switch clauses don't unify with the test expression"
     (check-match
       @interp-sexp{
-        main(_) {
+        main(_) = {
           def v = switch (42) {
             0 -> "hello"
             False -> "world"
@@ -488,7 +485,7 @@
   (test-case "it checks switches in function bodies"
     (check-match
       @interp-sexp{
-        len(ls) {
+        len(ls) = {
           switch (ls) {
             [] -> 0
             xs -> xs
@@ -503,13 +500,13 @@
     (check-equal?
       @interp-lines{
         unwrap{a} : a -> a
-        unwrap(x) {
+        unwrap(x) = {
           switch (x) {
             y -> y
           }
         }
 
-        main(_) {
+        main(_) = {
           IO.println(%(unwrap("hello"), unwrap(42)))
         }
       }
@@ -520,7 +517,7 @@
       @interp-sexp{
         type Str = Char[]
 
-        main(_) {
+        main(_) = {
           s : Str
           def s = 'c'
 
@@ -555,7 +552,7 @@
       @interp-sexp{
         len{a} : a[] -> Int
         len([]) = 0
-        len(x::xs) { 1 + len(xs) }
+        len(x::xs) = { 1 + len(xs) }
 
         main(_) = IO.println(len(3))
       }
@@ -564,8 +561,8 @@
   (test-case "it unifies different type params if an application matches their types"
     (check-match
       @interp-sexp{
-        f(x, y) { if (True) { x } else { y } }
-        main(_) {
+        f(x, y) = if (True) x y
+        main(_) = {
           IO.println(f(1, 'c'))
         }
       }
@@ -575,8 +572,8 @@
     (check-match
       @interp-sexp{
         f{a, a} : a -> a -> a
-        f(x, y) { if (True) { x } else { y } }
-        main(_) {
+        f(x, y) = { if (True) x y }
+        main(_) = {
           IO.println(f(1, 'c'))
         }
       }
@@ -601,7 +598,7 @@
         type Rope =
           | Leaf(String)
 
-        main(_) {
+        main(_) = {
           IO.println(Leaf(False))
         }
       }
@@ -617,7 +614,7 @@
 
         add1ToInnerA(B(_, A(x, _))) = x + 1
 
-        main(_) {
+        main(_) = {
           def b = B(False, A(42, "hello"))
           IO.println(add1ToInnerA(b))
         }
@@ -632,7 +629,7 @@
         f : A -> A
         f(v) = v
 
-        main(_) {
+        main(_) = {
           IO.println(f(Bar(1, False)))
         }
       }
@@ -645,7 +642,7 @@
           | Some(a)
           | None
 
-        main(_) {
+        main(_) = {
           def Some(x) = Some(())
           x
         }
@@ -659,7 +656,7 @@
           | Left(l)
           | Right(r)
 
-        main(_) {
+        main(_) = {
           IO.println(%(Right("hello"), Left(42), Right(True)))
         }
       }
@@ -672,7 +669,7 @@
           | Some(a)
           | None
 
-        main(_) {
+        main(_) = {
           IO.println(None())
         }
       }
@@ -687,7 +684,7 @@
         type B{a} =
           | B(a, a)
 
-        main(_) {
+        main(_) = {
           IO.println([A(1, 1), B(1, 1)])
         }
       }
@@ -717,7 +714,7 @@
           | I(Int)
           | S(String)
 
-        main(_) {
+        main(_) = {
           def v = switch (B(True)) {
               I(x) -> x
               B(_) -> 1
@@ -736,7 +733,7 @@
           | Some(a)
           | None
 
-        main(_) {
+        main(_) = {
           def Some(v) = Some(42)
           IO.println(v + 1)
         }
@@ -752,7 +749,7 @@
 
         MakeOpt() = Some(False)
 
-        main(_) {
+        main(_) = {
           def MakeOpt(v) = Some(42)
           IO.println(v)
         }
@@ -768,7 +765,7 @@
           GetOne() = Some(42)
         }
 
-        main(_) {
+        main(_) = {
           def x = switch (Opt.GetOne()) {
               Some(43) -> False
               _ -> True
@@ -788,7 +785,7 @@
           GetOne() = Some(42)
         }
 
-        main(_) {
+        main(_) = {
           def Opt.Some(x1) = Opt.GetOne()
           def x2 = switch (Opt.GetOne()) {
               Opt.Some(x) -> x
@@ -810,7 +807,7 @@
         unsafeUnwrap{t} : Opt{t} -> t
         unsafeUnwrap(Some(x)) = x
 
-        main(_) {
+        main(_) = {
           def s = unsafeUnwrap(Some("hello"))
           def i = unsafeUnwrap(Some(42))
           IO.println(s + i)
@@ -827,7 +824,7 @@
 
         unsafeUnwrap(Some(x)) = x
 
-        main(_) {
+        main(_) = {
           def s = unsafeUnwrap(Some("hello"))
           def i = unsafeUnwrap(Some(42))
           IO.println(s + i)
@@ -845,7 +842,7 @@
         unsafeUnwrap : Opt{Int} -> Int
         unsafeUnwrap(Some(x)) = x
 
-        main(_) {
+        main(_) = {
           def s = unsafeUnwrap(Some("hello"))
           IO.println(s)
         }
@@ -860,18 +857,18 @@
         not(True) = False
         not(_) = True
 
-        isSome(o) {
+        isSome(o) = {
           switch (o) {
             Some(_) -> True
             _ -> False
           }
         }
 
-        isNone(o) {
+        isNone(o) = {
           not(isSome(o))
         }
 
-        main(_) {
+        main(_) = {
           IO.println(%(isSome(None()), isSome(Some("hello"))))
         }
       }
@@ -884,7 +881,7 @@
           | Node(a, BTree{a}, BTree{a})
           | Leaf(a)
 
-        sizeImp(tree) {
+        sizeImp(tree) = {
           switch (tree) {
             Leaf(_) -> 1
             Node(_, left, right) ->
@@ -894,7 +891,7 @@
 
         sizeExp{a} : BTree{a} -> Int
         sizeExp(Leaf(_)) = 1
-        sizeExp(Node(_, left, right)) {
+        sizeExp(Node(_, left, right)) = {
           1 + sizeImp(left) + sizeImp(right)
         }
 
@@ -914,7 +911,7 @@
           d -> Node(d, comp(d - 1), comp(d - 1))
         }
 
-        main(_) {
+        main(_) = {
           IO.println(comp(1))
         }
       }
@@ -932,7 +929,7 @@
           d -> Node(d, comp(d - 1), comp(False))
         }
 
-        main(_) {
+        main(_) = {
           IO.println(comp(1))
         }
       }
@@ -952,7 +949,7 @@
         addIntData : BTree{Int} -> BTree{Int} -> Int
         addIntData(a, b) = intVal(a) + intVal(b)
 
-        main(_) {
+        main(_) = {
           IO.println(addIntData(Leaf("hello"), Leaf("world")))
         }
       }
@@ -967,7 +964,7 @@
         getVal : Foo{Int} -> Int
         getVal(Bar(x)) = x
 
-        main(_) {
+        main(_) = {
           def a = getVal(Bar(True))
           def b = False
           IO.println(a && b)
@@ -995,24 +992,18 @@
           type t = Int[]
           type BoolList = Bool[]
 
-          Concat : t -> t -> t
-          Concat(xs, []) { xs }
-          Concat([], ys) { ys }
-          Concat(x::xs, ys) {
-            x :: Concat(xs, ys)
-          }
-
-          Map : (Int -> Bool) -> t -> BoolList
-          Map(f, []) { [] }
-          Map(f, x::xs) {
-            f(x) :: Map(f, xs)
+          concat : t -> t -> t
+          concat(xs, []) = xs
+          concat([], ys) = ys
+          concat(x::xs, ys) = {
+            x :: concat(xs, ys)
           }
         }
 
-        main(_) {
-          IO.println(IntList.Concat([], []))
-          IO.println(IntList.Concat([1, 2], []))
-          IO.println(IntList.Concat([1, 2], [3, 4, 5]))
+        main(_) = {
+          IO.println(IntList.concat([], []))
+          IO.println(IntList.concat([1, 2], []))
+          IO.println(IntList.concat([1, 2], [3, 4, 5]))
         }
       }
       '("[]"
@@ -1025,7 +1016,7 @@
         type t{k, v} = %(k, v)[]
 
         insert{k, v} : t{k, v} -> k -> v -> t{k, v}
-        insert(map, key, val) { %(key, val) :: map }
+        insert(map, key, val) = { %(key, val) :: map }
 
         find{v} : t{Int, v} -> Int -> Maybe{v}
         find([], _) = Nothing()
@@ -1035,7 +1026,7 @@
             _            -> find(kvs, findKey)
           }
 
-        main(_) {
+        main(_) = {
           def m = [%(1, "hello")]
           IO.println(find(m, 3))
           IO.println(find(m, 1))
@@ -1048,7 +1039,7 @@
       @interp-lines{
         type t{k, v} = %(k, v)[]
 
-        insert(map, key, val) { %(key, val) :: map }
+        insert(map, key, val) = { %(key, val) :: map }
 
         find([], _) = Nothing()
         find(%(k, v) :: kvs, findKey) =
@@ -1057,7 +1048,7 @@
             _            -> find(kvs, findKey)
           }
 
-        main(_) {
+        main(_) = {
           def m = [%(1, "hello")]
           IO.println(find(m, 3))
           IO.println(find(m, 1))
@@ -1070,7 +1061,7 @@
       @interp-lines{
         @"@"(!!)(a, b) = a + b
 
-        main(_) {
+        main(_) = {
           IO.println(1 !! 3 + 4)
         }
       }
@@ -1081,7 +1072,7 @@
       @interp-sexp{
         @"@"(!!)(a, b) = a + b
 
-        main(_) {
+        main(_) = {
           IO.println(1 !! True)
         }
       }
@@ -1093,7 +1084,7 @@
         foo : Int -> Int
         foo(a) = a
 
-        main(_) {
+        main(_) = {
           foo(True)
         }
       }

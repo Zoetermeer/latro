@@ -84,7 +84,7 @@ instance AstNode PatExp where
 
 
 data CaseClause a id =
-    CaseClause a (PatExp a id) [Exp a id]
+    CaseClause a (PatExp a id) (Exp a id)
   deriving (Eq, Show)
 
 
@@ -93,8 +93,8 @@ instance AstNode CaseClause where
 
 
 data CondCaseClause a id =
-    CondCaseClause a (Exp a id) [Exp a id]
-  | CondCaseClauseWildcard a [Exp a id]
+    CondCaseClause a (Exp a id) (Exp a id)
+  | CondCaseClauseWildcard a (Exp a id)
   deriving (Eq, Show)
 
 
@@ -112,8 +112,8 @@ instance AstNode TyAnn where
 
 
 data FunDef a id =
-    FunDefFun a id [PatExp a id] [Exp a id]
-  | FunDefInstFun a (PatExp a id) id [PatExp a id] [Exp a id]
+    FunDefFun a id [PatExp a id] (Exp a id)
+  | FunDefInstFun a (PatExp a id) id [PatExp a id] (Exp a id)
   deriving (Eq, Show)
 
 
@@ -132,7 +132,7 @@ data ILFieldInit a = ILFieldInit UniqId (IL a)
   deriving (Eq, Show)
 
 
-data ILCase a = ILCase a (ILPat a) [IL a]
+data ILCase a = ILCase a (ILPat a) (IL a)
   deriving (Eq, Show)
 
 
@@ -188,15 +188,15 @@ data IL a =
   | ILAssign a (ILPat a) (IL a)
   | ILTypeDec a (TypeDec a UniqId)
   | ILWithAnn a (TyAnn a UniqId) (IL a)
-  | ILFunDef a UniqId [UniqId] [IL a]
-  | ILInstFunDef a UniqId UniqId [UniqId] [IL a]
+  | ILFunDef a UniqId [UniqId] (IL a)
+  | ILInstFunDef a UniqId UniqId [UniqId] (IL a)
   | ILStruct a UniqId [ILFieldInit a]
   | ILMakeAdt a UniqId Int [IL a]
   | ILGetAdtField a (IL a) Int
   | ILTuple a [IL a]
   | ILSwitch a (IL a) [ILCase a]
   | ILList a [IL a]
-  | ILFun a [UniqId] [IL a]
+  | ILFun a [UniqId] (IL a)
   | ILInt a Int
   | ILBool a Bool
   | ILStr a String
@@ -205,7 +205,7 @@ data IL a =
   | ILRef a UniqId
   | ILBegin a [IL a]
   | ILFail a String
-  | ILMain a [UniqId] [IL a]
+  | ILMain a [UniqId] (IL a)
   deriving (Eq, Show)
 
 
@@ -259,14 +259,14 @@ data Exp a id =
   | ExpInterfaceDec a id [id] [TyAnn a id]
   | ExpModule a [id] [Exp a id]
   | ExpStruct a (QualifiedId a id) [FieldInit a id]
-  | ExpIfElse a (Exp a id) [Exp a id] [Exp a id]
+  | ExpIfElse a (Exp a id) (Exp a id) (Exp a id)
   | ExpMakeAdt a id Int [Exp a id]
   | ExpGetAdtField a (Exp a id) Int
   | ExpTuple a [Exp a id]
   | ExpSwitch a (Exp a id) [CaseClause a id]
   | ExpCond a [CondCaseClause a id]
   | ExpList a [Exp a id]
-  | ExpFun a [PatExp a id] [Exp a id]
+  | ExpFun a [PatExp a id] (Exp a id)
   | ExpNum a String
   | ExpBool a Bool
   | ExpString a String
@@ -477,7 +477,7 @@ data Module = Module (CloEnv Value) [UniqId] Exports
   deriving (Eq, Show)
 
 
-data Closure = Closure UniqId Ty (CloEnv Value) [UniqId] [Typed IL]
+data Closure = Closure UniqId Ty (CloEnv Value) [UniqId] (Typed IL)
   deriving (Eq, Show)
 
 

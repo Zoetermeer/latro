@@ -145,14 +145,14 @@ The idiomatic way to do something like this is to define a new binding:
 Conditionals
 ------------
 
-Latro offers two main forms of conditionals: ``if``/``then``/``else`` and ``cond``.
+Latro offers two main forms of conditionals: ``if`` and ``cond``.
 
 .. code:: ocaml
 
-  def v = if (True) { 42 } else { 43 }
+  def v = if (True) 42 43
   v // 42
 
-The ``else`` is required, and both branches of a conditional must be of the same type.
+The "else" branch is required, and both branches of a conditional must be of the same type.
 
 To avoid the hassle of writing complex sequences of ``if`` expressions, we can use
 the ``cond`` form:
@@ -264,11 +264,13 @@ Or bind them to names:
 
   add1(x) = x + 1
 
-They can also use a long-form "block" for the body:
+A "block" is a sequence of expressions enclosed in curly braces.
+Since blocks are just another form of expression, they allow us to construct
+more interesting function bodies:
 
 .. code:: ocaml
 
-  add1AndMultBy3(x) {
+  add1AndMultBy3(x) = {
     (x + 1) * 3
   }
 
@@ -320,7 +322,7 @@ like the following:
 
 .. code:: ocaml
 
-  xor(a, b) {
+  xor(a, b) = {
     def args = %(a, b)
     switch (args) {
       %(False, False) -> False
@@ -345,7 +347,7 @@ The compiler will complain if we try to implement Fibonacci using this form:
 
 .. code:: ocaml
 
-  def fib = fun(x) {
+  def fib = fun(x) = {
     switch (x) {
       0 -> 0
       1 -> 1

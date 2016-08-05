@@ -349,45 +349,45 @@ convertPatExp (PatExpListCons p eHd eTl) = do
 
 
 convertFunDef :: UniqAst FunDef -> AlphaConverted (UniqAst FunDef)
-convertFunDef (FunDefFun p id argPatEs bodyEs) = do
+convertFunDef (FunDefFun p id argPatEs bodyE) = do
   argPatEs' <- mapM convertPatExp argPatEs
   id' <- lookupVarId id
-  bodyEs' <- mapM convert bodyEs
-  return $ FunDefFun p id' argPatEs' bodyEs'
+  bodyE' <- convert bodyE
+  return $ FunDefFun p id' argPatEs' bodyE'
 
-convertFunDef (FunDefInstFun p instPatE id argPatEs bodyEs) = do
+convertFunDef (FunDefInstFun p instPatE id argPatEs bodyE) = do
   instPatE' <- convertPatExp instPatE
   argPatEs' <- mapM convertPatExp argPatEs
   id' <- freshVarIdM id
-  bodyEs' <- mapM convert bodyEs
-  return $ FunDefInstFun p instPatE' id' argPatEs' bodyEs'
+  bodyE' <- convert bodyE
+  return $ FunDefInstFun p instPatE' id' argPatEs' bodyE'
 
 
 convertCaseClause :: UniqAst CaseClause -> AlphaConverted (UniqAst CaseClause)
-convertCaseClause (CaseClause p patE es) = do
+convertCaseClause (CaseClause p patE e) = do
   pushNewFrame
   patE' <- convertPatExp patE
-  es' <- mapM convert es
+  e' <- convert e
   popFrame
-  return $ CaseClause p patE' es'
+  return $ CaseClause p patE' e'
 
 
 funDefToCaseClause :: UniqAst FunDef -> AlphaConverted (UniqAst CaseClause)
-funDefToCaseClause (FunDefFun p _ argPatEs bodyEs) = do
+funDefToCaseClause (FunDefFun p _ argPatEs bodyE) = do
   let tupPat = PatExpTuple p argPatEs
   pushNewFrame
   tupPat' <- convertPatExp tupPat
-  bodyEs' <- mapM convert bodyEs
+  bodyE' <- convert bodyE
   popFrame
-  return $ CaseClause p tupPat' bodyEs'
+  return $ CaseClause p tupPat' bodyE'
 
-funDefToCaseClause (FunDefInstFun p instPatE _ argPatEs bodyEs) = do
+funDefToCaseClause (FunDefInstFun p instPatE _ argPatEs bodyE) = do
   let tupPat = PatExpTuple p $ instPatE : argPatEs
   pushNewFrame
   tupPat' <- convertPatExp tupPat
-  bodyEs' <- mapM convert bodyEs
+  bodyE' <- convert bodyE
   popFrame
-  return $ CaseClause p tupPat' bodyEs'
+  return $ CaseClause p tupPat' bodyE'
 
 
 -- The rule is as follows (with this particular
@@ -427,15 +427,15 @@ desugarFunDefs fid funDefs =
         let paramRefs = map (ExpRef startP) paramIds
             paramPats = map (PatExpId startP) paramIds
         case headFunDef of
-          FunDefFun _ _ argPatEs bodyEs ->
+          FunDefFun _ _ argPatEs bodyE ->
             let argsTup = ExpTuple startP paramRefs
             in
-              return (FunDefFun startP fid paramPats [ExpSwitch startP argsTup cases], paramIds)
-          FunDefInstFun _ instPatE _ argPatEs bodyEs ->
+              return (FunDefFun startP fid paramPats (ExpSwitch startP argsTup cases), paramIds)
+          FunDefInstFun _ instPatE _ argPatEs bodyE ->
             do instId <- freshVarIdM $ UserId "this"
                let instRef = ExpRef startP instId
                    argsTup = ExpTuple startP (instRef : paramRefs)
-               return (FunDefInstFun startP (PatExpId startP instId) fid paramPats [ExpSwitch startP argsTup cases], paramIds)
+               return (FunDefInstFun startP (PatExpId startP instId) fid paramPats (ExpSwitch startP argsTup cases), paramIds)
       _ ->
         throwError $ ErrFunDefArityMismatch fid
 
@@ -459,19 +459,19 @@ desugarFunDefs fid funDefs =
 --     } else {
 --       fail("Inexhaustive cond")
 --     }))
-desugarCondClause :: UniqAst CondCaseClause -> (UniqAst Exp, [UniqAst Exp])
-desugarCondClause (CondCaseClause _ testE bodyEs) = (testE, bodyEs)
-desugarCondClause (CondCaseClauseWildcard p bodyEs) = (ExpBool p True, bodyEs)
+desugarCondClause :: UniqAst CondCaseClause -> (UniqAst Exp, UniqAst Exp)
+desugarCondClause (CondCaseClause _ testE bodyE) = (testE, bodyE)
+desugarCondClause (CondCaseClauseWildcard p bodyE) = (ExpBool p True, bodyE)
 
 
 desugarCondClauses :: SourcePos -> [UniqAst CondCaseClause] -> UniqAst Exp
 desugarCondClauses p (clause:clauses) =
-  let (testE, bodyEs) = desugarCondClause clause
-      elseEs = case clauses of
-                 [] -> [ExpFail p "Inexhaustive cond expression"]
-                 _ -> [desugarCondClauses p clauses]
+  let (testE, bodyE) = desugarCondClause clause
+      elseE = case clauses of
+                 [] -> ExpFail p "Inexhaustive cond expression"
+                 _  -> desugarCondClauses p clauses
   in
-    ExpIfElse (nodeData testE) testE bodyEs elseEs
+    ExpIfElse (nodeData testE) testE bodyE elseE
 
 
 desugarCond :: UniqAst Exp -> UniqAst Exp
@@ -523,20 +523,20 @@ convert (ExpImport p qid) = do
                                , typeIdEnv = Map.union typeIdEnv modTypeIdEnv })
       return $ ExpUnit p
 
-convert (ExpFunDef (FunDefFun p id argPatEs bodyEs)) = do
+convert (ExpFunDef (FunDefFun p id argPatEs bodyE)) = do
   id' <- freshVarIdM id
   pushNewFrame
   argPatEs' <- mapM convertPatExp argPatEs
-  bodyEs' <- mapM convert bodyEs
+  bodyE' <- convert bodyE
   popFrame
-  return $ ExpFunDef $ FunDefFun p id' argPatEs' bodyEs'
+  return $ ExpFunDef $ FunDefFun p id' argPatEs' bodyE'
 
-convert (ExpFunDef (FunDefInstFun p instPatE id argPatEs bodyEs)) = do
+convert (ExpFunDef (FunDefInstFun p instPatE id argPatEs bodyE)) = do
   id' <- freshVarIdM id
   instPatE' <- convertPatExp instPatE
   argPatEs' <- mapM convertPatExp argPatEs
-  bodyEs' <- mapM convert bodyEs
-  return $ ExpFunDef $ FunDefInstFun p instPatE' id' argPatEs' bodyEs'
+  bodyE' <- convert bodyE
+  return $ ExpFunDef $ FunDefInstFun p instPatE' id' argPatEs' bodyE'
 
 convert (ExpFunDefClauses p id funDefs) = do
   id' <- freshVarIdM id
@@ -592,12 +592,12 @@ convert (ExpWithAnn (TyAnn p aid tyParamIds synTy) e) = do
   synTy' <- convertTy synTy
   let tyAnn = TyAnn p aid' tyParamIds' synTy'
   case e of
-    ExpFunDef (FunDefFun fp fid argPatEs bodyEs) ->
+    ExpFunDef (FunDefFun fp fid argPatEs bodyE) ->
       do pushNewFrame
          argPatEs' <- mapM convertPatExp argPatEs
-         bodyEs' <- mapM convert bodyEs
+         bodyE' <- convert bodyE
          popFrame
-         let e' = ExpFunDef (FunDefFun fp aid' argPatEs' bodyEs')
+         let e' = ExpFunDef (FunDefFun fp aid' argPatEs' bodyE')
          return $ ExpWithAnn tyAnn e'
     ExpFunDefClauses p id funDefs ->
       do pushNewFrame
@@ -620,11 +620,11 @@ convert (ExpStruct p qid fields) = do
   return $ ExpStruct p qid' fields'
 
 
-convert (ExpIfElse p condE thenEs elseEs) = do
+convert (ExpIfElse p condE thenE elseE) = do
   condE' <- convert condE
-  thenEs' <- inNewFrame $ mapM convert thenEs
-  elseEs' <- inNewFrame $ mapM convert elseEs
-  return $ ExpIfElse p condE' thenEs' elseEs'
+  thenE' <- inNewFrame $ convert thenE
+  elseE' <- inNewFrame $ convert elseE
+  return $ ExpIfElse p condE' thenE' elseE'
 
 convert (ExpSwitch p e clauses) = do
   e' <- convert e
@@ -641,12 +641,12 @@ convert (ExpList p es) = do
   es' <- mapM convert es
   return $ ExpList p es'
 
-convert (ExpFun p argPatEs bodyEs) = do
+convert (ExpFun p argPatEs bodyE) = do
   pushNewFrame
   argPatEs' <- mapM convertPatExp argPatEs
-  bodyEs' <- mapM convert bodyEs
+  bodyE' <- convert bodyE
   popFrame
-  return $ ExpFun p argPatEs' bodyEs'
+  return $ ExpFun p argPatEs' bodyE'
 
 convert (ExpPrecAssign p id level) = do
   id' <- lookupVarId id
@@ -692,15 +692,15 @@ instance InjectUserIds QualifiedId where
 
 
 instance InjectUserIds CaseClause where
-  inject (CaseClause p patE bodyEs) =
-    CaseClause p (inject patE) (map inject bodyEs)
+  inject (CaseClause p patE bodyE) =
+    CaseClause p (inject patE) (inject bodyE)
 
 
 instance InjectUserIds CondCaseClause where
-  inject (CondCaseClause p testE bodyEs) =
-    CondCaseClause p (inject testE) (map inject bodyEs)
-  inject (CondCaseClauseWildcard p bodyEs) =
-    CondCaseClauseWildcard p $ map inject bodyEs
+  inject (CondCaseClause p testE bodyE) =
+    CondCaseClause p (inject testE) (inject bodyE)
+  inject (CondCaseClauseWildcard p bodyE) =
+    CondCaseClauseWildcard p $ inject bodyE
 
 
 instance InjectUserIds PatExp where
@@ -723,15 +723,15 @@ instance InjectUserIds FieldInit where
 
 
 instance InjectUserIds FunDef where
-  inject (FunDefFun p id argPatEs bodyEs) =
-    FunDefFun p (UserId id) (map inject argPatEs) (map inject bodyEs)
+  inject (FunDefFun p id argPatEs bodyE) =
+    FunDefFun p (UserId id) (map inject argPatEs) (inject bodyE)
 
-  inject (FunDefInstFun p instPatE id argPatEs bodyEs) =
+  inject (FunDefInstFun p instPatE id argPatEs bodyE) =
     FunDefInstFun p
                   (inject instPatE)
                   (UserId id)
                   (map inject argPatEs)
-                  (map inject bodyEs)
+                  (inject bodyE)
 
 
 instance InjectUserIds SynTy where
@@ -796,8 +796,8 @@ instance InjectUserIds Exp where
         ExpModule p (map UserId paramIds) (map inject bodyEs)
       ExpStruct p qid fieldInits ->
         ExpStruct p (inject qid) (map inject fieldInits)
-      ExpIfElse p e thenEs elseEs ->
-        ExpIfElse p (inject e) (map inject thenEs) (map inject elseEs)
+      ExpIfElse p e thenE elseE ->
+        ExpIfElse p (inject e) (inject thenE) (inject elseE)
       ExpMakeAdt p id i argEs ->
         ExpMakeAdt p (UserId id) i (map inject argEs)
       ExpGetAdtField p e i -> ExpGetAdtField p (inject e) i
@@ -805,8 +805,8 @@ instance InjectUserIds Exp where
       ExpSwitch p e clauses -> ExpSwitch p (inject e) (map inject clauses)
       ExpCond p clauses -> ExpCond p $ map inject clauses
       ExpList p es -> ExpList p $ map inject es
-      ExpFun p argPatEs bodyEs ->
-        ExpFun p (map inject argPatEs) (map inject bodyEs)
+      ExpFun p argPatEs bodyE ->
+        ExpFun p (map inject argPatEs) (inject bodyE)
       ExpNum p s -> ExpNum p s
       ExpBool p b -> ExpBool p b
       ExpString p s -> ExpString p s

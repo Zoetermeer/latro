@@ -154,29 +154,29 @@ instance (Sexpable a, Sexpable id) => Sexpable (PatExp a id) where
 
 
 instance (Sexpable a, Sexpable id) => Sexpable (CaseClause a id) where
-  sexp (CaseClause d patE es) =
+  sexp (CaseClause d patE e) =
     List  [ Symbol "CaseClause"
           , sexp d
           , sexp patE
-          , toSexpList es
+          , sexp e
           ]
 
 
 instance (Sexpable a, Sexpable id) => Sexpable (FunDef a id) where
-  sexp (FunDefFun d id argPatEs es) =
+  sexp (FunDefFun d id argPatEs e) =
     List  [ Symbol "FunDefFun"
           , sexp d
           , sexp id
           , toSexpList argPatEs
-          , toSexpList es
+          , sexp e
           ]
-  sexp (FunDefInstFun d instPatE id argPatEs es) =
+  sexp (FunDefInstFun d instPatE id argPatEs e) =
     List  [ Symbol "FunDefInstFun"
           , sexp d
           , sexp instPatE
           , sexp id
           , toSexpList argPatEs
-          , toSexpList es
+          , sexp e
           ]
 
 
@@ -190,14 +190,14 @@ instance (Sexpable a, Sexpable id) => Sexpable (AnnDef a id) where
 
 
 instance (Sexpable a, Sexpable id) => Sexpable (CondCaseClause a id) where
-  sexp (CondCaseClause d pExp bodyEs) =
+  sexp (CondCaseClause d pExp bodyE) =
     List  [ Symbol "CondCaseClause"
           , sexp d
           , sexp pExp
-          , toSexpList bodyEs
+          , sexp bodyE
           ]
-  sexp (CondCaseClauseWildcard d bodyEs) =
-    List  [ Symbol "CondCaseClauseWildcard", sexp d, toSexpList bodyEs ]
+  sexp (CondCaseClauseWildcard d bodyE) =
+    List  [ Symbol "CondCaseClauseWildcard", sexp d, sexp bodyE ]
 
 
 instance (Sexpable a, Sexpable id) => Sexpable (Exp a id) where
@@ -247,20 +247,20 @@ instance (Sexpable a, Sexpable id) => Sexpable (Exp a id) where
           , sexp tyAnn
           , sexp e
           ]
-  sexp (ExpFunDef (FunDefFun d id argPatEs bodyEs)) =
+  sexp (ExpFunDef (FunDefFun d id argPatEs bodyE)) =
     List  [ Symbol "ExpFunDef"
           , sexp d
           , sexp id
           , toSexpList argPatEs
-          , toSexpList bodyEs
+          , sexp bodyE
           ]
-  sexp (ExpFunDef (FunDefInstFun d instPatE id argPatEs bodyEs)) =
+  sexp (ExpFunDef (FunDefInstFun d instPatE id argPatEs bodyE)) =
     List  [ Symbol "ExpFunDefInst"
           , sexp d
           , sexp instPatE
           , sexp id
           , toSexpList argPatEs
-          , toSexpList bodyEs
+          , sexp bodyE
           ]
   sexp (ExpFunDefClauses d id funDefs) =
     List  [ Symbol "ExpFunDefClauses"
@@ -281,12 +281,12 @@ instance (Sexpable a, Sexpable id) => Sexpable (Exp a id) where
           , sexp d
           , List $ map sexp fieldInits
           ]
-  sexp (ExpIfElse d e thenEs elseEs) =
+  sexp (ExpIfElse d e thenE elseE) =
     List  [ Symbol "ExpIfElse"
           , sexp d
           , sexp e
-          , toSexpList thenEs
-          , toSexpList elseEs
+          , sexp thenE
+          , sexp elseE
           ]
   sexp (ExpMakeAdt d sTy i es) =
     List  [ Symbol "ExpMakeAdt"
@@ -309,11 +309,11 @@ instance (Sexpable a, Sexpable id) => Sexpable (Exp a id) where
           , toSexpList clauses
           ]
   sexp (ExpList d es) = List [ Symbol "ExpList", sexp d, toSexpList es ]
-  sexp (ExpFun d paramIds es) =
+  sexp (ExpFun d paramIds e) =
     List  [ Symbol "ExpFun"
           , sexp d
           , toSexpList paramIds
-          , toSexpList es
+          , sexp e
           ]
   sexp (ExpNum d str) = List [ Symbol "ExpNum", sexp d, Symbol str ]
   sexp (ExpBool d b) = List [ Symbol "ExpBool", sexp d, Symbol $ show b ]
@@ -352,8 +352,8 @@ instance (Sexpable a) => Sexpable (ILFieldInit a) where
 
 
 instance (Sexpable a) => Sexpable (ILCase a) where
-  sexp (ILCase d patE bodyEs) =
-    List [ Symbol "ILCase", sexp d, sexp patE, toSexpList bodyEs ]
+  sexp (ILCase d patE bodyE) =
+    List [ Symbol "ILCase", sexp d, sexp patE, sexp bodyE ]
 
 
 instance (Sexpable a) => Sexpable (ILPat a) where
@@ -411,15 +411,15 @@ instance (Sexpable a) => Sexpable (IL a) where
       ILAssign d patE e -> List [ Symbol "ILAssign", sexp d, sexp patE, sexp e ]
       ILTypeDec d typeDec -> List [ Symbol "ILTypeDec", sexp d, sexp typeDec ]
       ILWithAnn d tyAnn e -> List [ Symbol "ILWithAnn", sexp d, sexp tyAnn, sexp e ]
-      ILFunDef d id paramIds bodyEs ->
-        List [ Symbol "ILFunDef", sexp d, sexp id, toSexpList paramIds, toSexpList bodyEs ]
-      ILInstFunDef d instId funId paramIds bodyEs ->
+      ILFunDef d id paramIds bodyE ->
+        List [ Symbol "ILFunDef", sexp d, sexp id, toSexpList paramIds, sexp bodyE ]
+      ILInstFunDef d instId funId paramIds bodyE ->
         List [ Symbol "ILInstFunDef"
              , sexp d
              , sexp instId
              , sexp funId
              , toSexpList paramIds
-             , toSexpList bodyEs
+             , sexp bodyE
              ]
       ILStruct d typeId fieldInits -> List [ Symbol "ILStruct", sexp d, toSexpList fieldInits ]
       ILMakeAdt d typeId ctorIndex argEs ->
@@ -434,11 +434,11 @@ instance (Sexpable a) => Sexpable (IL a) where
       ILTuple d argEs -> List [ Symbol "ILTuple", sexp d, toSexpList argEs ]
       ILSwitch d e clauses -> List [ Symbol "ILSwitch", sexp d, sexp e, toSexpList clauses ]
       ILList d argEs -> List [ Symbol "ILList", sexp d, toSexpList argEs ]
-      ILFun d paramIds bodyEs ->
+      ILFun d paramIds bodyE ->
         List  [ Symbol "ILFun"
               , sexp d
               , toSexpList paramIds
-              , toSexpList bodyEs
+              , sexp bodyE
               ]
       ILInt d i -> List [ Symbol "ILInt", sexp d, Atom $ show i ]
       ILBool d b -> List [ Symbol "ILBool", sexp d, Symbol $ show b ]
@@ -448,11 +448,11 @@ instance (Sexpable a) => Sexpable (IL a) where
       ILRef d id -> List [ Symbol "ILRef", sexp d, sexp id ]
       ILBegin d es -> List [ Symbol "ILBegin", sexp d, toSexpList es ]
       ILFail d msg -> List [ Symbol "ILFail", sexp d, Atom $ printf "\"%s\"" msg ]
-      ILMain d paramIds bodyEs ->
+      ILMain d paramIds bodyE ->
         List  [ Symbol "ILMain"
               , sexp d
               , toSexpList paramIds
-              , toSexpList bodyEs
+              , sexp bodyE
               ]
 
 

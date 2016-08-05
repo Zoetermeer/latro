@@ -85,7 +85,7 @@ module Core {
 
     each{a} : (a -> Unit) -> a[] -> Unit
     each(_, []) = ()
-    each(f, x::xs) {
+    each(f, x::xs) = {
       f(x)
       each(f, xs)
     }
@@ -110,7 +110,7 @@ module Core {
 
 
     partition{a} : (a -> Bool) -> a[] -> %(a[], a[])
-    partition(p, xs) {
+    partition(p, xs) = {
       def selector = fun(x, pr) = select(p, x, pr)
       foldr(selector, %([], []), xs)
     }
@@ -136,7 +136,7 @@ module String {
   splitAt(s, 0)      = %("", s)
   splitAt("", _)     = %("", "")
   splitAt(c::cs, 1)  = %([c], cs)
-  splitAt(c::cs, n) {
+  splitAt(c::cs, n) = {
     def %(a, b) = splitAt(cs, n - 1)
     %(c :: a, b)
   }

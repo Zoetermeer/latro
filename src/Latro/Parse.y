@@ -84,7 +84,7 @@ ZeroOrMoreExps : Exp { [$1] }
                | OneOrMoreExps Exp { $1 ++ [$2] }
                | {- empty -} { [] }
 
-Block : '{' ExpOrAssigns '}' { $2 }
+Block : '{' ExpOrAssigns '}' { ExpBegin (pos $1) $2 }
 
 ZeroOrMoreModuleLevelExps : ModuleLevelExp { [$1] }
                           | ZeroOrMoreModuleLevelExps ModuleLevelExp { $1 ++ [$2] }
@@ -196,10 +196,13 @@ ConsExp : AppExp '::' ConsExp { ExpCons (nodeData $1) $1 $3 }
 CustomInfixExp : CustomInfixExp SpecialId ConsExp { ExpCustomInfix (nodeData $1) $1 (tokValue $2) $3 }
                | ConsExp { $1 }
 
+IfElseExp : if '(' Exp ')' Exp Exp { ExpIfElse (pos $1) $3 $5 $6 }
+
 Exp : CustomInfixExp { $1 }
-    | if '(' Exp ')' '{' ExpOrAssigns '}' else '{' ExpOrAssigns '}' { ExpIfElse (pos $1) $3 $6 $10 }
+    | IfElseExp { $1 }
     | switch '(' Exp ')' '{' CaseClauses '}' { ExpSwitch (pos $1) $3 $6 }
     | cond '{' CondCaseClauses '}' { ExpCond (pos $1) $3 }
+    | Block { $1 }
 
 ExpOrAssign : def PatExp '=' Exp { ExpAssign (pos $1) $2 $4 }
             | TyAnn { ExpTyAnn $1 }
@@ -220,8 +223,7 @@ FunDef : SimpleOrMixedId '(' PatExpList ')' FunBody { FunDefFun (pos $1) (tokVal
        | '@' '(' SpecialId ')' '(' PatExpList ')' FunBody { FunDefFun (pos $1) (tokValue $3) $6 $8 }
        | SingleParamFunHeader '.' SimpleOrMixedId '(' PatExpList ')' FunBody { FunDefInstFun (fst $1) (snd $1) (tokValue $3) $5 $7 }
 
-FunBody : '{' ExpOrAssigns '}' { $2 }
-        | '=' Exp { [$2] }
+FunBody : '=' Exp { $2 }
 
 TyParams : '{' CommaSeparatedIds '}' { $2 }
          | {- empty -} { [] }
@@ -237,14 +239,13 @@ InterfaceDecExp: interface SimpleOrMixedId TyParams '{' TyAnns '}' { ExpInterfac
 CaseClauses : CaseClause { [$1] }
             | CaseClauses CaseClause { $1 ++ [$2] }
 
-CaseClause : PatExp '->' Exp { CaseClause (nodeData $1) $1 [$3] }
-           | PatExp '->' Block { CaseClause (nodeData $1) $1 $3 }
+CaseClause : PatExp '->' Exp { CaseClause (nodeData $1) $1 $3 }
 
 CondCaseClauses : CondCaseClause { [$1] }
                 | CondCaseClauses CondCaseClause { $1 ++ [$2] }
 
-CondCaseClause : Exp '->' Exp { CondCaseClause (nodeData $1) $1 [$3] }
-               | '_' '->' Exp { CondCaseClauseWildcard (pos $1) [$3] }
+CondCaseClause : Exp '->' Exp { CondCaseClause (nodeData $1) $1 $3 }
+               | '_' '->' Exp { CondCaseClauseWildcard (pos $1) $3 }
 
 ArgExps : Exp { [$1] }
         | ArgExps ',' Exp { $1 ++ [$3] }
