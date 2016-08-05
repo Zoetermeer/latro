@@ -178,12 +178,12 @@ lookupEntryIn userId@(UserId id) (frame : frames) getEnv =
 
 lookupVarIn :: UniqId -> [Frame] -> AlphaConverted UniqId
 lookupVarIn uid@UniqId{} _ = return uid
-lookupVarIn userId frames = do
+lookupVarIn userId@(UserId rawId) frames = do
   entry <- lookupEntryIn userId frames varIdEnv
   case entry of
     UniqIdEntry uid -> return uid
     FrameEntry uid _ -> return uid
-    UnknownEntry id -> return id
+    UnknownEntry id -> throwError $ ErrUnboundRawIdentifier rawId
 
 
 lookupEntry :: UniqId -> (Frame -> RawIdEnv AlphaEntry) -> AlphaConverted AlphaEntry
