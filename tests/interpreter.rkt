@@ -509,24 +509,24 @@
       }
       't))
 
-  #;(test-case "it evaluates struct instances"
+  (test-case "it evaluates struct instances"
     (check-match
       @interp-sexp{
         type Point = struct {
-          Int X;
-          Int Y;
+          X : Int
+          Y : Int
         }
 
         main(_) = IO.println(Point %{ X = 3; Y = 4; })
       }
       'Point))
 
-  #;(test-case "it evaluates struct field accesses"
+  (test-case "it evaluates struct field accesses"
     (check-equal?
       @interp-sexp{
         type Point = struct {
-          Int X;
-          Int Y;
+          X : Int
+          Y : Int
         }
 
         main(_) {
@@ -548,17 +548,17 @@
       }
       `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier x))))
 
-  #;(test-case "it evaluates nested struct field accesses"
+  (test-case "it evaluates nested struct field accesses"
     (check-equal?
       @interp-sexp{
         type Point = struct {
-          Int X;
-          Int Y;
+          X : Int
+          Y : Int
         }
 
         type Line = struct {
-          Point A;
-          Point B;
+          A : Point
+          B : Point
         }
 
         main(_) {
@@ -577,13 +577,13 @@
       @interp-sexp{
         module Geometry {
           type Point = struct {
-            Int X;
-            Int Y;
+            X : Int
+            Y : Int
           }
 
           type Line = struct {
-            Point A;
-            Point B;
+            A : Point
+            B : Point
           }
         }
 

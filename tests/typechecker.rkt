@@ -141,13 +141,13 @@
       @interp-lines{
         module Geometry {
           type Point = struct {
-            Int X;
-            Int Y;
+            X : Int
+            Y : Int
           }
 
           type Line = struct {
-            Point A;
-            Point B;
+            A : Point
+            B : Point
           }
         }
 
@@ -167,8 +167,8 @@
     (check-match
       @interp-sexp{
         type S = struct {
-          Int X;
-          Int Y;
+          X : Int
+          Y : Int
         }
 
         main(_) {
@@ -184,13 +184,13 @@
       @interp-sexp{
         module Geometry {
           type Point = struct {
-            Int X;
-            Int Y;
+            X : Int
+            Y : Int
           }
 
           type Line = struct {
-            Point A;
-            Point B;
+            A : Point
+            B : Point
           }
         }
 

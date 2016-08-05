@@ -304,7 +304,7 @@ TyArrow : SimpleTy { [$1] }
 
 Ty : TyArrow { if length $1 == 1 then head $1 else SynTyArrow (firstPos $1) (take (length $1 - 1) $1) (last $1) }
 
-TyStructField : Ty SimpleOrMixedId ';' { (tokValue $2, $1) }
+TyStructField : SimpleOrMixedId ':' Ty { (tokValue $1, $3) }
 
 TyStructFields : TyStructField { [$1] }
                | TyStructFields TyStructField { $1 ++ [$2] }
