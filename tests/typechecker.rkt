@@ -958,6 +958,23 @@
       }
       `(AtPos (SourcePos ,_ 13 ,_) (CompilerModule Typecheck) (CantUnify (Expected Int) (Got (App List (Char)))))))
 
+  (test-case "it enforces refinements via annotations on ADT's"
+    (check-match
+      @interp-sexp{
+        type Foo{a} =
+          | Bar(a)
+
+        getVal : Foo{Int} -> Int
+        getVal(Bar(x)) = x
+
+        main(_) {
+          def a = getVal(Bar(True))
+          def b = False
+          IO.println(a && b)
+        }
+      }
+      `(AtPos (SourcePos ,_ 8 ,_) (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))
+
   (test-case "it checks cond expressions"
     (check-equal?
       @interp-lines{
