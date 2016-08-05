@@ -45,11 +45,14 @@ pushFrame frame = do
 
 pushNewOrExistingFrame :: UniqId -> AlphaConverted UniqId
 pushNewOrExistingFrame id = do
-  entry <- lookupVarEntry id
+  curFrame <- getsAC $ head . stack
+  entry <- lookupEntryIn id [curFrame] varIdEnv
   case entry of
     FrameEntry uid frame ->
       do modifyAC (\aEnv -> aEnv { stack = frame : stack aEnv })
          return uid
+    UniqIdEntry _ ->
+      throwError $ ErrIdAlreadyBound id
     _ ->
       do pushNewFrame
          return id
@@ -545,16 +548,15 @@ convert (ExpFunDefClauses p id funDefs) = do
   popFrame
   return $ ExpFunDef funDef
 
-convert (ExpAssign p (PatExpId pp rawId) (ExpModule mp paramIds bodyEs)) = do
-  id' <- freshM rawId $ freshVarId False
-  id'' <- pushNewOrExistingFrame rawId
+convert (ExpAssign p (PatExpId pp id) (ExpModule mp paramIds bodyEs)) = do
+  id' <- pushNewOrExistingFrame id `reportErrorAt` pp
   aEnv <- getAC
   bodyEs' <- mapM convert bodyEs
   moduleFrame <- popFrame
-  bindInCurrentFrame id'' $ FrameEntry id'' moduleFrame
+  bindInCurrentFrame id' $ FrameEntry id' moduleFrame
   firstPass <- isFirstPass
   if firstPass
-    then return $ ExpAssign p (PatExpId pp rawId) (ExpModule mp paramIds bodyEs')
+    then return $ ExpAssign p (PatExpId pp id) (ExpModule mp paramIds bodyEs')
     else return $ ExpBegin p bodyEs'
 
 convert (ExpAssign p patExp e) = do

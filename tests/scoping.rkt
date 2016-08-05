@@ -139,9 +139,9 @@
       }
       `(AtPos ,_ (CompilerModule AlphaConvert) (IdAlreadyBound v))))
 
-  (test-case "it does not allow rebinding of an id to a module"
+  (test-case "it does not allow rebinding of a non-module-bound id to a module"
     (check-match
-      @interp{
+      @interp-sexp{
         def m = 42
         module m {
           def x = 43
@@ -151,7 +151,36 @@
       }
       `(AtPos ,_ (CompilerModule AlphaConvert) (IdAlreadyBound m))))
 
-  (test-case "it does allow rebinding in nested scopes"
+  (test-case "it allows reopening of modules"
+    (check-equal?
+      @interp-lines{
+        module Foo {
+          f(x) = x
+        }
+
+        module Foo {
+          g(y) = y
+        }
+
+        main(_) = IO.println(Foo.f(1) + Foo.g(2))
+      }
+      '("3")))
+
+  (test-case "it does allow rebinding of an id to a module in a nested scope"
+    (check-equal?
+      @interp-lines{
+        def m = 42
+        module Foo {
+          module m {
+            def m = 43
+          }
+        }
+
+        main(_) = IO.println(m + Foo.m.m)
+      }
+      '("85")))
+
+  (test-case "it does allow rebinding for values in nested scopes"
     (check-equal?
       @interp-sexp{
         def v = 42
