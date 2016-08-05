@@ -513,8 +513,8 @@ arbitrary number of named fields:
 .. code:: ocaml
 
   type Person = struct {
-    Name Char[];
-    Age Int;
+    Name : Char[]
+    Age : Int
   }
   
   def p = Person %{ Name = "john"; Age = 42; }
@@ -532,9 +532,9 @@ Like ADT's, structure types can be polymorphic:
 .. code:: ocaml
 
   type Person{a} = struct {
-    Name Char[];
-    Age Int;
-    CustomData a;
+    Name : Char[]
+    Age : Int
+    CustomData : a
   }
   
   def p1 = Person %{ Name = "john"; Age = 42; CustomData = False; }
