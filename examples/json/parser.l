@@ -1,28 +1,15 @@
 module Result {
   module MonadInfix {
     @(>>=)(Ok(x), f) = f(x)
-    @(>>=)(err, _)   = err
+    @(>>=)(Error(e), _)   = Error(e)
 
     return(x) = Ok(x)
-
-    partition{e, t} : Result{e, t}[] -> %(e[], t[])
-    partition([]) = %([], [])
-    partition(r :: rs) =
-      switch (r) {
-        case Ok(x) -> 
-      }
-
-    packResults{e, t} : Result{e, t}[] -> Result{e, t}
-    packResults([]) = Ok([])
-    packResults(r :: rs) =
-      switch (r) {
-        case Ok(x) -> 
-      }
   }
 }
 
-module Json {
+module Parser {
   import Core
+  import JsonLexer
   import Result.MonadInfix
 
   type Field = %(String, Value)
@@ -36,82 +23,37 @@ module Json {
     | JsonNull
 
 
-  type Tok =
-    | TokLBrace
-    | TokRBrace
-    | TokComma
-    | TokLBracket
-    | TokRBracket
-    | TokString(String)
-    | TokNumber(Int)
-    | TokTrue
-    | TokFalse
-    | TokNull
-    | TokEof
-
-
-  lex([]) = Ok(%(TokEof(), ""))
-  lex(c :: cs) {
-    switch (c) {
-      case '{' -> Ok(%(TokLBrace(), cs))
-      case '}' -> Ok(%(TokRBrace(), cs))
-      case ',' -> Ok(%(TokComma(), cs))
-      case '[' -> Ok(%(TokLBracket(), cs))
-      case ']' -> Ok(%(TokRBracket(), cs))
-      case _   -> Error("Invalid token.")
-    }
-  }
-
-
-  read(input) {
-    lex(input) >>= fun(%(token, input')) =
-    switch (token) {
-      case TokEof() -> Ok([])
-      case _        -> Ok(
-    }
-
-    def tResult = lex(input)
-    switch (tResult) {
-      case Ok(%(token, input')) -> {
-        switch (token) {
-          case TokEof() -> []
-          case _        -> token :: read(input')
-        }
-      }
-      case _ -> []
-    }
-  }
-
-
-  parseArray(ts) {
+  parseArray(ts) = {
     def rv = parseValue(ts)
     switch (rv) {
-      case Ok(%(value, t :: ts')) -> {
+      Ok(%(value, t :: ts')) -> {
         switch (t) {
-          case TokRBracket() -> Ok(%(JsonArray([value]), ts'))
-          case _ -> Error("Expected ']'")
+          TokRBracket() -> Ok(%(JsonArray([value]), ts'))
+          _ -> Error("Expected ']'")
         }
       }
-      case _ -> Error("Invalid array element")
+      _ -> Error("Invalid array element")
     }
   }
 
 
+  parseValue : Tok[] -> Result{String, %(Value, Tok[])}
   parseValue([]) = Ok(%(JsonNull(), []))
-  parseValue(t :: ts) {
+  parseValue(t :: ts) = {
     switch (t) {
-      case TokLBracket() -> parseArray(ts)
-      case TokNull       -> Ok(%(JsonNull(), ts))
+      TokLBracket() -> parseArray(ts)
+      TokString(s)  -> Ok(%(JsonString(s), ts))
+      TokNull       -> Ok(%(JsonNull(), ts))
     }
   }
 
 
-  parse(input) {
+  parse : String -> Result{String, Value}
+  parse(input) = {
     read(input)         >>= fun(tokens) =
-    parseValue(tokens)  >>= fun(rv) =
-    switch (rv) {
-      case Ok(%(v, _)) -> Ok(v)
-      case Error(msg) -> Error(msg)
+    parseValue(tokens)  >>= fun(rv) = {
+      def %(value, tokens') = rv
+      return(value)
     }
   }
 }

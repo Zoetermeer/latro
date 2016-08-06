@@ -743,7 +743,7 @@ tcPatExp (ILPatAdt p id es) = do
   retTyMeta@(TyMeta retTyMetaId) <- freshMeta
   let gotTy = TyApp TyConArrow $ eTys ++ [retTyMeta]
   patFunTy' <- instantiate patFunTy
-  (TyApp TyConArrow eTys) <- unify patFunTy' gotTy
+  (TyApp TyConArrow eTys) <- unify patFunTy' gotTy `reportErrorAt` p
   let (retTy:_) = reverse eTys
   return (retTy, ILPatAdt (OfTy p retTy) id es')
 
@@ -756,7 +756,7 @@ tcPatExp (ILPatList p es) = do
 tcPatExp (ILPatCons p eHd eTl) = do
   (hdTy, eHd') <- tcPatExp eHd
   (tlTy, eTl') <- tcPatExp eTl
-  ty <- unify tlTy $ TyApp TyConList [hdTy]
+  ty <- unify tlTy (TyApp TyConList [hdTy]) `reportErrorAt` (ilNodeData eTl)
   return (ty, ILPatCons (OfTy p ty) eHd' eTl')
 
 tcPatExp (ILPatId p id) = do
@@ -813,7 +813,7 @@ tc (ILMain p [paramId] bodyE) = do
   oldVarEnv <- markVarEnv
   bindVar paramId $ tyList tyStr
   (bodyTy, bodyE') <- tc bodyE
-  unify bodyTy tyUnit
+  unify bodyTy tyUnit `reportErrorAt` p
   restoreVarEnv oldVarEnv
   return (tyUnit, ILMain (OfTy p tyMain) [paramId] bodyE')
 

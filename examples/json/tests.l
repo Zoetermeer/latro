@@ -1,6 +1,15 @@
 import Core
-import Json
+import Core.List
+import JsonLexer
+import Parser
 
-main(_) {
-  read("{}")
+quote : String -> String
+quote(s) = ['"'] ++ s ++ ['"']
+
+main(_) = {
+  IO.println(read("{}"))
+  IO.println(read(quote("hello")))
+  IO.println(read("[,]{?"))
+
+  IO.println(parse("[" ++ quote("hello") ++ "]"))
 }
