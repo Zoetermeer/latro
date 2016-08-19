@@ -49,6 +49,9 @@ tokens :-
   case { lex' TokenCase }
   precedence { lex' TokenPrecedence }
   prim { lex' TokenPrim }
+  protocol { lex' TokenProtocol }
+  when { lex' TokenWhen }
+  on { lex' TokenOn }
   ":=" { lex' TokenAssign }
   "->" { lex' TokenArrow }
   "=>" { lex' TokenRocket }
@@ -118,6 +121,9 @@ data TokenClass =
   | TokenCase
   | TokenPrecedence
   | TokenPrim
+  | TokenProtocol
+  | TokenWhen
+  | TokenOn
   | TokenAssign
   | TokenArrow
   | TokenRocket
@@ -191,6 +197,9 @@ unlex (TokenCond) = "cond"
 unlex (TokenCase) = "case"
 unlex (TokenPrecedence) = "precedence"
 unlex (TokenPrim) = "prim"
+unlex (TokenProtocol) = "protocol"
+unlex (TokenWhen) = "when"
+unlex (TokenOn) = "on"
 unlex (TokenAssign) = ":="
 unlex (TokenArrow) = "->"
 unlex (TokenRocket) = "=>"

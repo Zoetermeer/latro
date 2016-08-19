@@ -39,6 +39,9 @@ import Semant
   case { Token _ TokenCase }
   precedence { Token _ TokenPrecedence }
   prim { Token _ TokenPrim }
+  protocol { Token _ TokenProtocol }
+  when { Token _ TokenWhen }
+  on { Token _ TokenOn }
   ':=' { Token _ TokenAssign }
   '->' { Token _ TokenArrow }
   '=>' { Token _ TokenRocket }
@@ -95,6 +98,8 @@ OneOrMoreModuleLevelExps : ModuleLevelExp { [$1] }
 
 ModuleLevelExp : InterfaceDecExp { $1 }
                | TypeDec { ExpTypeDec (nodeData $1) $1 }
+               | ProtoDec { $1 }
+               | ProtoImp { $1 }
                | ModuleDec { $1 }
                | PrecedenceAssign { $1 }
                | TopLevelBindingExp { $1 }
@@ -107,6 +112,19 @@ InteractiveExp : InterfaceDecExp { $1 }
 
 ModuleDec : module SimpleOrMixedId ModuleParamList '{' ZeroOrMoreModuleLevelExps '}'
   { ExpAssign (pos $1) (PatExpId (pos $2) (tokValue $2)) (ExpModule (pos $4) $3 $5) }
+
+Constraint : when SimpleOrMixedId ':' SimpleOrMixedId { Constraint (pos $1) (tokValue $2) (tokValue $4) }
+
+Constraints : Constraint { [$1] }
+            | Constraints Constraint { $1 ++ [$2] }
+            | {- empty -} { [] }
+
+ProtoDecBody : '{' '}' { [] }
+
+ProtoDec : protocol SimpleOrMixedId on SimpleOrMixedId Constraints ProtoDecBody
+           { ExpProtoDec (pos $1) (tokValue $2) (tokValue $4) $5 $6 }
+
+ProtoImp : imp SimpleTy ':' SimpleOrMixedId '{' '}' { ExpProtoImp (pos $1) $2 (tokValue $4) [] }
 
 TupleRestExps : ',' Exp { [$2] }
               | TupleRestExps ',' Exp { $1 ++ [$3] }

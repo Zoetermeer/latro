@@ -315,6 +315,13 @@ convertTy (SynTyRef p qid tyArgs) = do
   return $ SynTyRef p qid' tyArgs'
 
 
+convertConstraint :: UniqAst Constraint -> AlphaConverted (UniqAst Constraint)
+convertConstraint (Constraint p tyId protoId) = do
+  tyId' <- lookupTypeId tyId
+  protoId' <- lookupTypeId protoId
+  return $ Constraint p tyId' protoId'
+
+
 convertAdtAlternative :: Int -> UniqAst AdtAlternative -> AlphaConverted (UniqAst AdtAlternative)
 convertAdtAlternative index (AdtAlternative p id _ tys) = do
   id' <- freshVarIdM id
@@ -585,6 +592,19 @@ convert (ExpTypeDec p (TypeDecAdt pInner id tyParamIds alts)) = do
   alts' <- mapMi convertAdtAlternative alts
   return $ ExpTypeDec p $ TypeDecAdt pInner id' tyParamIds' alts'
 
+convert (ExpProtoDec p protoId tyParamId constrs tyAnns) = do
+  protoId' <- freshTypeIdM protoId
+  tyParamId' <- freshTypeIdM tyParamId
+  constrs' <- mapM convertConstraint constrs
+  tyAnns' <- mapM convertTyAnn tyAnns
+  return $ ExpProtoDec p protoId' tyParamId' constrs' tyAnns'
+
+convert (ExpProtoImp p synTy protoId bodyEs) = do
+  synTy' <- convertTy synTy
+  protoId' <- lookupTypeId protoId
+  bodyEs' <- mapM convert bodyEs
+  return $ ExpProtoImp p synTy' protoId' bodyEs'
+
 convert (ExpTyAnn (TyAnn _ id _ _)) =
   throwError $ ErrInterpFailure $ "ExpTyAnn " ++ show id ++ " not removed before alpha-conversion!"
 
@@ -774,6 +794,10 @@ instance InjectUserIds TypeDec where
     TypeDecAdt p (UserId id) (map UserId tyParamIds) (map inject alts)
 
 
+instance InjectUserIds Constraint where
+  inject (Constraint p tyId protoId) = Constraint p (UserId tyId) (UserId protoId)
+
+
 instance InjectUserIds Exp where
   inject e =
     case e of
@@ -787,6 +811,10 @@ instance InjectUserIds Exp where
       ExpImport p qid -> ExpImport p $ inject qid
       ExpAssign p patE e -> ExpAssign p (inject patE) (r e)
       ExpTypeDec p typeDec -> ExpTypeDec p $ inject typeDec
+      ExpProtoDec p id tyId constrs tyAnns ->
+        ExpProtoDec p (UserId id) (UserId tyId) (map inject constrs) (map inject tyAnns)
+      ExpProtoImp p synTy protoId bodyEs ->
+        ExpProtoImp p (inject synTy) (UserId protoId) (map inject bodyEs)
       ExpTyAnn tyAnn -> ExpTyAnn $ inject tyAnn
       ExpWithAnn tyAnn e -> ExpWithAnn (inject tyAnn) $ inject e
       ExpFunDef funDef -> ExpFunDef $ inject funDef

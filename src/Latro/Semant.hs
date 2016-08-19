@@ -128,6 +128,14 @@ data FieldInit a id = FieldInit id (Exp a id)
   deriving (Eq, Show)
 
 
+data Constraint a id = Constraint a id id
+  deriving (Eq, Show)
+
+
+instance AstNode Constraint where
+  nodeData (Constraint d _ _) = d
+
+
 data ILFieldInit a = ILFieldInit UniqId (IL a)
   deriving (Eq, Show)
 
@@ -182,11 +190,13 @@ data Prim =
 
 
 data IL a =
-  ILCons a (IL a) (IL a)
+    ILCons a (IL a) (IL a)
   | ILApp a (IL a) [IL a]
   | ILPrim a Prim
   | ILAssign a (ILPat a) (IL a)
   | ILTypeDec a (TypeDec a UniqId)
+  | ILProtoDec a UniqId UniqId [Constraint a UniqId] [TyAnn a UniqId]
+  | ILProtoImp a (SynTy a UniqId) (SynTy a UniqId) [IL a]
   | ILWithAnn a (TyAnn a UniqId) (IL a)
   | ILFunDef a UniqId [UniqId] (IL a)
   | ILInstFunDef a UniqId UniqId [UniqId] (IL a)
@@ -217,6 +227,8 @@ instance ILNode IL where
       ILPrim d _ -> d
       ILAssign d _ _ -> d
       ILTypeDec d _ -> d
+      ILProtoDec d _ _ _ _ -> d
+      ILProtoImp d _ _ _ -> d
       ILWithAnn d _ _ -> d
       ILFunDef d _ _ _ -> d
       ILInstFunDef d _ _ _ _ -> d
@@ -252,6 +264,8 @@ data Exp a id =
   | ExpImport a (QualifiedId a id)
   | ExpAssign a (PatExp a id) (Exp a id)
   | ExpTypeDec a (TypeDec a id)
+  | ExpProtoDec a id id [Constraint a id] [TyAnn a id]
+  | ExpProtoImp a (SynTy a id) id [Exp a id]
   | ExpTyAnn (TyAnn a id)
   | ExpWithAnn (TyAnn a id) (Exp a id)
   | ExpFunDef (FunDef a id)
@@ -293,6 +307,8 @@ instance AstNode Exp where
       ExpAssign d _ _ -> d
       ExpTypeDec d _ -> d
       ExpTyAnn (TyAnn d _ _ _) -> d
+      ExpProtoDec d _ _ _ _ -> d
+      ExpProtoImp d _ _ _ -> d
       ExpWithAnn _ e -> nodeData e
       ExpFunDef (FunDefFun d _ _ _) -> d
       ExpFunDef (FunDefInstFun d _ _ _ _) -> d

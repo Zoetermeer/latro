@@ -7,14 +7,26 @@ protocol Comparable on a when a : Eq {
 }
 
 
-Int : Eq {
+imp Int : Eq {
+  @(==)(x, y) = prim(intEq)(x, y)
+}
+
+imp Int : Comparable {
+  @(<=)(x, y) = prim(intLeq)(x, y)
+}
+
+protocol Comparable <: a when a : Eq {
+  @(<=) : a -> a -> Bool
+}
+
+
+Int :> Eq {
   @(==)(x, y) = prim(intEq)(x, y)
 }
 
 Int : Comparable {
   @(<=)(x, y) = prim(intLeq)(x, y)
 }
-
 
 sort{a} : a[] -> a[] when a : Comparable
 sort([]) = []
