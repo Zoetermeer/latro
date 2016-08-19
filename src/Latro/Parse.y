@@ -243,7 +243,6 @@ PrecedenceAssign : precedence SpecialId num { ExpPrecAssign (pos $1) (tokValue $
 
 FunDef : SimpleOrMixedId '(' PatExpList ')' FunBody { FunDefFun (pos $1) (tokValue $1) $3 $5 }
        | '@' '(' SpecialId ')' '(' PatExpList ')' FunBody { FunDefFun (pos $1) (tokValue $3) $6 $8 }
-       | SingleParamFunHeader '.' SimpleOrMixedId '(' PatExpList ')' FunBody { FunDefInstFun (fst $1) (snd $1) (tokValue $3) $5 $7 }
 
 FunBody : '=' Exp { $2 }
 

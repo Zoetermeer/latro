@@ -295,9 +295,6 @@ occursIn tyMeta@(TyMeta metaId) ty =
     TyVar _ -> False
     TyMeta otherMetaId -> metaId == otherMetaId
     TyRef _ -> False
-    TyInstFun instTy funTy ->
-      occursIn tyMeta instTy || occursIn tyMeta funTy
-
 
 occursIn _ _ = False
 
@@ -340,8 +337,6 @@ allMetaIdsIn ty =
     TyVar _ -> []
     TyMeta id -> [id]
     TyRef _ -> []
-    TyInstFun instTy funTy ->
-      allMetaIdsIn instTy ++ allMetaIdsIn funTy
 
 
 referencedMetaIds :: UniqId -> Checked [UniqId]
@@ -398,7 +393,6 @@ trimUnusedPolyParams (TyPoly tyParamIds ty) =
         TyVar id -> [id]
         TyMeta id -> []
         TyRef _ -> []
-        TyInstFun instTy funTy -> allTyVarIds instTy ++ allTyVarIds funTy
     paramIdSet = Set.fromList tyParamIds
     usedParamIdSet = Set.fromList $ allTyVarIds ty
     tyParamIds' = Set.toList $ Set.intersection paramIdSet usedParamIdSet
@@ -482,11 +476,6 @@ subst ty =
       tyCon <- lookupTy id
       tyCon' <- substTyCon tyCon
       return $ TyApp tyCon' []
-
-    TyInstFun instTy funTy -> do
-      instTy' <- subst instTy
-      funTy' <- subst funTy
-      return $ TyInstFun instTy' funTy'
 
 
 -- Helper for type mismatches (we don't want
@@ -576,11 +565,6 @@ unify tya tyb = do
     (ty, TyRef qid) -> do
       tyb <- lookupTyQual qid
       unify ty $ TyApp tyb []
-
-    (TyInstFun instTyA funTyA, TyInstFun instTyB funTyB) -> do
-      instTy <- unify instTyA instTyB
-      funTy <- unify funTyA funTyB
-      return $ TyInstFun instTy funTy
 
     (ta, tb) -> unifyFail ta tb
 

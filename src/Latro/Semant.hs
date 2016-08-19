@@ -552,7 +552,6 @@ data Ty =
   | TyVar TyVarId
   | TyMeta TyVarId
   | TyRef (QualifiedId SourcePos UniqId) -- Only for recursive type definitions
-  | TyInstFun Ty Ty
   deriving (Eq, Generic)
 
 
@@ -570,7 +569,6 @@ instance Show Ty where
 --   show (TyVar id) = show id
 --   show (TyMeta id) = show id
 --   show (TyRef qid) = show qid
---   show (TyInstFun instTy ty) = printf "(%s) %s" (show instTy) (show ty)
 
 
 data ModuleBinding =
