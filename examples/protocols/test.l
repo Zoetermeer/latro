@@ -19,7 +19,11 @@ when a : Eq {
   equal(_, _) = False
 }
 
+areEqual{a} : a -> a -> Bool
+when a : Eq
+areEqual(x, y) = equal(x, y)
+
 main(_) = {
-  def areEq = equal([1, 2], [3, 4, 5])
+  def areEq = areEqual([1, 2], [3, 4, 5])
   prim(println)(areEq)
 }

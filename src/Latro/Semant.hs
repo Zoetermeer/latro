@@ -102,12 +102,12 @@ instance AstNode CondCaseClause where
   nodeData (CondCaseClauseWildcard d _) = d
 
 
-data TyAnn a id = TyAnn a id [id] (SynTy a id)
+data TyAnn a id = TyAnn a id [id] (SynTy a id) [Constraint a id]
   deriving (Eq, Show)
 
 
 instance AstNode TyAnn where
-  nodeData (TyAnn d _ _ _) = d
+  nodeData (TyAnn d _ _ _ _) = d
 
 
 data FunDef a id =
@@ -305,7 +305,7 @@ instance AstNode Exp where
       ExpImport d _ -> d
       ExpAssign d _ _ -> d
       ExpTypeDec d _ -> d
-      ExpTyAnn (TyAnn d _ _ _) -> d
+      ExpTyAnn (TyAnn d _ _ _ _) -> d
       ExpProtoDec d _ _ _ _ -> d
       ExpProtoImp d _ _ _ _ -> d
       ExpWithAnn _ e -> nodeData e

@@ -61,7 +61,7 @@ collapse e = return e
 
 collapseEs :: [RawAst Exp] -> Collapsed [RawAst Exp]
 collapseEs [] = return []
-collapseEs (ExpTyAnn tyAnn@(TyAnn ap aid _ synTy) : es) =
+collapseEs (ExpTyAnn tyAnn@(TyAnn ap aid _ synTy _) : es) =
   case synTy of
     SynTyArrow {} ->
       let (funDefs, es') = collectFunDefs aid es

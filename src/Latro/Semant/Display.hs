@@ -180,6 +180,15 @@ instance (Sexpable a, Sexpable id) => Sexpable (FunDef a id) where
           ]
 
 
+instance (Sexpable a, Sexpable id) => Sexpable (Constraint a id) where
+  sexp (Constraint d tyId protoId) =
+    List  [ Symbol "Constraint"
+          , sexp d
+          , sexp tyId
+          , sexp protoId
+          ]
+
+
 instance (Sexpable a, Sexpable id) => Sexpable (FieldInit a id) where
   sexp (FieldInit id e) = List  [ sexp id, sexp e ]
 
@@ -235,12 +244,13 @@ instance (Sexpable a, Sexpable id) => Sexpable (Exp a id) where
           , sexp e
           ]
   sexp (ExpTypeDec d tyDec) = List [ Symbol "ExpTypeDec", sexp d, sexp tyDec ]
-  sexp (ExpTyAnn (TyAnn d id tyParamIds synTy)) =
+  sexp (ExpTyAnn (TyAnn d id tyParamIds synTy constrs)) =
     List  [ Symbol "ExpTyAnn"
           , sexp d
           , sexp id
           , toSexpList tyParamIds
           , sexp synTy
+          , toSexpList constrs
           ]
   sexp (ExpWithAnn tyAnn e) =
     List  [ Symbol "ExpWithAnn"
@@ -337,12 +347,13 @@ instance (Sexpable a, Sexpable id) => Sexpable (Exp a id) where
 
 
 instance (Sexpable a, Sexpable id) => Sexpable (TyAnn a id) where
-  sexp (TyAnn d id tyParamIds synTy) =
+  sexp (TyAnn d id tyParamIds synTy constrs) =
     List  [ Symbol "TyAnn"
           , sexp d
           , sexp id
           , toSexpList tyParamIds
           , sexp synTy
+          , toSexpList constrs
           ]
 
 

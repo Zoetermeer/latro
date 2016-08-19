@@ -249,7 +249,7 @@ FunBody : '=' Exp { $2 }
 TyParams : '{' CommaSeparatedIds '}' { $2 }
          | {- empty -} { [] }
 
-TyAnn : SimpleOrMixedId TyParams ':' Ty { TyAnn (pos $1) (tokValue $1) $2 $4 }
+TyAnn : SimpleOrMixedId TyParams ':' Ty Constraints { TyAnn (pos $1) (tokValue $1) $2 $4 $5 }
 
 OneOrMoreTyAnns : TyAnn { [$1] }
                 | OneOrMoreTyAnns TyAnn { $1 ++ [$2] }

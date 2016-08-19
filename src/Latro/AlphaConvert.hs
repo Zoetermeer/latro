@@ -280,11 +280,12 @@ convertTypeQualId qid = do
 
 
 convertTyAnn :: UniqAst TyAnn -> AlphaConverted (UniqAst TyAnn)
-convertTyAnn (TyAnn p id tyParamIds ty) = do
+convertTyAnn (TyAnn p id tyParamIds ty constrs) = do
   id' <- freshVarIdM id
   tyParamIds' <- mapM freshTypeIdM tyParamIds
   ty' <- convertTy ty
-  return $ TyAnn p id' tyParamIds' ty'
+  constrs' <- mapM convertConstraint constrs
+  return $ TyAnn p id' tyParamIds' ty' constrs'
 
 
 convertTy :: UniqAst SynTy -> AlphaConverted (UniqAst SynTy)
@@ -606,14 +607,15 @@ convert (ExpProtoImp p synTy protoId constrs bodyEs) = do
   bodyEs' <- mapM convert bodyEs
   return $ ExpProtoImp p synTy' protoId' constrs' bodyEs'
 
-convert (ExpTyAnn (TyAnn _ id _ _)) =
+convert (ExpTyAnn (TyAnn _ id _ _ _)) =
   throwError $ ErrInterpFailure $ "ExpTyAnn " ++ show id ++ " not removed before alpha-conversion!"
 
-convert (ExpWithAnn (TyAnn p aid tyParamIds synTy) e) = do
+convert (ExpWithAnn (TyAnn p aid tyParamIds synTy constrs) e) = do
   aid' <- freshVarIdM aid
   tyParamIds' <- mapM freshTypeIdM tyParamIds
   synTy' <- convertTy synTy
-  let tyAnn = TyAnn p aid' tyParamIds' synTy'
+  constrs' <- mapM convertConstraint constrs
+  let tyAnn = TyAnn p aid' tyParamIds' synTy' constrs'
   case e of
     ExpFunDef (FunDefFun fp fid argPatEs bodyE) ->
       do pushNewFrame
@@ -779,8 +781,8 @@ instance InjectUserIds SynTy where
 
 
 instance InjectUserIds TyAnn where
-  inject (TyAnn p id tyParamIds synTy) =
-    TyAnn p (UserId id) (map UserId tyParamIds) (inject synTy)
+  inject (TyAnn p id tyParamIds synTy constrs) =
+    TyAnn p (UserId id) (map UserId tyParamIds) (inject synTy) (map inject constrs)
 
 
 instance InjectUserIds AdtAlternative where

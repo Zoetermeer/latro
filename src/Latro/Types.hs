@@ -981,7 +981,7 @@ tc (ILInstFunDef p instId id paramIds bodyE) =
   let innerFun = ILFun p paramIds bodyE
     in tc $ ILFunDef p id [instId] innerFun
 
-tc (ILWithAnn p (TyAnn _ id tyParamIds synTy) e) = do
+tc (ILWithAnn p (TyAnn _ id tyParamIds synTy constrs) e) = do
   oldMetaEnv <- markMetaEnv
   mapM_ (\tyParamId -> exportTy tyParamId $ TyConTyVar tyParamId) tyParamIds
   givenTy <- tcTy synTy
