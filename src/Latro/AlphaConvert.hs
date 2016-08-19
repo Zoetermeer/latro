@@ -599,11 +599,12 @@ convert (ExpProtoDec p protoId tyParamId constrs tyAnns) = do
   tyAnns' <- mapM convertTyAnn tyAnns
   return $ ExpProtoDec p protoId' tyParamId' constrs' tyAnns'
 
-convert (ExpProtoImp p synTy protoId bodyEs) = do
+convert (ExpProtoImp p synTy protoId constrs bodyEs) = do
   synTy' <- convertTy synTy
   protoId' <- lookupTypeId protoId
+  constrs' <- mapM convertConstraint constrs
   bodyEs' <- mapM convert bodyEs
-  return $ ExpProtoImp p synTy' protoId' bodyEs'
+  return $ ExpProtoImp p synTy' protoId' constrs' bodyEs'
 
 convert (ExpTyAnn (TyAnn _ id _ _)) =
   throwError $ ErrInterpFailure $ "ExpTyAnn " ++ show id ++ " not removed before alpha-conversion!"
@@ -813,8 +814,8 @@ instance InjectUserIds Exp where
       ExpTypeDec p typeDec -> ExpTypeDec p $ inject typeDec
       ExpProtoDec p id tyId constrs tyAnns ->
         ExpProtoDec p (UserId id) (UserId tyId) (map inject constrs) (map inject tyAnns)
-      ExpProtoImp p synTy protoId bodyEs ->
-        ExpProtoImp p (inject synTy) (UserId protoId) (map inject bodyEs)
+      ExpProtoImp p synTy protoId constrs bodyEs ->
+        ExpProtoImp p (inject synTy) (UserId protoId) (map inject constrs) (map inject bodyEs)
       ExpTyAnn tyAnn -> ExpTyAnn $ inject tyAnn
       ExpWithAnn tyAnn e -> ExpWithAnn (inject tyAnn) $ inject e
       ExpFunDef funDef -> ExpFunDef $ inject funDef

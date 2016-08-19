@@ -1,12 +1,25 @@
-protocol Object on a { }
+protocol Eq on a {
+  equal : a -> a -> Bool
+}
 
-type String = Char[]
+imp Int : Eq {
+  equal(x, y) = prim(intEq)(x, y)
+}
 
-imp Int : Object { }
-imp String : Object { }
 
-imp a[] : Object { }
+and(True, True) = True
+and(_, _)       = False
+
+imp a[] : Eq
+when a : Eq {
+  equal([], []) = True
+  equal(x::xs, y::ys) =
+    and(equal(x, y), equal(xs, ys))
+
+  equal(_, _) = False
+}
 
 main(_) = {
-  prim(println)("it works")
+  def areEq = equal([1, 2], [3, 4, 5])
+  prim(println)(areEq)
 }

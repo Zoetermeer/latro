@@ -119,12 +119,12 @@ Constraints : Constraint { [$1] }
             | Constraints Constraint { $1 ++ [$2] }
             | {- empty -} { [] }
 
-ProtoDecBody : '{' '}' { [] }
+ProtoDecBody : '{' ZeroOrMoreTyAnns '}' { $2 }
 
 ProtoDec : protocol SimpleOrMixedId on SimpleOrMixedId Constraints ProtoDecBody
            { ExpProtoDec (pos $1) (tokValue $2) (tokValue $4) $5 $6 }
 
-ProtoImp : imp SimpleTy ':' SimpleOrMixedId '{' '}' { ExpProtoImp (pos $1) $2 (tokValue $4) [] }
+ProtoImp : imp SimpleTy ':' SimpleOrMixedId Constraints '{' ZeroOrMoreTopLevelBindingExps '}' { ExpProtoImp (pos $1) $2 (tokValue $4) $5 $7 }
 
 TupleRestExps : ',' Exp { [$2] }
               | TupleRestExps ',' Exp { $1 ++ [$3] }
@@ -235,6 +235,10 @@ TopLevelBindingExp : PatExp '=' LiteralExp { ExpAssign (nodeData $1) $1 $3 }
                    | TyAnn { ExpTyAnn $1 }
                    | import QualifiedId { ExpImport (pos $1) $2 }
 
+ZeroOrMoreTopLevelBindingExps : TopLevelBindingExp { [$1] }
+                              | ZeroOrMoreTopLevelBindingExps TopLevelBindingExp { $1 ++ [$2] }
+                              | {- empty -} { [] }
+
 PrecedenceAssign : precedence SpecialId num { ExpPrecAssign (pos $1) (tokValue $2) (read (tokValue $3)) }
 
 FunDef : SimpleOrMixedId '(' PatExpList ')' FunBody { FunDefFun (pos $1) (tokValue $1) $3 $5 }
@@ -248,11 +252,13 @@ TyParams : '{' CommaSeparatedIds '}' { $2 }
 
 TyAnn : SimpleOrMixedId TyParams ':' Ty { TyAnn (pos $1) (tokValue $1) $2 $4 }
 
+OneOrMoreTyAnns : TyAnn { [$1] }
+                | OneOrMoreTyAnns TyAnn { $1 ++ [$2] }
 
-TyAnns : TyAnn { [$1] }
-       | TyAnns TyAnn { $1 ++ [$2] }
+ZeroOrMoreTyAnns : OneOrMoreTyAnns { $1 }
+                 | {- empty -} { [] }
 
-InterfaceDecExp: interface SimpleOrMixedId TyParams '{' TyAnns '}' { ExpInterfaceDec (pos $1) (tokValue $2) $3 $5 }
+InterfaceDecExp: interface SimpleOrMixedId TyParams '{' OneOrMoreTyAnns '}' { ExpInterfaceDec (pos $1) (tokValue $2) $3 $5 }
 
 CaseClauses : CaseClause { [$1] }
             | CaseClauses CaseClause { $1 ++ [$2] }

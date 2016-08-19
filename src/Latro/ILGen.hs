@@ -69,8 +69,8 @@ ilGen e =
       ILTypeDec p typeDec
     ExpProtoDec p protoId tyParamId constrs tyAnns ->
       ILProtoDec p protoId tyParamId constrs tyAnns
-    ExpProtoImp p typeTy protoId bodyEs ->
-      ILProtoImp p typeTy (SynTyRef p (Id p protoId) []) $ map ilGen bodyEs
+    ExpProtoImp p typeTy protoId constrs bodyEs ->
+      ILProtoImp p typeTy protoId constrs $ map ilGen bodyEs
     ExpWithAnn tyAnn e ->
       ILWithAnn (nodeData tyAnn) tyAnn $ ilGen e
     ExpFunDef (FunDefFun p fid@(UniqId _ fName) argPatEs bodyE) ->
