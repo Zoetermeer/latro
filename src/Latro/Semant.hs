@@ -3,7 +3,6 @@ module Semant where
 
 import Data.List (intersperse)
 import qualified Data.Map as Map
-import Text.PrettyPrint
 import Text.PrettyPrint.GenericPretty
 import Text.Printf (printf)
 
@@ -546,12 +545,23 @@ type TyVarId = UniqId
 type FieldName = UniqId
 type CtorName = UniqId
 
+
+data TyConstraint = TyConstraint UniqId UniqId
+  deriving (Eq, Generic)
+
+
+instance Out TyConstraint
+instance Show TyConstraint where
+  show = pretty
+
+
 data Ty =
     TyApp TyCon [Ty]
   | TyPoly [TyVarId] Ty
   | TyVar TyVarId
   | TyMeta TyVarId
   | TyRef (QualifiedId SourcePos UniqId) -- Only for recursive type definitions
+  | TyScheme Ty [TyConstraint]
   deriving (Eq, Generic)
 
 

@@ -12,7 +12,7 @@ import Data.Either.Utils (maybeToEither)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromMaybe, isNothing)
 import qualified Data.Set as Set
-import Debug.Trace (trace, traceM, traceShowM)
+import Debug.Trace (trace, traceM)
 import Errors
 import Semant
 import Semant.Display ()
@@ -997,6 +997,9 @@ tc (ILWithAnn p (TyAnn _ id tyParamIds synTy) e) = do
   restoreMetaEnv oldMetaEnv
   generalize ty >>= bindVar id
   return (ty, e')
+
+tc (ILProtoDec p protoId tyParamId constrs tyAnns) = return (tyUnit, ILUnit (OfTy p tyUnit))
+tc (ILProtoImp p synTy protoId constrs bodyEs) = return (tyUnit, ILUnit (OfTy p tyUnit))
 
 tc (ILBegin p es) = do
   (ty, es') <- tcEs es

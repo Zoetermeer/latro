@@ -13,7 +13,7 @@ import Output
 import Parse
 import Reorder
 import Semant
-import Semant.Display
+import Semant.Display ()
 import System.Console.GetOpt
 import System.Console.Haskeline
 import System.Environment (getArgs)
