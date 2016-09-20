@@ -33,6 +33,7 @@ data Err =
   | ErrCantUnify Ty Ty
   | ErrUndefinedMember SourcePos UniqId
   | ErrInvalidStructType Ty
+  | ErrNotATyCon (SynTy SourcePos UniqId)
   | ErrTooManyModuleDefs UniqId
   | ErrNoModuleDefInModuleDec UniqId
   | ErrMultipleDefsInSimpleAnnDec UniqId
@@ -43,6 +44,7 @@ data Err =
   | ErrInvalidUniqModulePath (QualifiedId SourcePos UniqId)
   | ErrInferenceFail (Map.Map UniqId Ty) Ty Ty
   | ErrPrimUnknown RawId
+  | ErrProtocolAlreadyImplemented UniqId TyCon
   | ErrUserFail SourcePos String
   | ErrInterpFailure String
   | ErrNotImplemented String

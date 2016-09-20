@@ -595,16 +595,20 @@ convert (ExpTypeDec p (TypeDecAdt pInner id tyParamIds alts)) = do
 
 convert (ExpProtoDec p protoId tyParamId constrs tyAnns) = do
   protoId' <- freshTypeIdM protoId
+  pushNewFrame
   tyParamId' <- freshTypeIdM tyParamId
   constrs' <- mapM convertConstraint constrs
   tyAnns' <- mapM convertTyAnn tyAnns
+  popFrame
   return $ ExpProtoDec p protoId' tyParamId' constrs' tyAnns'
 
 convert (ExpProtoImp p synTy protoId constrs bodyEs) = do
-  synTy' <- convertTy synTy
   protoId' <- lookupTypeId protoId
+  pushNewFrame
+  synTy' <- convertTy synTy
   constrs' <- mapM convertConstraint constrs
   bodyEs' <- mapM convert bodyEs
+  popFrame
   return $ ExpProtoImp p synTy' protoId' constrs' bodyEs'
 
 convert (ExpTyAnn (TyAnn _ id _ _ _)) =

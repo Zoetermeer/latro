@@ -97,6 +97,9 @@ instance Sexpable Err where
           , sexp tyCon
           ]
 
+  sexp (ErrNotATyCon synTy) =
+    List  [ Symbol "NotATyCon", sexp synTy ]
+
   sexp (ErrTooManyModuleDefs id) =
     List  [ Symbol "TooManyModuleDefs"
           , sexp id
@@ -167,6 +170,12 @@ instance Sexpable Err where
   sexp (ErrPrimUnknown primId) =
     List  [ Symbol "PrimUnknown"
           , sexp primId
+          ]
+
+  sexp (ErrProtocolAlreadyImplemented protoId tyCon) =
+    List  [ Symbol "ProtocolAlreadyImplemented"
+          , sexp protoId
+          , sexp tyCon
           ]
 
   sexp (ErrInterpFailure s) =

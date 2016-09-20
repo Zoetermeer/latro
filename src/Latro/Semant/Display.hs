@@ -586,10 +586,6 @@ instance CompilerOutput Ty where
   -- render ty = showSexp ty
 
 
-instance Sexpable TCModule where
-  sexp _ = List [ Symbol "Module" ]
-
-
 instance Sexpable TyCon where
   sexp TyConInt = Symbol "Int"
   sexp TyConBool = Symbol "Bool"

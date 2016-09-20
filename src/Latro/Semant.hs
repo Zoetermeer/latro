@@ -27,7 +27,14 @@ type RawId = String
 data QualifiedId a id =
     Id a id
   | Path a (QualifiedId a id) id
-  deriving (Eq, Generic, Show)
+  deriving (Generic, Ord, Show)
+
+
+instance Eq id => Eq (QualifiedId a id) where
+  Id _ id1 == Id _ id2 = id1 == id2
+  Path _ qid1 id1 == Path _ qid2 id2 =
+    id1 == id2 && qid1 == qid2
+  _ == _ = False
 
 
 instance (Out a, Out id) => Out (QualifiedId a id)
@@ -43,6 +50,10 @@ class ILNode a where
 instance AstNode QualifiedId where
   nodeData (Id d _) = d
   nodeData (Path d _ _) = d
+
+
+class BindingOccurrence a where
+  bindingId :: a b id -> id
 
 
 data CompUnit a id = CompUnit a [Exp a id]
@@ -108,6 +119,10 @@ data TyAnn a id = TyAnn a id [id] (SynTy a id) [Constraint a id]
 
 instance AstNode TyAnn where
   nodeData (TyAnn d _ _ _ _) = d
+
+
+instance BindingOccurrence TyAnn where
+  bindingId (TyAnn _ id _ _ _) = id
 
 
 data FunDef a id =
@@ -472,6 +487,7 @@ type RawAst a = a SourcePos RawId
 type UniqAst a = a SourcePos UniqId
 type TypedAst a = a CheckedData UniqId
 
+type UntypedUniq a = a SourcePos UniqId
 type Untyped a = a SourcePos
 type Typed a = a CheckedData
 
@@ -541,13 +557,32 @@ instance Show Value where
       Err str -> "Error = " ++ str
 
 
+type ProtocolId = UniqId
+type MethodId = UniqId
 type TyVarId = UniqId
 type FieldName = UniqId
 type CtorName = UniqId
 
 
-data TyConstraint = TyConstraint UniqId UniqId
-  deriving (Eq, Generic)
+data Protocol = Protocol ProtocolId TyVarId [MethodId]
+  deriving (Eq, Show)
+
+
+-- data Imp = Imp TyCon Protocol
+--   deriving (Eq, Show)
+
+
+data ImpDictValue a =
+    ImpDictValueFun [UniqId] (IL a)
+  | ImpDictValueSuperDict (ImpDictValue a)
+  deriving (Eq, Show)
+
+
+type ImpDict a = Map.Map UniqId (ImpDictValue a)
+
+
+data TyConstraint = TyConstraint ProtocolId
+  deriving (Eq, Generic, Ord)
 
 
 instance Out TyConstraint
@@ -562,7 +597,19 @@ data Ty =
   | TyMeta TyVarId
   | TyRef (QualifiedId SourcePos UniqId) -- Only for recursive type definitions
   | TyScheme Ty [TyConstraint]
-  deriving (Eq, Generic)
+  deriving Generic
+
+
+instance Eq Ty where
+  (TyApp tyConA tyAs) == (TyApp tyConB tyBs) =
+    tyConA == tyConB && tyAs == tyBs
+  (TyPoly aVars tyA) == (TyPoly bVars tyB) =
+    tyA == tyB
+  (TyVar idA) == (TyVar idB) = idA == idB
+  (TyMeta idA) == (TyMeta idB) = idA == idB
+  (TyRef idA) == (TyRef idB) = idA == idB
+  (TyScheme tyA _) == (TyScheme tyB _) = tyA == tyB
+  _ == _ = False
 
 
 instance Out Ty
@@ -586,53 +633,6 @@ data ModuleBinding =
   | ModuleBindingTy FieldName Ty
   deriving (Eq, Show)
 
-data TCModule = TCModule
-  { types         :: Env TyCon
-  , vars          :: TEnv
-  , patFuns       :: TEnv
-  , closedVars    :: TEnv
-  , closedTys     :: Env TyCon
-  , closedPatFuns :: TEnv
-  , fieldIndices  :: Env Int
-  }
-  deriving (Eq, Show)
-
-mtTCModule :: TCModule
-mtTCModule =
-  TCModule { types          = mtEnv
-           , vars           = mtEnv
-           , patFuns        = mtEnv
-           , closedVars     = mtEnv
-           , closedTys      = mtEnv
-           , closedPatFuns  = mtEnv
-           , fieldIndices   = mtEnv
-           }
-
-
-addModuleVar :: TCModule -> UniqId -> Ty -> TCModule
-addModuleVar mod id ty =
-  mod { vars = Map.insert id ty (vars mod) }
-
-
-addModuleTy :: TCModule -> UniqId -> TyCon -> TCModule
-addModuleTy mod id tyCon =
-  mod { types = Map.insert id tyCon (types mod) }
-
-
-addModulePat :: TCModule -> UniqId -> Ty -> TCModule
-addModulePat mod id ty =
-  mod { patFuns = Map.insert id ty (patFuns mod) }
-
-
-addModuleClosedVar :: TCModule -> UniqId -> Ty -> TCModule
-addModuleClosedVar mod id ty =
-  mod { closedVars = Map.insert id ty (closedVars mod) }
-
-
-addModuleClosedTy :: TCModule -> UniqId -> TyCon -> TCModule
-addModuleClosedTy mod id tycon =
-  mod { closedTys = Map.insert id tycon (closedTys mod) }
-
 
 data TyCon =
     TyConInt
@@ -647,7 +647,46 @@ data TyCon =
   | TyConTyFun [TyVarId] Ty
   | TyConUnique UniqId TyCon
   | TyConTyVar TyVarId -- In the body of a tyfun/poly
-  deriving (Eq, Generic)
+  | TyConTyScheme TyCon [TyConstraint] -- In the body of a protocol dec
+  deriving Generic
+
+
+ordIndex :: TyCon -> Int
+ordIndex tyCon =
+  case tyCon of
+    TyConInt -> 0
+    TyConBool -> 1
+    TyConChar -> 2
+    TyConUnit -> 3
+    TyConList -> 4
+    TyConTuple -> 5
+    TyConArrow -> 6
+    TyConStruct _ -> 7
+    TyConAdt _ -> 8
+    TyConTyFun _ _ -> 9
+    TyConUnique _ _ -> 10
+    TyConTyVar _ -> 11
+    TyConTyScheme tyCon _ -> ordIndex tyCon
+
+
+instance Ord TyCon where
+  TyConUnique idA _ <= TyConUnique idB _ = idA <= idB
+  TyConTyVar idA <= TyConTyVar idB = idA <= idB
+  a <= b = ordIndex a <= ordIndex b
+
+
+instance Eq TyCon where
+  TyConInt == TyConInt = True
+  TyConBool == TyConBool = True
+  TyConChar == TyConChar = True
+  TyConUnit == TyConUnit = True
+  TyConList == TyConList = True
+  TyConTuple == TyConTuple = True
+  TyConArrow == TyConArrow = True
+  TyConUnique ida _ == TyConUnique idb _ = ida == idb
+  TyConTyVar ida == TyConTyVar idb = ida == idb
+  TyConTyScheme tyConA _ == TyConTyScheme tyConB _ = tyConA == tyConB
+  _ == _ = False
 
 
 instance Out TyCon

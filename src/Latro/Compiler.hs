@@ -75,11 +75,16 @@ type VarEnv = Map.Map UniqId Ty
 
 
 data TCEnv = TCEnv
-  { curModule   :: TCModule
-  , varEnv      :: VarEnv
-  , tcAlphaEnv  :: AlphaEnv
-  , polyEnv     :: Map.Map UniqId Ty
-  , metaEnv     :: Map.Map UniqId Ty
+  { varEnv        :: VarEnv
+  , typeEnv       :: Map.Map UniqId TyCon
+  , tcAlphaEnv    :: AlphaEnv
+  , patEnv        :: Map.Map UniqId Ty
+  , fieldIndexEnv :: Map.Map UniqId Int
+  , polyEnv       :: Map.Map UniqId Ty
+  , metaEnv       :: Map.Map UniqId Ty
+  , protoEnv      :: Map.Map UniqId Protocol
+  -- protocolId --o--> (implementing tycon --o--> instance dictionary)
+  , impEnv        :: Map.Map UniqId (Map.Map TyCon (ImpDict CheckedData))
   }
   deriving (Eq, Show)
 
@@ -87,11 +92,15 @@ data TCEnv = TCEnv
 instance Environment TCEnv where
   mt =
     TCEnv
-      { curModule   = mtTCModule
-      , varEnv      = Map.empty
-      , tcAlphaEnv  = mt
-      , polyEnv     = Map.empty
-      , metaEnv     = Map.empty
+      { varEnv        = Map.empty
+      , typeEnv       = Map.empty
+      , tcAlphaEnv    = mt
+      , patEnv        = Map.empty
+      , fieldIndexEnv = Map.empty
+      , polyEnv       = Map.empty
+      , metaEnv       = Map.empty
+      , protoEnv      = Map.empty
+      , impEnv        = Map.empty
       }
 
 

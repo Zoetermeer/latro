@@ -56,8 +56,8 @@ tracePolyEnv = do
 traceFieldIndices :: Checked ()
 traceFieldIndices = do
   traceM "Field indices:  "
-  curMod <- getsTC curModule
-  traceM $ showHum $ fieldIndices curMod
+  fiEnv <- getsTC fieldIndexEnv
+  traceM $ showHum fiEnv
 
 
 -- Convenience methods for manipulating the environment
@@ -85,14 +85,9 @@ restoreContext :: TCEnv -> Checked ()
 restoreContext = putTC
 
 
-putModuleVarBinding :: UniqId -> Ty -> Checked ()
-putModuleVarBinding id ty =
-  modifyTC (\tcEnv -> tcEnv { curModule = addModuleVar (curModule tcEnv) id ty })
-
-
 exportTy :: UniqId -> TyCon -> Checked ()
 exportTy id tyCon =
-  modifyTC (\tcEnv -> tcEnv { curModule = addModuleTy (curModule tcEnv) id tyCon })
+  modifyTC (\tcEnv -> tcEnv { typeEnv = Map.insert id tyCon (typeEnv tcEnv) })
 
 
 bindVar :: UniqId -> Ty -> Checked ()
@@ -105,9 +100,9 @@ bindVarIfNotBound id ty =
   modifyTC (\tcEnv -> tcEnv { varEnv = Map.insertWith (\new old -> old) id ty (varEnv tcEnv) })
 
 
-putPatBinding :: UniqId -> Ty -> Checked ()
-putPatBinding id ty =
-  modifyTC (\tcEnv -> tcEnv { curModule = addModulePat (curModule tcEnv) id ty })
+bindPat :: UniqId -> Ty -> Checked ()
+bindPat id ty =
+  modifyTC (\tcEnv -> tcEnv { patEnv = Map.insert id ty (patEnv tcEnv) })
 
 
 bindPoly :: UniqId -> Ty -> Checked ()
@@ -131,9 +126,12 @@ bindMeta id ty =
 
 bindFieldIndex :: UniqId -> Int -> Checked ()
 bindFieldIndex id ind = do
-  curMod <- getsTC curModule
-  let indices = fieldIndices curMod
-  modifyTC (\tcEnv -> tcEnv { curModule = curMod { fieldIndices = Map.insert id ind indices } })
+  modifyTC (\tcEnv -> tcEnv { fieldIndexEnv = Map.insert id ind (fieldIndexEnv tcEnv) })
+
+
+bindProtoDec :: UniqId -> Protocol -> Checked ()
+bindProtoDec id proto =
+  modifyTC (\tcEnv -> tcEnv { protoEnv = Map.insert id proto (protoEnv tcEnv) })
 
 
 mtApp :: TyCon -> Ty
@@ -202,8 +200,8 @@ envLookupOrFail getTable id = do
 
 lookupFieldIndex :: UniqId -> UniqId -> Checked Int
 lookupFieldIndex tyId id = do
-  mod <- getsTC curModule
-  lookupOrFail (fieldIndices mod) id
+  fieldIndices <- getsTC fieldIndexEnv
+  lookupOrFail fieldIndices id
 
 
 lookupMeta :: UniqId -> Checked (Maybe Ty)
@@ -257,14 +255,14 @@ lookupPatIn table id =
 
 lookupPat :: SourcePos -> UniqId -> Checked Ty
 lookupPat p id = do
-  curMod <- getsTC curModule
-  lookupPatIn (patFuns curMod `Map.union` closedPatFuns curMod) id `reportErrorAt` p
+  patFuns <- getsTC patEnv
+  lookupPatIn patFuns id `reportErrorAt` p
 
 
 lookupTy :: UniqId -> Checked TyCon
 lookupTy id = do
-  curMod <- getsTC curModule
-  lookupTyIn (types curMod `Map.union` closedTys curMod) id
+  typeEnv <- getsTC typeEnv
+  lookupTyIn typeEnv id
 
 
 lookupTyQual :: UniqAst QualifiedId -> Checked TyCon
@@ -277,6 +275,35 @@ lookupVar id = do
   case maybeTy of
     Nothing -> freshMeta
     Just ty -> return ty
+
+
+getProtoConstraints :: [UntypedUniq Constraint] -> [TyConstraint]
+getProtoConstraints straints =
+  map (\(Constraint d _ protoId) -> TyConstraint protoId) straints
+
+
+isOverloaded :: Ty -> Bool
+isOverloaded ty = not $ null $ constraints ty
+
+
+class HasTyConstraints a where
+  constraints :: a -> [TyConstraint]
+
+instance HasTyConstraints TyCon where
+  constraints (TyConTyFun _ ty) = constraints ty
+  constraints (TyConUnique _ tyCon) = constraints tyCon
+  constraints (TyConTyScheme tyCon straints) =
+    constraints tyCon ++ straints
+  constraints _ = []
+
+instance HasTyConstraints Ty where
+  constraints ty =
+    case ty of
+      TyApp tyCon tyArgs ->
+        constraints tyCon ++  concatMap constraints tyArgs
+      TyPoly _ ty -> constraints ty
+      TyScheme ty straints -> constraints ty ++ straints
+      _ -> []
 
 
 occursInTyCon :: Ty -> TyCon -> Bool
@@ -577,6 +604,19 @@ unifyAll (ta:tb:tys) = do
   unifyAll (ty':tys)
 
 
+-- Convert a "syntax-level type" into a
+-- tycon
+tcTycon :: UniqAst SynTy -> Checked TyCon
+tcTycon sty =
+  case sty of
+    SynTyInt _ -> return TyConInt
+    SynTyBool _ -> return TyConBool
+    SynTyString _ -> throwError $ ErrNotATyCon sty
+    SynTyChar _ -> return TyConChar
+    SynTyUnit _ -> return TyConUnit
+    SynTyRef _ qid synTyArgs -> lookupTyQual qid
+
+
 -- A "syntax-level type" is just an
 -- AST representing a type
 tcTy :: UniqAst SynTy -> Checked Ty
@@ -600,9 +640,12 @@ tcTy (SynTyList _ tyArg) = do
 tcTy (SynTyRef _ qid synTyArgs) = do
   tyCon <- lookupTyQual qid
   case tyCon of
-    TyConTyVar id' -> return $ TyVar id'
-    _ -> do tyArgs <- mapM tcTy synTyArgs
-            return $ TyApp tyCon tyArgs
+    TyConTyVar id'                -> return $ TyVar id'
+    TyConTyScheme tyCon' straints ->
+      return $ TyScheme (TyApp tyCon' []) straints
+    _ -> do
+      tyArgs <- mapM tcTy synTyArgs
+      return $ TyApp tyCon tyArgs
 
 
 tcAdtAlt :: UniqAst AdtAlternative -> Checked (UniqId, [Ty])
@@ -705,7 +748,7 @@ tcTyDec (TypeDecAdt p id tyParamIds alts) = do
   ctorEs <- mapM (\(alt@(AdtAlternative altPos ctorName _ _), argTys) ->
                     let ctorTy = TyPoly tyParamIds $ TyApp TyConArrow (argTys ++ [TyApp adtTyCon (map TyVar tyParamIds)])
                     in do bindVar ctorName ctorTy
-                          putPatBinding ctorName ctorTy
+                          bindPat ctorName ctorTy
                           makeAdtCtor alt (TyApp adtTyCon argTys) ctorTy argTys)
                  altsTys
   return (adtTyCon, ctorEs)
@@ -998,8 +1041,39 @@ tc (ILWithAnn p (TyAnn _ id tyParamIds synTy constrs) e) = do
   generalize ty >>= bindVar id
   return (ty, e')
 
-tc (ILProtoDec p protoId tyParamId constrs tyAnns) = return (tyUnit, ILUnit (OfTy p tyUnit))
-tc (ILProtoImp p synTy protoId constrs bodyEs) = return (tyUnit, ILUnit (OfTy p tyUnit))
+tc (ILProtoDec p protoId tyParamId straints tyAnns) = do
+  bindProtoDec protoId $ Protocol protoId tyParamId $ map bindingId tyAnns
+  -- Bind the target type as a tyvar (tycon), with its given constraints
+  -- and an added one for the protocol dec being checked
+  let constraints = TyConstraint protoId : getProtoConstraints straints
+  exportTy tyParamId $ TyConTyScheme (TyConTyVar tyParamId) constraints
+  mapM_ (\(TyAnn _ name tyParamIds synTy straints) -> do
+            ty <- tcTy synTy
+            bindVar name ty)
+        tyAnns
+  -- TODO: 1) Need to generate actual functions here,
+  -- one for each declaration, that take dictionaries as arguments
+  -- and pass through to the corresponding entries in said dictionaries
+  -- e.g. equal : a -> a -> Bool
+  -- -->
+  -- equal : (Dict Eq a) -> a -> a -> Bool
+  -- equal(dictEqA, a1, a2) = dictEqA["equal"](a1, a2)
+  -- 2) Add an empty instance environment for this protocol
+  modifyTC $ \tcEnv ->
+              tcEnv { impEnv = Map.insert protoId Map.empty (impEnv tcEnv) }
+  return (tyUnit, ILUnit (OfTy p tyUnit))
+
+tc (ILProtoImp p synTy protoId straints bodyEs) = do
+  tyCon <- tcTycon synTy
+  protoImpEnv <- envLookupOrFail impEnv protoId
+  let maybeImp = Map.lookup tyCon protoImpEnv
+  case maybeImp of
+    Just _ -> throwError $ ErrProtocolAlreadyImplemented protoId tyCon
+    _ ->
+      let imp = Map.empty
+          protoImpEnv' = Map.insert tyCon imp protoImpEnv
+      in do modifyTC $ \tcEnv -> tcEnv { impEnv = Map.insert protoId protoImpEnv' (impEnv tcEnv) }
+            return (tyUnit, ILUnit (OfTy p tyUnit))
 
 tc (ILBegin p es) = do
   (ty, es') <- tcEs es
