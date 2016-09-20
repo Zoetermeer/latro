@@ -244,6 +244,22 @@ instance (Sexpable a, Sexpable id) => Sexpable (Exp a id) where
           , sexp e
           ]
   sexp (ExpTypeDec d tyDec) = List [ Symbol "ExpTypeDec", sexp d, sexp tyDec ]
+  sexp (ExpProtoDec d protoId tyId constraints tyAnns) =
+    List  [ Symbol "ExpProtoDec"
+          , sexp d
+          , sexp protoId
+          , sexp tyId
+          , toSexpList constraints
+          , toSexpList tyAnns
+          ]
+  sexp (ExpProtoImp d sty protoId constraints es) =
+    List  [ Symbol "ExpProtoImp"
+          , sexp d
+          , sexp sty
+          , sexp protoId
+          , toSexpList constraints
+          , toSexpList es
+          ]
   sexp (ExpTyAnn (TyAnn d id tyParamIds synTy constrs)) =
     List  [ Symbol "ExpTyAnn"
           , sexp d
