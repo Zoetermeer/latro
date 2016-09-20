@@ -250,6 +250,7 @@ TyParams : '{' CommaSeparatedIds '}' { $2 }
          | {- empty -} { [] }
 
 TyAnn : SimpleOrMixedId TyParams ':' Ty Constraints { TyAnn (pos $1) (tokValue $1) $2 $4 $5 }
+      | '@' '(' SpecialId ')' TyParams ':' Ty Constraints { TyAnn (pos $1) (tokValue $3) $5 $7 $8 }
 
 OneOrMoreTyAnns : TyAnn { [$1] }
                 | OneOrMoreTyAnns TyAnn { $1 ++ [$2] }
