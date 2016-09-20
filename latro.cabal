@@ -28,7 +28,6 @@ executable latro
                        GenericPretty,
                        haskeline,
                        MissingH,
-                       monadlist,
                        mtl,
                        pretty,
                        transformers

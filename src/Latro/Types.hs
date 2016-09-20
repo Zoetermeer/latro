@@ -6,10 +6,10 @@ import Common
 import Compiler
 import Control.Error.Util (hoistEither)
 import Control.Monad.Except
-import Control.Monad.ListM (sortByM)
 import Control.Monad.State
 import Data.Either.Utils (maybeToEither)
 import qualified Data.Map.Strict as Map
+import Data.List (sortBy)
 import Data.Maybe (fromMaybe, isNothing)
 import qualified Data.Set as Set
 import Debug.Trace (trace, traceM)
@@ -977,11 +977,11 @@ tc (ILMakeAdt p id i es) = throwError $ ErrNotImplemented "tc for ILMakeAdt"
 
 tc (ILStruct p id fieldInitEs) = do
   ty <- tcTy $ SynTyRef p (Id p id) []
-  sorted <- sortByM (\(ILFieldInit aId _) (ILFieldInit bId _) -> do
-                        aInd <- lookupFieldIndex id aId
-                        bInd <- lookupFieldIndex id bId
-                        return $ compare aInd bInd)
-                    fieldInitEs
+  initIndices <- mapM (\f@(ILFieldInit fid _) -> do
+                          ind <- lookupFieldIndex id fid
+                          return (f, ind))
+                      fieldInitEs
+  let sorted = fst $ unzip $ sortBy (\a b -> compare (snd a) (snd b)) initIndices
   let initEs = map (\(ILFieldInit _ e) -> e) sorted
   tc $ ILApp p (ILRef p id) initEs
 
