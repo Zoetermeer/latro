@@ -595,11 +595,17 @@ convert (ExpTypeDec p (TypeDecAdt pInner id tyParamIds alts)) = do
 
 convert (ExpProtoDec p protoId tyParamId constrs tyAnns) = do
   protoId' <- freshTypeIdM protoId
-  pushNewFrame
+  -- TODO: This is a symptom of a more general bug in the AC, where
+  -- type parameter id's leak out of their intended lexical scope.
+  -- We want any new bindings introduced in annotations to bind globally,
+  -- but not type parameter id's.  Parameterized types also suffer from this problem.
+  -- The solution is to add a new function to pop only segments of the current frame
+  -- (e.g. popFrameTyEnv).
+  -- pushNewFrame
   tyParamId' <- freshTypeIdM tyParamId
   constrs' <- mapM convertConstraint constrs
   tyAnns' <- mapM convertTyAnn tyAnns
-  popFrame
+  -- popFrame
   return $ ExpProtoDec p protoId' tyParamId' constrs' tyAnns'
 
 convert (ExpProtoImp p synTy protoId constrs bodyEs) = do

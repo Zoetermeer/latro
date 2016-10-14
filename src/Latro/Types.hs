@@ -364,6 +364,7 @@ allMetaIdsIn ty =
     TyVar _ -> []
     TyMeta id -> [id]
     TyRef _ -> []
+    TyScheme ty _ -> allMetaIdsIn ty
 
 
 referencedMetaIds :: UniqId -> Checked [UniqId]
@@ -504,6 +505,12 @@ subst ty =
       tyCon' <- substTyCon tyCon
       return $ TyApp tyCon' []
 
+    TyScheme ty straints -> do
+      ty' <- subst ty
+      return $ TyScheme ty' straints
+
+    _ -> throwError $ ErrInterpFailure $ "Inexhaustive case in 'subst' for type: " ++ show ty
+
 
 -- Helper for type mismatches (we don't want
 -- to expose types with free metavariables to the
@@ -518,6 +525,7 @@ unifyFail a b = do
 
 unify :: Ty -> Ty -> Checked Ty
 unify tya tyb = do
+  -- traceM $ "UNIFY " ++ show tya ++ " ---> " ++ show tyb
   oldPolyEnv <- markPolyEnv
   oldMetaEnv <- markMetaEnv
   case (tya, tyb) of
@@ -592,6 +600,10 @@ unify tya tyb = do
     (ty, TyRef qid) -> do
       tyb <- lookupTyQual qid
       unify ty $ TyApp tyb []
+
+    (ty, tyScheme@TyScheme{}) -> unify tyScheme ty
+
+    -- (TyScheme ty straints, ty) ->
 
     (ta, tb) -> unifyFail ta tb
 
@@ -870,6 +882,7 @@ tc (ILCons p headE listE) = do
 
 tc (ILApp p ratorE randEs) = do
   (fty, ratorE') <- tc ratorE
+  -- traceM $ "tc ILApp: " ++ show fty
   (randTys, randEs') <- mapAndUnzipM tc randEs
   retTyMeta@(TyMeta retTyMetaId) <- freshMeta
   (TyApp TyConArrow arrowTys) <-
@@ -1049,7 +1062,7 @@ tc (ILProtoDec p protoId tyParamId straints tyAnns) = do
   exportTy tyParamId $ TyConTyScheme (TyConTyVar tyParamId) constraints
   mapM_ (\(TyAnn _ name tyParamIds synTy straints) -> do
             ty <- tcTy synTy
-            bindVar name ty)
+            bindVar name $ TyPoly [tyParamId] ty)
         tyAnns
   -- TODO: 1) Need to generate actual functions here,
   -- one for each declaration, that take dictionaries as arguments

@@ -580,6 +580,14 @@ instance Sexpable Ty where
   sexp (TyRef qid) = List [ Symbol "Ref", sexp qid ]
 
 
+instance Sexpable TyConstraint where
+  sexp (TyConstraint protoId) = List [ Symbol "TyConstraint", sexp protoId ]
+
+
+instance CompilerOutput TyConstraint where
+  render (TyConstraint protoId) = render protoId
+
+
 instance CompilerOutput Ty where
   render (TyApp TyConInt []) = "Int"
   render (TyApp TyConBool []) = "Bool"
@@ -599,6 +607,10 @@ instance CompilerOutput Ty where
   render (TyVar tyVar) = render tyVar
   render (TyMeta id) = render id
   render (TyRef qid) = render qid
+  render (TyScheme ty straints) =
+    printf "(%s) => %s"
+           (renderCommaSep straints)
+           (render ty)
   -- render ty = showSexp ty
 
 

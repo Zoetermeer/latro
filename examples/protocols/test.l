@@ -19,7 +19,7 @@
 //declared by the class.  (We can't define a method on an instance that
 //isn't declared by the class.)
 protocol Eq on a {
-  equal : a -> a -> Bool
+  equal{b} : a -> a -> Bool
 }
 
 
@@ -34,15 +34,16 @@ imp Int : Eq {
 }
 
 
-imp Bool : Eq {
+imp Eq of Bool {
   equal(True, True) = True
   equal(False, False) = True
   equal(_, _) = False
 }
 
 
-imp a[] : Eq
-  when a : Eq
+imp Eq of a[]
+  when a => Eq
+  when 
 {
   equal([], []) = True
   equal(x::xs, y::ys) =

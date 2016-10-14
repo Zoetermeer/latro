@@ -5,6 +5,10 @@ protocol Eq on a {
   @(==) : a -> a -> Bool
 }
 
+// -->
+// @(==) : a -> a -> Bool
+//    where a : Eq
+
 imp Int : Eq {
   @(==)(x, y) = prim(intEq)(x, y)
 }
