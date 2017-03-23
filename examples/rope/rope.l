@@ -43,7 +43,7 @@ module Rope {
   }
 
 
-  index : Rope -> Int -> Maybe{Char}
+  index : Rope -> Int -> Maybe<Char>
   index(Leaf(string), n) = atIndex(string, n)
   index(Node(weight, left, right), n) = {
     cond {
@@ -73,7 +73,7 @@ module Rope {
   }
 
 
-  substring : Rope -> Int -> Int -> Maybe{String}
+  substring : Rope -> Int -> Int -> Maybe<String>
   substring(Leaf(str), i, j) = {
     let %(_, tmp) = String.splitAt(str, i)
     let %(s, _)   = String.splitAt(tmp, j - i)

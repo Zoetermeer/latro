@@ -246,7 +246,7 @@ FunDef : SimpleOrMixedId '(' PatExpList ')' FunBody { FunDefFun (pos $1) (tokVal
 
 FunBody : '=' Exp { $2 }
 
-TyParams : '{' CommaSeparatedIds '}' { $2 }
+TyParams : '<' CommaSeparatedIds '>' { $2 }
          | {- empty -} { [] }
 
 TyAnn : SimpleOrMixedId TyParams ':' Ty Constraints { TyAnn (pos $1) (tokValue $1) $2 $4 $5 }
@@ -310,7 +310,7 @@ TyTuple : '%(' Ty TyTupleRest ')' { SynTyTuple (pos $1) ($2:$3) }
 OptionalImpClause : ':' Ty { Just $2 }
                   | {- empty -} { Nothing }
 
-TyArgs : '{' CommaSeparatedTys '}' { $2 }
+TyArgs : '<' CommaSeparatedTys '>' { $2 }
        | {- empty -} { [] }
 
 SimpleTy : Int { SynTyInt (pos $1)  }
@@ -351,9 +351,14 @@ SimpleOrMixedId : simple_id { $1 }
                 | mixed_id { $1 }
 
 SpecialId : special_id { $1 }
+          | '=' { Token (pos $1) $ TokenSpecialId "=" }
+          | '=' SpecialId { Token (pos $1) $ TokenSpecialId $ "=" ++ tokValue $2 }
           | '|' { Token (pos $1) $ TokenSpecialId "|" }
+          | '|' SpecialId { Token (pos $1) $ TokenSpecialId $ "|" ++ tokValue $2 }
           | '<' { Token (pos $1) $ TokenSpecialId "<" }
           | '>' { Token (pos $1) $ TokenSpecialId ">" }
+          | '<' SpecialId { Token (pos $1) $ TokenSpecialId $ "<" ++ tokValue $2 }
+          | '>' SpecialId { Token (pos $1) $ TokenSpecialId $ ">" ++ tokValue $2 }
 
 AnyId : simple_id { $1 }
       | mixed_id { $1 }

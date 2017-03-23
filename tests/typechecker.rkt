@@ -78,7 +78,7 @@
     (check-match
       @interp-lines{
         main(_) = {
-          xs{a} : a[]
+          xs<a> : a[]
           let xs = []
           IO.println(xs)
         }
@@ -499,7 +499,7 @@
   (test-case "it allows polymorphic behavior of functions with switches at different callsites"
     (check-equal?
       @interp-lines{
-        unwrap{a} : a -> a
+        unwrap<a> : a -> a
         unwrap(x) = {
           switch (x) {
             y -> y
@@ -539,7 +539,7 @@
   (test-case "it checks annotated functions with recursive application"
     (check-match
       @interp-sexp{
-        len{a} : a[] -> Int
+        len<a> : a[] -> Int
         len([]) = 0
         len(x::xs) = 1 + len(3)
 
@@ -550,7 +550,7 @@
   (test-case "it fails in ill-typed application of annotated functions"
     (check-match
       @interp-sexp{
-        len{a} : a[] -> Int
+        len<a> : a[] -> Int
         len([]) = 0
         len(x::xs) = { 1 + len(xs) }
 
@@ -571,7 +571,7 @@
   (test-case "it unifies different explicit type params if an application matches their types"
     (check-match
       @interp-sexp{
-        f{a, a} : a -> a -> a
+        f<a, a> : a -> a -> a
         f(x, y) = { if (True) x y }
         main(_) = {
           IO.println(f(1, 'c'))
@@ -638,7 +638,7 @@
   (test-case "it checks parameterized ADT types"
     (check-match
       @interp-lines{
-        type Option{a} =
+        type Option<a> =
           | Some(a)
           | None
 
@@ -652,7 +652,7 @@
   (test-case "it checks parameterized ADT types with multiple parameters"
     (check-equal?
       @interp-lines{
-        type Either{l, r} =
+        type Either<l, r> =
           | Left(l)
           | Right(r)
 
@@ -665,7 +665,7 @@
   (test-case "it checks parameterized ADT type constructors with no arguments"
     (check-equal?
       @interp-lines{
-        type Option{a} =
+        type Option<a> =
           | Some(a)
           | None
 
@@ -678,10 +678,10 @@
   (test-case "it does not unify two distinct types with the same structure"
     (check-match
       @interp-sexp{
-        type A{a} =
+        type A<a> =
           | A(a, a)
 
-        type B{a} =
+        type B<a> =
           | B(a, a)
 
         main(_) = {
@@ -729,7 +729,7 @@
   (test-case "it checks ADT patterns"
     (check-equal?
       @interp-lines{
-        type Option{a} =
+        type Option<a> =
           | Some(a)
           | None
 
@@ -743,7 +743,7 @@
   (test-case "it does not allow arbitrary functions in ADT patterns"
     (check-match
       @interp-sexp{
-        type Option{a} =
+        type Option<a> =
           | Some(a)
           | None
 
@@ -760,7 +760,7 @@
     (check-match
       @interp-sexp{
         module Opt {
-          type t{a} = | Some(a) | None
+          type t<a> = | Some(a) | None
 
           GetOne() = Some(42)
         }
@@ -780,7 +780,7 @@
     (check-equal?
       @interp-lines{
         module Opt {
-          type t{a} = | Some(a) | None
+          type t<a> = | Some(a) | None
 
           GetOne() = Some(42)
         }
@@ -800,11 +800,11 @@
   (test-case "it checks annotated functions on polymorphic ADT's"
     (check-match
       @interp-sexp{
-        type Opt{a} =
+        type Opt<a> =
           | Some(a)
           | None
 
-        unsafeUnwrap{t} : Opt{t} -> t
+        unsafeUnwrap<t> : Opt<t> -> t
         unsafeUnwrap(Some(x)) = x
 
         main(_) = {
@@ -818,7 +818,7 @@
   (test-case "it checks implicitly typed functions on polymorphic ADT's"
     (check-match
       @interp-sexp{
-        type Opt{a} =
+        type Opt<a> =
           | Some(a)
           | None
 
@@ -835,11 +835,11 @@
   (test-case "it checks annotated functions refining the type parameter on polymorphic ADT's"
     (check-match
       @interp-sexp{
-        type Opt{a} =
+        type Opt<a> =
           | Some(a)
           | None
 
-        unsafeUnwrap : Opt{Int} -> Int
+        unsafeUnwrap : Opt<Int> -> Int
         unsafeUnwrap(Some(x)) = x
 
         main(_) = {
@@ -852,7 +852,7 @@
   (test-case "it infers function types on ADT values"
     (check-equal?
       @interp-lines{
-        type Opt{a} = | Some(a) | None
+        type Opt<a> = | Some(a) | None
 
         not(True) = False
         not(_) = True
@@ -877,8 +877,8 @@
   (test-case "it checks applications involving parameterized recursive types"
     (check-equal?
       @interp-lines{
-        type BTree{a} =
-          | Node(a, BTree{a}, BTree{a})
+        type BTree<a> =
+          | Node(a, BTree<a>, BTree<a>)
           | Leaf(a)
 
         sizeImp(tree) = {
@@ -889,7 +889,7 @@
           }
         }
 
-        sizeExp{a} : BTree{a} -> Int
+        sizeExp<a> : BTree<a> -> Int
         sizeExp(Leaf(_)) = 1
         sizeExp(Node(_, left, right)) = {
           1 + sizeImp(left) + sizeImp(right)
@@ -902,8 +902,8 @@
   (test-case "it unifies functions constructing recursive polymorphic types"
     (check-equal?
       @interp-lines{
-        type BTree{a} =
-          | Node(a, BTree{a}, BTree{a})
+        type BTree<a> =
+          | Node(a, BTree<a>, BTree<a>)
           | Leaf(a)
 
         comp(x) = switch(x) {
@@ -920,8 +920,8 @@
   (test-case "it rejects ill-typed applications involving recursive polymorphic types"
     (check-match
       @interp-sexp{
-        type BTree{a} =
-          | Node(a, BTree{a}, BTree{a})
+        type BTree<a> =
+          | Node(a, BTree<a>, BTree<a>)
           | Leaf(a)
 
         comp(x) = switch(x) {
@@ -938,15 +938,15 @@
   (test-case "it refines annotated functions involving recursive polymorphic types"
     (check-match
       @interp-sexp{
-        type BTree{a} =
-          | Node(a, BTree{a}, BTree{a})
+        type BTree<a> =
+          | Node(a, BTree<a>, BTree<a>)
           | Leaf(a)
 
-        intVal : BTree{Int} -> Int
+        intVal : BTree<Int> -> Int
         intVal(Leaf(v)) = v
         intVal(Node(v, left, right)) = v + intVal(left) + intVal(right)
 
-        addIntData : BTree{Int} -> BTree{Int} -> Int
+        addIntData : BTree<Int> -> BTree<Int> -> Int
         addIntData(a, b) = intVal(a) + intVal(b)
 
         main(_) = {
@@ -958,10 +958,10 @@
   (test-case "it enforces refinements via annotations on ADT's"
     (check-match
       @interp-sexp{
-        type Foo{a} =
+        type Foo<a> =
           | Bar(a)
 
-        getVal : Foo{Int} -> Int
+        getVal : Foo<Int> -> Int
         getVal(Bar(x)) = x
 
         main(_) = {
@@ -1013,12 +1013,12 @@
   (test-case "it checks functions with argument types accepting multiple type params"
     (check-equal?
       @interp-lines{
-        type t{k, v} = %(k, v)[]
+        type t<k, v> = %(k, v)[]
 
-        insert{k, v} : t{k, v} -> k -> v -> t{k, v}
+        insert<k, v> : t<k, v> -> k -> v -> t<k, v>
         insert(map, key, val) = { %(key, val) :: map }
 
-        find{v} : t{Int, v} -> Int -> Maybe{v}
+        find<v> : t<Int, v> -> Int -> Maybe<v>
         find([], _) = Nothing()
         find(%(k, v) :: kvs, findKey) =
           cond {
@@ -1037,7 +1037,7 @@
   (test-case "it checks implicit functions with argument types accepting multiple type params"
     (check-equal?
       @interp-lines{
-        type t{k, v} = %(k, v)[]
+        type t<k, v> = %(k, v)[]
 
         insert(map, key, val) = { %(key, val) :: map }
 

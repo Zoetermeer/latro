@@ -1007,7 +1007,7 @@
         }
 
         module Lists {
-          Map{a, b} : (a -> b) -> a[] -> b[]
+          Map<a, b> : (a -> b) -> a[] -> b[]
           Map(_, []) = []
           Map(f, x::xs) = {
             f(x) :: Map(f, xs)

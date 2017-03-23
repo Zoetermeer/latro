@@ -40,11 +40,11 @@ precedence && 11
 @(|>)(x, f) = f(x)
 precedence |> 12
 
-type Maybe{a} =
+type Maybe<a> =
   | Just(a)
   | Nothing
 
-type Result{e, t} =
+type Result<e, t> =
   | Ok(t)
   | Error(e)
 
@@ -52,7 +52,7 @@ module Core {
   id(v) = v
 
   module List {
-    length{a} : a[] -> Int
+    length<a> : a[] -> Int
     length([])    = 0
     length(x::xs) = 1 + length(xs)
 
@@ -62,28 +62,28 @@ module Core {
     @(++)(a::as, bs) = a :: (as ++ bs)
 
 
-    head{a} : a[] -> Maybe{a}
+    head<a> : a[] -> Maybe<a>
     head([]) = Nothing()
     head(x::_) = Just(x)
 
 
-    tail{a} : a[] -> Maybe{a[]}
+    tail<a> : a[] -> Maybe<a[]>
     tail([]) = Nothing()
     tail(_::xs) = Just(xs)
 
 
-    atIndex{a} : a[] -> Int -> Maybe{a}
+    atIndex<a> : a[] -> Int -> Maybe<a>
     atIndex([], _)    = Nothing()
     atIndex(x::_, 0)  = Just(x)
     atIndex(_::xs, n) = atIndex(xs, n - 1)
 
 
-    map{a, b} : (a -> b) -> a[] -> b[]
+    map<a, b> : (a -> b) -> a[] -> b[]
     map(_, []) = []
     map(f, x::xs) = f(x) :: map(f, xs)
 
 
-    each{a} : (a -> Unit) -> a[] -> Unit
+    each<a> : (a -> Unit) -> a[] -> Unit
     each(_, []) = ()
     each(f, x::xs) = {
       f(x)
@@ -91,17 +91,17 @@ module Core {
     }
 
 
-    foldl{a, b} : (a -> b -> b) -> b -> a[] -> b
+    foldl<a, b> : (a -> b -> b) -> b -> a[] -> b
     foldl(f, b, []) = b
     foldl(f, b, x::xs) = foldl(f, f(x, b), xs)
 
 
-    foldr{a, b} : (a -> b -> b) -> b -> a[] -> b
+    foldr<a, b> : (a -> b -> b) -> b -> a[] -> b
     foldr(f, b, x::xs) = f(x, foldr(f, b, xs))
     foldr(f, b, [])    = b
 
 
-    select{a} : (a -> Bool) -> a -> %(a[], a[]) -> %(a[], a[])
+    select<a> : (a -> Bool) -> a -> %(a[], a[]) -> %(a[], a[])
     select(p, x, %(ts, fs)) =
       cond {
         p(x) -> %(x :: ts, fs)
@@ -109,7 +109,7 @@ module Core {
       }
 
 
-    partition{a} : (a -> Bool) -> a[] -> %(a[], a[])
+    partition<a> : (a -> Bool) -> a[] -> %(a[], a[])
     partition(p, xs) = {
       let selector = fun(x, pr) = select(p, x, pr)
       foldr(selector, %([], []), xs)
@@ -118,10 +118,10 @@ module Core {
 }
 
 module Tuple {
-  fst{a, b} : %(a, b) -> a
+  fst<a, b> : %(a, b) -> a
   fst(%(a, _)) = a
 
-  snd{a, b} : %(a, b) -> b
+  snd<a, b> : %(a, b) -> b
   snd(%(_, b)) = b
 }
 

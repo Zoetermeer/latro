@@ -70,7 +70,7 @@ Literal values for each of the built-in types can be written directly, e.g:
   - ``'m'`` is a ``Char`` representing the character ``m``
   - ``[1, 2, 3]`` is an ``Int[]`` with 3 elements
   - ``%(1, True)`` is an ``%(Int, Bool)`` tuple
-  - ``fun(x) = x`` is the identity function (its type is ``fun{a}(a) : a``)
+  - ``fun(x) = x`` is the identity function (its type is ``fun<a> : a -> a``)
 
 Additionally, we can write string literals using the familiar double-quoted
 syntax, e.g. ``"hello world"``.  The type of a string literal is ``Char[]``
@@ -98,7 +98,7 @@ If we were to omit the annotation from above, like so:
   f(i, b) = b
 
 Latro would infer the type of this function to be a polymorphic one returning
-its second argument: ``{t1, t2} t1 -> t2 -> t2``.
+its second argument: ``fun<t1, t2> : t1 -> t2 -> t2``.
 
 Sometimes we may want to define *type aliases* for types to give them special 
 meaning; for example, we may want to define a name ``String`` that really
@@ -139,7 +139,7 @@ The idiomatic way to do something like this is to define a new binding:
 
   let x = 42
   let x' = 43
-  
+
   x' // 43
 
 Conditionals
@@ -303,10 +303,10 @@ where each function definition looks very much like a truth table:
   or(_, True) = True
   or(True, _) = True
   or(_, _) = False
-  
+
   and(True, True) = True
   and(_, _) = False
-  
+
   xor(False, False) = False
   xor(True, False) = True
   xor(False, True) = True
@@ -364,7 +364,7 @@ All functions *close* over bindings in their surrounding scope, e.g.:
 
   adder(x) = fun(y) = x + y
   let add5 = adder(5)
-  
+
   add5(6) // 11
 
 Special identifiers and custom operators
@@ -409,7 +409,7 @@ a *precedence assignment*:
 
   @(&&)(True, True) = True
   @(&&)(_, _) = False
-  
+
   precedence && 1
 
 This indicates that the ``&&`` operator has precedence ``1``, which is the
@@ -424,10 +424,10 @@ highest.)  Thus the program:
 
   @(&&)(True, True) = True
   @(&&)(_, _) = False
-  
+
   precedence && 1
   precedence || 2
-  
+
   True || False && True
 
 Would be parsed as:
@@ -457,7 +457,7 @@ use an ADT to represent a value that can be either present or absent:
 
 .. code:: ocaml
 
-  type Optional{a} =
+  type Optional<a> =
     | Present(a)
     | Absent
 
@@ -473,38 +473,38 @@ the name of a constructor:
 
 .. code:: ocaml
 
-  type Optional{a} =
+  type Optional<a> =
     | Present(a)
     | Absent
-  
+
   isPresent(Present(_)) = True
   isPresent(_) = False
-  
+
   let a = Present(False)
   let Present(x) = a
-  
+
   or(x, a.isPresent()) // True
 
 We might use this particular ADT to define some useful operations on lists:
 
 .. code:: ocaml
 
-  type Optional{a} =
+  type Optional<a> =
     | Present(a)
     | Absent
-  
+
   head([]) = Absent()
   head(x::_) = Present(x)
-  
+
   tail([]) = Absent()
   tail(_::xs) = Present(xs)
-  
+
   head([1, 2, 3]) // Present(1)
   tail(["hello", "world"]) // Present(["world"])
-  
+
   head("hello") // Present("h")
   tail("hello") // Present("ello")
-  
+
 
 Structures
 ----------
@@ -518,7 +518,7 @@ arbitrary number of named fields:
     Name : Char[]
     Age : Int
   }
-  
+
   let p = Person %{ Name = "john"; Age = 42; }
 
 Each field defined for a struct type also gives us
@@ -533,12 +533,12 @@ Like ADT's, structure types can be polymorphic:
 
 .. code:: ocaml
 
-  type Person{a} = struct {
+  type Person<a> = struct {
     Name : Char[]
     Age : Int
     CustomData : a
   }
-  
+
   let p1 = Person %{ Name = "john"; Age = 42; CustomData = False; }
   let p2 = Person %{ Name = "jim"; Age = 41; CustomData = [1, 2, 3]; }
 
@@ -551,14 +551,14 @@ simple binary-tree implementation:
 
 .. code:: ocaml
 
-  type BTree{a} =
-    | Node(a, BTree{a}, BTree{a})
+  type BTree<a> =
+    | Node(a, BTree<a>, BTree<a>)
     | Leaf(a)
-  
+
   size(Leaf(_)) = 1
   size(Node(_, left, right)) =
     1 + size(left) + size(right)
-  
+
   size(Node("a", Leaf("b"), Leaf("c"))) // 3
 
 Modules
@@ -571,12 +571,12 @@ grouped into modules like so:
 
   module String {
     type t = Char[]
-    
+
     len : t -> Int
     len("") = 0
     len(c::cs) = 1 + len(cs)
   }
-  
+
   String.len("hello world") // 11
 
 Note also here we are using a list pattern on strings, which works because
@@ -594,7 +594,7 @@ Modules can also be arbitrarily nested:
       append(_, b) = b
     }
   }
-  
+
   StringStuff.ExtraStringStuff.append("hello", " world") // "hello world"
 
 Submodules can refer to all of the types and/or values defined 
@@ -615,10 +615,10 @@ they can be referred to without using a qualified module path:
       append(_, b) = b
     }
   }
-  
+
   import StringStuff.ExtraStringStuff
   append("hello", " world") // "hello world"
-  
+
 
 **Modules and the toplevel**
 
@@ -653,11 +653,11 @@ a module later to add bindings to it.
   module M {
     let foo = 42
   }
-  
+
   module M {
     let bar = 43
   }
-  
+
   M.bar + M.foo
 
 Module names are resolved using *qualified identifiers* or paths, where a
@@ -670,13 +670,13 @@ some other toplevel module with the same name:
   module M {
     let foo = 42
   }
-  
+
   module N {
     module M {
       let bar = 43
     }
   }
-  
+
   M.bar + M.foo // ERROR: Unbound identifier 'bar'!
 
 This code does not compile because ``bar`` is defined on the module
@@ -688,12 +688,12 @@ directly in ``N`` that refers to ``M``:
   module M {
     let foo = 42
   }
-  
+
   module N {
     module M {
       let bar = 43
     }
-    
+
     f() = M.foo //ERROR: Unbound identifier 'M.foo'!
   }
 
@@ -712,7 +712,7 @@ All of the examples work on the latest version of Latro at HEAD.
   - `Rope data structure implementation`_
   - `Monads`_
   - `Basic string-utilities module implementation`_
-  
+
 .. _Rope data structure implementation: https://github.com/Zoetermeer/L/blob/master/examples/rope/rope.l
 .. _Monads: https://github.com/Zoetermeer/L/blob/master/examples/monads/
 .. _Basic string-utilities module implementation: https://github.com/Zoetermeer/L/blob/master/examples/string/string.l
@@ -799,7 +799,7 @@ defined there:
   λ> length([1, 2, 3])
   3
   λ> :t length
-  {t} t[] -> Int
+  <t> t[] -> Int
 
 In addition to evaluating code directly, we can ask Latro about the type of any
 expression using the ``:t`` command like so:
@@ -851,11 +851,11 @@ For example, here's an example test from the interpreter suite:
     (check-equal?
       @interp{
         type IntOption = | Some(Int) | None
-  
+
         IsSome : IntOption -> Bool
         IsSome(Some(_)) = True
         IsSome(_) = False
-  
+
         let s = Some(42)
         let Some(v) = s
         %(IsSome(None()), IsSome(s), v)
@@ -877,7 +877,7 @@ Or we can run the entire test suite from the top-level directory:
 ::
 
   $> ./run_tests.sh
-  
+
 
 Roadmap
 =======

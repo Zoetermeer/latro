@@ -598,7 +598,7 @@ instance CompilerOutput Ty where
     let tyStrs = map render tys
     in intercalate " -> " tyStrs
   render (TyApp tyCon tys) =
-    printf "%s{%s}"
+    printf "%s<%s>"
            (render tyCon)
            (renderCommaSep tys)
 
