@@ -118,27 +118,27 @@ Lists can be constructed using the right-associative cons operator ``::``
   1 :: 2 :: [3, 4, 5]  // [1, 2, 3, 4, 5]
 
 No language would be complete without variable bindings.  We define these using
-``def``:
+``let``:
 
 .. code:: ocaml
 
-  def x = 42
-  def y = 43
+  let x = 42
+  let y = 43
   x + y
 
 "Rebinding" is not currently permitted.  Value bindings are fixed upon definition.  Consider:
 
 .. code:: ocaml
 
-  def x = 42
+  let x = 42
   x = 43 // ERROR
 
 The idiomatic way to do something like this is to define a new binding:
 
 .. code:: ocaml
 
-  def x = 42
-  def x' = 43
+  let x = 42
+  let x' = 43
   
   x' // 43
 
@@ -149,7 +149,7 @@ Latro offers two main forms of conditionals: ``if`` and ``cond``.
 
 .. code:: ocaml
 
-  def v = if (True) 42 43
+  let v = if (True) 42 43
   v // 42
 
 The "else" branch is required, and both branches of a conditional must be of the same type.
@@ -159,8 +159,8 @@ the ``cond`` form:
 
 .. code:: ocaml
 
-  def b1 = True
-  def b2 = False
+  let b1 = True
+  let b2 = False
   cond {
     and(b1, b2) -> 42
     or(b1, b2)  -> 43
@@ -176,22 +176,22 @@ so we may end up with a runtime exception if we don't include an explicit catch-
 Patterns and ``switch``
 -----------------------
 
-In any binding using ``def`` (and also in function arguments, as we will see) we can use
+In any ``let`` binding (and also in function arguments, as we will see) we can use
 *patterns* to destructure a value and introduce new bindings for its subcomponents.
 For example, we may want to bind elements of a list:
 
 .. code:: ocaml
 
-  def ls = [1, 2, 3, 4, 5]
-  def [_, _, x, y, z] = ls
+  let ls = [1, 2, 3, 4, 5]
+  let [_, _, x, y, z] = ls
   [x, y, z]
 
 Yields the list ``[3, 4, 5]``.  We can also use the cons operator to destructure:
 
 .. code:: ocaml
 
-  def ls = [1, 2, 3, 4, 5]
-  def x::_ = ls
+  let ls = [1, 2, 3, 4, 5]
+  let x::_ = ls
   x
 
 Yields the integer ``1``.  Notice also that we can use the wildcard pattern
@@ -201,25 +201,25 @@ Patterns can be used to do arbitrary traversals on a complex value:
 
 .. code:: ocaml
 
-  def ls = [[%(1, 2)], [%(3, 4), %(5, 6)]]
-  def [[%(x, _)], %(_, y) :: _] = ls
+  let ls = [[%(1, 2)], [%(3, 4), %(5, 6)]]
+  let [[%(x, _)], %(_, y) :: _] = ls
   x + y
 
 Produces ``5``.
 
-Note that patterns on ``def`` bindings can be unsafe, because the value on the
+Note that patterns on ``let`` bindings can be unsafe, because the value on the
 right-hand side of the binding may not match exactly the pattern used (although
 patterns are typechecked to eliminate simple mistakes).  This program:
 
 .. code:: ocaml
 
-  def [x, y, z] = [1, 2]
+  let [x, y, z] = [1, 2]
 
 Results in a runtime exception because the right-hand side only contains two elements,
 not three.
 
-In Latro, all ``def`` bindings are pattern bindings -- the
-``def x = v`` form is really just a simple case using an "id pattern",
+In Latro, all ``let`` bindings are pattern bindings -- the
+``let x = v`` form is really just a simple case using an "id pattern",
 which binds to anything in the same way as it does in the list-deconstruction
 examples above.
 
@@ -243,7 +243,7 @@ We can also use expression blocks for more complex case clauses:
 
   switch ([1, 2, 3]) {
     [x, y, z] -> {
-      def v = z + y
+      let v = z + y
       v * 2
     }
     _ -> 3
@@ -323,7 +323,7 @@ like the following:
 .. code:: ocaml
 
   xor(a, b) = {
-    def args = %(a, b)
+    let args = %(a, b)
     switch (args) {
       %(False, False) -> False
       %(True, False) -> True
@@ -333,13 +333,13 @@ like the following:
     }
   }
 
-Functions can also be bound using the familiar ``def`` syntax, although functions
+Functions can also be bound using the familiar ``let`` syntax, although functions
 defined in this way will not have their names bound in the body (so they cannot
 be recursive):
 
 .. code:: ocaml
 
-  def f = fun(x) = x
+  let f = fun(x) = x
 
 This is equivalent to binding a name to an anonymous function -- and anonymous functions
 obviously have no name with which to refer to themselves.
@@ -347,7 +347,7 @@ The compiler will complain if we try to implement Fibonacci using this form:
 
 .. code:: ocaml
 
-  def fib = fun(x) = {
+  let fib = fun(x) = {
     switch (x) {
       0 -> 0
       1 -> 1
@@ -363,7 +363,7 @@ All functions *close* over bindings in their surrounding scope, e.g.:
 ::
 
   adder(x) = fun(y) = x + y
-  def add5 = adder(5)
+  let add5 = adder(5)
   
   add5(6) // 11
 
@@ -466,7 +466,7 @@ type ``Optional{a}``:
 
 .. code:: ocaml
 
-  def v = Present(42) // Optional{Int}
+  let v = Present(42) // Optional{Int}
 
 We can deconstruct ADT values in any place where we can use patterns, using
 the name of a constructor:
@@ -480,8 +480,8 @@ the name of a constructor:
   isPresent(Present(_)) = True
   isPresent(_) = False
   
-  def a = Present(False)
-  def Present(x) = a
+  let a = Present(False)
+  let Present(x) = a
   
   or(x, a.isPresent()) // True
 
@@ -519,7 +519,7 @@ arbitrary number of named fields:
     Age : Int
   }
   
-  def p = Person %{ Name = "john"; Age = 42; }
+  let p = Person %{ Name = "john"; Age = 42; }
 
 Each field defined for a struct type also gives us
 an instance function we can use as an accessor:
@@ -539,8 +539,8 @@ Like ADT's, structure types can be polymorphic:
     CustomData : a
   }
   
-  def p1 = Person %{ Name = "john"; Age = 42; CustomData = False; }
-  def p2 = Person %{ Name = "jim"; Age = 41; CustomData = [1, 2, 3]; }
+  let p1 = Person %{ Name = "john"; Age = 42; CustomData = False; }
+  let p2 = Person %{ Name = "jim"; Age = 41; CustomData = [1, 2, 3]; }
 
 Recursive types
 ---------------
@@ -651,11 +651,11 @@ a module later to add bindings to it.
 .. code:: scala
 
   module M {
-    def foo = 42
+    let foo = 42
   }
   
   module M {
-    def bar = 43
+    let bar = 43
   }
   
   M.bar + M.foo
@@ -668,12 +668,12 @@ some other toplevel module with the same name:
 .. code:: scala
 
   module M {
-    def foo = 42
+    let foo = 42
   }
   
   module N {
     module M {
-      def bar = 43
+      let bar = 43
     }
   }
   
@@ -686,12 +686,12 @@ directly in ``N`` that refers to ``M``:
 .. code:: scala
 
   module M {
-    def foo = 42
+    let foo = 42
   }
   
   module N {
     module M {
-      def bar = 43
+      let bar = 43
     }
     
     f() = M.foo //ERROR: Unbound identifier 'M.foo'!
@@ -790,7 +790,7 @@ defined there:
   Unit
   λ> 1 + 1
   2
-  λ> def add = (+)
+  λ> let add = (+)
   Unit
   λ> add(3, 4)
   7
@@ -856,8 +856,8 @@ For example, here's an example test from the interpreter suite:
         IsSome(Some(_)) = True
         IsSome(_) = False
   
-        def s = Some(42)
-        def Some(v) = s
+        let s = Some(42)
+        let Some(v) = s
         %(IsSome(None()), IsSome(s), v)
       }
       '(Tuple (False True 42))))

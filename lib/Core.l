@@ -111,7 +111,7 @@ module Core {
 
     partition{a} : (a -> Bool) -> a[] -> %(a[], a[])
     partition(p, xs) = {
-      def selector = fun(x, pr) = select(p, x, pr)
+      let selector = fun(x, pr) = select(p, x, pr)
       foldr(selector, %([], []), xs)
     }
   }
@@ -137,7 +137,7 @@ module String {
   splitAt("", _)     = %("", "")
   splitAt(c::cs, 1)  = %([c], cs)
   splitAt(c::cs, n) = {
-    def %(a, b) = splitAt(cs, n - 1)
+    let %(a, b) = splitAt(cs, n - 1)
     %(c :: a, b)
   }
 }

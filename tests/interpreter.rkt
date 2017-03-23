@@ -104,7 +104,7 @@
     (check-equal?
       @interp-sexp{
         main(_) = {
-          def s = switch ("hello") {
+          let s = switch ("hello") {
             "foo" -> "bar"
             "hello" -> "world"
             _ -> "no match"
@@ -421,7 +421,7 @@
 
         f : Int -> Int
         f(x) = {
-          def isZero = switch (x) {
+          let isZero = switch (x) {
             0 -> True
             _ -> False
           }
@@ -526,7 +526,7 @@
         }
 
         main(_) = {
-          def p = Point %{ X = 3; Y = 4; }
+          let p = Point %{ X = 3; Y = 4; }
           IO.println(Y(p))
         }
       }
@@ -538,7 +538,7 @@
         type t = struct { }
 
         main(_) = {
-          def v = t %{ }
+          let v = t %{ }
           IO.println(x(v))
         }
       }
@@ -558,7 +558,7 @@
         }
 
         main(_) = {
-          def l = Line %{
+          let l = Line %{
             A = Point %{ X = 0; Y = 0; };
             B = Point %{ X = 3; Y = 4; };
           }
@@ -584,7 +584,7 @@
         }
 
         main(_) = {
-          def l = Geometry.Line %{
+          let l = Geometry.Line %{
             A = Geometry.Point %{ X = 0; Y = 0; };
             B = Geometry.Point %{ X = 3; Y = 4; };
           }
@@ -677,7 +677,7 @@
     (check-equal?
       @interp-lines{
         main(_) = {
-          def ls = [1, 2, 3, 4]
+          let ls = [1, 2, 3, 4]
           IO.println(ls)
         }
       }
@@ -706,7 +706,7 @@
     (check-equal?
       @interp-sexp{
         main(_) = {
-          def [a, b, c] = [1, 2, 3]
+          let [a, b, c] = [1, 2, 3]
           IO.println(a + b + c)
         }
       }
@@ -716,7 +716,7 @@
     (check-equal?
       @interp-sexp{
         main(_) = {
-          def [_, b, 3] = [1, 2, 3]
+          let [_, b, 3] = [1, 2, 3]
           IO.println(b)
         }
       }
@@ -726,7 +726,7 @@
     (check-match
       @interp-sexp{
         main(_) = {
-          def [a, b] = []
+          let [a, b] = []
           IO.println(a)
         }
       }
@@ -736,7 +736,7 @@
     (check-equal?
       @interp-lines{
         main(_) = {
-          def x::xs = [1, 2, 3, 4]
+          let x::xs = [1, 2, 3, 4]
           IO.println(%(x, xs))
         }
       }
@@ -746,7 +746,7 @@
     (check-equal?
       @interp-sexp{
         main(_) = {
-          def x::[] = [3]
+          let x::[] = [3]
           IO.println(x)
         }
       }
@@ -756,7 +756,7 @@
     (check-equal?
       @interp-lines{
         main(_) = {
-          def xs::[[3, 4], [x, _, z]] = [[1, 2], [3, 4], [5, 6, 7]]
+          let xs::[[3, 4], [x, _, z]] = [[1, 2], [3, 4], [5, 6, 7]]
           IO.println(%(xs, x, z))
         }
       }
@@ -766,7 +766,7 @@
     (check-equal?
       @interp-sexp{
         main(_) = {
-          def %(a, b) = %(1, True)
+          let %(a, b) = %(1, True)
           IO.println(b)
         }
       }
@@ -776,7 +776,7 @@
     (check-equal?
       @interp-sexp{
         main(_) = {
-          def %(_, b) = %(1, 43)
+          let %(_, b) = %(1, 43)
           IO.println(b)
         }
       }
@@ -786,7 +786,7 @@
     (check-equal?
       @interp-sexp{
         main(_) = {
-          def _ = 42
+          let _ = 42
           IO.println(43)
         }
       }
@@ -796,8 +796,8 @@
     (check-equal?
       @interp-lines{
         main(_) = {
-          def v = %(4, False)
-          def x = switch (v) {
+          let v = %(4, False)
+          let x = switch (v) {
             %(0, _) -> 1
             %(4, True) -> 2
             %(_, False) -> 3
@@ -813,9 +813,9 @@
     (check-equal?
       @interp-lines{
         main(_) = {
-          def x = switch ([1, 2, 3]) {
+          let x = switch ([1, 2, 3]) {
             [x, y] -> {
-              def z = x + y
+              let z = x + y
               z + 1
             }
             _ -> 3
@@ -832,7 +832,7 @@
         main(_) = {
           IO.println(switch ([1, 2, 3]) {
               [x, y, z] -> {
-                def v = z + y
+                let v = z + y
                 v * 2
               }
               _ -> 3
@@ -863,7 +863,7 @@
         Snd(%(_, b)) = b
 
         main(_) = {
-          def v = %(42, False)
+          let v = %(42, False)
           IO.println(%(Snd(v), Fst(v)))
         }
       }
@@ -888,7 +888,7 @@
           | None
 
         main(_) = {
-          def Some(x) = Some("hello world")
+          let Some(x) = Some("hello world")
           IO.println(x)
         }
       }
@@ -902,7 +902,7 @@
           | None
 
         main(_) = {
-          def None() = Some(10)
+          let None() = Some(10)
           IO.println("OMG!")
         }
       }
@@ -923,8 +923,8 @@
         IsSome(_) = False
 
         main(_) = {
-          def s = Some(42)
-          def Some(v) = s
+          let s = Some(42)
+          let Some(v) = s
           IO.println(%(IsSome(None()), IsSome(s), v))
         }
       }
@@ -1061,7 +1061,7 @@
     (check-equal?
       @interp-sexp{
         main(_) = {
-          def x/! = 1 + 2
+          let x/! = 1 + 2
           IO.println(x/!)
         }
       }
@@ -1173,10 +1173,10 @@
         precedence && 11
 
         main(_) = {
-          def i = 1
-          def j = 2
-          def k = 3
-          def l = cond {
+          let i = 1
+          let j = 2
+          let k = 3
+          let l = cond {
             i < k && j < k -> 42
             _ -> 43
           }

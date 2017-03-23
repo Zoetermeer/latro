@@ -40,7 +40,7 @@
           IO.println(length([1]))
           IO.println(length([1, 2]))
 
-          def xs = [1, 2, 3]
+          let xs = [1, 2, 3]
           IO.println(length(xs))
         }
       }
@@ -70,13 +70,13 @@
         import Core.List
 
         main(_) = {
-          def strs = [
+          let strs = [
             "hello",
             "ab",
             "helloworld",
             "hello world"
           ]
-          def lengths = map(length, strs)
+          let lengths = map(length, strs)
           IO.println(lengths)
         }
       }

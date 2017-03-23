@@ -9,7 +9,7 @@
       @interp-sexp{
         main(_) = {
           x : Int
-          def x = "hello"
+          let x = "hello"
           IO.println(x)
         }
       }
@@ -20,7 +20,7 @@
       @interp-lines{
         main(_) = {
           x : %(Int, Bool)
-          def x = %(1, False)
+          let x = %(1, False)
           IO.println(x)
         }
       }
@@ -31,7 +31,7 @@
       @interp-sexp{
         main(_) = {
           x : %(Int, Bool)
-          def x = %(1, 2)
+          let x = %(1, 2)
           IO.println(x)
         }
       }
@@ -42,7 +42,7 @@
       @interp-lines{
         main(_) = {
           x : %(%(Int, Bool), %(String, Char))
-          def x = %(%(1, False), %("hello", 'c'))
+          let x = %(%(1, False), %("hello", 'c'))
           IO.println(x)
         }
       }
@@ -68,7 +68,7 @@
       @interp-lines{
         main(_) = {
           xs : Bool[]
-          def xs = [False, True]
+          let xs = [False, True]
           IO.println(xs)
         }
       }
@@ -79,7 +79,7 @@
       @interp-lines{
         main(_) = {
           xs{a} : a[]
-          def xs = []
+          let xs = []
           IO.println(xs)
         }
       }
@@ -115,7 +115,7 @@
     (check-match
       @interp-sexp{
         main(_) = {
-          def x = if (True) 42 "hello"
+          let x = if (True) 42 "hello"
           IO.println(x)
         }
       }
@@ -153,12 +153,12 @@
         }
 
         main(_) = {
-          def l = Geometry.Line %{
+          let l = Geometry.Line %{
             A = Geometry.Point %{ X = 0; Y = 0; };
             B = Geometry.Point %{ X = 3; Y = 4; };
           }
 
-          def x = Geometry.Y(Geometry.B(l))
+          let x = Geometry.Y(Geometry.B(l))
           IO.println(x)
         }
       }
@@ -173,8 +173,8 @@
         }
 
         main(_) = {
-          def s = S %{ X = 42; Y = False; }
-          def x = s.Y + 2
+          let s = S %{ X = 42; Y = False; }
+          let x = s.Y + 2
           IO.println(x)
         }
       }
@@ -196,7 +196,7 @@
         }
 
         main(_) = {
-          def l = Geometry.Line %{
+          let l = Geometry.Line %{
             A = Geometry.Point %{ X = 0; Y = False; };
             B = Geometry.Point %{ X = 3; Y = 4; };
           }
@@ -221,7 +221,7 @@
     (check-match
       @interp-sexp{
         main(_) = {
-          def x = switch ("hello") {
+          let x = switch ("hello") {
             "foo" -> "bar"
             42 -> "world"
             _ -> "no match"
@@ -236,7 +236,7 @@
     (check-match
       @interp-sexp{
         main(_) = {
-          def %("hello", y) = %(1, False)
+          let %("hello", y) = %(1, False)
           IO.println(y)
         }
       }
@@ -246,7 +246,7 @@
     (check-match
       @interp-sexp{
         main(_) = {
-          def %(a, b) = 42
+          let %(a, b) = 42
           IO.println(a)
         }
       }
@@ -256,7 +256,7 @@
     (check-match
       @interp-sexp{
         main(_) = {
-          def %(%(x, 4), z) = %(%(1, True), %(3, 4))
+          let %(%(x, 4), z) = %(%(1, True), %(3, 4))
           IO.println(z)
         }
       }
@@ -266,7 +266,7 @@
     (check-match
       @interp-sexp{
         main(_) = {
-          def [%(1, x), %(2, 3)] = [%(1, False), %(2, True)]
+          let [%(1, x), %(2, 3)] = [%(1, False), %(2, True)]
           IO.println(%(x, 1))
         }
       }
@@ -276,7 +276,7 @@
     (check-match
       @interp-sexp{
         main(_) = {
-          def [[1, 2], [3, 4, 5], x] = [[False]]
+          let [[1, 2], [3, 4, 5], x] = [[False]]
           x
         }
       }
@@ -286,9 +286,9 @@
     (check-match
       @interp-sexp{
         main(_) = {
-          def xs = 42 :: []
-          def xs' = 43 :: xs
-          def xs'' = True :: xs'
+          let xs = 42 :: []
+          let xs' = 43 :: xs
+          let xs'' = True :: xs'
           IO.println(xs'')
         }
       }
@@ -298,7 +298,7 @@
     (check-match
       @interp-sexp{
         main(_) = {
-          def x::[1] = [False, True]
+          let x::[1] = [False, True]
           IO.println(x)
         }
       }
@@ -308,7 +308,7 @@
     (check-match
       @interp-sexp{
         main(_) = {
-          def %(is, bs) = %(42 :: [], False :: [])
+          let %(is, bs) = %(42 :: [], False :: [])
           IO.println(True :: is)
         }
       }
@@ -318,7 +318,7 @@
     (check-match
       @interp-sexp{
         main(_) = {
-          def %([1, 2, 3, x], y) = %([], False)
+          let %([1, 2, 3, x], y) = %([], False)
           IO.println(x :: "hello")
         }
       }
@@ -330,7 +330,7 @@
         mt() = []
 
         main(_) = {
-          def xs = mt()
+          let xs = mt()
           IO.println(1 :: xs)
         }
       }
@@ -340,7 +340,7 @@
     (check-match
       @interp-sexp{
         main(_) = {
-          def [x, y] = [1, "hello"]
+          let [x, y] = [1, "hello"]
           IO.println(y)
         }
       }
@@ -385,7 +385,7 @@
         }
 
         main(_) = {
-          def str = randomzap(3)("hello")
+          let str = randomzap(3)("hello")
           IO.println(str)
         }
       }
@@ -450,7 +450,7 @@
   #;(test-case "it preserves polymorphism for the empty list for function results"
     (check-match
       @typecheck{
-        def toList = fun(x) { [] }
+        let toList = fun(x) { [] }
         toList(42)
       }
       `(Poly (,t) (App List ((Var ,t))))))
@@ -472,7 +472,7 @@
     (check-match
       @interp-sexp{
         main(_) = {
-          def v = switch (42) {
+          let v = switch (42) {
             0 -> "hello"
             False -> "world"
           }
@@ -519,7 +519,7 @@
 
         main(_) = {
           s : Str
-          def s = 'c'
+          let s = 'c'
 
           IO.println(s)
         }
@@ -615,7 +615,7 @@
         add1ToInnerA(B(_, A(x, _))) = x + 1
 
         main(_) = {
-          def b = B(False, A(42, "hello"))
+          let b = B(False, A(42, "hello"))
           IO.println(add1ToInnerA(b))
         }
       }
@@ -643,7 +643,7 @@
           | None
 
         main(_) = {
-          def Some(x) = Some(())
+          let Some(x) = Some(())
           x
         }
       }
@@ -715,7 +715,7 @@
           | S(String)
 
         main(_) = {
-          def v = switch (B(True)) {
+          let v = switch (B(True)) {
               I(x) -> x
               B(_) -> 1
               _ -> 0
@@ -734,7 +734,7 @@
           | None
 
         main(_) = {
-          def Some(v) = Some(42)
+          let Some(v) = Some(42)
           IO.println(v + 1)
         }
       }
@@ -750,7 +750,7 @@
         MakeOpt() = Some(False)
 
         main(_) = {
-          def MakeOpt(v) = Some(42)
+          let MakeOpt(v) = Some(42)
           IO.println(v)
         }
       }
@@ -766,7 +766,7 @@
         }
 
         main(_) = {
-          def x = switch (Opt.GetOne()) {
+          let x = switch (Opt.GetOne()) {
               Some(43) -> False
               _ -> True
             }
@@ -786,8 +786,8 @@
         }
 
         main(_) = {
-          def Opt.Some(x1) = Opt.GetOne()
-          def x2 = switch (Opt.GetOne()) {
+          let Opt.Some(x1) = Opt.GetOne()
+          let x2 = switch (Opt.GetOne()) {
               Opt.Some(x) -> x
               _           -> 0
             }
@@ -808,8 +808,8 @@
         unsafeUnwrap(Some(x)) = x
 
         main(_) = {
-          def s = unsafeUnwrap(Some("hello"))
-          def i = unsafeUnwrap(Some(42))
+          let s = unsafeUnwrap(Some("hello"))
+          let i = unsafeUnwrap(Some(42))
           IO.println(s + i)
         }
       }
@@ -825,8 +825,8 @@
         unsafeUnwrap(Some(x)) = x
 
         main(_) = {
-          def s = unsafeUnwrap(Some("hello"))
-          def i = unsafeUnwrap(Some(42))
+          let s = unsafeUnwrap(Some("hello"))
+          let i = unsafeUnwrap(Some(42))
           IO.println(s + i)
         }
       }
@@ -843,7 +843,7 @@
         unsafeUnwrap(Some(x)) = x
 
         main(_) = {
-          def s = unsafeUnwrap(Some("hello"))
+          let s = unsafeUnwrap(Some("hello"))
           IO.println(s)
         }
       }
@@ -965,8 +965,8 @@
         getVal(Bar(x)) = x
 
         main(_) = {
-          def a = getVal(Bar(True))
-          def b = False
+          let a = getVal(Bar(True))
+          let b = False
           IO.println(a && b)
         }
       }
@@ -1027,7 +1027,7 @@
           }
 
         main(_) = {
-          def m = [%(1, "hello")]
+          let m = [%(1, "hello")]
           IO.println(find(m, 3))
           IO.println(find(m, 1))
         }
@@ -1049,7 +1049,7 @@
           }
 
         main(_) = {
-          def m = [%(1, "hello")]
+          let m = [%(1, "hello")]
           IO.println(find(m, 3))
           IO.println(find(m, 1))
         }

@@ -63,7 +63,7 @@
       @interp-sexp{
         module M {
           f() = {
-            def v = 3
+            let v = 3
             v
           }
         }
@@ -122,7 +122,7 @@
         }
 
         main(_) = {
-          def Div.Num(answer) = Div.div(100, 10)
+          let Div.Num(answer) = Div.div(100, 10)
           IO.println(answer)
         }
       }
@@ -132,8 +132,8 @@
     (check-match
       @interp-sexp{
         main(_) = {
-          def v = 42
-          def v = 43
+          let v = 42
+          let v = 43
           IO.println(v)
         }
       }
@@ -186,7 +186,7 @@
         v = 42
 
         main(_) = {
-          def x = fun(x) = { def v = 43  v }(1)
+          let x = fun(x) = { let v = 43  v }(1)
           IO.println(x)
         }
       }
@@ -200,14 +200,14 @@
 
           f() = {
             if (True) {
-                def x = 42
+                let x = 42
               }
               ()
           }
         }
 
         main(_) = {
-          def %(a, b) = %(m.f(), m.x)
+          let %(a, b) = %(m.f(), m.x)
           IO.println(a)
           IO.println(b)
         }
@@ -220,7 +220,7 @@
         v = 3
 
         main(_) = {
-          def v = fun(x) = { def v = 43  v }(1) + v
+          let v = fun(x) = { let v = 43  v }(1) + v
           IO.println(v)
         }
       }
@@ -243,7 +243,7 @@
         }
 
         main(_) = {
-          def Div.Num(answer) = Div.div(100, 10)
+          let Div.Num(answer) = Div.div(100, 10)
           IO.println(answer)
         }
       }
@@ -276,7 +276,7 @@
         module m {
           f() = {
             if (True) {
-                def x = 42
+                let x = 42
               }
               ()
           }
@@ -292,7 +292,7 @@
         module m {
           f : (-> Int)
           f() = {
-            def x = 42
+            let x = 42
             x
           }
         }
@@ -324,7 +324,7 @@
           | I(Int)
 
         main(_) = {
-          def _ = switch (I(42)) {
+          let _ = switch (I(42)) {
               I(x) -> x
               B(b) -> x
             }
@@ -336,8 +336,8 @@
     (check-match
       @interp-sexp{
         main(_) = {
-          def v = if (True) {
-              def x = 42
+          let v = if (True) {
+              let x = 42
               x
             }
             0
@@ -351,7 +351,7 @@
     (check-match
       @interp-sexp{
         main(_) = {
-          def _ = if (if (True) { def x = 42 True } False) {
+          let _ = if (if (True) { let x = 42 True } False) {
                 x
               }
               x
@@ -445,8 +445,8 @@
     (check-match
       @interp-sexp{
         foo(a) = {
-          def x = y
-          def y = a
+          let x = y
+          let y = a
 
           x + y
         }
@@ -540,7 +540,7 @@
         module M { }
 
         main(_) = {
-          def v = switch (Foo(42)) {
+          let v = switch (Foo(42)) {
             M.Foo(x) -> x
             _ -> 0
           }
@@ -561,7 +561,7 @@
         }
 
         main(_) = {
-          def p = Point %{ X = 0; Y = 0; }
+          let p = Point %{ X = 0; Y = 0; }
           IO.println(p)
         }
       }
@@ -609,7 +609,7 @@
         }
 
         main(_) = {
-          def p = Person %{ Name = "james"; }
+          let p = Person %{ Name = "james"; }
           IO.println(p.Name)
         }
       }
@@ -625,7 +625,7 @@
         mkPerson(name) = Person %{ Name = name; }
 
         main(_) = {
-          def p = mkPerson("james")
+          let p = mkPerson("james")
           IO.println(p.Name)
         }
       }
@@ -647,7 +647,7 @@
         }
 
         main(_) = {
-          def l = Geometry.Line %{
+          let l = Geometry.Line %{
             A = Geometry.Point %{ X = 0; Y = 42; };
             B = Geometry.Point %{ X = 3; Y = 4; };
           }
@@ -673,7 +673,7 @@
         }
 
         main(_) = {
-          def l = Geometry.Line %{
+          let l = Geometry.Line %{
             A = Geometry.Point %{ X = 0; Y = 42; };
             B = Geometry.Point %{ X = 3; Y = 4; };
           }

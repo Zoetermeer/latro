@@ -25,7 +25,7 @@ import Semant
   imp { Token _ TokenImp }
   test { Token _ TokenTest }
   struct { Token _ TokenStruct }
-  def { Token _ TokenDef }
+  let { Token _ TokenLet }
   True { Token _ TokenTrue }
   False { Token _ TokenFalse }
   Int { Token _ TokenInt }
@@ -222,7 +222,7 @@ Exp : CustomInfixExp { $1 }
     | cond '{' CondCaseClauses '}' { ExpCond (pos $1) $3 }
     | Block { $1 }
 
-ExpOrAssign : def PatExp '=' Exp { ExpAssign (pos $1) $2 $4 }
+ExpOrAssign : let PatExp '=' Exp { ExpAssign (pos $1) $2 $4 }
             | TyAnn { ExpTyAnn $1 }
             | import QualifiedId { ExpImport (pos $1) $2 }
             | Exp { $1 }
