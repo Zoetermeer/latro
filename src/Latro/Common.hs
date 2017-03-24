@@ -1,9 +1,9 @@
 {-# LANGUAGE FlexibleContexts #-}
-module Common where
+module Latro.Common where
 
 import Control.Monad.Except
-import Errors
-import Semant (SourcePos(..))
+import Latro.Errors
+import Latro.Semant (SourcePos(..))
 
 
 type FailMessage = String

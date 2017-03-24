@@ -16,22 +16,45 @@ build-type:          Simple
 extra-source-files:  README.rst
 cabal-version:       >=1.10
 
-executable latro
+executable latroi
+  hs-source-dirs:      app/
   main-is:             Main.hs
-  other-modules:       Lex, Parse
+  ghc-options:         -fwarn-unused-imports
+  build-depends:       base
+                     , errors
+                     , haskeline
+                     , latro
+                     , mtl
+
+library
+  hs-source-dirs:      src/
+  exposed-modules:     Latro.AlphaConvert
+                       Latro.Collapse
+                       Latro.Common
+                       Latro.Compiler
+                       Latro.Errors
+                       Latro.Errors.Display
+                       Latro.ILGen
+                       Latro.Interp
+                       Latro.Lex
+                       Latro.Output
+                       Latro.Parse
+                       Latro.Reorder
+                       Latro.Semant
+                       Latro.Semant.Display
+                       Latro.Sexpable
+                       Latro.Types
   other-extensions:    FlexibleContexts, NamedFieldPuns, CPP, FlexibleInstances
-  build-depends:       base,
-                       array,
+  build-depends:       array,
+                       base,
                        bifunctors,
                        containers,
                        errors,
                        GenericPretty,
-                       haskeline,
                        MissingH,
                        mtl,
                        pretty,
                        transformers
-  hs-source-dirs:      src/Latro
   build-tools:         alex, happy
   default-language:    Haskell2010
   GHC-Options:         -fwarn-unused-imports

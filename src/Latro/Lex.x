@@ -1,5 +1,5 @@
 {
-module Lex
+module Latro.Lex
   ( Token(..)
   , AlexPosn(..)
   , TokenClass(..)
@@ -13,7 +13,7 @@ module Lex
 
 import Prelude hiding (lex)
 import Control.Monad (liftM)
-import Semant (SourcePos(..))
+import Latro.Semant (SourcePos(..))
 
 }
 

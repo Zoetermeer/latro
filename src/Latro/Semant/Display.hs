@@ -1,11 +1,11 @@
 {-# LANGUAGE NamedFieldPuns, FlexibleInstances #-}
-module Semant.Display where
+module Latro.Semant.Display where
 
 import Data.List (intercalate, intersperse)
 import qualified Data.Map as Map
-import Output
-import Semant
-import Sexpable
+import Latro.Output
+import Latro.Semant
+import Latro.Sexpable
 import Text.Printf (printf)
 
 

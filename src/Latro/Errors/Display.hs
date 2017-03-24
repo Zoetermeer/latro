@@ -1,10 +1,10 @@
-module Errors.Display where
+module Latro.Errors.Display where
 
-import Errors
-import Output
-import Semant
-import Semant.Display
-import Sexpable
+import Latro.Errors
+import Latro.Output
+import Latro.Semant
+import Latro.Semant.Display
+import Latro.Sexpable
 import Text.PrettyPrint hiding (render)
 import Text.Printf (printf)
 

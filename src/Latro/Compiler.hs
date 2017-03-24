@@ -1,11 +1,11 @@
-module Compiler where
+module Latro.Compiler where
 
 import Control.Monad.Except
 import Control.Monad.State
 import Data.Functor.Identity
 import Data.Map as Map
-import Errors
-import Semant
+import Latro.Errors
+import Latro.Semant
 
 type GenericCompilerPassT e env m a = ExceptT e (StateT env m) a
 type GenericCompilerPass e env a = GenericCompilerPassT e env Identity a

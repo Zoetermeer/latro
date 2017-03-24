@@ -28,8 +28,7 @@
 
 
 (define (compile!)
-  (system "cabal build")
-  (system "cabal install"))
+  (system "stack build"))
 
 (define (call-interpreter opts program)
   (parameterize ([current-directory "."])
@@ -41,7 +40,7 @@
       #:exists 'truncate/replace)
     (with-output-to-string
       (λ ()
-        (system (format "latro ../lib/Core.l ~a ~a" (string-join opts) test-source-file))))))
+        (system (format "stack exec -- latroi ../lib/Core.l ~a ~a" (string-join opts) test-source-file))))))
 
 (define (strip-quotation-marks s) s)
 

@@ -1,20 +1,20 @@
 {-# LANGUAGE FlexibleContexts, NamedFieldPuns #-}
-module Interp where
+module Latro.Interp where
 
-import AlphaConvert hiding (lookup, lookupVarId, reportErrorAt)
-import Common
-import Compiler
 import Control.Error.Util (hoistEither)
 import Control.Monad.Except
 import Control.Monad.State
 import Data.Either.Utils (maybeToEither)
 import Data.List
 import qualified Data.Map as Map
-import Errors
-import Output
+import Latro.AlphaConvert hiding (lookup, lookupVarId, reportErrorAt)
+import Latro.Common
+import Latro.Compiler
+import Latro.Errors
+import Latro.Output
+import Latro.Semant
+import Latro.Semant.Display ()
 import Prelude hiding (lookup)
-import Semant
-import Semant.Display ()
 import Text.Printf (printf)
 
 

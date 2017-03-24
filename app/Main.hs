@@ -1,25 +1,25 @@
 module Main where
 
-import AlphaConvert
-import Collapse
-import Compiler
 import Control.Monad.Except
 import Control.Monad.State
 import Data.Char (toLower)
-import Errors.Display ()
-import ILGen
-import Interp
-import Output
-import Parse
-import Reorder
-import Semant
-import Semant.Display ()
+import Latro.AlphaConvert
+import Latro.Collapse
+import Latro.Compiler
+import Latro.Errors.Display ()
+import Latro.ILGen
+import Latro.Interp
+import Latro.Output
+import Latro.Parse
+import Latro.Reorder
+import Latro.Semant
+import Latro.Semant.Display ()
+import Latro.Types
 import System.Console.GetOpt
 import System.Console.Haskeline
 import System.Environment (getArgs)
 import System.Exit
 import System.IO (hPutStrLn, stderr)
-import Types
 
 
 combineAsts :: [RawAst CompUnit] -> RawAst CompUnit

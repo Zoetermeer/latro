@@ -1,10 +1,10 @@
-module Reorder where
+module Latro.Reorder where
 
-import Compiler
 import Control.Monad.State
 import Data.Map as Map hiding (map)
 import Data.Maybe
-import Semant
+import Latro.Compiler
+import Latro.Semant
 
 
 precLevel :: Env PrecLevel -> UniqId -> Maybe PrecLevel

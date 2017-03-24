@@ -1,9 +1,9 @@
 {-# LANGUAGE FlexibleContexts #-}
-module Types where
+module Latro.Types where
 
-import AlphaConvert hiding (lookupVarIn, markVarEnv, reportErrorAt)
-import Common
-import Compiler
+import Latro.AlphaConvert hiding (lookupVarIn, markVarEnv, reportErrorAt)
+import Latro.Common
+import Latro.Compiler
 import Control.Error.Util (hoistEither)
 import Control.Monad.Except
 import Control.Monad.State
@@ -13,9 +13,9 @@ import Data.List (sortBy)
 import Data.Maybe (fromMaybe, isNothing)
 import qualified Data.Set as Set
 import Debug.Trace (trace, traceM)
-import Errors
-import Semant
-import Semant.Display ()
+import Latro.Errors
+import Latro.Semant
+import Latro.Semant.Display ()
 import Text.Printf (printf)
 
 

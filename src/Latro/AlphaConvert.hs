@@ -9,18 +9,18 @@ downstream.  As part of this transformation, we replace all qualified (raw) iden
 with their unqualified, alpha-converted equivalents and factor out module definitions
 altogether.
 -}
-module AlphaConvert where
+module Latro.AlphaConvert where
 
-import Common
-import Compiler
 import Control.Applicative
 import Control.Monad.Except
 import Control.Monad.State
 import Data.List (nub)
 import qualified Data.Map as Map (insert, lookup, union)
-import Errors
+import Latro.Common
+import Latro.Compiler
+import Latro.Errors
+import Latro.Semant
 import Prelude hiding (lookup)
-import Semant
 import Text.Printf (printf)
 
 

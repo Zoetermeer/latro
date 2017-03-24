@@ -1,5 +1,5 @@
 {-# LANGUAGE DeriveGeneric, TypeSynonymInstances #-}
-module Semant where
+module Latro.Semant where
 
 import Data.List (intersperse)
 import qualified Data.Map as Map

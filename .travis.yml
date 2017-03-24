@@ -1,6 +1,22 @@
 sudo: true
 
+language: generic
+cache:
+  directories:
+    - $HOME/.stack
+
+addons:
+  apt:
+    packages:
+      - libgmp-dev
+
+before_install:
+  - mkdir -p ~/.local/bin
+  - export PATH=$HOME/.local/bin:$PATH
+  - travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
+
 install:
+  - stack --no-terminal --install-ghc test --only-dependencies
   - sudo apt-get update
   - sudo apt-get install curl
   - sudo apt-get install -y software-properties-common
@@ -14,10 +30,7 @@ install:
   - curl -o racket.sh https://mirror.racket-lang.org/installers/6.5/racket-6.5-x86_64-linux.sh && echo 2 | sudo bash racket.sh
 
 script:
-  - cabal install alex
-  - cabal install happy
-  - cabal install
-  - cabal configure
-  - cabal build
+  - stack build alex happy
+  - stack build
   - /usr/racket/bin/racket tests/typechecker.rkt
   - /usr/racket/bin/racket tests/interpreter.rkt

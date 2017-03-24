@@ -1,7 +1,7 @@
-module Output where
+module Latro.Output where
 
 import Data.List (intercalate)
-import Sexpable
+import Latro.Sexpable
 
 
 type HumanReadable = String

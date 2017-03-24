@@ -1,7 +1,7 @@
-module Errors where
+module Latro.Errors where
 
 import qualified Data.Map as Map
-import Semant
+import Latro.Semant
 
 
 data Err =

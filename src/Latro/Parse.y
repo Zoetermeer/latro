@@ -1,12 +1,12 @@
 {
 
-module Parse where
+module Latro.Parse where
 
 import Control.Monad.Except
 import Data.Bifunctor (first)
-import Errors
-import Lex
-import Semant
+import Latro.Errors
+import Latro.Lex
+import Latro.Semant
 
 }
 

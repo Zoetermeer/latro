@@ -1,8 +1,8 @@
-module ILGen where
+module Latro.ILGen where
 
-import Compiler
 import Data.Char (toLower)
-import Semant
+import Latro.Compiler
+import Latro.Semant
 
 
 ilGenClause :: Show a => CaseClause a UniqId -> ILCase a

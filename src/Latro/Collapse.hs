@@ -2,12 +2,13 @@
 Module      : Collapse
 Description : Collapses all multi-clause functions into single-body ones
 -}
-module Collapse where
+module Latro.Collapse where
 
-import Compiler
 import Control.Monad.Except
-import Errors
-import Semant
+import Latro.Compiler
+import Latro.Errors
+import Latro.Semant
+
 
 collectFunDefs :: RawId -> [RawAst Exp] -> ([RawAst FunDef], [RawAst Exp])
 collectFunDefs _ [] = ([], [])

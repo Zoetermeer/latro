@@ -1,4 +1,4 @@
-module Sexpable where
+module Latro.Sexpable where
 
 import Text.Printf (printf)
 

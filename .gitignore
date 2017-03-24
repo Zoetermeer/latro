@@ -1,6 +1,7 @@
 **/*.o
 **/*.hi
 **/*.*#
+.stack-work/
 last-test.l
 /dist
 /src/Latro/alpha.rkt*
