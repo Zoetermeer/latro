@@ -408,6 +408,7 @@ instance Sexpable Prim where
     case prim of
       PrimPrintln -> Symbol "PrimPrintln"
       PrimReadln -> Symbol "PrimReadln"
+      PrimCharEq -> Symbol "PrimCharEq"
       PrimIntAdd -> Symbol "PrimIntAdd"
       PrimIntSub -> Symbol "PrimIntSub"
       PrimIntDiv -> Symbol "PrimIntDiv"
