@@ -1,7 +1,7 @@
 module Maybe {
   module MonadInfix {
-    @(>>=)(Just(x), f) = f(x)
-    @(>>=)(_, _) = Nothing()
+    infixl (>>=)(Just(x), f) = f(x)
+    infixl (>>=)(_, _) = Nothing()
 
     return(x) = Just(x)
   }

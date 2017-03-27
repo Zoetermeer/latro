@@ -111,11 +111,11 @@ Basic expressions
 Latro supports a few primitive operations on built-in types, such as integer
 arithmetic: ``1 + 2``, ``1 * 3 - 2 + 4``.
 
-Lists can be constructed using the right-associative cons operator ``::``
+Lists can be constructed using the right-associative cons operator ``@``
 
 .. code:: ocaml
 
-  1 :: 2 :: [3, 4, 5]  // [1, 2, 3, 4, 5]
+  1 @ 2 @ [3, 4, 5]  // [1, 2, 3, 4, 5]
 
 No language would be complete without variable bindings.  We define these using
 ``let``:
@@ -191,7 +191,7 @@ Yields the list ``[3, 4, 5]``.  We can also use the cons operator to destructure
 .. code:: ocaml
 
   let ls = [1, 2, 3, 4, 5]
-  let x::_ = ls
+  let x@_ = ls
   x
 
 Yields the integer ``1``.  Notice also that we can use the wildcard pattern
@@ -202,7 +202,7 @@ Patterns can be used to do arbitrary traversals on a complex value:
 .. code:: ocaml
 
   let ls = [[%(1, 2)], [%(3, 4), %(5, 6)]]
-  let [[%(x, _)], %(_, y) :: _] = ls
+  let [[%(x, _)], %(_, y) @ _] = ls
   x + y
 
 Produces ``5``.
@@ -391,8 +391,8 @@ given above, e.g.:
 
 .. code:: ocaml
 
-  @(&&)(True, True) = True
-  @(&&)(_, _) = False
+  infixl (&&)(True, True) = True
+  infixl (&&)(_, _) = False
 
 Can only be applied as an infix operator, e.g.:
 
@@ -407,8 +407,8 @@ a *precedence assignment*:
 
 .. code:: ocaml
 
-  @(&&)(True, True) = True
-  @(&&)(_, _) = False
+  infixl (&&)(True, True) = True
+  infixl (&&)(_, _) = False
 
   precedence && 1
 
@@ -418,12 +418,12 @@ highest.)  Thus the program:
 
 .. code:: ocaml
 
-  @(||)(True, _) = True
-  @(||)(_, True) = True
-  @(||)(_, _) = False
+  infixl (||)(True, _) = True
+  infixl (||)(_, True) = True
+  infixl (||)(_, _) = False
 
-  @(&&)(True, True) = True
-  @(&&)(_, _) = False
+  infixl (&&)(True, True) = True
+  infixl (&&)(_, _) = False
 
   precedence && 1
   precedence || 2
@@ -494,10 +494,10 @@ We might use this particular ADT to define some useful operations on lists:
     | Absent
 
   head([]) = Absent()
-  head(x::_) = Present(x)
+  head(x@_) = Present(x)
 
   tail([]) = Absent()
-  tail(_::xs) = Present(xs)
+  tail(_@xs) = Present(xs)
 
   head([1, 2, 3]) // Present(1)
   tail(["hello", "world"]) // Present(["world"])
@@ -574,10 +574,10 @@ grouped into modules like so:
 
     len : t -> Int
     len("") = 0
-    len(c::cs) = 1 + len(cs)
+    len(c@cs) = 1 + len(cs)
   }
 
-  String.len("hello world") // 11
+  String::len("hello world") // 11
 
 Note also here we are using a list pattern on strings, which works because
 strings are really just a list of Unicode characters.
@@ -590,12 +590,12 @@ Modules can also be arbitrarily nested:
     type t = Char[]
     module ExtraStringStuff {
       append : t -> t -> t
-      append(c::cs, b) = c :: append(cs, b)
+      append(c@cs, b) = c @ append(cs, b)
       append(_, b) = b
     }
   }
 
-  StringStuff.ExtraStringStuff.append("hello", " world") // "hello world"
+  StringStuff::ExtraStringStuff::append("hello", " world") // "hello world"
 
 Submodules can refer to all of the types and/or values defined 
 in parent modules directly, as the ``ExtraStringStuff`` module
@@ -611,12 +611,12 @@ they can be referred to without using a qualified module path:
     type t = Char[]
     module ExtraStringStuff {
       append : t -> t -> t
-      append(c::cs, b) = c :: append(cs, b)
+      append(c@cs, b) = c @ append(cs, b)
       append(_, b) = b
     }
   }
 
-  import StringStuff.ExtraStringStuff
+  import StringStuff::ExtraStringStuff
   append("hello", " world") // "hello world"
 
 
@@ -658,10 +658,10 @@ a module later to add bindings to it.
     let bar = 43
   }
 
-  M.bar + M.foo
+  M::bar + M::foo
 
 Module names are resolved using *qualified identifiers* or paths, where a
-path is a sequence of module names separated by dots (``.``).  Resolution applies
+path is a sequence of module names separated by double colons (``::``).  Resolution applies
 to the module-reopening semantics, so that a submodule opening will not extend
 some other toplevel module with the same name:
 
@@ -677,7 +677,7 @@ some other toplevel module with the same name:
     }
   }
 
-  M.bar + M.foo // ERROR: Unbound identifier 'bar'!
+  M::bar + M::foo // ERROR: Unbound identifier 'bar'!
 
 This code does not compile because ``bar`` is defined on the module
 ``N.M``, not ``M``.  But if we were to try to define a function
@@ -694,7 +694,7 @@ directly in ``N`` that refers to ``M``:
       let bar = 43
     }
 
-    f() = M.foo //ERROR: Unbound identifier 'M.foo'!
+    f() = M::foo //ERROR: Unbound identifier 'M::foo'!
   }
 
 We can refer directly to the submodule ``M`` inside ``N``, so here

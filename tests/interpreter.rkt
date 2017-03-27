@@ -14,7 +14,7 @@
   (test-case "it applies functions from core modules"
     (check-equal?
       @interp-lines{
-        main(_) = IO.println(42)
+        main(_) = IO::println(42)
       }
       '("42")))
 
@@ -28,7 +28,7 @@
   (test-case "it evaluates built-in integer primitives"
     (check-match
       @interp-lines{
-        main(_) = IO.println(prim(intEq)(3, 4))
+        main(_) = IO::println(prim(intEq)(3, 4))
       }
       '("False")))
 
@@ -36,10 +36,10 @@
     (check-match
       @interp-lines{
         main(_) = {
-          IO.println(4 < 5)
-          IO.println(99 == 99)
-          IO.println(5 >= 5)
-          IO.println(21 + 3 != 8 * 3)
+          IO::println(4 < 5)
+          IO::println(99 == 99)
+          IO::println(5 >= 5)
+          IO::println(21 + 3 != 8 * 3)
         }
       }
       '("True"
@@ -51,11 +51,11 @@
     (check-equal?
       @interp-lines{
         main(_) = {
-          IO.println(True)
-          IO.println(False)
-          IO.println(42)
-          IO.println("hello")
-          IO.println('f')
+          IO::println(True)
+          IO::println(False)
+          IO::println(42)
+          IO::println("hello")
+          IO::println('f')
         }
       }
       '("True"
@@ -73,13 +73,13 @@
     (check-equal?
       @interp-lines{
         main(_) = {
-          IO.println(4 + 3)
-          IO.println(4 + 3 * 2)
-          IO.println(4 - 3 / 3)
-          IO.println(3 * 2 + 4)
-          IO.println(((4 + 3) - 42 * 3) + 100 / 10)
-          IO.println((4 + 3) * 2)
-          IO.println(4 + 8 / 4)
+          IO::println(4 + 3)
+          IO::println(4 + 3 * 2)
+          IO::println(4 - 3 / 3)
+          IO::println(3 * 2 + 4)
+          IO::println(((4 + 3) - 42 * 3) + 100 / 10)
+          IO::println((4 + 3) * 2)
+          IO::println(4 + 8 / 4)
         }
       }
       '("7"
@@ -96,7 +96,7 @@
         f : Int -> Int
         f(x) = x
 
-        main(_) = IO.println(3 + f(4))
+        main(_) = IO::println(3 + f(4))
       }
       7))
 
@@ -110,7 +110,7 @@
             _ -> "no match"
           }
 
-          IO.println(s)
+          IO::println(s)
         }
       }
       "world"))
@@ -118,14 +118,14 @@
   (test-case "it evaluates if-else expressions"
     (check-equal?
       @interp-sexp{
-        main(_) = IO.println(if (True) 42 43)
+        main(_) = IO::println(if (True) 42 43)
       }
       42))
 
   (test-case "it takes the else branch on false"
     (check-equal?
       @interp-sexp{
-        main(_) = IO.println(if (False) 42 43)
+        main(_) = IO::println(if (False) 42 43)
       }
       43))
 
@@ -138,7 +138,7 @@
             x
         }
 
-        main(_) = IO.println(runForever(3, False))
+        main(_) = IO::println(runForever(3, False))
       }
       `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier runForever))))
 
@@ -151,8 +151,8 @@
 
         main(_) = {
           if (f(True))
-            IO.println(42)
-            IO.println(43)
+            IO::println(42)
+            IO::println(43)
         }
       }
       42))
@@ -161,7 +161,7 @@
     (check-equal?
       @interp-sexp{
         main(_) = {
-          IO.println(42 + (if (True) 1 2))
+          IO::println(42 + (if (True) 1 2))
         }
       }
       43))
@@ -171,17 +171,17 @@
       @interp-lines{
         f() = 42
 
-        main(_) = IO.println(f)
+        main(_) = IO::println(f)
       }
       '("fun f : (-> Int)")))
 
   (test-case "it returns function values with closures"
     (check-equal?
       @interp-lines{
-        v = 1
+        let v = 1
         f() = v
 
-        main(_) = IO.println(f)
+        main(_) = IO::println(f)
       }
       '("fun f : (-> Int)")))
 
@@ -192,15 +192,15 @@
         weird(0, 0) = 100
         weird(x, y) = x + y
 
-        main(_) = IO.println(weird(1, 2))
+        main(_) = IO::println(weird(1, 2))
       }
       '("3")))
 
   (test-case "it adds definitions to module exports"
     (check-match
       @interp-sexp{
-        module m { v = 42 }
-        main(_) = IO.println(m.v)
+        module m { let v = 42 }
+        main(_) = IO::println(m::v)
       }
       42))
 
@@ -212,15 +212,15 @@
           g() = 43
         }
 
-        main(_) = IO.println(m.g())
+        main(_) = IO::println(m::g())
       }
       43))
 
   (test-case "it returns values defined in modules"
     (check-equal?
       @interp-sexp{
-        module m { v = 42 }
-        main(_) = IO.println(m.v)
+        module m { let v = 42 }
+        main(_) = IO::println(m::v)
       }
       42))
 
@@ -232,7 +232,7 @@
           f() = 42
         }
 
-        main(_) = IO.println(m.f())
+        main(_) = IO::println(m::f())
       }
       42))
 
@@ -246,7 +246,7 @@
           f() = 42
         }
 
-        main(_) = IO.println(m.f())
+        main(_) = IO::println(m::f())
       }
       42))
 
@@ -259,7 +259,7 @@
 
           module n { }
         }
-        main(_) = IO.println(m.f())
+        main(_) = IO::println(m::f())
       }
       42))
 
@@ -268,11 +268,11 @@
       @interp-sexp{
         module a {
           module b {
-            v = 42
+            let v = 42
           }
         }
 
-        main(_) = IO.println(a.b.v)
+        main(_) = IO::println(a::b::v)
       }
       42))
 
@@ -282,7 +282,7 @@
         f : (-> Int)
         f() = 42
 
-        main(_) = IO.println(f())
+        main(_) = IO::println(f())
       }
       42))
 
@@ -291,7 +291,7 @@
       @interp-sexp{
         f : Int -> Int
         f(x) = x
-        main(_) = IO.println(f(42))
+        main(_) = IO::println(f(42))
       }
       42))
 
@@ -301,17 +301,18 @@
         module m { }
         f : Int -> Int
         f(m) = m
-        main(_) = IO.println(f(42))
+        main(_) = IO::println(f(42))
       }
       42))
 
   (test-case "it captures bindings from the env in function bodies"
     (check-equal?
       @interp-sexp{
-        v = 42
+        let v = 42
+
         f : (-> Int)
         f() = v
-        main(_) = IO.println(f())
+        main(_) = IO::println(f())
       }
       42))
 
@@ -328,7 +329,7 @@
           f() = { 42 }
         }
 
-        main(_) = IO.println(m.m'.g())
+        main(_) = IO::println(m::m'::g())
       }
       43))
 
@@ -345,7 +346,7 @@
           f() = 42
         }
 
-        main(_) = IO.println(m.m'.g())
+        main(_) = IO::println(m::m'::g())
       }
       43))
 
@@ -362,7 +363,7 @@
           f() = 42
         }
 
-        main(_) = IO.println(m.m1.g(m.f(), 1))
+        main(_) = IO::println(m::m1::g(m::f(), 1))
       }
       43))
 
@@ -379,7 +380,7 @@
           x + 1
         }
 
-        main(_) = IO.println(f(h, 3))
+        main(_) = IO::println(f(h, 3))
       }
       14))
 
@@ -395,7 +396,7 @@
           }
         }
 
-        main(_) = IO.println(m1.g(1, 1))
+        main(_) = IO::println(m1::g(1, 1))
       }
       `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier m1))))
 
@@ -409,7 +410,7 @@
           module n { }
         }
 
-        main(_) = IO.println(m.n.f())
+        main(_) = IO::println(m::n::f())
       }
       `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier f))))
 
@@ -431,7 +432,7 @@
             x
         }
 
-        main(_) = IO.println(f(4))
+        main(_) = IO::println(f(4))
       }
       10))
 
@@ -441,15 +442,15 @@
         module m {
           module n {
             module o {
-              v = 42
+              let v = 42
             }
           }
 
           f : (-> Int)
-          f() = n.o.v
+          f() = n::o::v
         }
 
-        main(_) = IO.println(m.f())
+        main(_) = IO::println(m::f())
       }
       42))
 
@@ -457,10 +458,10 @@
     (check-equal?
       @interp-sexp{
         module m {
-          v = 6
+          let v = 6
         }
 
-        main(_) = IO.println(m.v)
+        main(_) = IO::println(m::v)
       }
       6))
 
@@ -476,10 +477,10 @@
         g() = 1
 
         module n {
-          h() = m.f() + g()
+          h() = m::f() + g()
         }
 
-        main(_) = IO.println(n.h())
+        main(_) = IO::println(n::h())
       }
       3))
 
@@ -488,11 +489,11 @@
       @interp-sexp{
         module m {
           module n {
-            v = 6
+            let v = 6
           }
         }
 
-        main(_) = IO.println(m.n.v)
+        main(_) = IO::println(m::n::v)
       }
       6))
 
@@ -501,7 +502,7 @@
       @interp-sexp{
         type t = struct { }
 
-        main(_) = IO.println(t %{ })
+        main(_) = IO::println(t %{ })
       }
       't))
 
@@ -513,7 +514,7 @@
           Y : Int
         }
 
-        main(_) = IO.println(Point %{ X = 3; Y = 4; })
+        main(_) = IO::println(Point %{ X = 3; Y = 4; })
       }
       'Point))
 
@@ -527,7 +528,7 @@
 
         main(_) = {
           let p = Point %{ X = 3; Y = 4; }
-          IO.println(Y(p))
+          IO::println(Y(p))
         }
       }
       4))
@@ -539,7 +540,7 @@
 
         main(_) = {
           let v = t %{ }
-          IO.println(x(v))
+          IO::println(x(v))
         }
       }
       `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier x))))
@@ -563,7 +564,7 @@
             B = Point %{ X = 3; Y = 4; };
           }
 
-          IO.println(Y(B(l)))
+          IO::println(Y(B(l)))
         }
       }
       4))
@@ -584,12 +585,12 @@
         }
 
         main(_) = {
-          let l = Geometry.Line %{
-            A = Geometry.Point %{ X = 0; Y = 0; };
-            B = Geometry.Point %{ X = 3; Y = 4; };
+          let l = Geometry::Line %{
+            A = Geometry::Point %{ X = 0; Y = 0; };
+            B = Geometry::Point %{ X = 3; Y = 4; };
           }
 
-          IO.println(Geometry.Y(Geometry.B(l)))
+          IO::println(Geometry::Y(Geometry::B(l)))
         }
       }
       4))
@@ -604,7 +605,7 @@
             | None
         }
 
-        main(_) = IO.println(Prims.Just)
+        main(_) = IO::println(Prims::Just)
       }))
 
   (test-case "it constructs ADT instances"
@@ -614,7 +615,7 @@
           | Just(Int)
           | None
 
-        main(_) = IO.println(Just(42))
+        main(_) = IO::println(Just(42))
       }
       '("Just(42)")))
 
@@ -627,7 +628,7 @@
             | None
         }
 
-        main(_) = IO.println(Some(42))
+        main(_) = IO::println(Some(42))
       }
       `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier Some))))
 
@@ -638,21 +639,21 @@
           | IBTuple(Int, Bool)
           | B(Bool)
 
-        main(_) = IO.println(%(B(True), IBTuple(2, False)))
+        main(_) = IO::println(%(B(True), IBTuple(2, False)))
       }
       '("%(B(True), IBTuple(2, False))")))
 
   (test-case "it evaluates tuple expressions"
     (check-equal?
       @interp-lines{
-        main(_) = IO.println(%(4, False))
+        main(_) = IO::println(%(4, False))
       }
       '("%(4, False)")))
 
   (test-case "it evaluates 3-tuples"
     (check-equal?
       @interp-lines{
-        main(_) = IO.println(%(3, True, 4))
+        main(_) = IO::println(%(3, True, 4))
       }
       '("%(3, True, 4)")))
 
@@ -662,14 +663,14 @@
         f : %(Int, Bool) -> %(Int, Bool)
         f(pair) = pair
 
-        main(_) = IO.println(f(%(5, False)))
+        main(_) = IO::println(f(%(5, False)))
       }
       '("%(5, False)")))
 
   (test-case "it evaluates list expressions"
     (check-equal?
       @interp-lines{
-        main(_) = IO.println([1, 2, 3])
+        main(_) = IO::println([1, 2, 3])
       }
       '("[1, 2, 3]")))
 
@@ -678,7 +679,7 @@
       @interp-lines{
         main(_) = {
           let ls = [1, 2, 3, 4]
-          IO.println(ls)
+          IO::println(ls)
         }
       }
       '("[1, 2, 3, 4]")))
@@ -686,7 +687,7 @@
   (test-case "it evaluates list cons operations"
     (check-equal?
       @interp-lines{
-        main(_) = IO.println(1 :: [2, 3, 4])
+        main(_) = IO::println(1 @"@" [2, 3, 4])
       }
       '("[1, 2, 3, 4]")))
 
@@ -695,10 +696,10 @@
       @interp-lines{
         f : Int -> Int -> Int[]
         f(x, y) = {
-          x :: y :: [3, 4, 5]
+          x @"@" y @"@" [3, 4, 5]
         }
 
-        main(_) = IO.println(f(1, 2))
+        main(_) = IO::println(f(1, 2))
       }
       '("[1, 2, 3, 4, 5]")))
 
@@ -707,7 +708,7 @@
       @interp-sexp{
         main(_) = {
           let [a, b, c] = [1, 2, 3]
-          IO.println(a + b + c)
+          IO::println(a + b + c)
         }
       }
       6))
@@ -717,7 +718,7 @@
       @interp-sexp{
         main(_) = {
           let [_, b, 3] = [1, 2, 3]
-          IO.println(b)
+          IO::println(b)
         }
       }
       2))
@@ -727,7 +728,7 @@
       @interp-sexp{
         main(_) = {
           let [a, b] = []
-          IO.println(a)
+          IO::println(a)
         }
       }
       `(AtPos ,_ (CompilerModule Interp) (PatMatchFail ,_ (List ())))))
@@ -736,8 +737,8 @@
     (check-equal?
       @interp-lines{
         main(_) = {
-          let x::xs = [1, 2, 3, 4]
-          IO.println(%(x, xs))
+          let x @"@" xs = [1, 2, 3, 4]
+          IO::println(%(x, xs))
         }
       }
       '("%(1, [2, 3, 4])")))
@@ -746,8 +747,8 @@
     (check-equal?
       @interp-sexp{
         main(_) = {
-          let x::[] = [3]
-          IO.println(x)
+          let x @"@" [] = [3]
+          IO::println(x)
         }
       }
       3))
@@ -756,8 +757,8 @@
     (check-equal?
       @interp-lines{
         main(_) = {
-          let xs::[[3, 4], [x, _, z]] = [[1, 2], [3, 4], [5, 6, 7]]
-          IO.println(%(xs, x, z))
+          let xs @"@" [[3, 4], [x, _, z]] = [[1, 2], [3, 4], [5, 6, 7]]
+          IO::println(%(xs, x, z))
         }
       }
       '("%([1, 2], 5, 7)")))
@@ -767,7 +768,7 @@
       @interp-sexp{
         main(_) = {
           let %(a, b) = %(1, True)
-          IO.println(b)
+          IO::println(b)
         }
       }
       'True))
@@ -777,7 +778,7 @@
       @interp-sexp{
         main(_) = {
           let %(_, b) = %(1, 43)
-          IO.println(b)
+          IO::println(b)
         }
       }
       43))
@@ -787,7 +788,7 @@
       @interp-sexp{
         main(_) = {
           let _ = 42
-          IO.println(43)
+          IO::println(43)
         }
       }
       43))
@@ -804,7 +805,7 @@
             _ -> 4
           }
 
-          IO.println(x)
+          IO::println(x)
         }
       }
       '("3")))
@@ -821,7 +822,7 @@
             _ -> 3
           }
 
-          IO.println(x)
+          IO::println(x)
         }
       }
       '("3")))
@@ -830,7 +831,7 @@
     (check-equal?
       @interp-lines{
         main(_) = {
-          IO.println(switch ([1, 2, 3]) {
+          IO::println(switch ([1, 2, 3]) {
               [x, y, z] -> {
                 let v = z + y
                 v * 2
@@ -849,7 +850,7 @@
         IsZero(0) = True
         IsZero(_) = False
 
-        main(_) = IO.println(%(IsZero(1), IsZero(0)))
+        main(_) = IO::println(%(IsZero(1), IsZero(0)))
       }
       '("%(False, True)")))
 
@@ -864,7 +865,7 @@
 
         main(_) = {
           let v = %(42, False)
-          IO.println(%(Snd(v), Fst(v)))
+          IO::println(%(Snd(v), Fst(v)))
         }
       }
       '("%(False, 42)")))
@@ -875,7 +876,7 @@
         IsZero : Int -> Bool
         IsZero(0) = True
 
-        main(_) = IO.println(IsZero(1))
+        main(_) = IO::println(IsZero(1))
       }
       `(AtPos ,_ (CompilerModule Interp) (NonExhaustivePattern ,_ (Tuple (1))))))
 
@@ -889,7 +890,7 @@
 
         main(_) = {
           let Some(x) = Some("hello world")
-          IO.println(x)
+          IO::println(x)
         }
       }
       "hello world"))
@@ -903,7 +904,7 @@
 
         main(_) = {
           let None() = Some(10)
-          IO.println("OMG!")
+          IO::println("OMG!")
         }
       }
       `(AtPos
@@ -925,12 +926,12 @@
         main(_) = {
           let s = Some(42)
           let Some(v) = s
-          IO.println(%(IsSome(None()), IsSome(s), v))
+          IO::println(%(IsSome(None()), IsSome(s), v))
         }
       }
       '("%(False, True, 42)")))
 
-  (test-case "can encode a module with common list operations"
+  (test-case "can encode a module with monomorphic list operations"
     (check-equal?
       @interp-lines{
         module IntList {
@@ -938,26 +939,26 @@
           type BoolList = Bool[]
 
 
-          Concat : t -> t -> t
-          Concat(xs, []) = xs
-          Concat([], ys) = ys
-          Concat(x::xs, ys) = {
-            x :: Concat(xs, ys)
+          concat : t -> t -> t
+          concat(xs, []) = xs
+          concat([], ys) = ys
+          concat(x @"@" xs, ys) = {
+            x @"@" concat(xs, ys)
           }
 
-          Map : (Int -> Bool) -> t -> BoolList
-          Map(f, []) = []
-          Map(f, x::xs) = {
-            f(x) :: Map(f, xs)
+          map : (Int -> Bool) -> t -> BoolList
+          map(f, []) = []
+          map(f, x @"@" xs) = {
+            f(x) @"@" map(f, xs)
           }
         }
 
         main(_) = {
-          IO.println(
+          IO::println(
             [
-              IntList.Concat([], []),
-              IntList.Concat([1, 2], []),
-              IntList.Concat([1, 2], [3, 4, 5])
+              IntList::concat([], []),
+              IntList::concat([1, 2], []),
+              IntList::concat([1, 2], [3, 4, 5])
             ]
           )
         }
@@ -974,7 +975,7 @@
         GetTwoOrLess(x) = GetTwoOrLess(x - 1)
 
         main(_) = {
-          IO.println(%(GetTwoOrLess(1), GetTwoOrLess(4)))
+          IO::println(%(GetTwoOrLess(1), GetTwoOrLess(4)))
         }
       }
       '("%(1, 2)")))
@@ -983,39 +984,39 @@
     (check-regexp-match
       #px"fun x\\d* : Int -> Int -> Int"
       @interp{
-        main(_) = IO.println(fun(x, y) = { x + y })
+        main(_) = IO::println(fun(x, y) = { x + y })
       }))
 
   (test-case "it evaluates anonymous function application"
     (check-equal?
       @interp-sexp{
-        main(_) = IO.println(fun (x, y) = { x + y }(1, 2))
+        main(_) = IO::println(fun (x, y) = { x + y }(1, 2))
       }
       3))
 
   (test-case "it evaluates polymorphic functions"
     (check-equal?
       @interp-lines{
-        IsEven : Int -> Bool
-        IsEven(x) = {
+        isEven : Int -> Bool
+        isEven(x) = {
           switch (x) {
             0 -> True
             1 -> False
             2 -> True
-            _ -> IsEven(x - 2)
+            _ -> isEven(x - 2)
           }
         }
 
         module Lists {
-          Map<a, b> : (a -> b) -> a[] -> b[]
-          Map(_, []) = []
-          Map(f, x::xs) = {
-            f(x) :: Map(f, xs)
+          map<a, b> : (a -> b) -> a[] -> b[]
+          map(_, []) = []
+          map(f, x @"@" xs) = {
+            f(x) @"@" map(f, xs)
           }
         }
 
         main(_) = {
-          IO.println(Lists.Map(fun(n) = { IsEven(n) }, [1, 2, 3, 4]))
+          IO::println(Lists::map(fun(n) = { isEven(n) }, [1, 2, 3, 4]))
         }
       }
       '("[False, True, False, True]")))
@@ -1027,42 +1028,18 @@
 
         len : String -> Int
         len("") = 0
-        len(c::cs) = { 1 + len(cs) }
+        len(c @"@" cs) = { 1 + len(cs) }
 
-        main(_) = IO.println(len("hello"))
+        main(_) = IO::println(len("hello"))
       }
       5))
-
-  #;(test-case "it evaluates instance function applications"
-    (check-equal?
-      @interp-sexp{
-        fun (True).isTrue() = True
-        fun (_).isFalse() = False
-
-        main(_) = {
-          IO.println(True.isFalse())
-        }
-      }
-      'False))
-
-  #;(test-case "it evaluates recursive instance functions"
-    (check-equal?
-      @interp-sexp{
-        fun ([]).len() = 0
-        fun (x::xs).len() = 1 + xs.len()
-
-        main(_) = {
-          IO.println([1, 2, 3].len())
-        }
-      }
-      3))
 
   (test-case "it accepts identifiers with non-alphanumeric characters"
     (check-equal?
       @interp-sexp{
         main(_) = {
           let x/! = 1 + 2
-          IO.println(x/!)
+          IO::println(x/!)
         }
       }
       3))
@@ -1071,48 +1048,48 @@
     (check-equal?
       @interp-sexp{
         foo/bar(n) = n + 1
-        main(_) = IO.println(foo/bar(19) / 2)
+        main(_) = IO::println(foo/bar(19) / 2)
       }
       10))
 
   (test-case "it evaluates infix application of binary functions"
     (check-equal?
       @interp-sexp{
-        @"@"(!!)(a, b) = a * b
+        infixl (!!)(a, b) = a * b
         precedence !! 10
 
-        main(_) = IO.println(2 !! 3 + 4)
+        main(_) = IO::println(2 !! 3 + 4)
       }
       14))
 
   (test-case "it evaluates clauses on custom infix operators"
     (check-equal?
       @interp-sexp{
-        main(_) = IO.println(True || False || False)
+        main(_) = IO::println(True || False || False)
       }
       'True))
 
   (test-case "it evaluates a boolean AND infix operator"
     (check-equal?
       @interp-sexp{
-        main(_) = IO.println(True && False)
+        main(_) = IO::println(True && False)
       }
       'False))
 
   (test-case "it evaluates recursive infix operators"
     (check-equal?
       @interp-sexp{
-        @"@"(~)(0, 0) = False
-        @"@"(~)(0, _) = True
-        @"@"(~)(_, 0) = False
-        @"@"(~)(x, y) = (x - 1) ~ (y - 1)
+        infixl (~)(0, 0) = False
+        infixl (~)(0, _) = True
+        infixl (~)(_, 0) = False
+        infixl (~)(x, y) = (x - 1) ~ (y - 1)
 
-        @"@"(~!)(0, 0) = True
-        @"@"(~!)(0, _) = True
-        @"@"(~!)(_, 0) = False
-        @"@"(~!)(x, y) = (x - 1) ~! (y - 1)
+        infixl (~!)(0, 0) = True
+        infixl (~!)(0, _) = True
+        infixl (~!)(_, 0) = False
+        infixl (~!)(x, y) = (x - 1) ~! (y - 1)
 
-        main(_) = IO.println(3 ~ 4 && (10 ~! 10))
+        main(_) = IO::println(3 ~ 4 && (10 ~! 10))
       }
       'True))
 
@@ -1120,19 +1097,19 @@
   (test-case "it evaluates user-defined precedence assignments"
     (check-equal?
       @interp-sexp{
-        @"@"(||)(True, _) = True
-        @"@"(||)(_, True) = True
-        @"@"(||)(_, _) = False
+        infixl (||)(True, _) = True
+        infixl (||)(_, True) = True
+        infixl (||)(_, _) = False
 
         //XOR
-        @"@"(!!)(False, False) = False
-        @"@"(!!)(True, True) = False
-        @"@"(!!)(_, _) = True
+        infixl (!!)(False, False) = False
+        infixl (!!)(True, True) = False
+        infixl (!!)(_, _) = True
 
         precedence || 1
         precedence !! 2
 
-        main(_) = IO.println(True !! True || True)
+        main(_) = IO::println(True !! True || True)
       }
       'False))
 
@@ -1143,32 +1120,32 @@
         //!! = *
         //~ = -
         //| = /
-        @"@"(&)(a, b) = a + b
-        @"@"(!)(a, b) = a * b
-        @"@"(~)(a, b) = a - b
-        @"@"(|)(a, b) = a / b
+        infixl (&)(a, b) = a + b
+        infixl (!)(a, b) = a * b
+        infixl (~)(a, b) = a - b
+        infixl (|)(a, b) = a / b
 
         precedence ! 1
         precedence | 1
         precedence & 2
         precedence ~ 2
 
-        main(_) = IO.println(1 & 2 ! 3 ~ 4 | 4)
+        main(_) = IO::println(1 & 2 ! 3 ~ 4 | 4)
       }
       6))
 
   (test-case "it reorders expressions by user-defined precedence"
     (check-equal?
       @interp-sexp{
-        @"@"(<)(0, 0) = False
-        @"@"(<)(0, _) = True
-        @"@"(<)(_, 0) = False
-        @"@"(<)(a, b) = a - 1 < b - 1
+        infixl (<)(0, 0) = False
+        infixl (<)(0, _) = True
+        infixl (<)(_, 0) = False
+        infixl (<)(a, b) = a - 1 < b - 1
 
         precedence < 10
 
-        @"@"(&&)(True, True) = True
-        @"@"(&&)(_, _) = False
+        infixl (&&)(True, True) = True
+        infixl (&&)(_, _) = False
 
         precedence && 11
 
@@ -1181,7 +1158,7 @@
             _ -> 43
           }
 
-          IO.println(l)
+          IO::println(l)
         }
       }
       42))
@@ -1189,28 +1166,28 @@
   (test-case "it allows direct references/application to operators"
     (check-equal?
       @interp-sexp{
-        main(_) = IO.println((+)(1, 2))
+        main(_) = IO::println((+)(1, 2))
       }
       3))
 
   (test-case "it returns operator function values"
     (check-equal?
-      @interp-lines{main(_) = IO.println((*))}
+      @interp-lines{main(_) = IO::println((*))}
       '("fun * : Int -> Int -> Int")))
 
   (test-case "it binds imported values"
     (check-equal?
       @interp-sexp{
         module Foo {
-          v = 42
+          let v = 42
         }
 
         module Bar {
           import Foo
-          x = v
+          let x = v
         }
 
-        main(_) = IO.println(Bar.x)
+        main(_) = IO::println(Bar::x)
       }
       42))
 
@@ -1218,8 +1195,8 @@
     (check-equal?
       @interp-sexp{
         module Prims {
-          @"@"(&&)(True, True) = True
-          @"@"(&&)(_, _) = False
+          infixl (&&)(True, True) = True
+          infixl (&&)(_, _) = False
         }
 
         module Foo {
@@ -1228,7 +1205,7 @@
           f() = True && False
         }
 
-        main(_) = IO.println(Foo.f())
+        main(_) = IO::println(Foo::f())
       }
       'False))
 
@@ -1237,14 +1214,14 @@
       @interp-sexp{
         module Prims {
           module BoolOps {
-            @"@"(&&)(True, True) = True
-            @"@"(&&)(_, _) = False
+            infixl (&&)(True, True) = True
+            infixl (&&)(_, _) = False
           }
         }
 
-        import Prims.BoolOps
+        import Prims::BoolOps
 
-        main(_) = IO.println(True && False)
+        main(_) = IO::println(True && False)
       }
       'False))
 
@@ -1254,7 +1231,7 @@
         foo(a, b) = a + b
         type foo = Int
 
-        main(_) = IO.println(foo(2, 4))
+        main(_) = IO::println(foo(2, 4))
       }
       6))
 )

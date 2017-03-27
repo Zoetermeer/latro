@@ -29,6 +29,7 @@ data Err =
   | ErrCantEvaluate (Typed IL)
   | ErrUnboundRawIdentifier RawId
   | ErrUnboundUniqIdentifier UniqId
+  | ErrUnboundQualIdentifier (QualifiedId SourcePos UniqId)
   | ErrIdAlreadyBound UniqId
   | ErrCantUnify Ty Ty
   | ErrUndefinedMember SourcePos UniqId

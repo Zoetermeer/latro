@@ -42,10 +42,11 @@ import Latro.Semant
   protocol { Token _ TokenProtocol }
   when { Token _ TokenWhen }
   on { Token _ TokenOn }
+  infixl { Token _ TokenInfixl }
   ':=' { Token _ TokenAssign }
   '->' { Token _ TokenArrow }
   '=>' { Token _ TokenRocket }
-  '::' { Token _ TokenCons }
+  '::' { Token _ TokenDblColon }
   '%(' { Token _ TokenPctLParen }
   '%{' { Token _ TokenPctLBrace }
   '[' { Token _ TokenLBracket }
@@ -157,7 +158,7 @@ AtomPatExp : '(' PatExp ')' { $2 }
            | SimpleOrMixedId { PatExpId (pos $1) (tokValue $1) }
            | '_' { PatExpWildcard (pos $1) }
 
-ListPatExp : AtomPatExp '::' ListPatExp { PatExpListCons (nodeData $1) $1 $3 }
+ListPatExp : AtomPatExp '@' ListPatExp { PatExpListCons (nodeData $1) $1 $3 }
            | '[' ZeroOrMorePatExps ']' { PatExpList (pos $1) $2 }
            | AtomPatExp { $1 }
 
@@ -208,7 +209,7 @@ MemberAccessExp : AppExp '.' SimpleOrMixedId { ExpMemberAccess (nodeData $1) $1 
 AppExp : AppExp '(' ArgExps ')' { ExpApp (nodeData $1) $1 $3 }
        | MemberAccessExp { $1 }
 
-ConsExp : AppExp '::' ConsExp { ExpCons (nodeData $1) $1 $3 }
+ConsExp : AppExp '@' ConsExp { ExpCons (nodeData $1) $1 $3 }
         | AppExp { $1 }
 
 CustomInfixExp : CustomInfixExp SpecialId ConsExp { ExpCustomInfix (nodeData $1) $1 (tokValue $2) $3 }
@@ -230,7 +231,7 @@ ExpOrAssign : let PatExp '=' Exp { ExpAssign (pos $1) $2 $4 }
 ExpOrAssigns : ExpOrAssign { [$1] }
              | ExpOrAssigns ExpOrAssign { $1 ++ [$2] }
 
-TopLevelBindingExp : PatExp '=' LiteralExp { ExpAssign (nodeData $1) $1 $3 }
+TopLevelBindingExp : let PatExp '=' LiteralExp { ExpAssign (pos $1) $2 $4 }
                    | FunDef { ExpFunDef $1 }
                    | TyAnn { ExpTyAnn $1 }
                    | import QualifiedId { ExpImport (pos $1) $2 }
@@ -242,15 +243,16 @@ ZeroOrMoreTopLevelBindingExps : TopLevelBindingExp { [$1] }
 PrecedenceAssign : precedence SpecialId num { ExpPrecAssign (pos $1) (tokValue $2) (read (tokValue $3)) }
 
 FunDef : SimpleOrMixedId '(' PatExpList ')' FunBody { FunDefFun (pos $1) (tokValue $1) $3 $5 }
-       | '@' '(' SpecialId ')' '(' PatExpList ')' FunBody { FunDefFun (pos $1) (tokValue $3) $6 $8 }
+       | infixl '(' SpecialId ')' '(' PatExpList ')' FunBody { FunDefFun (pos $1) (tokValue $3) $6 $8 }
 
 FunBody : '=' Exp { $2 }
 
 TyParams : '<' CommaSeparatedIds '>' { $2 }
          | {- empty -} { [] }
 
-TyAnn : SimpleOrMixedId TyParams ':' Ty Constraints { TyAnn (pos $1) (tokValue $1) $2 $4 $5 }
-      | '@' '(' SpecialId ')' TyParams ':' Ty Constraints { TyAnn (pos $1) (tokValue $3) $5 $7 $8 }
+TyAnn : SimpleOrMixedId ':' Ty Constraints { TyAnn (pos $1) (tokValue $1) [] $3 $4 }
+      | SimpleOrMixedId '<' CommaSeparatedIds '>' ':' Ty Constraints { TyAnn (pos $1) (tokValue $1) $3 $6 $7 }
+      | infixl '(' SpecialId ')' TyParams ':' Ty Constraints { TyAnn (pos $1) (tokValue $3) $5 $7 $8 }
 
 OneOrMoreTyAnns : TyAnn { [$1] }
                 | OneOrMoreTyAnns TyAnn { $1 ++ [$2] }
@@ -342,10 +344,10 @@ StructFieldInitializers : StructFieldInitializer { [$1] }
                         | {- empty -} { [] }
 
 QualifiedId : SimpleOrMixedId  { Id (pos $1) (tokValue $1) }
-            | QualifiedId '.' SimpleOrMixedId  { Path (nodeData $1) $1 (tokValue $3) }
+            | QualifiedId '::' SimpleOrMixedId  { Path (nodeData $1) $1 (tokValue $3) }
 
 QualifiedSimpleId : simple_id { Id (pos $1) (tokValue $1) }
-                  | QualifiedId '.' simple_id { Path (nodeData $1) $1 (tokValue $3) }
+                  | QualifiedId '::' simple_id { Path (nodeData $1) $1 (tokValue $3) }
 
 SimpleOrMixedId : simple_id { $1 }
                 | mixed_id { $1 }

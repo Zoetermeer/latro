@@ -52,10 +52,11 @@ tokens :-
   protocol { lex' TokenProtocol }
   when { lex' TokenWhen }
   on { lex' TokenOn }
+  infixl { lex' TokenInfixl }
   ":=" { lex' TokenAssign }
   "->" { lex' TokenArrow }
   "=>" { lex' TokenRocket }
-  "::" { lex' TokenCons }
+  "::" { lex' TokenDblColon }
   "%(" { lex' TokenPctLParen }
   "%{" { lex' TokenPctLBrace }
   [\[] { lex' TokenLBracket }
@@ -124,10 +125,11 @@ data TokenClass =
   | TokenProtocol
   | TokenWhen
   | TokenOn
+  | TokenInfixl
   | TokenAssign
   | TokenArrow
   | TokenRocket
-  | TokenCons
+  | TokenDblColon
   | TokenPctLParen
   | TokenPctLBrace
   | TokenLBracket
@@ -200,10 +202,11 @@ unlex (TokenPrim) = "prim"
 unlex (TokenProtocol) = "protocol"
 unlex (TokenWhen) = "when"
 unlex (TokenOn) = "on"
+unlex (TokenInfixl) = "infixr"
 unlex (TokenAssign) = ":="
 unlex (TokenArrow) = "->"
 unlex (TokenRocket) = "=>"
-unlex (TokenCons) = "::"
+unlex (TokenDblColon) = "::"
 unlex (TokenPctLParen) = "%("
 unlex (TokenPctLBrace) = "%{"
 unlex (TokenLBracket) = "["

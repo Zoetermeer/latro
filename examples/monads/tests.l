@@ -1,5 +1,5 @@
-import Core.List
-import Maybe.MonadInfix
+import Core::List
+import Maybe::MonadInfix
 
 itWorksOnDisparateTypeParamsToMaybe() = {
   let result =
@@ -7,7 +7,7 @@ itWorksOnDisparateTypeParamsToMaybe() = {
     Just(length(str)) >>= fun(len) =
     return(len + 1)
 
-  IO.println(result)
+  IO::println(result)
 }
 
 itShortCircuitsOnNothing() = {
@@ -16,7 +16,7 @@ itShortCircuitsOnNothing() = {
     Nothing() >>= fun(len) =
     return(len + 1)
 
-  IO.println(result)
+  IO::println(result)
 }
 
 main(_) = {

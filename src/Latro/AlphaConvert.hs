@@ -512,6 +512,14 @@ convert (ExpCustomInfix p lhe id rhe) = do
   id' <- lookupVarId id `reportErrorAt` p
   return $ ExpCustomInfix p lhe' id' rhe'
 
+convert (ExpMemberAccess p e@(ExpQualifiedRef _ qid) id) = do
+  entry <- lookupVarQualId qid
+  case entry of
+    UniqIdEntry{} -> do
+      e' <- convert e
+      return $ ExpMemberAccess p e' id
+    _ -> throwError (ErrUnboundQualIdentifier qid) `reportErrorAt` p
+
 convert (ExpMemberAccess p e id) = do
   e' <- convert e
   return $ ExpMemberAccess p e' id
@@ -703,9 +711,8 @@ convert (ExpQualifiedRef p path@(Path pp qid id)) = do
   entry <- lookupVarQualId qid `reportErrorAt` pp
   case entry of
     UnknownEntry _ -> return $ ExpQualifiedRef p path
-    UniqIdEntry uid -> do
-      innerE <- convert (ExpQualifiedRef (nodeData qid) qid)
-      return $ ExpMemberAccess p innerE id
+    -- UniqIdEntry uid -> return $ ExpRef p uid
+    UniqIdEntry uid -> throwError $ ErrInvalidUniqModulePath qid
     FrameEntry _ frame -> do
       memberUid <- lookupVarIn id [frame] `reportErrorAt` pp
       return $ ExpRef p memberUid

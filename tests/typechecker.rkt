@@ -10,7 +10,7 @@
         main(_) = {
           x : Int
           let x = "hello"
-          IO.println(x)
+          IO::println(x)
         }
       }
       `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected Int) (Got (App List (Char)))))))
@@ -21,7 +21,7 @@
         main(_) = {
           x : %(Int, Bool)
           let x = %(1, False)
-          IO.println(x)
+          IO::println(x)
         }
       }
       '("%(1, False)")))
@@ -32,7 +32,7 @@
         main(_) = {
           x : %(Int, Bool)
           let x = %(1, 2)
-          IO.println(x)
+          IO::println(x)
         }
       }
       `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected Bool) (Got Int)))))
@@ -43,24 +43,24 @@
         main(_) = {
           x : %(%(Int, Bool), %(String, Char))
           let x = %(%(1, False), %("hello", 'c'))
-          IO.println(x)
+          IO::println(x)
         }
       }
       '("%(%(1, False), %(\"hello\", 'c'))")))
 
   (test-case "it fails to typecheck using non-numerics in arithmetic"
     (check-match
-      @interp-sexp{main(_) = IO.println(1 + True)}
+      @interp-sexp{main(_) = IO::println(1 + True)}
       `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))
 
   (test-case "it fails to typecheck using non-numerics on the LHS of arithmetic exps"
     (check-match
-      @interp-sexp{main(_) = IO.println(False + 42)}
+      @interp-sexp{main(_) = IO::println(False + 42)}
       `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))
 
   (test-case "it fails to typecheck if no numerics are given in arithmetic"
     (check-match
-      @interp-sexp{main(_) = IO.println(False + True)}
+      @interp-sexp{main(_) = IO::println(False + True)}
       `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))
 
   (test-case "it typechecks list expressions"
@@ -69,7 +69,7 @@
         main(_) = {
           xs : Bool[]
           let xs = [False, True]
-          IO.println(xs)
+          IO::println(xs)
         }
       }
       '("[False, True]")))
@@ -80,24 +80,24 @@
         main(_) = {
           xs<a> : a[]
           let xs = []
-          IO.println(xs)
+          IO::println(xs)
         }
       }
       '("[]")))
 
   (test-case "it fails non-uniformly-typed list expressions"
     (check-match
-      @interp-sexp{main(_) = IO.println([1, False])}
+      @interp-sexp{main(_) = IO::println([1, False])}
       `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))
 
   (test-case "it fails ill-typed conses"
     (check-match
-      @interp-sexp{main(_) = IO.println(1::[False, True])}
+      @interp-sexp{main(_) = IO::println(1 @"@" [False, True])}
       `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected Bool) (Got Int)))))
 
   (test-case "it fails if the right-hand side of a cons is not a list"
     (check-match
-      @interp-sexp{main(_) = IO.println(1::2)}
+      @interp-sexp{main(_) = IO::println(1 @"@" 2)}
       `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected (App List (Int))) (Got Int)))))
 
   (test-case "it fails to typecheck if an if-else test is not a boolean"
@@ -105,8 +105,8 @@
       @interp-sexp{
         main(_) = {
           if (0)
-            IO.println("zero")
-            IO.println("not zero?")
+            IO::println("zero")
+            IO::println("not zero?")
         }
       }
       `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))
@@ -116,7 +116,7 @@
       @interp-sexp{
         main(_) = {
           let x = if (True) 42 "hello"
-          IO.println(x)
+          IO::println(x)
         }
       }
       `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected Int) (Got (App List (Char)))))))
@@ -133,7 +133,7 @@
           }
         }
 
-        main(_) = IO.println(Root.Leaf.add(1, 2))
+        main(_) = IO::println(Root::Leaf::add(1, 2))
       }
       '("3")))
 
@@ -153,13 +153,13 @@
         }
 
         main(_) = {
-          let l = Geometry.Line %{
-            A = Geometry.Point %{ X = 0; Y = 0; };
-            B = Geometry.Point %{ X = 3; Y = 4; };
+          let l = Geometry::Line %{
+            A = Geometry::Point %{ X = 0; Y = 0; };
+            B = Geometry::Point %{ X = 3; Y = 4; };
           }
 
-          let x = Geometry.Y(Geometry.B(l))
-          IO.println(x)
+          let x = Geometry::Y(Geometry::B(l))
+          IO::println(x)
         }
       }
       '("4")))
@@ -175,7 +175,7 @@
         main(_) = {
           let s = S %{ X = 42; Y = False; }
           let x = s.Y + 2
-          IO.println(x)
+          IO::println(x)
         }
       }
       `(AtPos (SourcePos ,_ 7 ,_) (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))
@@ -196,12 +196,12 @@
         }
 
         main(_) = {
-          let l = Geometry.Line %{
-            A = Geometry.Point %{ X = 0; Y = False; };
-            B = Geometry.Point %{ X = 3; Y = 4; };
+          let l = Geometry::Line %{
+            A = Geometry::Point %{ X = 0; Y = False; };
+            B = Geometry::Point %{ X = 3; Y = 4; };
           }
 
-          IO.println(l.A.Y + 1)
+          IO::println(l.A.Y + 1)
         }
       }
       `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))
@@ -210,10 +210,10 @@
     (check-match
       @interp-sexp{
         module M {
-          v = False
+          let v = False
         }
 
-        main(_) = IO.println(1 + M.v)
+        main(_) = IO::println(1 + M::v)
       }
       `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))
 
@@ -237,7 +237,7 @@
       @interp-sexp{
         main(_) = {
           let %("hello", y) = %(1, False)
-          IO.println(y)
+          IO::println(y)
         }
       }
       `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected (App List (Char))) (Got Int)))))
@@ -247,7 +247,7 @@
       @interp-sexp{
         main(_) = {
           let %(a, b) = 42
-          IO.println(a)
+          IO::println(a)
         }
       }
       `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected (App Tuple (,_ ,_))) (Got Int)))))
@@ -257,7 +257,7 @@
       @interp-sexp{
         main(_) = {
           let %(%(x, 4), z) = %(%(1, True), %(3, 4))
-          IO.println(z)
+          IO::println(z)
         }
       }
       `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))
@@ -267,7 +267,7 @@
       @interp-sexp{
         main(_) = {
           let [%(1, x), %(2, 3)] = [%(1, False), %(2, True)]
-          IO.println(%(x, 1))
+          IO::println(%(x, 1))
         }
       }
       `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))
@@ -286,10 +286,10 @@
     (check-match
       @interp-sexp{
         main(_) = {
-          let xs = 42 :: []
-          let xs' = 43 :: xs
-          let xs'' = True :: xs'
-          IO.println(xs'')
+          let xs = 42 @"@" []
+          let xs' = 43 @"@" xs
+          let xs'' = True @"@" xs'
+          IO::println(xs'')
         }
       }
       `(AtPos (SourcePos ,_ 4 ,_) (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))
@@ -298,8 +298,8 @@
     (check-match
       @interp-sexp{
         main(_) = {
-          let x::[1] = [False, True]
-          IO.println(x)
+          let x @"@" [1] = [False, True]
+          IO::println(x)
         }
       }
       `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))
@@ -308,8 +308,8 @@
     (check-match
       @interp-sexp{
         main(_) = {
-          let %(is, bs) = %(42 :: [], False :: [])
-          IO.println(True :: is)
+          let %(is, bs) = %(42 @"@" [], False @"@" [])
+          IO::println(True @"@" is)
         }
       }
       `(AtPos (SourcePos ,_ 3 ,_) (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))
@@ -319,7 +319,7 @@
       @interp-sexp{
         main(_) = {
           let %([1, 2, 3, x], y) = %([], False)
-          IO.println(x :: "hello")
+          IO::println(x @"@" "hello")
         }
       }
       `(AtPos (SourcePos ,_ 3 ,_) (CompilerModule Typecheck) (CantUnify (Expected Char) (Got Int)))))
@@ -331,7 +331,7 @@
 
         main(_) = {
           let xs = mt()
-          IO.println(1 :: xs)
+          IO::println(1 @"@" xs)
         }
       }
       '("[1]")))
@@ -341,7 +341,7 @@
       @interp-sexp{
         main(_) = {
           let [x, y] = [1, "hello"]
-          IO.println(y)
+          IO::println(y)
         }
       }
       `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected Int) (Got (App List (Char)))))))
@@ -352,7 +352,7 @@
         f() = 42
 
         main(_) = {
-          IO.println(f() :: [False])
+          IO::println(f() @"@" [False])
         }
       }
       `(AtPos (SourcePos ,_ 4 ,_) (CompilerModule Typecheck) (CantUnify (Expected Bool) (Got Int)))))
@@ -363,7 +363,7 @@
         id(x) = x
 
         main(_) = {
-          IO.println(%(id(1), id(False), id("hello")))
+          IO::println(%(id(1), id(False), id("hello")))
         }
       }
       '("%(1, False, \"hello\")")))
@@ -373,7 +373,7 @@
       @interp-lines{
         id(x) = x
 
-        main(_) = IO.println(id(42) + id(43))
+        main(_) = IO::println(id(42) + id(43))
       }
       '("85")))
 
@@ -386,7 +386,7 @@
 
         main(_) = {
           let str = randomzap(3)("hello")
-          IO.println(str)
+          IO::println(str)
         }
       }
       `(AtPos (SourcePos ,_ 6 ,_) (CompilerModule Typecheck) (CantUnify (Expected Int) (Got (App List (Char)))))))
@@ -399,7 +399,7 @@
         }
 
         main(_) = {
-          IO.println(%(randomzap(42)(43), randomzap(False)(True)))
+          IO::println(%(randomzap(42)(43), randomzap(False)(True)))
         }
       }
       '("%(42, False)")))
@@ -414,7 +414,7 @@
         }
 
         main(_) = {
-          IO.println(randomzap(42)(False))
+          IO::println(randomzap(42)(False))
         }
       }
       `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))
@@ -422,9 +422,9 @@
   (test-case "it infers list types in implicitly polymorphic functions"
     (check-match
       @interp-sexp{
-        toList(x) = { x::[] }
+        toList(x) = { x @"@" [] }
         main(_) = {
-          IO.println(False :: toList(42))
+          IO::println(False @"@" toList(42))
         }
       }
       `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))
@@ -439,7 +439,7 @@
         }
 
         main(_) = {
-          IO.println(False :: make(False, 1))
+          IO::println(False @"@" make(False, 1))
         }
       }
       `(AtPos (SourcePos ,_ 8 ,_) (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))
@@ -464,7 +464,7 @@
             x
         }
 
-        main(_) = IO.println(f("hello world", False) + 1)
+        main(_) = IO::println(f("hello world", False) + 1)
       }
       `(AtPos (SourcePos ,_ 7 ,_) (CompilerModule Typecheck) (CantUnify (Expected Int) (Got (App List (Char)))))))
 
@@ -477,7 +477,7 @@
             False -> "world"
           }
 
-          IO.println(v)
+          IO::println(v)
         }
       }
       `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))
@@ -492,7 +492,7 @@
           }
         }
 
-        main(_) = IO.println(len([1]))
+        main(_) = IO::println(len([1]))
       }
       `(AtPos (SourcePos ,_ 2 ,_) (CompilerModule Typecheck) (CantUnify (Expected (App List (,_))) (Got Int)))))
 
@@ -507,7 +507,7 @@
         }
 
         main(_) = {
-          IO.println(%(unwrap("hello"), unwrap(42)))
+          IO::println(%(unwrap("hello"), unwrap(42)))
         }
       }
       '("%(\"hello\", 42)")))
@@ -521,7 +521,7 @@
           s : Str
           let s = 'c'
 
-          IO.println(s)
+          IO::println(s)
         }
       }
       `(AtPos (SourcePos ,_ 4 ,_) (CompilerModule Typecheck) (CantUnify (Expected (App List (Char))) (Got Char)))))
@@ -541,9 +541,9 @@
       @interp-sexp{
         len<a> : a[] -> Int
         len([]) = 0
-        len(x::xs) = 1 + len(3)
+        len(x@"@"xs) = 1 + len(3)
 
-        main(_) = IO.println(len([1, 2]))
+        main(_) = IO::println(len([1, 2]))
       }
       `(AtPos (SourcePos ,_ 3 ,_) (CompilerModule Typecheck) (CantUnify (Expected (App List ((Meta ,_)))) (Got Int)))))
 
@@ -552,9 +552,9 @@
       @interp-sexp{
         len<a> : a[] -> Int
         len([]) = 0
-        len(x::xs) = { 1 + len(xs) }
+        len(x@"@"xs) = { 1 + len(xs) }
 
-        main(_) = IO.println(len(3))
+        main(_) = IO::println(len(3))
       }
       `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected (App List (,t))) (Got Int)))))
 
@@ -563,7 +563,7 @@
       @interp-sexp{
         f(x, y) = if (True) x y
         main(_) = {
-          IO.println(f(1, 'c'))
+          IO::println(f(1, 'c'))
         }
       }
       `(AtPos (SourcePos ,_ 3 ,_) (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Char)))))
@@ -574,7 +574,7 @@
         f<a, a> : a -> a -> a
         f(x, y) = { if (True) x y }
         main(_) = {
-          IO.println(f(1, 'c'))
+          IO::println(f(1, 'c'))
         }
       }
       `(AtPos (SourcePos ,_ 4 ,_) (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Char)))))
@@ -587,7 +587,7 @@
           | A(Int)
           | B(String)
 
-        main(_) = IO.println(A(42))
+        main(_) = IO::println(A(42))
       }
       '("A(42)")))
 
@@ -599,7 +599,7 @@
           | Leaf(String)
 
         main(_) = {
-          IO.println(Leaf(False))
+          IO::println(Leaf(False))
         }
       }
       `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected (App List (Char))) (Got Bool)))))
@@ -616,7 +616,7 @@
 
         main(_) = {
           let b = B(False, A(42, "hello"))
-          IO.println(add1ToInnerA(b))
+          IO::println(add1ToInnerA(b))
         }
       }
       '("43")))
@@ -630,7 +630,7 @@
         f(v) = v
 
         main(_) = {
-          IO.println(f(Bar(1, False)))
+          IO::println(f(Bar(1, False)))
         }
       }
       '("Bar(1, False)")))
@@ -657,7 +657,7 @@
           | Right(r)
 
         main(_) = {
-          IO.println(%(Right("hello"), Left(42), Right(True)))
+          IO::println(%(Right("hello"), Left(42), Right(True)))
         }
       }
       '("%(Right(\"hello\"), Left(42), Right(True))")))
@@ -670,7 +670,7 @@
           | None
 
         main(_) = {
-          IO.println(None())
+          IO::println(None())
         }
       }
       '("None()")))
@@ -685,7 +685,7 @@
           | B(a, a)
 
         main(_) = {
-          IO.println([A(1, 1), B(1, 1)])
+          IO::println([A(1, 1), B(1, 1)])
         }
       }
       `(AtPos
@@ -721,7 +721,7 @@
               _ -> 0
             }
 
-          IO.println(v + 1)
+          IO::println(v + 1)
         }
       }
       '("2")))
@@ -735,7 +735,7 @@
 
         main(_) = {
           let Some(v) = Some(42)
-          IO.println(v + 1)
+          IO::println(v + 1)
         }
       }
       '("43")))
@@ -751,7 +751,7 @@
 
         main(_) = {
           let MakeOpt(v) = Some(42)
-          IO.println(v)
+          IO::println(v)
         }
       }
       `(AtPos (SourcePos ,_ 8 ,_) (CompilerModule Typecheck) (UnboundUniqIdentifier (Id MakeOpt ,_)))))
@@ -766,12 +766,12 @@
         }
 
         main(_) = {
-          let x = switch (Opt.GetOne()) {
+          let x = switch (Opt::GetOne()) {
               Some(43) -> False
               _ -> True
             }
 
-          IO.println(x)
+          IO::println(x)
         }
       }
       `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier Some))))
@@ -786,13 +786,13 @@
         }
 
         main(_) = {
-          let Opt.Some(x1) = Opt.GetOne()
-          let x2 = switch (Opt.GetOne()) {
-              Opt.Some(x) -> x
+          let Opt::Some(x1) = Opt::GetOne()
+          let x2 = switch (Opt::GetOne()) {
+              Opt::Some(x) -> x
               _           -> 0
             }
 
-          IO.println(x1 + x2)
+          IO::println(x1 + x2)
         }
       }
       '("84")))
@@ -810,7 +810,7 @@
         main(_) = {
           let s = unsafeUnwrap(Some("hello"))
           let i = unsafeUnwrap(Some(42))
-          IO.println(s + i)
+          IO::println(s + i)
         }
       }
       `(AtPos (SourcePos ,_ 11 ,_) (CompilerModule Typecheck) (CantUnify (Expected Int) (Got (App List (Char)))))))
@@ -827,7 +827,7 @@
         main(_) = {
           let s = unsafeUnwrap(Some("hello"))
           let i = unsafeUnwrap(Some(42))
-          IO.println(s + i)
+          IO::println(s + i)
         }
       }
       `(AtPos (SourcePos ,_ 10 ,_) (CompilerModule Typecheck) (CantUnify (Expected Int) (Got (App List (Char)))))))
@@ -844,7 +844,7 @@
 
         main(_) = {
           let s = unsafeUnwrap(Some("hello"))
-          IO.println(s)
+          IO::println(s)
         }
       }
       `(AtPos (SourcePos ,_ 9 ,_) (CompilerModule Typecheck) (CantUnify (Expected Int) (Got (App List (Char)))))))
@@ -869,7 +869,7 @@
         }
 
         main(_) = {
-          IO.println(%(isSome(None()), isSome(Some("hello"))))
+          IO::println(%(isSome(None()), isSome(Some("hello"))))
         }
       }
       '("%(False, True)")))
@@ -895,7 +895,7 @@
           1 + sizeImp(left) + sizeImp(right)
         }
 
-        main(_) = IO.println(sizeExp(Leaf(0)))
+        main(_) = IO::println(sizeExp(Leaf(0)))
       }
       '("1")))
 
@@ -912,7 +912,7 @@
         }
 
         main(_) = {
-          IO.println(comp(1))
+          IO::println(comp(1))
         }
       }
       '("Node(1, Leaf(0), Leaf(0))")))
@@ -930,7 +930,7 @@
         }
 
         main(_) = {
-          IO.println(comp(1))
+          IO::println(comp(1))
         }
       }
       `(AtPos (SourcePos ,_ 7 ,_) (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))
@@ -950,7 +950,7 @@
         addIntData(a, b) = intVal(a) + intVal(b)
 
         main(_) = {
-          IO.println(addIntData(Leaf("hello"), Leaf("world")))
+          IO::println(addIntData(Leaf("hello"), Leaf("world")))
         }
       }
       `(AtPos (SourcePos ,_ 13 ,_) (CompilerModule Typecheck) (CantUnify (Expected Int) (Got (App List (Char)))))))
@@ -967,7 +967,7 @@
         main(_) = {
           let a = getVal(Bar(True))
           let b = False
-          IO.println(a && b)
+          IO::println(a && b)
         }
       }
       `(AtPos (SourcePos ,_ 8 ,_) (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))
@@ -976,7 +976,7 @@
     (check-equal?
       @interp-lines{
         main(_) =
-          IO.println(
+          IO::println(
             cond {
               False -> "hello"
               _ -> "world"
@@ -995,15 +995,15 @@
           concat : t -> t -> t
           concat(xs, []) = xs
           concat([], ys) = ys
-          concat(x::xs, ys) = {
-            x :: concat(xs, ys)
+          concat(x @"@" xs, ys) = {
+            x @"@" concat(xs, ys)
           }
         }
 
         main(_) = {
-          IO.println(IntList.concat([], []))
-          IO.println(IntList.concat([1, 2], []))
-          IO.println(IntList.concat([1, 2], [3, 4, 5]))
+          IO::println(IntList::concat([], []))
+          IO::println(IntList::concat([1, 2], []))
+          IO::println(IntList::concat([1, 2], [3, 4, 5]))
         }
       }
       '("[]"
@@ -1016,11 +1016,11 @@
         type t<k, v> = %(k, v)[]
 
         insert<k, v> : t<k, v> -> k -> v -> t<k, v>
-        insert(map, key, val) = { %(key, val) :: map }
+        insert(map, key, val) = { %(key, val) @"@" map }
 
         find<v> : t<Int, v> -> Int -> Maybe<v>
         find([], _) = Nothing()
-        find(%(k, v) :: kvs, findKey) =
+        find(%(k, v) @"@" kvs, findKey) =
           cond {
             k == findKey -> Just(v)
             _            -> find(kvs, findKey)
@@ -1028,8 +1028,8 @@
 
         main(_) = {
           let m = [%(1, "hello")]
-          IO.println(find(m, 3))
-          IO.println(find(m, 1))
+          IO::println(find(m, 3))
+          IO::println(find(m, 1))
         }
       }
       '("Nothing()" "Just(\"hello\")")))
@@ -1039,10 +1039,10 @@
       @interp-lines{
         type t<k, v> = %(k, v)[]
 
-        insert(map, key, val) = { %(key, val) :: map }
+        insert(map, key, val) = { %(key, val) @"@" map }
 
         find([], _) = Nothing()
-        find(%(k, v) :: kvs, findKey) =
+        find(%(k, v) @"@" kvs, findKey) =
           cond {
             k == findKey -> Just(v)
             _            -> find(kvs, findKey)
@@ -1050,8 +1050,8 @@
 
         main(_) = {
           let m = [%(1, "hello")]
-          IO.println(find(m, 3))
-          IO.println(find(m, 1))
+          IO::println(find(m, 3))
+          IO::println(find(m, 1))
         }
       }
       '("Nothing()" "Just(\"hello\")")))
@@ -1059,10 +1059,10 @@
   (test-case "it checks infix application of binary functions"
     (check-equal?
       @interp-lines{
-        @"@"(!!)(a, b) = a + b
+        infixl (!!)(a, b) = a + b
 
         main(_) = {
-          IO.println(1 !! 3 + 4)
+          IO::println(1 !! 3 + 4)
         }
       }
       '("8")))
@@ -1070,10 +1070,10 @@
   (test-case "it rejects invalid arguments to infix operators"
     (check-match
       @interp-sexp{
-        @"@"(!!)(a, b) = a + b
+        infixl (!!)(a, b) = a + b
 
         main(_) = {
-          IO.println(1 !! True)
+          IO::println(1 !! True)
         }
       }
       `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))

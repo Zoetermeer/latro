@@ -2,14 +2,14 @@ import IO
 import Rope
 
 itWrapsTwoRopesByASingleNode() = {
-  let r1 = Rope.Leaf("hello ")
-  let r2 = Rope.Leaf("world")
+  let r1 = Rope::Leaf("hello ")
+  let r2 = Rope::Leaf("world")
 
-  println(Rope.concat'(r1, r2))
+  println(Rope::concat'(r1, r2))
 }
 
 itDeletesRangeForLeaf() = {
-  let leaf = Rope.Leaf("hello")
+  let leaf = Rope::Leaf("hello")
   println(delete(leaf, 1, 4))
 }
 
@@ -52,5 +52,5 @@ main(_) = {
     stressTests
   ]
 
-  Core.List.each(fun(testFun) = testFun(), tests)
+  Core::List::each(fun(testFun) = testFun(), tests)
 }

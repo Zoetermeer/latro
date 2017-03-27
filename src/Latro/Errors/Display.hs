@@ -70,6 +70,11 @@ instance Sexpable Err where
           , sexp id
           ]
 
+  sexp (ErrUnboundQualIdentifier qid) =
+    List  [ Symbol "UnboundQualIdentifier"
+          , sexp qid
+          ]
+
   sexp (ErrIdAlreadyBound id) =
     List  [ Symbol "IdAlreadyBound"
           , sexp id
@@ -220,5 +225,8 @@ instance CompilerOutput Err where
 
   render (ErrUnboundRawIdentifier id) =
     printf "Unbound raw identifier '%s'" id
+
+  render (ErrUnboundQualIdentifier qid) =
+    printf "Unbound identifier '%s'" $ render qid
 
   render err = showSexp err
