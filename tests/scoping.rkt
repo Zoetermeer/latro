@@ -4,6 +4,7 @@
   (require "common.rkt"
            rackunit)
 
+  #|
   (test-case "it binds identifiers introduced in cons patterns in switches"
     (check-equal?
       @interp-lines{
@@ -682,4 +683,18 @@
         }
       }
       `(AtPos (SourcePos ,_ 19 ,_) (CompilerModule AlphaConvert) (UnboundRawIdentifier BogusId))))
+  |#
+
+  (test-case "it does not allow direct references to module names"
+    (check-match
+      @interp-sexp{
+        type Foo = | Bar(Int)
+
+        module Foo { }
+
+        main(_) = {
+          let _ = if (False) Foo(42) Bar(42)
+        }
+      }
+      `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundUniqIdentifier Foo))))
 )

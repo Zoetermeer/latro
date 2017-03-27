@@ -718,8 +718,11 @@ convert (ExpQualifiedRef p path@(Path pp qid id)) = do
       return $ ExpRef p memberUid
 
 convert (ExpRef p id) = do
-  id' <- lookupVarId id `reportErrorAt` p
-  return $ ExpRef p id'
+  entry <- lookupVarEntry id `reportErrorAt` p
+  case entry of
+    UnknownEntry _ -> return $ ExpRef p id
+    UniqIdEntry uid -> return $ ExpRef p uid
+    FrameEntry _ _ -> throwError (ErrUnboundUniqIdentifier id) `reportErrorAt` p
 
 convert e = throwError $ ErrInterpFailure $ printf "convert failed for: %s" $ show e
 
