@@ -738,14 +738,13 @@ interpreter is in the ``src`` directory.
 Building
 --------
 
-You can use the Haskell Cabal tool to automatically install dependencies
-and build the ``latro`` interpreter executable:
+You can use the Haskell Stack tool to automatically install dependencies
+and build the ``latroi`` interpreter executable:
 
 ::
 
-  $> cabal install --only-dependencies
-  $> cabal configure
-  $> cabal build
+  $> stack setup
+  $> stack build
 
 Running the REPL
 ----------------
@@ -756,7 +755,7 @@ To start Latro in interactive (REPL) mode, simply run the executable:
 
 ::
 
-  $> latro
+  $> stack exec latroi
   λ> //type some code here!
 
 Sometimes it is convenient to load a source file directly into the REPL.
