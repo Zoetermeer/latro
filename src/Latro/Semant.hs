@@ -189,6 +189,8 @@ instance ILNode ILPat where
 
 data Prim =
     PrimPrintln
+  | PrimReadln
+  | PrimCharEq
   | PrimIntAdd
   | PrimIntSub
   | PrimIntDiv

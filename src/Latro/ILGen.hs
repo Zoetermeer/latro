@@ -40,6 +40,8 @@ ilGenPrim :: UniqId -> Prim
 ilGenPrim (UserId id) =
   case map toLower id of
     "println" -> PrimPrintln
+    "readln" -> PrimReadln
+    "chareq" -> PrimCharEq
     "intadd" -> PrimIntAdd
     "intsub" -> PrimIntSub
     "intdiv" -> PrimIntDiv

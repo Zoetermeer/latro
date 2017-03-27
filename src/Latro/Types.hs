@@ -902,6 +902,8 @@ tc (ILPrim p prim) = do
                 PrimPrintln -> do
                   paramMeta <- freshMeta
                   return $ TyApp TyConArrow [paramMeta, tyUnit]
+                PrimReadln -> return $ TyApp TyConArrow [tyStr]
+                PrimCharEq -> return $ TyApp TyConArrow [tyChar, tyChar, tyBool]
                 PrimIntAdd -> intArithTy
                 PrimIntSub -> intArithTy
                 PrimIntDiv -> intArithTy

@@ -407,6 +407,7 @@ instance Sexpable Prim where
   sexp prim =
     case prim of
       PrimPrintln -> Symbol "PrimPrintln"
+      PrimReadln -> Symbol "PrimReadln"
       PrimIntAdd -> Symbol "PrimIntAdd"
       PrimIntSub -> Symbol "PrimIntSub"
       PrimIntDiv -> Symbol "PrimIntDiv"

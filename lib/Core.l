@@ -48,9 +48,16 @@ type Result<e, t> =
   | Ok(t)
   | Error(e)
 
+type String = Char[]
+
 module Core {
   id<a> : a -> a
   id(v) = v
+
+
+  charEqual : Char -> Char -> Bool
+  charEqual(c1, c2) = prim(charEq)(c1, c2)
+
 
   module List {
     length<a> : a[] -> Int
@@ -115,6 +122,55 @@ module Core {
       let selector = fun(x, pr) = select(p, x, pr)
       foldr(selector, %([], []), xs)
     }
+
+
+    reverse<a> : a[] -> a[]
+    reverse([]) = []
+    reverse(x @ xs) = reverse(xs) ++ [x]
+  }
+
+  module String {
+    isEmpty : String -> Bool
+    isEmpty("") = True
+    isEmpty(_) = False
+
+
+    areEqual : String -> String -> Bool
+    areEqual([], []) = True
+    areEqual(a @ as, b @ bs) = cond {
+      charEqual(a, b) -> areEqual(as, bs)
+      _                    -> False
+    }
+
+    areEqual(_, _) = False
+
+
+    splitAt : String -> Int -> %(String, String)
+    splitAt(s, 0)      = %("", s)
+    splitAt("", _)     = %("", "")
+    splitAt(c @ cs, 1)  = %([c], cs)
+    splitAt(c @ cs, n) = {
+      let %(a, b) = splitAt(cs, n - 1)
+      %(c @ a, b)
+    }
+
+
+    split/priv : String -> Char -> String -> String[] -> String[]
+    split/priv([], _, curWord, words) = List::reverse(curWord) @ words
+
+    split/priv(c @ cs, matchChar, curWord, words) = {
+      if (Core::charEqual(c,matchChar)) {
+        let words' = if (isEmpty(curWord)) words List::reverse(curWord) @ words
+        split/priv(cs, matchChar, "", words')
+      } {
+        split/priv(cs, matchChar, c @ curWord, words)
+      }
+    }
+
+    split : String -> Char -> String[]
+    split(str, matchChar) = {
+      List::reverse(split/priv(str, matchChar, "", []))
+    }
   }
 }
 
@@ -128,17 +184,5 @@ module Tuple {
 
 module IO {
   println(v) = prim(println)(v)
-}
-
-type String = Char[]
-
-module String {
-  splitAt : String -> Int -> %(String, String)
-  splitAt(s, 0)      = %("", s)
-  splitAt("", _)     = %("", "")
-  splitAt(c @ cs, 1)  = %([c], cs)
-  splitAt(c @ cs, n) = {
-    let %(a, b) = splitAt(cs, n - 1)
-    %(c @ a, b)
-  }
+  readln() = prim(readln)()
 }

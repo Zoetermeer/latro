@@ -165,6 +165,8 @@ interpPrimApp :: Prim -> [Typed IL] -> Eval Value
 interpPrimApp prim argEs = do
   argVs <- mapM interpE argEs
   case prim of
+    PrimCharEq -> return $ ValueBool $ c1 == c2
+      where [ValueChar c1, ValueChar c2] = argVs
     PrimIntAdd -> return $ primArith (+) argVs
     PrimIntSub -> return $ primArith (-) argVs
     PrimIntDiv -> return $ primArith quot argVs
@@ -177,6 +179,8 @@ interpPrimApp prim argEs = do
     PrimIntGeq -> return $ primCmp (>=) argVs
     PrimPrintln -> do liftIO $ (putStrLn . render) $ head argVs
                       return ValueUnit
+    PrimReadln -> do line <- liftIO $ getLine
+                     return $ ValueList $ map ValueChar line
 
 
 interpE :: Typed IL -> Eval Value
