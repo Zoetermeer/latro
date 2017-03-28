@@ -42,6 +42,7 @@ ilGenPrim (UserId id) =
     "println" -> PrimPrintln
     "readln" -> PrimReadln
     "chareq" -> PrimCharEq
+    "chartoint" -> PrimCharToInt
     "intadd" -> PrimIntAdd
     "intsub" -> PrimIntSub
     "intdiv" -> PrimIntDiv

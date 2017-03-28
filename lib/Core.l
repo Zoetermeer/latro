@@ -10,6 +10,10 @@ precedence / 5
 
 mod(n, d) = prim(intMod)(n, d)
 
+pow : Int -> Int -> Int
+pow(n, 0) = 1
+pow(n, p) = n * pow(n, p - 1)
+
 not(True) = False
 not(_)    = True
 
@@ -127,6 +131,26 @@ module Core {
     reverse<a> : a[] -> a[]
     reverse([]) = []
     reverse(x @ xs) = reverse(xs) ++ [x]
+  }
+
+  module Character {
+    toInt : Char -> Int
+    toInt(c) = prim(charToInt)(c)
+
+
+    unsafeRead : Char -> Int
+    unsafeRead(c) = toInt(c) - 48
+  }
+
+  module Integer {
+    read/priv : String -> Int -> Int
+    read/priv("", _) = 0
+    read/priv(c @ cs, p) = Character::unsafeRead(c) * pow(10, p) + read/priv(cs, p + 1)
+
+
+    unsafeRead : String -> Int
+    unsafeRead("") = 0
+    unsafeRead(str) = read/priv(List::reverse(str), 0)
   }
 
   module String {

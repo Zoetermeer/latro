@@ -4,6 +4,7 @@ module Latro.Interp where
 import Control.Error.Util (hoistEither)
 import Control.Monad.Except
 import Control.Monad.State
+import Data.Char (ord)
 import Data.Either.Utils (maybeToEither)
 import Data.List
 import qualified Data.Map as Map
@@ -167,6 +168,9 @@ interpPrimApp prim argEs = do
   case prim of
     PrimCharEq -> return $ ValueBool $ c1 == c2
       where [ValueChar c1, ValueChar c2] = argVs
+    PrimCharToInt -> return $ ValueInt i
+      where [ValueChar c] = argVs
+            i = ord c
     PrimIntAdd -> return $ primArith (+) argVs
     PrimIntSub -> return $ primArith (-) argVs
     PrimIntDiv -> return $ primArith quot argVs

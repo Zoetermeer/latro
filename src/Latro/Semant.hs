@@ -191,6 +191,7 @@ data Prim =
     PrimPrintln
   | PrimReadln
   | PrimCharEq
+  | PrimCharToInt
   | PrimIntAdd
   | PrimIntSub
   | PrimIntDiv

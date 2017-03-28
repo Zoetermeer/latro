@@ -904,6 +904,7 @@ tc (ILPrim p prim) = do
                   return $ TyApp TyConArrow [paramMeta, tyUnit]
                 PrimReadln -> return $ TyApp TyConArrow [tyStr]
                 PrimCharEq -> return $ TyApp TyConArrow [tyChar, tyChar, tyBool]
+                PrimCharToInt -> return $ TyApp TyConArrow [tyChar, tyInt]
                 PrimIntAdd -> intArithTy
                 PrimIntSub -> intArithTy
                 PrimIntDiv -> intArithTy

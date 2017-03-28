@@ -409,6 +409,7 @@ instance Sexpable Prim where
       PrimPrintln -> Symbol "PrimPrintln"
       PrimReadln -> Symbol "PrimReadln"
       PrimCharEq -> Symbol "PrimCharEq"
+      PrimCharToInt -> Symbol "PrimCharToInt"
       PrimIntAdd -> Symbol "PrimIntAdd"
       PrimIntSub -> Symbol "PrimIntSub"
       PrimIntDiv -> Symbol "PrimIntDiv"
