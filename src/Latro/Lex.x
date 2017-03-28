@@ -21,7 +21,7 @@ import Latro.Semant (SourcePos(..))
 
 $digit = 0-9
 $alpha = [a-zA-Z]
-$special = [\!\/\\\|\~\&\=\+\-\*\^]
+$special = [\?\!\/\\\|\~\&\=\+\-\*\^]
 
 tokens :-
   $white+ ;
