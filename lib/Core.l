@@ -131,6 +131,13 @@ module Core {
     reverse<a> : a[] -> a[]
     reverse([]) = []
     reverse(x @ xs) = reverse(xs) ++ [x]
+
+
+    take<a> : a[] -> Int -> a[]
+    take(x @ xs, n) = cond {
+      n == 0 -> []
+      _      -> x @ take(xs, n - 1)
+    }
   }
 
   module Character {
@@ -144,6 +151,14 @@ module Core {
 
   module Integer {
     import List
+
+    digits : Int -> Int[]
+    digits(0) = [0]
+    digits(n) = {
+      let m = mod(n, 10)
+      let n' = n / 10
+      if (n' == 0) [m] digits(n') ++ [m]
+    }
 
     read/priv : String -> Int -> Int
     read/priv("", _) = 0
@@ -233,6 +248,10 @@ module Core {
     join : String[] -> String -> String
     join([], _) = ""
     join(s @ ss, spacer) = s ++ spacer ++ join(ss, spacer)
+
+
+    words : String -> String[]
+    words(str) = split(str, ' ')
   }
 }
 
