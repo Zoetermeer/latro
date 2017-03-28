@@ -143,6 +143,8 @@ module Core {
   }
 
   module Integer {
+    import List
+
     read/priv : String -> Int -> Int
     read/priv("", _) = 0
     read/priv(c @ cs, p) = Character::unsafeRead(c) * pow(10, p) + read/priv(cs, p + 1)
@@ -151,9 +153,40 @@ module Core {
     unsafeRead : String -> Int
     unsafeRead("") = 0
     unsafeRead(str) = read/priv(List::reverse(str), 0)
+
+
+    toString : Int -> String
+    toString(0) = "0"
+    toString(n) = {
+      cond {
+        n < 0 -> "-" ++ toString(n - n * 2)
+        _     -> {
+          let r = mod(n, 10)
+          let c = switch (r) {
+            0 -> '0'
+            1 -> '1'
+            2 -> '2'
+            3 -> '3'
+            4 -> '4'
+            5 -> '5'
+            6 -> '6'
+            7 -> '7'
+            8 -> '8'
+            9 -> '9'
+          }
+          let n' = n / 10
+          cond {
+            n' == 0 -> [c]
+            _       -> toString(n') ++ [c]
+          }
+        }
+      }
+    }
   }
 
   module String {
+    import List
+
     isEmpty : String -> Bool
     isEmpty("") = True
     isEmpty(_) = False
@@ -195,6 +228,11 @@ module Core {
     split(str, matchChar) = {
       List::reverse(split/priv(str, matchChar, "", []))
     }
+
+
+    join : String[] -> String -> String
+    join([], _) = ""
+    join(s @ ss, spacer) = s ++ spacer ++ join(ss, spacer)
   }
 }
 
