@@ -57,7 +57,17 @@ collapse (ExpBegin p bodyEs) = do
   bodyEs' <- collapseEs bodyEs
   return $ ExpBegin p bodyEs'
 
+collapse (ExpFunDefClauses ap aid funDefs) = do
+  funDefs' <- mapM collapseFunDef funDefs
+  return $ ExpFunDefClauses ap aid funDefs'
+
 collapse e = return e
+
+
+collapseFunDef :: RawAst FunDef -> Collapsed (RawAst FunDef)
+collapseFunDef (FunDefFun p id patE bodyE) = do
+  bodyE' <- collapse bodyE
+  return $ FunDefFun p id patE bodyE'
 
 
 collapseEs :: [RawAst Exp] -> Collapsed [RawAst Exp]
@@ -70,7 +80,8 @@ collapseEs (ExpTyAnn tyAnn@(TyAnn ap aid _ synTy _) : es) =
       in if null funDefs
            then throwError $ ErrNoBindingAfterTyAnn aid
            else do es'' <- collapseEs es'
-                   return (ExpWithAnn tyAnn eFunDef : es'')
+                   eFunDef' <- collapse eFunDef
+                   return (ExpWithAnn tyAnn eFunDef' : es'')
     _ ->
       do (e, es') <- collapseBindingExp aid es
          es'' <- collapseEs es'

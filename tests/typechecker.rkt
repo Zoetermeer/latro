@@ -1089,4 +1089,28 @@
         }
       }
       `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))
+
+  (test-case "it reads type annotations on locals inside annotated functions"
+    (check-match
+      @interp-lines{
+        main : String[] -> Unit
+        main(_) = {
+          x : Int
+          let x = 42
+          IO::println(x)
+        }
+      }
+      '("42")))
+
+  (test-case "it honors type annotations on locals"
+    (check-match
+      @interp-sexp{
+        main : String[] -> Unit
+        main(_) = {
+          x : Int
+          let x = "hello"
+          IO::println(x)
+        }
+      }
+      `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected Int) (Got (App List (Char)))))))
 )
