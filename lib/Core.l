@@ -69,6 +69,16 @@ module Core {
     length(x@xs) = 1 + length(xs)
 
 
+    concat<a> : a[][] -> a[]
+    concat([]) = []
+    concat((x @ xs) @ xss) = x @ concat(xs @ xss)
+    concat(_ @ xss) = concat(xss)
+
+
+    append<a> : a[] -> a[] -> a[]
+    append(as, bs) = concat([as, bs])
+
+
     infixl (++)([], bs)    = bs
     infixl (++)(as, [])    = as
     infixl (++)(a@as, bs) = a @ (as ++ bs)
