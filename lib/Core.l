@@ -1,3 +1,4 @@
+// vim: filetype=haskell
 infixl (+)(a, b) = prim(intAdd)(a, b)
 infixl (-)(a, b) = prim(intSub)(a, b)
 infixl (*)(a, b) = prim(intMul)(a, b)
