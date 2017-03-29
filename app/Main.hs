@@ -45,6 +45,7 @@ flags =
 
 data Phase =
     PhaseParse
+  | PhaseCollapse
   | PhaseAlphaConvert
   | PhaseInfixReorder
   | PhaseILGen
@@ -58,6 +59,7 @@ readPhaseName :: String -> Phase
 readPhaseName name =
   case map toLower name of
     "parse" -> PhaseParse
+    "collapse" -> PhaseCollapse
     "alpha" -> PhaseAlphaConvert
     "infix" -> PhaseInfixReorder
     "ilgen" -> PhaseILGen
@@ -127,7 +129,7 @@ semAnal sourceBufs opts = do
     asts <- mapM (parseBuf opts) sourceBufs
     let ast = combineAsts asts
     ast' <- dumpOnPhase PhaseParse $ return ast
-    collapsedAst <- withExceptT (renderOutput opts) $ runCollapseFunClauses ast
+    collapsedAst <- dumpOnPhase PhaseCollapse $ runCollapseFunClauses ast
     alphaConvertedAst <- dumpOnPhase PhaseAlphaConvert $ runAlphaConvert collapsedAst
     reorderedAst <- dumpOnPhase PhaseInfixReorder $ runReorderInfixes alphaConvertedAst
     untypedIL <- dumpOnPhase PhaseILGen $ runILGen reorderedAst
