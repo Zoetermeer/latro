@@ -1113,4 +1113,32 @@
         }
       }
       `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected Int) (Got (App List (Char)))))))
+
+  (test-case "it reads type annotations on lambdas in a function body"
+    (check-match
+      @interp-lines{
+        main : String[] -> Unit
+        main(_) = {
+          f : Int -> Int
+          let f = fun(x) = x + 1
+          x : Int
+          let x = 42
+          IO::println(f(x))
+        }
+      }
+      '("43")))
+
+  (test-case "it honors type annotations on lambdas in a function body"
+    (check-match
+      @interp-sexp{
+        main : String[] -> Unit
+        main(_) = {
+          f : Int -> Int
+          let f = fun(x) = Core::Integer::toString(x)
+          x : Int
+          let x = 42
+          IO::println(f(x))
+        }
+      }
+      `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected Int) (Got (App List (Char)))))))
 )

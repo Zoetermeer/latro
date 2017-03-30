@@ -37,6 +37,15 @@ collapseBindingExp id (e@(ExpAssign _ (PatExpId _ pid) _) : es)
   | id == pid = return (e, es)
   | otherwise = throwError $ ErrNoBindingAfterTyAnn id
 
+collapseBindingExp id (e@(ExpFunDef (FunDefFun p fid _ _)) : es)
+  | id == fid = do
+      let (funDefs, es') = collectFunDefs fid (e : es)
+      eFunDef <- collapse $ ExpFunDefClauses p fid funDefs
+      case funDefs of
+        [] -> throwError $ ErrNoBindingAfterTyAnn fid
+        _  -> return (eFunDef, es')
+  | otherwise = throwError $ ErrNoBindingAfterTyAnn id
+
 collapseBindingExp id _ = throwError $ ErrNoBindingAfterTyAnn id
 
 
@@ -72,20 +81,10 @@ collapseFunDef (FunDefFun p id patE bodyE) = do
 
 collapseEs :: [RawAst Exp] -> Collapsed [RawAst Exp]
 collapseEs [] = return []
-collapseEs (ExpTyAnn tyAnn@(TyAnn ap aid _ synTy _) : es) =
-  case synTy of
-    SynTyArrow {} ->
-      let (funDefs, es') = collectFunDefs aid es
-          eFunDef = ExpFunDefClauses ap aid funDefs
-      in if null funDefs
-           then throwError $ ErrNoBindingAfterTyAnn aid
-           else do es'' <- collapseEs es'
-                   eFunDef' <- collapse eFunDef
-                   return (ExpWithAnn tyAnn eFunDef' : es'')
-    _ ->
-      do (e, es') <- collapseBindingExp aid es
-         es'' <- collapseEs es'
-         return (ExpWithAnn tyAnn e : es'')
+collapseEs (ExpTyAnn tyAnn@(TyAnn ap aid _ synTy _) : es) = do
+  (e, es') <- collapseBindingExp aid es
+  es'' <- collapseEs es'
+  return (ExpWithAnn tyAnn e : es'')
 
 collapseEs (ExpFunDef (FunDefFun p fid argPatEs bodyE) : es) = do
   bodyE' <- collapse bodyE
