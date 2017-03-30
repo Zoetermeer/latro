@@ -521,12 +521,18 @@ arbitrary number of named fields:
 
   let p = Person %{ Name = "john"; Age = 42; }
 
-Each field defined for a struct type also gives us
-an instance function we can use as an accessor:
+Each field defined for a struct type gives us a "dot"
+accessor:
 
 .. code:: ocaml
 
-  p.Name() // "john"
+  p.Name // "john"
+
+Which is also bound to a function:
+
+.. code:: ocaml
+
+  Name(p) // "john"
 
 
 Like ADT's, structure types can be polymorphic:

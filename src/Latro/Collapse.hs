@@ -21,17 +21,6 @@ collectFunDefs id (eFunDef@(ExpFunDef funDef@(FunDefFun _ fid _ _)) : es)
 collectFunDefs _ es = ([], es)
 
 
-collectInstFunDefs :: RawId -> [RawAst Exp] -> ([RawAst FunDef], [RawAst Exp])
-collectInstFunDefs _ [] = ([], [])
-collectInstFunDefs id (eFunDef@(ExpFunDef funDef@(FunDefInstFun _ _ fid _ _)) : es)
-  | id == fid =
-    let (funDefs, es') = collectInstFunDefs id es
-    in (funDef : funDefs, es')
-  | otherwise = ([], eFunDef : es)
-
-collectInstFunDefs _ es = ([], es)
-
-
 collapseBindingExp :: RawId -> [RawAst Exp] -> Collapsed (RawAst Exp, [RawAst Exp])
 collapseBindingExp id (e@(ExpAssign _ (PatExpId _ pid) _) : es)
   | id == pid = return (e, es)
@@ -81,7 +70,7 @@ collapseFunDef (FunDefFun p id patE bodyE) = do
 
 collapseEs :: [RawAst Exp] -> Collapsed [RawAst Exp]
 collapseEs [] = return []
-collapseEs (ExpTyAnn tyAnn@(TyAnn ap aid _ synTy _) : es) = do
+collapseEs (ExpTyAnn tyAnn@(TyAnn _ aid _ _ _) : es) = do
   (e, es') <- collapseBindingExp aid es
   es'' <- collapseEs es'
   return (ExpWithAnn tyAnn e : es'')
@@ -90,14 +79,6 @@ collapseEs (ExpFunDef (FunDefFun p fid argPatEs bodyE) : es) = do
   bodyE' <- collapse bodyE
   let (funDefs, es') = collectFunDefs fid es
       funDef = FunDefFun p fid argPatEs bodyE'
-      eFunDef = ExpFunDefClauses p fid (funDef : funDefs)
-  es'' <- collapseEs es'
-  return (eFunDef : es'')
-
-collapseEs (ExpFunDef (FunDefInstFun p instPatE fid argPatEs bodyE) : es) = do
-  bodyE' <- collapse bodyE
-  let (funDefs, es') = collectInstFunDefs fid es
-      funDef = FunDefInstFun p instPatE fid argPatEs bodyE'
       eFunDef = ExpFunDefClauses p fid (funDef : funDefs)
   es'' <- collapseEs es'
   return (eFunDef : es'')

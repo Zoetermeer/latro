@@ -127,15 +127,11 @@ instance BindingOccurrence TyAnn where
 
 data FunDef a id =
     FunDefFun a id [PatExp a id] (Exp a id)
-  | FunDefInstFun a (PatExp a id) id [PatExp a id] (Exp a id)
   deriving (Eq, Show)
 
 
 instance AstNode FunDef where
-  nodeData fd =
-    case fd of
-      FunDefFun d _ _ _ -> d
-      FunDefInstFun d _ _ _ _ -> d
+  nodeData (FunDefFun d _ _ _) = d
 
 
 data FieldInit a id = FieldInit id (Exp a id)
@@ -216,7 +212,6 @@ data IL a =
   | ILProtoImp a (SynTy a UniqId) UniqId [Constraint a UniqId] [IL a]
   | ILWithAnn a (TyAnn a UniqId) (IL a)
   | ILFunDef a UniqId [UniqId] (IL a)
-  | ILInstFunDef a UniqId UniqId [UniqId] (IL a)
   | ILStruct a UniqId [ILFieldInit a]
   | ILMakeAdt a UniqId Int [IL a]
   | ILGetAdtField a (IL a) Int
@@ -248,7 +243,6 @@ instance ILNode IL where
       ILProtoImp d _ _ _ _ -> d
       ILWithAnn d _ _ -> d
       ILFunDef d _ _ _ -> d
-      ILInstFunDef d _ _ _ _ -> d
       ILStruct d _ _ -> d
       ILMakeAdt d _ _ _ -> d
       ILGetAdtField d _ _ -> d
@@ -328,7 +322,6 @@ instance AstNode Exp where
       ExpProtoImp d _ _ _ _ -> d
       ExpWithAnn _ e -> nodeData e
       ExpFunDef (FunDefFun d _ _ _) -> d
-      ExpFunDef (FunDefInstFun d _ _ _ _) -> d
       ExpInterfaceDec d _ _ _ -> d
       ExpModule d _ _ -> d
       ExpStruct d _ _ -> d

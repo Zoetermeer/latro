@@ -366,13 +366,6 @@ convertFunDef (FunDefFun p id argPatEs bodyE) = do
   bodyE' <- convert bodyE
   return $ FunDefFun p id' argPatEs' bodyE'
 
-convertFunDef (FunDefInstFun p instPatE id argPatEs bodyE) = do
-  instPatE' <- convertPatExp instPatE
-  argPatEs' <- mapM convertPatExp argPatEs
-  id' <- freshVarIdM id
-  bodyE' <- convert bodyE
-  return $ FunDefInstFun p instPatE' id' argPatEs' bodyE'
-
 
 convertCaseClause :: UniqAst CaseClause -> AlphaConverted (UniqAst CaseClause)
 convertCaseClause (CaseClause p patE e) = do
@@ -386,14 +379,6 @@ convertCaseClause (CaseClause p patE e) = do
 funDefToCaseClause :: UniqAst FunDef -> AlphaConverted (UniqAst CaseClause)
 funDefToCaseClause (FunDefFun p _ argPatEs bodyE) = do
   let tupPat = PatExpTuple p argPatEs
-  pushNewFrame
-  tupPat' <- convertPatExp tupPat
-  bodyE' <- convert bodyE
-  popFrame
-  return $ CaseClause p tupPat' bodyE'
-
-funDefToCaseClause (FunDefInstFun p instPatE _ argPatEs bodyE) = do
-  let tupPat = PatExpTuple p $ instPatE : argPatEs
   pushNewFrame
   tupPat' <- convertPatExp tupPat
   bodyE' <- convert bodyE
@@ -422,14 +407,12 @@ funDefToCaseClause (FunDefInstFun p instPatE _ argPatEs bodyE) = do
 --    * BODY2' = alphaConvert BODY2 (alphaEnv + ID1, ID2, ID3)
 funDefArity :: UniqAst FunDef -> Int
 funDefArity (FunDefFun _ _ patEs _) = length patEs
-funDefArity (FunDefInstFun _ _ _ patEs _) = length patEs
 
 
 desugarFunDefs :: UniqId -> [UniqAst FunDef] -> AlphaConverted (UniqAst FunDef, [UniqId])
 desugarFunDefs fid funDefs =
   let arities = nub $ map funDefArity funDefs
-      headFunDef = head funDefs
-      startP = nodeData headFunDef
+      (FunDefFun startP _ argPatEs bodyE) = head funDefs
   in
     case arities of
       [len] -> do
@@ -437,16 +420,8 @@ desugarFunDefs fid funDefs =
         cases <- mapM funDefToCaseClause funDefs
         let paramRefs = map (ExpRef startP) paramIds
             paramPats = map (PatExpId startP) paramIds
-        case headFunDef of
-          FunDefFun _ _ argPatEs bodyE ->
-            let argsTup = ExpTuple startP paramRefs
-            in
-              return (FunDefFun startP fid paramPats (ExpSwitch startP argsTup cases), paramIds)
-          FunDefInstFun _ instPatE _ argPatEs bodyE ->
-            do instId <- freshVarIdM $ UserId "this"
-               let instRef = ExpRef startP instId
-                   argsTup = ExpTuple startP (instRef : paramRefs)
-               return (FunDefInstFun startP (PatExpId startP instId) fid paramPats (ExpSwitch startP argsTup cases), paramIds)
+            argsTup = ExpTuple startP paramRefs
+        return (FunDefFun startP fid paramPats (ExpSwitch startP argsTup cases), paramIds)
       _ ->
         throwError $ ErrFunDefArityMismatch fid
 
@@ -549,13 +524,6 @@ convert (ExpFunDef (FunDefFun p id argPatEs bodyE)) = do
   bodyE' <- convert bodyE
   popFrame
   return $ ExpFunDef $ FunDefFun p id' argPatEs' bodyE'
-
-convert (ExpFunDef (FunDefInstFun p instPatE id argPatEs bodyE)) = do
-  id' <- freshVarIdM id
-  instPatE' <- convertPatExp instPatE
-  argPatEs' <- mapM convertPatExp argPatEs
-  bodyE' <- convert bodyE
-  return $ ExpFunDef $ FunDefInstFun p instPatE' id' argPatEs' bodyE'
 
 convert (ExpFunDefClauses p id funDefs) = do
   id' <- freshVarIdM id
@@ -770,13 +738,6 @@ instance InjectUserIds FieldInit where
 instance InjectUserIds FunDef where
   inject (FunDefFun p id argPatEs bodyE) =
     FunDefFun p (UserId id) (map inject argPatEs) (inject bodyE)
-
-  inject (FunDefInstFun p instPatE id argPatEs bodyE) =
-    FunDefInstFun p
-                  (inject instPatE)
-                  (UserId id)
-                  (map inject argPatEs)
-                  (inject bodyE)
 
 
 instance InjectUserIds SynTy where

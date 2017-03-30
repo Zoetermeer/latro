@@ -82,10 +82,6 @@ ilGen e =
       in if fName == "main"
          then ILMain p argIds bodyIL
          else ILFunDef p fid argIds bodyIL
-    ExpFunDef (FunDefInstFun p instPatE fid argPatEs bodyE) ->
-      let (PatExpId _ instId) = instPatE
-          argIds = map (\(PatExpId _ id) -> id) argPatEs
-      in ILInstFunDef p instId fid argIds $ ilGen bodyE
     ExpStruct p (Id _ uid) fieldInits ->
       ILStruct p uid $ map ilGenFieldInit fieldInits
     ExpIfElse p e thenE elseE ->

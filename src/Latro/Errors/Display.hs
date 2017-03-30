@@ -59,9 +59,6 @@ instance Sexpable Err where
   sexp (ErrNoFunDefGivenFor id) =
     List  [ Symbol "NoFunDefGivenFor", sexp id ]
 
-  sexp (ErrNoInstFunDefGivenFor id) =
-    List  [ Symbol "NoInstFunDefGivenFor", sexp id ]
-
   sexp (ErrCantEvaluate e) =
     List  [ Symbol "CantEvaluate", sexp e ]
 

@@ -170,14 +170,6 @@ instance (Sexpable a, Sexpable id) => Sexpable (FunDef a id) where
           , toSexpList argPatEs
           , sexp e
           ]
-  sexp (FunDefInstFun d instPatE id argPatEs e) =
-    List  [ Symbol "FunDefInstFun"
-          , sexp d
-          , sexp instPatE
-          , sexp id
-          , toSexpList argPatEs
-          , sexp e
-          ]
 
 
 instance (Sexpable a, Sexpable id) => Sexpable (Constraint a id) where
@@ -276,14 +268,6 @@ instance (Sexpable a, Sexpable id) => Sexpable (Exp a id) where
   sexp (ExpFunDef (FunDefFun d id argPatEs bodyE)) =
     List  [ Symbol "ExpFunDef"
           , sexp d
-          , sexp id
-          , toSexpList argPatEs
-          , sexp bodyE
-          ]
-  sexp (ExpFunDef (FunDefInstFun d instPatE id argPatEs bodyE)) =
-    List  [ Symbol "ExpFunDefInst"
-          , sexp d
-          , sexp instPatE
           , sexp id
           , toSexpList argPatEs
           , sexp bodyE
@@ -443,14 +427,6 @@ instance (Sexpable a) => Sexpable (IL a) where
       ILWithAnn d tyAnn e -> List [ Symbol "ILWithAnn", sexp d, sexp tyAnn, sexp e ]
       ILFunDef d id paramIds bodyE ->
         List [ Symbol "ILFunDef", sexp d, sexp id, toSexpList paramIds, sexp bodyE ]
-      ILInstFunDef d instId funId paramIds bodyE ->
-        List [ Symbol "ILInstFunDef"
-             , sexp d
-             , sexp instId
-             , sexp funId
-             , toSexpList paramIds
-             , sexp bodyE
-             ]
       ILStruct d typeId fieldInits -> List [ Symbol "ILStruct", sexp d, toSexpList fieldInits ]
       ILMakeAdt d typeId ctorIndex argEs ->
         List  [ Symbol "ILMakeAdt"

@@ -66,8 +66,6 @@ reorder env e =
     ExpWithAnn tyAnn e -> ExpWithAnn tyAnn $ r e
     ExpFunDef (FunDefFun p id argPatEs bodyE) ->
       ExpFunDef $ FunDefFun p id argPatEs $ r bodyE
-    ExpFunDef (FunDefInstFun p instPatE id argPatEs bodyE) ->
-      ExpFunDef $ FunDefInstFun p instPatE id argPatEs $ r bodyE
     ExpModule p paramIds bodyEs -> ExpModule p paramIds $ map r bodyEs
     ExpStruct p synTy fieldInits ->
       ExpStruct p synTy $ map (\(FieldInit id e) -> FieldInit id $ r e) fieldInits
@@ -132,9 +130,6 @@ rewriteInfix (ExpWithAnn tyAnn e) = ExpWithAnn tyAnn $ rewriteInfix e
 
 rewriteInfix (ExpFunDef (FunDefFun p id argPatEs bodyE)) =
   ExpFunDef $ FunDefFun p id argPatEs $ rewriteInfix bodyE
-
-rewriteInfix (ExpFunDef (FunDefInstFun p instPatE id argPatEs bodyE)) =
-  ExpFunDef $ FunDefInstFun p instPatE id argPatEs $ rewriteInfix bodyE
 
 rewriteInfix (ExpModule p paramIds bodyEs) =
   ExpModule p paramIds $ map rewriteInfix bodyEs

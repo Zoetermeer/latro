@@ -19,7 +19,6 @@ data Err =
   | ErrInvalidConsTo Value
   | ErrNonFunDefsInFunDec UniqId
   | ErrNoFunDefGivenFor UniqId
-  | ErrNoInstFunDefGivenFor UniqId
   | ErrFunDefIdMismatch UniqId UniqId
   | ErrFunDefArityMismatch UniqId
   | ErrWrongArity (Typed IL) Int Int
