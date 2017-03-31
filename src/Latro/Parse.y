@@ -111,8 +111,8 @@ InteractiveExp : InterfaceDecExp { $1 }
                | PrecedenceAssign { $1 }
                | ExpOrAssign { $1 }
 
-ModuleDec : module SimpleOrMixedId ModuleParamList '{' ZeroOrMoreModuleLevelExps '}'
-  { ExpAssign (pos $1) (PatExpId (pos $2) (tokValue $2)) (ExpModule (pos $4) $3 $5) }
+ModuleDec : module SimpleOrMixedId '{' ZeroOrMoreModuleLevelExps '}'
+  { ExpModule (pos $3) (tokValue $2) $4 }
 
 Constraint : when SimpleOrMixedId ':' SimpleOrMixedId { Constraint (pos $1) (tokValue $2) (tokValue $4) }
 
@@ -173,10 +173,6 @@ ListExp : '[' CommaSeparatedExps ']' { ExpList (pos $1) $2 }
 CommaSeparatedIds : SimpleOrMixedId { [tokValue $1] }
                   | CommaSeparatedIds ',' SimpleOrMixedId { $1 ++ [tokValue $3] }
                   | {- empty -} { [] }
-
-ModuleParamList : '(' ')' { [] }
-                | '(' CommaSeparatedIds ')' { $2 }
-                | {- empty -} { [] }
 
 SingleParamFunHeader : fun '(' PatExp ')' { (pos $1, $3) }
 

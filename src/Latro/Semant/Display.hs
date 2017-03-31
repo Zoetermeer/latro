@@ -285,7 +285,7 @@ instance (Sexpable a, Sexpable id) => Sexpable (Exp a id) where
           , toSexpList tyParamIds
           , toSexpList tyAnns
           ]
-  sexp (ExpModule d paramIds es) = List [ Symbol "ExpModule", sexp d, toSexpList paramIds, toSexpList es ]
+  sexp (ExpModule d id es) = List [ Symbol "ExpModule", sexp d, sexp id, toSexpList es ]
   sexp (ExpStruct d tyE fieldInits) =
     List  [ Symbol "ExpStruct"
           , sexp d

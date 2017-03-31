@@ -282,7 +282,7 @@ data Exp a id =
   | ExpFunDef (FunDef a id)
   | ExpFunDefClauses a id [FunDef a id]
   | ExpInterfaceDec a id [id] [TyAnn a id]
-  | ExpModule a [id] [Exp a id]
+  | ExpModule a id [Exp a id]
   | ExpStruct a (QualifiedId a id) [FieldInit a id]
   | ExpIfElse a (Exp a id) (Exp a id) (Exp a id)
   | ExpMakeAdt a id Int [Exp a id]

@@ -47,9 +47,9 @@ collapse (ExpFunDef (FunDefFun p id argPatEs bodyE)) = do
   bodyE' <- collapse bodyE
   return $ ExpFunDef $ FunDefFun p id argPatEs bodyE'
 
-collapse (ExpModule p paramIds bodyEs) = do
+collapse (ExpModule p id bodyEs) = do
   bodyEs' <- collapseEs bodyEs
-  return $ ExpModule p paramIds bodyEs'
+  return $ ExpModule p id bodyEs'
 
 collapse (ExpBegin p bodyEs) = do
   bodyEs' <- collapseEs bodyEs

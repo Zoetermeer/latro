@@ -532,15 +532,15 @@ convert (ExpFunDefClauses p id funDefs) = do
   popFrame
   return $ ExpFunDef funDef
 
-convert (ExpAssign p (PatExpId pp id) (ExpModule mp paramIds bodyEs)) = do
-  id' <- pushNewOrExistingFrame id `reportErrorAt` pp
+convert (ExpModule p id bodyEs) = do
+  id' <- pushNewOrExistingFrame id `reportErrorAt` p
   aEnv <- getAC
   bodyEs' <- mapM convert bodyEs
   moduleFrame <- popFrame
   bindInCurrentFrame id' $ FrameEntry id' moduleFrame
   firstPass <- isFirstPass
   if firstPass
-    then return $ ExpAssign p (PatExpId pp id) (ExpModule mp paramIds bodyEs')
+    then return $ ExpModule p id bodyEs'
     else return $ ExpBegin p bodyEs'
 
 convert (ExpAssign p patExp e) = do
@@ -806,8 +806,8 @@ instance InjectUserIds Exp where
         ExpFunDefClauses p (UserId id) (map inject funDefs)
       ExpInterfaceDec p id paramIds tyAnns ->
         ExpInterfaceDec p (UserId id) (map UserId paramIds) (map inject tyAnns)
-      ExpModule p paramIds bodyEs ->
-        ExpModule p (map UserId paramIds) (map inject bodyEs)
+      ExpModule p id bodyEs ->
+        ExpModule p (UserId id) (map inject bodyEs)
       ExpStruct p qid fieldInits ->
         ExpStruct p (inject qid) (map inject fieldInits)
       ExpIfElse p e thenE elseE ->
