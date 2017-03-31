@@ -1141,4 +1141,22 @@
         }
       }
       `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected Int) (Got (App List (Char)))))))
+
+  (test-case "it expands monomorphic type modules with implicitly typed functions"
+    (check-match
+      @interp-lines{
+        type Maybe {
+          data =
+            | Some(String)
+            | None()
+
+          isSome(Some(_)) = True
+          isSome(_) = False
+        }
+
+        main(_) = {
+          IO::println(Maybe::isSome(Maybe::None()))
+        }
+      }
+      '("False")))
 )

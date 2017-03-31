@@ -275,6 +275,7 @@ data Exp a id =
   | ExpImport a (QualifiedId a id)
   | ExpAssign a (PatExp a id) (Exp a id)
   | ExpTypeDec a (TypeDec a id)
+  | ExpDataDec a (TypeDec a id)
   | ExpProtoDec a id id [Constraint a id] [TyAnn a id]
   | ExpProtoImp a (SynTy a id) id [Constraint a id] [Exp a id]
   | ExpTyAnn (TyAnn a id)
@@ -283,6 +284,7 @@ data Exp a id =
   | ExpFunDefClauses a id [FunDef a id]
   | ExpInterfaceDec a id [id] [TyAnn a id]
   | ExpModule a id [Exp a id]
+  | ExpTypeModule a id [id] [Exp a id]
   | ExpStruct a (QualifiedId a id) [FieldInit a id]
   | ExpIfElse a (Exp a id) (Exp a id) (Exp a id)
   | ExpMakeAdt a id Int [Exp a id]
@@ -317,6 +319,7 @@ instance AstNode Exp where
       ExpImport d _ -> d
       ExpAssign d _ _ -> d
       ExpTypeDec d _ -> d
+      ExpDataDec d _ -> d
       ExpTyAnn (TyAnn d _ _ _ _) -> d
       ExpProtoDec d _ _ _ _ -> d
       ExpProtoImp d _ _ _ _ -> d
@@ -324,6 +327,7 @@ instance AstNode Exp where
       ExpFunDef (FunDefFun d _ _ _) -> d
       ExpInterfaceDec d _ _ _ -> d
       ExpModule d _ _ -> d
+      ExpTypeModule d _ _ _ -> d
       ExpStruct d _ _ -> d
       ExpIfElse d _ _ _ -> d
       ExpMakeAdt d _ _ _ -> d
@@ -372,6 +376,7 @@ isAnnDefModule _ = False
 data TypeDec a id =
     TypeDecTy a id [id] (SynTy a id)
   | TypeDecAdt a id [id] [AdtAlternative a id]
+  | TypeDecEmpty a id [id]
   deriving (Eq, Show)
 
 

@@ -180,6 +180,11 @@ instance Sexpable Err where
           , sexp tyCon
           ]
 
+  sexp (ErrMultipleDataDecs typeModuleId) =
+    List  [ Symbol "MultipleDataDecs"
+          , sexp typeModuleId
+          ]
+
   sexp (ErrInterpFailure s) =
     List  [ Symbol "InterpFailure"
           , Atom "Non-exhaustive pattern"

@@ -45,6 +45,7 @@ data Err =
   | ErrInferenceFail (Map.Map UniqId Ty) Ty Ty
   | ErrPrimUnknown RawId
   | ErrProtocolAlreadyImplemented UniqId TyCon
+  | ErrMultipleDataDecs UniqId
   | ErrUserFail SourcePos String
   | ErrInterpFailure String
   | ErrNotImplemented String

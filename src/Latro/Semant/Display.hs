@@ -39,7 +39,7 @@ instance Sexpable CheckedData where
 instance (Sexpable a, Sexpable id) => Sexpable (QualifiedId a id) where
   sexp (Id _ raw) = sexp raw
   sexp (Path _ qid raw) =
-    Symbol $ printf "%s.%s" (showSexp qid) (showSexp raw)
+    Symbol $ printf "%s::%s" (showSexp qid) (showSexp raw)
 
 
 instance (Sexpable a, CompilerOutput id) => CompilerOutput (QualifiedId a id) where
@@ -236,6 +236,7 @@ instance (Sexpable a, Sexpable id) => Sexpable (Exp a id) where
           , sexp e
           ]
   sexp (ExpTypeDec d tyDec) = List [ Symbol "ExpTypeDec", sexp d, sexp tyDec ]
+  sexp (ExpDataDec d tyDec) = List [ Symbol "ExpDataDec", sexp d, sexp tyDec ]
   sexp (ExpProtoDec d protoId tyId constraints tyAnns) =
     List  [ Symbol "ExpProtoDec"
           , sexp d
@@ -286,6 +287,13 @@ instance (Sexpable a, Sexpable id) => Sexpable (Exp a id) where
           , toSexpList tyAnns
           ]
   sexp (ExpModule d id es) = List [ Symbol "ExpModule", sexp d, sexp id, toSexpList es ]
+  sexp (ExpTypeModule d id tyParamIds es) =
+    List  [ Symbol "ExpTypeModule"
+          , sexp d
+          , sexp id
+          , toSexpList tyParamIds
+          , toSexpList es
+          ]
   sexp (ExpStruct d tyE fieldInits) =
     List  [ Symbol "ExpStruct"
           , sexp d

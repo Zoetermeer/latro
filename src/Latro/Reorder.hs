@@ -67,6 +67,7 @@ reorder env e =
     ExpFunDef (FunDefFun p id argPatEs bodyE) ->
       ExpFunDef $ FunDefFun p id argPatEs $ r bodyE
     ExpModule p id bodyEs -> ExpModule p id $ map r bodyEs
+    ExpTypeModule p id tyParamIds bodyEs -> ExpTypeModule p id tyParamIds $ map r bodyEs
     ExpStruct p synTy fieldInits ->
       ExpStruct p synTy $ map (\(FieldInit id e) -> FieldInit id $ r e) fieldInits
     ExpIfElse p e thenE elseE ->
@@ -133,6 +134,9 @@ rewriteInfix (ExpFunDef (FunDefFun p id argPatEs bodyE)) =
 
 rewriteInfix (ExpModule p id bodyEs) =
   ExpModule p id $ map rewriteInfix bodyEs
+
+rewriteInfix (ExpTypeModule p id tyParamIds bodyEs) =
+  ExpTypeModule p id tyParamIds $ map rewriteInfix bodyEs
 
 rewriteInfix (ExpStruct p synTy fieldInits) =
   ExpStruct p synTy $ map (\(FieldInit id e) -> FieldInit id $ rewriteInfix e) fieldInits

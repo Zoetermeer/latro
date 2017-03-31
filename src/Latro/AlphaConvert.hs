@@ -464,6 +464,19 @@ desugarCond :: UniqAst Exp -> UniqAst Exp
 desugarCond (ExpCond p clauses) = desugarCondClauses p clauses
 
 
+stripDataDecs :: [UniqAst Exp] -> ([UniqAst TypeDec], [UniqAst Exp])
+stripDataDecs [] = ([], [])
+stripDataDecs ((ExpDataDec _ typeDec) : es) =
+  let (typeDecs, es') = stripDataDecs es in (typeDec : typeDecs, es')
+stripDataDecs (e : es) =
+  let (typeDecs, es') = stripDataDecs es in (typeDecs, e : es')
+
+
+renameDataDec :: UniqAst TypeDec -> UniqId -> [UniqId] ->  UniqAst Exp
+renameDataDec (TypeDecTy p _ _ synTy) id tyParamIds = ExpTypeDec p $ TypeDecTy p id tyParamIds synTy
+renameDataDec (TypeDecAdt p _ _ alts) id tyParamIds = ExpTypeDec p $ TypeDecAdt p id tyParamIds alts
+
+
 convertBin :: (SourcePos -> UniqAst Exp -> UniqAst Exp -> UniqAst Exp)
            -> SourcePos
            -> UniqAst Exp
@@ -542,6 +555,25 @@ convert (ExpModule p id bodyEs) = do
   if firstPass
     then return $ ExpModule p id bodyEs'
     else return $ ExpBegin p bodyEs'
+
+convert (ExpTypeModule p id tyParamIds bodyEs) = do
+  let (dataDecs, bodyEs') = stripDataDecs bodyEs
+  case dataDecs of
+    [] ->
+      let typeDec = ExpTypeDec p (TypeDecEmpty p id tyParamIds)
+          typeModule = ExpModule p id bodyEs'
+        in convert $ ExpBegin p [typeDec, typeModule]
+    [typeDec] -> do
+      typeId <- freshTypeIdM (UserId "data")
+      let typeDecExp = renameDataDec typeDec typeId tyParamIds
+          typeModule = ExpModule p id (typeDecExp : bodyEs')
+          typeParamIdRefs = map (\id -> SynTyRef p (Id p id) []) tyParamIds
+          aliasTypeDec = ExpTypeDec p (TypeDecTy p id tyParamIds (SynTyRef p (Path p (Id p id) typeId) typeParamIdRefs))
+        in do
+          expModule <- convert typeModule
+          aliasTypeDec' <- convert aliasTypeDec
+          return $ ExpBegin p [aliasTypeDec', expModule]
+    _ -> throwError (ErrMultipleDataDecs id) `reportErrorAt` p
 
 convert (ExpAssign p patExp e) = do
   e' <- convert e
@@ -795,6 +827,7 @@ instance InjectUserIds Exp where
       ExpImport p qid -> ExpImport p $ inject qid
       ExpAssign p patE e -> ExpAssign p (inject patE) (r e)
       ExpTypeDec p typeDec -> ExpTypeDec p $ inject typeDec
+      ExpDataDec p typeDec -> ExpDataDec p $ inject typeDec
       ExpProtoDec p id tyId constrs tyAnns ->
         ExpProtoDec p (UserId id) (UserId tyId) (map inject constrs) (map inject tyAnns)
       ExpProtoImp p synTy protoId constrs bodyEs ->
@@ -808,6 +841,8 @@ instance InjectUserIds Exp where
         ExpInterfaceDec p (UserId id) (map UserId paramIds) (map inject tyAnns)
       ExpModule p id bodyEs ->
         ExpModule p (UserId id) (map inject bodyEs)
+      ExpTypeModule p id tyParamIds bodyEs ->
+        ExpTypeModule p (UserId id) (map UserId tyParamIds) (map inject bodyEs)
       ExpStruct p qid fieldInits ->
         ExpStruct p (inject qid) (map inject fieldInits)
       ExpIfElse p e thenE elseE ->

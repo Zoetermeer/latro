@@ -51,6 +51,10 @@ collapse (ExpModule p id bodyEs) = do
   bodyEs' <- collapseEs bodyEs
   return $ ExpModule p id bodyEs'
 
+collapse (ExpTypeModule p id tyParamIds bodyEs) = do
+  bodyEs' <- collapseEs bodyEs
+  return $ ExpTypeModule p id tyParamIds bodyEs'
+
 collapse (ExpBegin p bodyEs) = do
   bodyEs' <- collapseEs bodyEs
   return $ ExpBegin p bodyEs'
