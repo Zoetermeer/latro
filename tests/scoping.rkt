@@ -4,15 +4,14 @@
   (require "common.rkt"
            rackunit)
 
-  #|
   (test-case "it binds identifiers introduced in cons patterns in switches"
     (check-equal?
       @interp-lines{
         main(_) = {
-          IO.println(
+          IO::println(
             switch ([2, 3]) {
               [] -> [1]
-              x::xs -> xs
+              x@"@"xs -> xs
             }
           )
         }
@@ -26,14 +25,14 @@
           switch (x) {
             %(x, y) -> {
               switch (x) {
-                x::_ -> x + 1
+                x@"@"_ -> x + 1
                 _    -> 0
               }
             }
             _       -> 1
           }
 
-        main(_) = IO.println(f(%([10], False)))
+        main(_) = IO::println(f(%([10], False)))
       }
       '("11")))
 
@@ -45,17 +44,17 @@
         foo : foo -> foo -> foo
         foo(a, b) = a + b
 
-        main(_) = IO.println(foo(2, 4))
+        main(_) = IO::println(foo(2, 4))
       }
       6))
 
   (test-case "it respects lexical scope for functions"
     (check-equal?
       @interp-sexp{
-        v = 42
+        let v = 42
         foo(v) = v + 1
 
-        main(_) = IO.println(v + foo(3))
+        main(_) = IO::println(v + foo(3))
       }
       46))
 
@@ -69,7 +68,7 @@
           }
         }
 
-        main(_) = IO.println(M.v)
+        main(_) = IO::println(M::v)
       }
       `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier v))))
 
@@ -77,15 +76,15 @@
     (check-equal?
       @interp-lines{
         module M {
-          foo = 42
+          let foo = 42
         }
 
         module M' {
-          bar = M.foo
+          let bar = M::foo
         }
 
         main(_) = {
-          IO.println(M'.bar)
+          IO::println(M'::bar)
         }
       }
       '("42")))
@@ -98,11 +97,11 @@
         }
 
         module Arith {
-          add : Number.t -> Number.t -> Number.t
+          add : Number::t -> Number::t -> Number::t
           add(x, y) = x + y
         }
 
-        main(_) = IO.println(Arith.add(1, 2))
+        main(_) = IO::println(Arith::add(1, 2))
       }
       '("3")))
 
@@ -115,7 +114,7 @@
 
         module Div {
           type t =
-            | Num(Number.t)
+            | Num(Number::t)
             | ByZero
 
           div(x, 0) = ByZero()
@@ -123,8 +122,8 @@
         }
 
         main(_) = {
-          let Div.Num(answer) = Div.div(100, 10)
-          IO.println(answer)
+          let Div::Num(answer) = Div::div(100, 10)
+          IO::println(answer)
         }
       }
       '("10")))
@@ -135,7 +134,7 @@
         main(_) = {
           let v = 42
           let v = 43
-          IO.println(v)
+          IO::println(v)
         }
       }
       `(AtPos ,_ (CompilerModule AlphaConvert) (IdAlreadyBound v))))
@@ -143,12 +142,12 @@
   (test-case "it does not allow rebinding of a non-module-bound id to a module"
     (check-match
       @interp-sexp{
-        m = 42
+        let m = 42
         module m {
-          x = 43
+          let x = 43
         }
 
-        main(_) = IO.println("Uh oh it worked!")
+        main(_) = IO::println("Uh oh it worked!")
       }
       `(AtPos ,_ (CompilerModule AlphaConvert) (IdAlreadyBound m))))
 
@@ -163,32 +162,32 @@
           g(y) = y
         }
 
-        main(_) = IO.println(Foo.f(1) + Foo.g(2))
+        main(_) = IO::println(Foo::f(1) + Foo::g(2))
       }
       '("3")))
 
   (test-case "it does allow rebinding of an id to a module in a nested scope"
     (check-equal?
       @interp-lines{
-        m = 42
+        let m = 42
         module Foo {
           module m {
-            m = 43
+            let m = 43
           }
         }
 
-        main(_) = IO.println(m + Foo.m.m)
+        main(_) = IO::println(m + Foo::m::m)
       }
       '("85")))
 
   (test-case "it does allow rebinding for values in nested scopes"
     (check-equal?
       @interp-sexp{
-        v = 42
+        let v = 42
 
         main(_) = {
           let x = fun(x) = { let v = 43  v }(1)
-          IO.println(x)
+          IO::println(x)
         }
       }
       43))
@@ -197,7 +196,7 @@
     (check-equal?
       @interp-lines{
         module m {
-          x = False
+          let x = False
 
           f() = {
             if (True) {
@@ -208,9 +207,9 @@
         }
 
         main(_) = {
-          let %(a, b) = %(m.f(), m.x)
-          IO.println(a)
-          IO.println(b)
+          let %(a, b) = %(m::f(), m::x)
+          IO::println(a)
+          IO::println(b)
         }
       }
       '("Unit" "False")))
@@ -218,11 +217,11 @@
   (test-case "it refers to the correct value after a rebinding in a nested scope"
     (check-equal?
       @interp-sexp{
-        v = 3
+        let v = 3
 
         main(_) = {
           let v = fun(x) = { let v = 43  v }(1) + v
-          IO.println(v)
+          IO::println(v)
         }
       }
       46))
@@ -236,7 +235,7 @@
 
         module Div {
           type t =
-            | Num(Number.t)
+            | Num(Number::t)
             | ByZero
 
           div(x, 0) = ByZero()
@@ -244,8 +243,8 @@
         }
 
         main(_) = {
-          let Div.Num(answer) = Div.div(100, 10)
-          IO.println(answer)
+          let Div::Num(answer) = Div::div(100, 10)
+          IO::println(answer)
         }
       }
       10))
@@ -267,7 +266,7 @@
           intId(i) = i
         }
 
-        main(_) = IO.println(I.B.boolId(False))
+        main(_) = IO::println(I::B::boolId(False))
       }
       'False))
 
@@ -283,7 +282,7 @@
           }
         }
 
-        main(_) = IO.println(m.x)
+        main(_) = IO::println(m::x)
       }
       `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier x))))
 
@@ -298,7 +297,7 @@
           }
         }
 
-        main(_) = IO.println(m.x)
+        main(_) = IO::println(m::x)
       }
       `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier x))))
 
@@ -306,14 +305,14 @@
     (check-match
       @interp-sexp{
         module Foo {
-          v = 42
+          let v = 42
         }
 
         module Bar {
           import Foo
         }
 
-        main(_) = IO.println(Bar.v)
+        main(_) = IO::println(Bar::v)
       }
       `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier v))))
 
@@ -343,7 +342,7 @@
             }
             0
 
-          IO.println(x)
+          IO::println(x)
         }
       }
       `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier x))))
@@ -367,9 +366,9 @@
         type bar = Int
 
         x : foo
-        x = 42
+        let x = 42
 
-        main(_) = IO.println(x)
+        main(_) = IO::println(x)
       }
       42))
 
@@ -383,7 +382,7 @@
         type Stm =
           | StmDef(Char[], Expr)
 
-        main(_) = IO.println([ StmDef("x", ExprNum(42)) ])
+        main(_) = IO::println([ StmDef("x", ExprNum(42)) ])
       }
       '("[StmDef(\"x\", ExprNum(42))]")))
 
@@ -393,25 +392,25 @@
         module Expr {
           type t =
             | ExprNum(Int)
-            | ExprStm(Stm.t)
+            | ExprStm(Stm::t)
         }
 
         module Stm {
           type t =
-            | StmDef(Char[], Expr.t)
+            | StmDef(Char[], Expr::t)
         }
 
-        main(_) = IO.println([ Stm.StmDef("x", Expr.ExprNum(42)) ])
+        main(_) = IO::println([ Stm::StmDef("x", Expr::ExprNum(42)) ])
       }
       '("[StmDef(\"x\", ExprNum(42))]")))
 
   (test-case "it allows use-before-defines in top-level definitions"
     (check-equal?
       @interp-sexp{
-        y = x
-        x = 42
+        let y = x
+        let x = 42
 
-        main(_) = IO.println(y)
+        main(_) = IO::println(y)
       }
       42))
 
@@ -419,11 +418,11 @@
     (check-equal?
       @interp-sexp{
         module M {
-          y = x
-          x = 42
+          let y = x
+          let x = 42
         }
 
-        main(_) = IO.println(M.y)
+        main(_) = IO::println(M::y)
       }
       42))
 
@@ -431,14 +430,14 @@
     (check-equal?
       @interp-sexp{
         module M {
-          y = N.x
+          let y = N::x
         }
 
         module N {
-          x = 42
+          let x = 42
         }
 
-        main(_) = IO.println(M.y)
+        main(_) = IO::println(M::y)
       }
       42))
 
@@ -457,7 +456,7 @@
   (test-case "it allows mutually recursive functions"
     (check-equal?
       @interp-lines{
-        import Core.List
+        import Core::List
 
         foo(0) = "zero"
         foo(x) = bar(x)
@@ -466,7 +465,7 @@
         bar(x) = "not zero"
 
         main(_) = {
-          IO.println(foo(0) ++ foo(1))
+          IO::println(foo(0) ++ foo(1))
         }
       }
       '("\"zeronot zero\"")))
@@ -476,15 +475,15 @@
       @interp-sexp{
         module M {
           module N {
-            foo = 42
+            let foo = 42
           }
         }
 
         module M' {
-          bar = N.foo
+          let bar = N::foo
         }
 
-        main(_) = IO.println(M'.bar)
+        main(_) = IO::println(M'::bar)
       }
       `(AtPos (SourcePos ,_ 8 ,_) (CompilerModule AlphaConvert) (UnboundRawIdentifier N))))
 
@@ -495,7 +494,7 @@
 
         module M { }
 
-        f : M.Str -> M.Str
+        f : M::Str -> M::Str
         f(s) = s
       }
       `(AtPos (SourcePos ,_ 5 ,_) (CompilerModule AlphaConvert) (UnboundRawIdentifier Str))))
@@ -503,13 +502,13 @@
   (test-case "it does not extend variable name resolution to closures of closed modules"
     (check-match
       @interp-sexp{
-        foo = 42
+        let foo = 42
 
         module M {
-          bar = foo
+          let bar = foo
         }
 
-        main(_) = IO.println(M.foo + M.bar)
+        main(_) = IO::println(M::foo + M::bar)
       }
       `(AtPos (SourcePos ,_ 7 ,_) (CompilerModule AlphaConvert) (UnboundRawIdentifier foo))))
 
@@ -529,7 +528,7 @@
           }
         }
 
-        main(_) = IO.println(Root.M.f(Root.Foo(43)))
+        main(_) = IO::println(Root::M::f(Root::Foo(43)))
       }
       43))
 
@@ -542,16 +541,16 @@
 
         main(_) = {
           let v = switch (Foo(42)) {
-            M.Foo(x) -> x
+            M::Foo(x) -> x
             _ -> 0
           }
 
-          IO.println(v)
+          IO::println(v)
         }
       }
       `(AtPos (SourcePos ,_ 7 ,_) (CompilerModule AlphaConvert) (UnboundRawIdentifier Foo))))
 
-  (test-case "it does not allow module-exported type bindings to escape"
+  #;(test-case "it does not allow module-exported type bindings to escape"
     (check-match
       @interp-sexp{
         module Geometry {
@@ -563,7 +562,7 @@
 
         main(_) = {
           let p = Point %{ X = 0; Y = 0; }
-          IO.println(p)
+          IO::println(p)
         }
       }
       `(AtPos (SourcePos ,_ 9 ,_) (CompilerModule AlphaConvert) (UnboundRawIdentifier Point))))
@@ -572,15 +571,15 @@
     (check-equal?
       @interp-lines{
         module Prims {
-          @"@"(&&)(True, True) = True
-          @"@"(&&)(_, _) = False
+          infixl (&&)(True, True) = True
+          infixl (&&)(_, _) = False
         }
 
         module Foo {
           import Prims
 
           main(_) = {
-            IO.println(True && False)
+            IO::println(True && False)
           }
         }
       }
@@ -590,15 +589,15 @@
     (check-equal?
       @interp-lines{
         module Foo {
-          v = 42
+          let v = 42
         }
 
         module Bar {
           import Foo
-          x = v
+          let x = v
         }
 
-        main(_) = IO.println(Bar.x)
+        main(_) = IO::println(Bar::x)
       }
       '("42")))
 
@@ -611,7 +610,7 @@
 
         main(_) = {
           let p = Person %{ Name = "james"; }
-          IO.println(p.Name)
+          IO::println(p.Name)
         }
       }
       '("\"james\"")))
@@ -627,7 +626,7 @@
 
         main(_) = {
           let p = mkPerson("james")
-          IO.println(p.Name)
+          IO::println(p.Name)
         }
       }
       '("\"james\"")))
@@ -648,17 +647,17 @@
         }
 
         main(_) = {
-          let l = Geometry.Line %{
-            A = Geometry.Point %{ X = 0; Y = 42; };
-            B = Geometry.Point %{ X = 3; Y = 4; };
+          let l = Geometry::Line %{
+            A = Geometry::Point %{ X = 0; Y = 42; };
+            B = Geometry::Point %{ X = 3; Y = 4; };
           }
 
-          IO.println(l.A.Y + 1)
+          IO::println(l.A.Y + 1)
         }
       }
       '("43")))
 
-  (test-case "it rejects unbound id's on nested struct field references"
+  #;(test-case "it rejects unbound id's on nested struct field references"
     (check-match
       @interp-sexp{
         module Geometry {
@@ -674,16 +673,15 @@
         }
 
         main(_) = {
-          let l = Geometry.Line %{
-            A = Geometry.Point %{ X = 0; Y = 42; };
-            B = Geometry.Point %{ X = 3; Y = 4; };
+          let l = Geometry::Line %{
+            A = Geometry::Point %{ X = 0; Y = 42; };
+            B = Geometry::Point %{ X = 3; Y = 4; };
           }
 
-          IO.println(l.A.BogusId + 1)
+          IO::println(l.A.BogusId + 1)
         }
       }
       `(AtPos (SourcePos ,_ 19 ,_) (CompilerModule AlphaConvert) (UnboundRawIdentifier BogusId))))
-  |#
 
   (test-case "it does not allow direct references to module names"
     (check-match
