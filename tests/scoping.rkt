@@ -695,4 +695,71 @@
         }
       }
       `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundUniqIdentifier Foo))))
+
+  (test-case "it can handle self-imports"
+    (check-match
+      @interp-lines{
+        module Foo {
+          import Foo
+
+          bar(x) = x + 1
+        }
+        main(_) = {
+          IO::println(Foo::bar(42))
+        }
+      }
+      `("43")))
+
+  (test-case "it can handle mutually recursive modules"
+    (check-match
+      @interp-lines{
+        module A {
+          import B
+          f(x) = cond {
+            x < 100 -> g(x)
+            _       -> 1
+          }
+        }
+
+        module B {
+          import A
+          g(x) = cond {
+            x < 100 -> x
+            _       -> f(x)
+          }
+        }
+
+        import B
+        import A
+        main(_) = IO::println(g(101))
+      }
+    '("1")))
+
+  (test-case "it can handle mutually recursive type definitions across modules"
+    (check-match
+      @interp-lines{
+        module A {
+          import B
+
+          type AType<A> =
+            | SimpleA(A)
+            | ComplexA(BType<A>)
+        }
+
+        module B {
+          import A
+
+          type BType<B> =
+            | SimpleB(B)
+            | ComplexB(AType<B>)
+        }
+
+        import B
+        import A
+        main(_) = {
+          let a = ComplexA(ComplexB(SimpleA(42)))
+          IO::println(a)
+        }
+      }
+    '("ComplexA(ComplexB(SimpleA(42)))")))
 )

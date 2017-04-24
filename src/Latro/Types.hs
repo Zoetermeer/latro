@@ -482,8 +482,7 @@ subst ty =
         do mapM_ (uncurry bindPoly) $ zip tyParamIds tyArgs
            subst ty >>= subst
       | otherwise ->
-        do madeUpId <- freshId
-           throwError $ ErrPartialTyConApp (Id (SourcePos "" 0 0) madeUpId) tyCon tyArgs
+        throwError $ ErrPartialTyConApp tyCon tyArgs
 
     TyApp tyCon tyArgs -> do
       tyCon' <- substTyCon tyCon
@@ -1113,8 +1112,9 @@ makeSymTables :: Untyped IL -> Checked ()
 makeSymTables (ILBegin _ es) = mapM_ makeSymTables es
 
 makeSymTables (ILTypeDec p tyDec) =
-    exportTy id $ TyConTyFun [] $ TyRef $ Id p id
+    exportTy id $ TyConTyFun tyParams $ TyRef $ Id p id
   where id = getTypeDecId tyDec
+        tyParams = getTypeDecParams tyDec
 
 makeSymTables (ILAssign _ (ILPatId _ id) _) =
   freshMeta >>= bindVar id

@@ -392,6 +392,14 @@ getTypeDecId (TypeDecTy _ id _ _) = id
 getTypeDecId (TypeDecAdt _ id _ _) = id
 
 
+getTypeDecParams :: TypeDec a id -> [id]
+getTypeDecParams tyDec =
+  case tyDec of
+    TypeDecTy _ _ tyParams _ -> tyParams
+    TypeDecAdt _ _ tyParams _ -> tyParams
+    TypeDecEmpty _ _ tyParams -> tyParams
+
+
 data AdtAlternative a id =
     AdtAlternative a id Int [SynTy a id]
   deriving (Eq, Show)

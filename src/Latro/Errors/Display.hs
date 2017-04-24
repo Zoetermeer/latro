@@ -155,9 +155,8 @@ instance Sexpable Err where
           , sexp tyb
           ]
 
-  sexp (ErrPartialTyConApp id tyCon tyArgs) =
+  sexp (ErrPartialTyConApp tyCon tyArgs) =
     List  [ Symbol "PartialTyConApp"
-          , sexp id
           , sexp tyCon
           , toSexpList tyArgs
           ]
