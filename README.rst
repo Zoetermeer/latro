@@ -462,11 +462,11 @@ use an ADT to represent a value that can be either present or absent:
     | Absent
 
 Doing so gives us constructors for each alternative we can use to build values of
-type ``Optional{a}``:
+type ``Optional<a>``:
 
 .. code:: ocaml
 
-  let v = Present(42) // Optional{Int}
+  let v = Present(42) // Optional<Int>
 
 We can deconstruct ADT values in any place where we can use patterns, using
 the name of a constructor:
@@ -483,7 +483,7 @@ the name of a constructor:
   let a = Present(False)
   let Present(x) = a
 
-  or(x, a.isPresent()) // True
+  or(x, isPresent(a)) // True
 
 We might use this particular ADT to define some useful operations on lists:
 
@@ -708,6 +708,50 @@ the submodule name shadows the other ``M`` defined at the top level.
 Other languages mitigate this by including a global-scoping operator
 for namespaces and/or module paths, so something like this will probably
 end up in Latro.
+
+Type modules
+------------
+
+Often it is convenient to define a type with a certain name, and an accompanying
+module with the same name containing operations specific to our type.  We can define
+a "type module" specifically for this purpose:
+
+.. code:: scala
+
+  import IO
+
+  type Option<a> {
+    data =
+      | Some(a)
+      | None
+
+    isPresent(Some(_)) = True
+    isPresent(_) = False
+  }
+
+  main(_) = {
+    let o = Option::Some(42)
+    switch (Option::isPresent(o)) {
+      True -> println("it's there")
+      _    -> println("it's not there")
+    }
+  }
+
+This ends up desugaring into something like:
+
+.. code:: scala
+
+  type Option<a> = Option::__t<a>
+
+  module Option {
+    type __t<a> =
+      | Some(a)
+      | None
+
+    isPresent(Some(_)) = True
+    isPresent(_) = False
+  }
+
 
 Examples
 ========
