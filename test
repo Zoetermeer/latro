@@ -10,4 +10,9 @@ else
   tests="tests/core.rkt tests/scoping.rkt tests/interpreter.rkt tests/typechecker.rkt tests/examples.rkt"
 fi
 
-/usr/racket/bin/raco test -t $tests
+raco="$(which raco)"
+if [[ -z $raco ]]; then
+  raco=/usr/racket/bin/raco
+fi
+
+"$raco" test -t $tests

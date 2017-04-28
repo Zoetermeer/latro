@@ -720,11 +720,11 @@ a "type module" specifically for this purpose:
 
   import IO
 
-  type Option<a> {
-    data =
-      | Some(a)
-      | None
+  module Option {
+    type<a> | Some(a)
+            | None
 
+    isPresent<a> : Option<a> -> Bool
     isPresent(Some(_)) = True
     isPresent(_) = False
   }
@@ -744,13 +744,16 @@ This ends up desugaring into something like:
   type Option<a> = Option::__t<a>
 
   module Option {
-    type __t<a> =
+    type 1432@made_up_name<a> =
       | Some(a)
       | None
 
+    isPresent<a> : Option<a> -> Bool
     isPresent(Some(_)) = True
     isPresent(_) = False
   }
+
+As with "normal" declarations, the type annotations are optional.
 
 
 Examples

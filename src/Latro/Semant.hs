@@ -284,7 +284,7 @@ data Exp a id =
   | ExpFunDefClauses a id [FunDef a id]
   | ExpInterfaceDec a id [id] [TyAnn a id]
   | ExpModule a id [Exp a id]
-  | ExpTypeModule a id [id] [Exp a id]
+  | ExpTypeModule a id (TypeDec a id) [Exp a id]
   | ExpStruct a (QualifiedId a id) [FieldInit a id]
   | ExpIfElse a (Exp a id) (Exp a id) (Exp a id)
   | ExpMakeAdt a id Int [Exp a id]
@@ -376,6 +376,7 @@ isAnnDefModule _ = False
 data TypeDec a id =
     TypeDecTy a id [id] (SynTy a id)
   | TypeDecAdt a id [id] [AdtAlternative a id]
+  | TypeDecImplicit a (TypeDec a id)
   | TypeDecEmpty a id [id]
   deriving (Eq, Show)
 
@@ -397,6 +398,7 @@ getTypeDecParams tyDec =
   case tyDec of
     TypeDecTy _ _ tyParams _ -> tyParams
     TypeDecAdt _ _ tyParams _ -> tyParams
+    TypeDecImplicit _ tyDec -> getTypeDecParams tyDec
     TypeDecEmpty _ _ tyParams -> tyParams
 
 

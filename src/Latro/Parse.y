@@ -19,7 +19,6 @@ import Latro.Semant
   module { Token _ TokenModule }
   import { Token _ TokenImport }
   type { Token _ TokenType }
-  data { Token _ TokenData }
   interface { Token _ TokenInterface }
   fun { Token _ TokenFun }
   imp { Token _ TokenImp }
@@ -97,37 +96,22 @@ ZeroOrMoreModuleLevelExps : ModuleLevelExp { [$1] }
 OneOrMoreModuleLevelExps : ModuleLevelExp { [$1] }
                          | OneOrMoreModuleLevelExps ModuleLevelExp { $1 ++ [$2] }
 
-ZeroOrMoreTypeModuleLevelExps : TypeModuleLevelExp { [$1] }
-                              | ZeroOrMoreTypeModuleLevelExps TypeModuleLevelExp { $1 ++ [$2] }
-                              | {- empty -} { [] }
-
 ModuleLevelExp : InterfaceDecExp { $1 }
                | TypeDec { ExpTypeDec (nodeData $1) $1 }
                | ProtoDec { $1 }
                | ProtoImp { $1 }
                | ModuleDec { $1 }
-               | TypeModuleDec { $1 }
                | PrecedenceAssign { $1 }
                | TopLevelBindingExp { $1 }
-
-TypeModuleLevelExp : DatatypeDec { $1 }
-                   | TopLevelBindingExp { $1 }
-
-DatatypeDec : data '=' Ty { ExpDataDec (pos $1) (TypeDecTy (nodeData $3) "<data>" [] $3) }
-            | data '=' AdtAlternatives { ExpDataDec (pos $1) (TypeDecAdt (pos $2) "<data>" [] $3) }
 
 InteractiveExp : InterfaceDecExp { $1 }
                | TypeDec { ExpTypeDec (nodeData $1) $1 }
                | ModuleDec { $1 }
-               | TypeModuleDec { $1 }
                | PrecedenceAssign { $1 }
                | ExpOrAssign { $1 }
 
 ModuleDec : module SimpleOrMixedId '{' ZeroOrMoreModuleLevelExps '}'
   { ExpModule (pos $3) (tokValue $2) $4 }
-
-TypeModuleDec : type SimpleOrMixedId TyParams '{' ZeroOrMoreTypeModuleLevelExps '}'
-                { ExpTypeModule (pos $1) (tokValue $2) $3 $5 }
 
 Constraint : when SimpleOrMixedId ':' SimpleOrMixedId { Constraint (pos $1) (tokValue $2) (tokValue $4) }
 
@@ -292,8 +276,12 @@ FunParams : SimpleOrMixedId { [tokValue $1] }
           | FunParams ',' SimpleOrMixedId { $1 ++ [tokValue $3] }
           | {- empty -} { [] }
 
+TypeDecImplicit : type TyParams Ty { TypeDecImplicit (pos $1) (TypeDecTy (nodeData $3) "<implicit>" $2 $3) }
+                | type TyParams AdtAlternatives { TypeDecImplicit (pos $1) (TypeDecAdt (pos $1) "<implicit>" $2 $3) }
+
 TypeDec : type SimpleOrMixedId TyParams '=' Ty { TypeDecTy (pos $1) (tokValue $2) $3 $5 }
         | type SimpleOrMixedId TyParams '=' AdtAlternatives { TypeDecAdt (pos $1) (tokValue $2) $3 $5 }
+        | TypeDecImplicit { $1 }
 
 AdtAlternatives : AdtAlternative  { [$1] }
                 | AdtAlternatives AdtAlternative  { $1 ++ [$2] }

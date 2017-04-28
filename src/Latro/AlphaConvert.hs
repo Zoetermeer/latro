@@ -464,17 +464,20 @@ desugarCond :: UniqAst Exp -> UniqAst Exp
 desugarCond (ExpCond p clauses) = desugarCondClauses p clauses
 
 
-stripDataDecs :: [UniqAst Exp] -> ([UniqAst TypeDec], [UniqAst Exp])
-stripDataDecs [] = ([], [])
-stripDataDecs ((ExpDataDec _ typeDec) : es) =
-  let (typeDecs, es') = stripDataDecs es in (typeDec : typeDecs, es')
-stripDataDecs (e : es) =
-  let (typeDecs, es') = stripDataDecs es in (typeDecs, e : es')
+stripImplicitTypeDecs :: [UniqAst Exp] -> ([UniqAst TypeDec], [UniqAst Exp])
+stripImplicitTypeDecs [] = ([], [])
+stripImplicitTypeDecs ((ExpTypeDec _ tyDec@(TypeDecImplicit _ innerTyDec)) : es) =
+    (innerTyDec : tyDecs, es')
+  where
+    (tyDecs, es') = stripImplicitTypeDecs es
+
+stripImplicitTypeDecs (e : es) =
+  let (typeDecs, es') = stripImplicitTypeDecs es in (typeDecs, e : es')
 
 
-renameDataDec :: UniqAst TypeDec -> UniqId -> [UniqId] ->  UniqAst Exp
-renameDataDec (TypeDecTy p _ _ synTy) id tyParamIds = ExpTypeDec p $ TypeDecTy p id tyParamIds synTy
-renameDataDec (TypeDecAdt p _ _ alts) id tyParamIds = ExpTypeDec p $ TypeDecAdt p id tyParamIds alts
+renameTo :: UniqAst TypeDec -> UniqId -> UniqAst Exp
+renameTo (TypeDecTy p _ tyParamIds synTy) id = ExpTypeDec p $ TypeDecTy p id tyParamIds synTy
+renameTo (TypeDecAdt p _ tyParamIds alts) id = ExpTypeDec p $ TypeDecAdt p id tyParamIds alts
 
 
 convertBin :: (SourcePos -> UniqAst Exp -> UniqAst Exp -> UniqAst Exp)
@@ -545,35 +548,35 @@ convert (ExpFunDefClauses p id funDefs) = do
   popFrame
   return $ ExpFunDef funDef
 
-convert (ExpModule p id bodyEs) = do
-  id' <- pushNewOrExistingFrame id `reportErrorAt` p
-  aEnv <- getAC
-  bodyEs' <- mapM convert bodyEs
-  moduleFrame <- popFrame
-  bindInCurrentFrame id' $ FrameEntry id' moduleFrame
-  firstPass <- isFirstPass
-  if firstPass
-    then return $ ExpModule p id bodyEs'
-    else return $ ExpBegin p bodyEs'
-
-convert (ExpTypeModule p id tyParamIds bodyEs) = do
-  let (dataDecs, bodyEs') = stripDataDecs bodyEs
-  case dataDecs of
-    [] ->
-      let typeDec = ExpTypeDec p (TypeDecEmpty p id tyParamIds)
-          typeModule = ExpModule p id bodyEs'
-        in convert $ ExpBegin p [typeDec, typeModule]
-    [typeDec] -> do
-      typeId <- freshTypeIdM (UserId "data")
-      let typeDecExp = renameDataDec typeDec typeId tyParamIds
-          typeModule = ExpModule p id (typeDecExp : bodyEs')
-          typeParamIdRefs = map (\id -> SynTyRef p (Id p id) []) tyParamIds
-          aliasTypeDec = ExpTypeDec p (TypeDecTy p id tyParamIds (SynTyRef p (Path p (Id p id) typeId) typeParamIdRefs))
-        in do
-          expModule <- convert typeModule
-          aliasTypeDec' <- convert aliasTypeDec
-          return $ ExpBegin p [aliasTypeDec', expModule]
+convert (ExpModule p id bodyEs) =
+  case implicitTyDecs of
+    [] -> do
+      id' <- pushNewOrExistingFrame id `reportErrorAt` p
+      aEnv <- getAC
+      bodyEs' <- mapM convert nonImplicitTyDecEs
+      moduleFrame <- popFrame
+      bindInCurrentFrame id' $ FrameEntry id' moduleFrame
+      firstPass <- isFirstPass
+      if firstPass
+        then return $ ExpModule p id bodyEs'
+        else return $ ExpBegin p bodyEs'
+    [tyDec] ->
+      convert $ ExpTypeModule p id tyDec nonImplicitTyDecEs
     _ -> throwError (ErrMultipleDataDecs id) `reportErrorAt` p
+  where
+    (implicitTyDecs, nonImplicitTyDecEs) = stripImplicitTypeDecs bodyEs
+
+convert (ExpTypeModule p id tyDec bodyEs) = do
+    typeId <- freshTypeIdM (UserId "data")
+    let tyDecExp = tyDec `renameTo` typeId
+        tyParamIds = getTypeDecParams tyDec
+        typeModule = ExpModule p id (tyDecExp : bodyEs)
+        typeParamIdRefs = map (\id -> SynTyRef p (Id p id) []) tyParamIds
+        aliasTyDec = ExpTypeDec p (TypeDecTy p id tyParamIds (SynTyRef p (Path p (Id p id) typeId) typeParamIdRefs))
+
+    expModule <- convert typeModule
+    aliasTyDec' <- convert aliasTyDec
+    return $ ExpBegin p [aliasTyDec', expModule]
 
 convert (ExpAssign p patExp e) = do
   e' <- convert e
@@ -808,6 +811,7 @@ instance InjectUserIds TypeDec where
     TypeDecTy p (UserId id) (map UserId tyParamIds) (inject synTy)
   inject (TypeDecAdt p id tyParamIds alts) =
     TypeDecAdt p (UserId id) (map UserId tyParamIds) (map inject alts)
+  inject (TypeDecImplicit p tyDec) = TypeDecImplicit p $ inject tyDec
 
 
 instance InjectUserIds Constraint where
@@ -841,8 +845,8 @@ instance InjectUserIds Exp where
         ExpInterfaceDec p (UserId id) (map UserId paramIds) (map inject tyAnns)
       ExpModule p id bodyEs ->
         ExpModule p (UserId id) (map inject bodyEs)
-      ExpTypeModule p id tyParamIds bodyEs ->
-        ExpTypeModule p (UserId id) (map UserId tyParamIds) (map inject bodyEs)
+      ExpTypeModule p id tyDec bodyEs ->
+        ExpTypeModule p (UserId id) (inject tyDec) (map inject bodyEs)
       ExpStruct p qid fieldInits ->
         ExpStruct p (inject qid) (map inject fieldInits)
       ExpIfElse p e thenE elseE ->

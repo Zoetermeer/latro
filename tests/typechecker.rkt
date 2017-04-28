@@ -3,7 +3,7 @@
 (module+ test
   (require "common.rkt"
            rackunit)
-#|
+
   (test-case "it rejects incorrect annotations on locals"
     (check-match
       @interp-sexp{
@@ -1145,10 +1145,9 @@
   (test-case "it expands monomorphic type modules with implicitly typed functions"
     (check-match
       @interp-lines{
-        type Maybe {
-          data =
-            | Some(String)
-            | None
+        module Maybe {
+          type<a> | Some(String)
+                  | None
 
           isSome(Some(_)) = True
           isSome(None) = False
@@ -1159,17 +1158,15 @@
         }
       }
       '("False")))
-|#
 
   (test-case "it checks polymorphic type modules"
     (check-match
       @interp-lines{
-        type Option<a> {
-          data =
-            | Some(a)
-            | None()
+        module Option {
+          type<a> | Some(a)
+                  | None
 
-          maybe<a> : Option<a> -> a -> a
+          maybe<b> : Option<b> -> b -> b
           maybe(Some(v), _) = v
           maybe(_, default) = default
         }
@@ -1180,4 +1177,46 @@
         }
       }
       '("\"hello\"" "\"world\"")))
+
+  (test-case "it rejects modules with more than one implicit type dec"
+    (check-match
+      @interp-sexp{
+        module Foo {
+          type<a> | FooThing(a)
+
+          fooOp(FooThing(v)) = v
+
+          type<a> | BarThing(a)
+        }
+
+        main(_) = {
+          let v = Foo::fooOp(FooThing(42))
+          IO::println("uh-oh it worked")
+        }
+      }
+    `(AtPos ,_ (CompilerModule AlphaConvert) (MultipleDataDecs Foo))))
+
+  (test-case "it allows named typed declarations inside type modules"
+    (check-match
+      @interp-lines{
+        module Lst {
+          type<a> | Cons(a, Lst<a>)
+                  | Nil
+
+          tail<a> : Lst<a> -> Lst<a>
+          tail(Nil()) = Nil()
+          tail(Cons(_, tail)) = tail
+
+          type IntList = Lst<Int>
+        }
+
+        import Lst
+
+        main(_) = {
+          ints : IntList
+          let ints = Cons(42, Cons(43, Nil()))
+          IO::println(tail(ints))
+        }
+      }
+      '("Cons(43, Nil())")))
 )

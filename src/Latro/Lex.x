@@ -29,7 +29,6 @@ tokens :-
   module { lex' TokenModule }
   import { lex' TokenImport }
   type { lex' TokenType }
-  data { lex' TokenData }
   interface { lex' TokenInterface }
   fun { lex' TokenFun }
   imp { lex' TokenImp }
@@ -102,7 +101,6 @@ data TokenClass =
     TokenModule
   | TokenImport
   | TokenType
-  | TokenData
   | TokenInterface
   | TokenFun
   | TokenImp
@@ -179,7 +177,6 @@ unlex :: TokenClass -> String
 unlex (TokenModule) = "module"
 unlex (TokenImport) = "import"
 unlex (TokenType) = "type"
-unlex (TokenData) = "data"
 unlex (TokenInterface) = "interface"
 unlex (TokenFun) = "fun"
 unlex (TokenImp) = "imp"
