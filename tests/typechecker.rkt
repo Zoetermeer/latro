@@ -3,7 +3,7 @@
 (module+ test
   (require "common.rkt"
            rackunit)
-
+#|
   (test-case "it rejects incorrect annotations on locals"
     (check-match
       @interp-sexp{
@@ -1148,10 +1148,10 @@
         type Maybe {
           data =
             | Some(String)
-            | None()
+            | None
 
           isSome(Some(_)) = True
-          isSome(_) = False
+          isSome(None) = False
         }
 
         main(_) = {
@@ -1159,4 +1159,25 @@
         }
       }
       '("False")))
+|#
+
+  (test-case "it checks polymorphic type modules"
+    (check-match
+      @interp-lines{
+        type Option<a> {
+          data =
+            | Some(a)
+            | None()
+
+          maybe<a> : Option<a> -> a -> a
+          maybe(Some(v), _) = v
+          maybe(_, default) = default
+        }
+
+        main(_) = {
+          IO::println(Option::maybe(Option::Some("hello"), "world"))
+          IO::println(Option::maybe(Option::None(), "world"))
+        }
+      }
+      '("\"hello\"" "\"world\"")))
 )
