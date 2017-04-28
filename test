@@ -10,4 +10,4 @@ else
   tests="tests/core.rkt tests/scoping.rkt tests/interpreter.rkt tests/typechecker.rkt tests/examples.rkt"
 fi
 
-raco test -t $tests
+/usr/racket/bin/raco test -t $tests
