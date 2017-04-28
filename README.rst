@@ -686,7 +686,7 @@ some other toplevel module with the same name:
   M::bar + M::foo // ERROR: Unbound identifier 'bar'!
 
 This code does not compile because ``bar`` is defined on the module
-``N.M``, not ``M``.  But if we were to try to define a function
+``N::M``, not ``M``.  But if we were to try to define a function
 directly in ``N`` that refers to ``M``:
 
 .. code:: scala
