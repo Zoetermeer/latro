@@ -32,5 +32,4 @@ install:
 script:
   - stack build alex happy
   - stack build
-  - /usr/racket/bin/racket tests/typechecker.rkt
-  - /usr/racket/bin/racket tests/interpreter.rkt
+  - ./test
