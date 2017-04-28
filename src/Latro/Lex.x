@@ -31,7 +31,6 @@ tokens :-
   type { lex' TokenType }
   data { lex' TokenData }
   interface { lex' TokenInterface }
-  default { lex' TokenDefault }
   fun { lex' TokenFun }
   imp { lex' TokenImp }
   test { lex' TokenTest }
@@ -105,7 +104,6 @@ data TokenClass =
   | TokenType
   | TokenData
   | TokenInterface
-  | TokenDefault
   | TokenFun
   | TokenImp
   | TokenTest
@@ -183,7 +181,6 @@ unlex (TokenImport) = "import"
 unlex (TokenType) = "type"
 unlex (TokenData) = "data"
 unlex (TokenInterface) = "interface"
-unlex (TokenDefault) = "default"
 unlex (TokenFun) = "fun"
 unlex (TokenImp) = "imp"
 unlex (TokenTest) = "test"

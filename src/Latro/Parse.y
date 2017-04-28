@@ -21,7 +21,6 @@ import Latro.Semant
   type { Token _ TokenType }
   data { Token _ TokenData }
   interface { Token _ TokenInterface }
-  default { Token _ TokenDefault }
   fun { Token _ TokenFun }
   imp { Token _ TokenImp }
   test { Token _ TokenTest }
