@@ -31,5 +31,5 @@ install:
 
 script:
   - stack build alex happy
-  - stack build
+  - travis_wait stack build
   - ./test
