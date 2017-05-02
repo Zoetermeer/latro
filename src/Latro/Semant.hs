@@ -93,6 +93,11 @@ instance AstNode PatExp where
       PatExpWildcard d -> d
 
 
+-- This is unsafe!
+assumeIdPat :: PatExp a id -> id
+assumeIdPat (PatExpId _ id) = id
+
+
 data CaseClause a id =
     CaseClause a (PatExp a id) (Exp a id)
   deriving (Eq, Show)
@@ -207,7 +212,6 @@ data IL a =
   | ILApp a (IL a) [IL a]
   | ILPrim a Prim
   | ILAssign a (ILPat a) (IL a)
-  | ILTypeDec a (TypeDec a UniqId)
   | ILProtoDec a UniqId UniqId [Constraint a UniqId] [TyAnn a UniqId]
   | ILProtoImp a (SynTy a UniqId) UniqId [Constraint a UniqId] [IL a]
   | ILWithAnn a (TyAnn a UniqId) (IL a)
@@ -238,7 +242,6 @@ instance ILNode IL where
       ILApp d _ _ -> d
       ILPrim d _ -> d
       ILAssign d _ _ -> d
-      ILTypeDec d _ -> d
       ILProtoDec d _ _ _ _ -> d
       ILProtoImp d _ _ _ _ -> d
       ILWithAnn d _ _ -> d
@@ -261,7 +264,7 @@ instance ILNode IL where
       ILMain d _ _ -> d
 
 
-data ILCompUnit a = ILCompUnit a [IL a]
+data ILCompUnit a = ILCompUnit a [TypeDec a UniqId] [IL a]
   deriving (Eq, Show)
 
 
@@ -388,9 +391,11 @@ instance AstNode TypeDec where
       TypeDecAdt d _ _ _ -> d
 
 
-getTypeDecId :: TypeDec a id -> id
-getTypeDecId (TypeDecTy _ id _ _) = id
-getTypeDecId (TypeDecAdt _ id _ _) = id
+getTypeDecId :: TypeDec a id -> Maybe id
+getTypeDecId (TypeDecTy _ id _ _) = Just id
+getTypeDecId (TypeDecAdt _ id _ _) = Just id
+getTypeDecId (TypeDecImplicit _ _) = Nothing
+getTypeDecId (TypeDecEmpty _ id _) = Just id
 
 
 getTypeDecParams :: TypeDec a id -> [id]

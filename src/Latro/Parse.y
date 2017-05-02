@@ -140,7 +140,8 @@ TuplePatExpsRest : ',' PatExp { [$2] }
 
 TuplePatExp : '%(' PatExp TuplePatExpsRest ')' { PatExpTuple (pos $1) ([$2] ++ $3) }
 
-AdtPatExp : QualifiedId '(' ZeroOrMorePatExps ')' { PatExpAdt (nodeData $1) $1 $3 }
+AdtPatExp : SimpleOrQualifiedId '(' ZeroOrMorePatExps ')' { PatExpAdt (nodeData $1) $1 $3 }
+          | QualifiedId { PatExpAdt (nodeData $1) $1 [] }
 
 ZeroOrMorePatExps : PatExp { [$1] }
                   | ZeroOrMorePatExps ',' PatExp { $1 ++ [$3] }
@@ -186,14 +187,14 @@ LiteralExp : num { ExpNum (pos $1) (tokValue $1) }
            | False { ExpBool (pos $1) False }
            | string { ExpString (pos $1) (tokValue $1) }
            | char { ExpChar (pos $1) (tokValue $1) }
-           | QualifiedId { ExpQualifiedRef (nodeData $1) $1 }
+           | SimpleOrQualifiedId { ExpQualifiedRef (nodeData $1) $1 }
 
 AtomExp : '(' Exp ')' { ExpInParens (nodeData $2) $2 }
         | '(' ')' { ExpUnit (pos $1) }
         | '(' SpecialId ')' { ExpRef (pos $1) (tokValue $2) }
         | '%(' Exp TupleRestExps ')' { ExpTuple (pos $1) ($2:$3) }
         | ListExp { $1 }
-        | QualifiedId '%{' StructFieldInitializers '}' { ExpStruct (nodeData $1) $1 $3 }
+        | SimpleOrQualifiedId '%{' StructFieldInitializers '}' { ExpStruct (nodeData $1) $1 $3 }
         | FunHeader FunBody { ExpFun (fst $1) (snd $1) $2 }
         | prim '(' simple_id ')' { ExpPrim (pos $1) (tokValue $3) }
         | LiteralExp { $1 }
@@ -220,7 +221,7 @@ Exp : CustomInfixExp { $1 }
 
 ExpOrAssign : let PatExp '=' Exp { ExpAssign (pos $1) $2 $4 }
             | TyAnn { ExpTyAnn $1 }
-            | import QualifiedId { ExpImport (pos $1) $2 }
+            | import SimpleOrQualifiedId { ExpImport (pos $1) $2 }
             | Exp { $1 }
 
 ExpOrAssigns : ExpOrAssign { [$1] }
@@ -229,7 +230,7 @@ ExpOrAssigns : ExpOrAssign { [$1] }
 TopLevelBindingExp : let PatExp '=' LiteralExp { ExpAssign (pos $1) $2 $4 }
                    | FunDef { ExpFunDef $1 }
                    | TyAnn { ExpTyAnn $1 }
-                   | import QualifiedId { ExpImport (pos $1) $2 }
+                   | import SimpleOrQualifiedId { ExpImport (pos $1) $2 }
 
 ZeroOrMoreTopLevelBindingExps : TopLevelBindingExp { [$1] }
                               | ZeroOrMoreTopLevelBindingExps TopLevelBindingExp { $1 ++ [$2] }
@@ -320,7 +321,7 @@ SimpleTy : Int { SynTyInt (pos $1)  }
          | Unit { SynTyUnit (pos $1) }
          | struct '{' TyStructFields '}' { SynTyStruct (pos $1) $3 }
          | TyTuple { $1 }
-         | QualifiedSimpleId TyArgs { SynTyRef (nodeData $1) $1 $2 }
+         | SimpleOrQualifiedAlphaNumericId TyArgs { SynTyRef (nodeData $1) $1 $2 }
          | SimpleTy '[' ']' { SynTyList (nodeData $1) $1 }
          | '(' Ty ')' { $2 }
 
@@ -342,11 +343,13 @@ StructFieldInitializers : StructFieldInitializer { [$1] }
                         | StructFieldInitializers StructFieldInitializer { $1 ++ [$2] }
                         | {- empty -} { [] }
 
-QualifiedId : SimpleOrMixedId  { Id (pos $1) (tokValue $1) }
-            | QualifiedId '::' SimpleOrMixedId  { Path (nodeData $1) $1 (tokValue $3) }
+SimpleOrQualifiedId : SimpleOrMixedId  { Id (pos $1) (tokValue $1) }
+                    | QualifiedId { $1 }
 
-QualifiedSimpleId : simple_id { Id (pos $1) (tokValue $1) }
-                  | QualifiedId '::' simple_id { Path (nodeData $1) $1 (tokValue $3) }
+SimpleOrQualifiedAlphaNumericId : simple_id { Id (pos $1) (tokValue $1) }
+                                | SimpleOrQualifiedId '::' simple_id { Path (nodeData $1) $1 (tokValue $3) }
+
+QualifiedId : SimpleOrQualifiedId '::' SimpleOrMixedId { Path (nodeData $1) $1 (tokValue $3) }
 
 SimpleOrMixedId : simple_id { $1 }
                 | mixed_id { $1 }

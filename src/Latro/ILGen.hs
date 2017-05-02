@@ -1,13 +1,15 @@
 module Latro.ILGen where
 
+import Control.Monad.Writer
 import Data.Char (toLower)
 import Latro.Compiler
 import Latro.Semant
 
 
-ilGenClause :: Show a => CaseClause a UniqId -> ILCase a
-ilGenClause (CaseClause p patE bodyE) =
-  ILCase p (ilGenPat patE) (ilGen bodyE)
+ilGenClause :: Show a => CaseClause a UniqId -> ILWriter ILCase a
+ilGenClause (CaseClause p patE bodyE) = do
+  bodyE' <- ilGen bodyE
+  return $ ILCase p (ilGenPat patE) bodyE'
 
 
 ilGenPat :: PatExp a UniqId -> ILPat a
@@ -33,8 +35,11 @@ ilGenPat patE =
     PatExpWildcard p -> ILPatWildcard p
 
 
-ilGenFieldInit :: Show a => FieldInit a UniqId -> ILFieldInit a
-ilGenFieldInit (FieldInit p e) = ILFieldInit p $ ilGen e
+ilGenFieldInit :: Show a => FieldInit a UniqId -> ILWriter ILFieldInit a
+ilGenFieldInit (FieldInit p e) = do
+  e' <- ilGen e
+  return $ ILFieldInit p e'
+
 
 ilGenPrim :: UniqId -> Prim
 ilGenPrim (UserId id) =
@@ -55,67 +60,108 @@ ilGenPrim (UserId id) =
     "intgeq" -> PrimIntGeq
     _ -> PrimUnknown id
 
-ilGen :: Show a => Exp a UniqId -> IL a
-ilGen e =
-  case e of
-    ExpCons p l r -> ILCons p (ilGen l) (ilGen r)
-    ExpInParens p e -> ilGen e
-    ExpMemberAccess p e id ->
-      ILApp p (ILRef p id) [ilGen e]
-    ExpApp p rator rands ->
-      ILApp p (ilGen rator) (map ilGen rands)
-    ExpPrim p ratorId ->
-      ILPrim p $ ilGenPrim ratorId
-    ExpAssign p patE e ->
-      ILAssign p (ilGenPat patE) (ilGen e)
-    ExpTypeDec p typeDec ->
-      ILTypeDec p typeDec
-    ExpProtoDec p protoId tyParamId constrs tyAnns ->
-      ILProtoDec p protoId tyParamId constrs tyAnns
-    ExpProtoImp p typeTy protoId constrs bodyEs ->
-      ILProtoImp p typeTy protoId constrs $ map ilGen bodyEs
-    ExpWithAnn tyAnn e ->
-      ILWithAnn (nodeData tyAnn) tyAnn $ ilGen e
-    ExpFunDef (FunDefFun p fid@(UniqId _ fName) argPatEs bodyE) ->
-      let argIds = map (\(PatExpId _ id) -> id) argPatEs
-          bodyIL = ilGen bodyE
-      in if fName == "main"
-         then ILMain p argIds bodyIL
-         else ILFunDef p fid argIds bodyIL
-    ExpStruct p (Id _ uid) fieldInits ->
-      ILStruct p uid $ map ilGenFieldInit fieldInits
-    ExpIfElse p e thenE elseE ->
-      ILSwitch p
-               (ilGen e)
-               [ ILCase p (ILPatBool p True) (ilGen thenE)
-               , ILCase p (ILPatBool p False) (ilGen elseE)
-               ]
-    ExpMakeAdt p id i argEs ->
-      ILMakeAdt p id i $ map ilGen argEs
-    ExpGetAdtField p e i ->
-      ILGetAdtField p (ilGen e) i
-    ExpTuple p argEs ->
-      ILTuple p $ map ilGen argEs
-    ExpSwitch p e clauses ->
-      ILSwitch p (ilGen e) (map ilGenClause clauses)
-    ExpList p argEs ->
-      ILList p $ map ilGen argEs
-    ExpFun p argPatEs bodyE ->
-      let argIds = map (\(PatExpId _ id) -> id) argPatEs
-      in ILFun p argIds $ ilGen bodyE
-    ExpNum p s -> ILInt p $ read s
-    ExpBool p b -> ILBool p b
-    ExpString p s -> ILStr p s
-    ExpChar p s -> ILChar p s
-    ExpRef p id -> ILRef p id
-    ExpUnit p -> ILUnit p
-    ExpBegin p es -> ILBegin p $ map ilGen es
-    ExpFail p msg -> ILFail p msg
-    e -> error ("Could not generate IL for expression: " ++ show e)
+ilGen :: Show a => Exp a UniqId -> ILWriter IL a
+ilGen (ExpTypeDec p tyDec) = do
+  tell [tyDec]
+  return $ ILBegin p []
+
+ilGen (ExpCons p l r) = do
+  hd <- ilGen l
+  tl <- ilGen r
+  return $ ILCons p hd tl
+
+ilGen (ExpInParens _ e) = ilGen e
+ilGen (ExpMemberAccess p e id) = do
+  e' <- ilGen e
+  return $ ILApp p (ILRef p id) [e']
+
+ilGen (ExpApp p rator rands) = do
+  rator' <- ilGen rator
+  rands' <- mapM ilGen rands
+  return $ ILApp p rator' rands'
+
+ilGen (ExpPrim p ratorId) = return $ ILPrim p $ ilGenPrim ratorId
+
+ilGen (ExpAssign p patE e) = do
+  e' <- ilGen e
+  return $ ILAssign p (ilGenPat patE) e'
+
+ilGen (ExpWithAnn tyAnn e) = do
+  e' <- ilGen e
+  return $ ILWithAnn (nodeData tyAnn) tyAnn $ e'
+
+ilGen (ExpFunDef (FunDefFun p fid@(UniqId _ fName) argPatEs bodyE)) = do
+    bodyE' <- ilGen bodyE
+    return $ if fName == "main"
+             then ILMain p argIds bodyE'
+             else ILFunDef p fid argIds bodyE'
+  where
+    argIds = map assumeIdPat argPatEs
+
+ilGen (ExpStruct p (Id _ uid) fieldInits) = do
+  fieldInits' <- mapM ilGenFieldInit fieldInits
+  return $ ILStruct p uid fieldInits'
+
+ilGen (ExpIfElse p e thenE elseE) = do
+  e' <- ilGen e
+  thenE' <- ilGen thenE
+  elseE' <- ilGen elseE
+  return $ ILSwitch p
+                    e'
+                    [ ILCase p (ILPatBool p True) thenE'
+                    , ILCase p (ILPatBool p False) elseE'
+                    ]
+
+ilGen (ExpMakeAdt p id i argEs) = do
+  argEs' <- mapM ilGen argEs
+  return $ ILMakeAdt p id i argEs'
+
+ilGen (ExpGetAdtField p e i) = do
+  e' <- ilGen e
+  return $ ILGetAdtField p e' i
+
+ilGen (ExpTuple p argEs) = do
+  argEs' <- mapM ilGen argEs
+  return $ ILTuple p argEs'
+
+ilGen (ExpSwitch p e clauses) = do
+  e' <- ilGen e
+  clauses' <- mapM ilGenClause clauses
+  return $ ILSwitch p e' clauses'
+
+ilGen (ExpList p argEs) = do
+  argEs' <- mapM ilGen argEs
+  return $ ILList p argEs'
+
+ilGen (ExpFun p argPatEs bodyE) = do
+    bodyE' <- ilGen bodyE
+    return $ ILFun p argIds bodyE'
+  where
+    argIds = map assumeIdPat argPatEs
+
+ilGen (ExpNum p s) = return $ ILInt p $ read s
+ilGen (ExpBool p b) = return $ ILBool p b
+ilGen (ExpString p s) = return $ ILStr p s
+ilGen (ExpChar p s) = return $ ILChar p s
+ilGen (ExpRef p id) = return $ ILRef p id
+ilGen (ExpUnit p) = return $ ILUnit p
+ilGen (ExpBegin p es) = do
+  es' <- mapM ilGen es
+  return $ ILBegin p es'
+
+ilGen (ExpFail p msg) = return $ ILFail p msg
+ilGen e = error ("Could not generate IL for expression: " ++ show e)
 
 
+ilGenEs :: Show a => [Exp a UniqId] -> Writer [TypeDec a UniqId] [IL a]
+ilGenEs es = mapM ilGen es
+
+
+type ILWriter t a = Writer [TypeDec a UniqId] (t a)
 type ILGenM a = CompilerPass CompilerEnv a
 
 
 runILGen :: UniqAst CompUnit -> ILGenM (Untyped ILCompUnit)
-runILGen (CompUnit p es) = return $ ILCompUnit p $ map ilGen es
+runILGen (CompUnit p es) =
+  let (il, tyDecs) = runWriter $ ilGenEs es in
+  return $ ILCompUnit p tyDecs il

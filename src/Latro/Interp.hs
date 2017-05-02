@@ -321,7 +321,7 @@ buildEnv _ = return ()
 
 
 interp :: Typed ILCompUnit -> Bool -> Eval Value
-interp (ILCompUnit _ es) runMain = do
+interp (ILCompUnit _ _ es) runMain = do
   mapM_ buildEnv es
   v <- interpEs es
   if runMain

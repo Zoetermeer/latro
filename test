@@ -12,7 +12,7 @@ fi
 
 raco="$(which raco)"
 if [[ -z $raco ]]; then
-  raco=/usr/racket/bin/raco
+  raco="/usr/racket/bin/raco"
 fi
 
 "$raco" test -t $tests

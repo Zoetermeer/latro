@@ -10,7 +10,7 @@ import Control.Monad.State
 import Data.Either.Utils (maybeToEither)
 import qualified Data.Map.Strict as Map
 import Data.List (sortBy)
-import Data.Maybe (fromMaybe, isNothing)
+import Data.Maybe (catMaybes, fromMaybe, isNothing)
 import qualified Data.Set as Set
 import Debug.Trace (trace, traceM)
 import Latro.Errors
@@ -257,6 +257,10 @@ lookupPat :: SourcePos -> UniqId -> Checked Ty
 lookupPat p id = do
   patFuns <- getsTC patEnv
   lookupPatIn patFuns id `reportErrorAt` p
+
+
+tryLookupPat :: SourcePos -> UniqId -> Checked (Maybe Ty)
+tryLookupPat p id = (liftM Just) (lookupPat p id) `catchError` (\err -> return Nothing)
 
 
 lookupTy :: UniqId -> Checked TyCon
@@ -797,10 +801,17 @@ tcPatExp (ILPatCons p eHd eTl) = do
   ty <- unify tlTy (TyApp TyConList [hdTy]) `reportErrorAt` (ilNodeData eTl)
   return (ty, ILPatCons (OfTy p ty) eHd' eTl')
 
+-- If the identifier matches a bound ADT constructor name,
+-- we assume this is an ADT pattern on a 0-argument constructor.
+-- Otherwise the identifier shadows anything that is already bound.
 tcPatExp (ILPatId p id) = do
-  ty <- freshMeta
-  bindVar id ty
-  return (ty, ILPatId (OfTy p ty) id)
+  maybePatTy <- tryLookupPat p id
+  case maybePatTy of
+    Just _ -> tcPatExp $ ILPatAdt p id []
+    _      ->
+      do ty <- freshMeta
+         bindVar id ty
+         return (ty, ILPatId (OfTy p ty) id)
 
 tcPatExp (ILPatWildcard p) = do
   ty <- freshMeta
@@ -1000,13 +1011,6 @@ tc (ILStruct p id fieldInitEs) = do
   let initEs = map (\(ILFieldInit _ e) -> e) sorted
   tc $ ILApp p (ILRef p id) initEs
 
-tc (ILTypeDec p tyDec) =
-  let id = getTypeDecId tyDec
-  in do
-    (tycon, es) <- tcTyDec tyDec
-    exportTy id tycon
-    return (tyUnit, ILBegin (OfTy p tyUnit) es)
-
 -- We must bind the name before typechecking
 -- the right-hand side (otherwise recursive
 -- applications will fail)
@@ -1100,26 +1104,35 @@ tcEs es = do
   return (last tys, es')
 
 
+tcTyDecs :: [UntypedUniq TypeDec] -> Checked [Typed IL]
+tcTyDecs tyDecs = do
+    ilSeqs <- mapM (\(id, tyDec) -> do
+                (tyCon, ilSeq) <- tcTyDec tyDec
+                exportTy id tyCon
+                return ilSeq)
+              idsAndTyDecs
+    return $ concat ilSeqs
+  where
+    idsAndTyDecs = catMaybes $ map (\tyDec -> do { id <- getTypeDecId tyDec; return (id, tyDec) }) tyDecs
+
+
 tcCompUnit :: Untyped ILCompUnit -> Bool -> Checked (Ty, Typed ILCompUnit)
-tcCompUnit (ILCompUnit p es) bindForwardReferences = do
-  when bindForwardReferences $ mapM_ makeSymTables es
+tcCompUnit (ILCompUnit p tyDecs es) bindForwardReferences = do
+  when bindForwardReferences $ mapM_ makeSymTables tyDecs
+  ilFromTyDecs <- tcTyDecs tyDecs
   (ty, es') <- tcEs es
   ty' <- generalize ty
-  return (ty', ILCompUnit (OfTy p ty') es')
+  return (ty', ILCompUnit (OfTy p ty') [] (ilFromTyDecs ++ es'))
 
 
-makeSymTables :: Untyped IL -> Checked ()
-makeSymTables (ILBegin _ es) = mapM_ makeSymTables es
-
-makeSymTables (ILTypeDec p tyDec) =
-    exportTy id $ TyConTyFun tyParams $ TyRef $ Id p id
+makeSymTables :: UntypedUniq TypeDec -> Checked ()
+makeSymTables tyDec =
+    case id of
+      Just id -> exportTy id $ TyConTyFun tyParams $ TyRef $ Id p id
+      _       -> return ()
   where id = getTypeDecId tyDec
         tyParams = getTypeDecParams tyDec
-
-makeSymTables (ILAssign _ (ILPatId _ id) _) =
-  freshMeta >>= bindVar id
-
-makeSymTables e = return ()
+        p = nodeData tyDec
 
 
 type Checked a = CompilerPass CompilerEnv a

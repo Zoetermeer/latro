@@ -431,7 +431,6 @@ instance (Sexpable a) => Sexpable (IL a) where
               , sexp prim
               ]
       ILAssign d patE e -> List [ Symbol "ILAssign", sexp d, sexp patE, sexp e ]
-      ILTypeDec d typeDec -> List [ Symbol "ILTypeDec", sexp d, sexp typeDec ]
       ILWithAnn d tyAnn e -> List [ Symbol "ILWithAnn", sexp d, sexp tyAnn, sexp e ]
       ILFunDef d id paramIds bodyE ->
         List [ Symbol "ILFunDef", sexp d, sexp id, toSexpList paramIds, sexp bodyE ]
@@ -471,7 +470,12 @@ instance (Sexpable a) => Sexpable (IL a) where
 
 
 instance (Sexpable a) => Sexpable (ILCompUnit a) where
-  sexp (ILCompUnit d es) = List [ Symbol "ILCompUnit", sexp d, toSexpList es ]
+  sexp (ILCompUnit d tyDecs es) =
+    List [ Symbol "ILCompUnit",
+           sexp d,
+           toSexpList tyDecs,
+           toSexpList es
+         ]
 
 
 instance (Sexpable a) => CompilerOutput (ILCompUnit a) where

@@ -1196,7 +1196,7 @@
       }
     `(AtPos ,_ (CompilerModule AlphaConvert) (MultipleDataDecs Foo))))
 
-  (test-case "it allows named typed declarations inside type modules"
+  (test-case "it allows named type declarations inside type modules"
     (check-match
       @interp-lines{
         module Lst {
@@ -1219,4 +1219,16 @@
         }
       }
       '("Cons(43, Nil())")))
+
+  (test-case "it allows forward references in type annotations"
+    (check-match
+      @interp-lines{
+				isB : Foo -> Bool
+				isB(_) = False
+
+				type Foo = | A | B
+
+				main(_) = prim(println)(isB(A()))
+			}
+			'("False")))
 )
