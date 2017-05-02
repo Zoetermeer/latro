@@ -1,6 +1,5 @@
 #!/bin/bash
 
-set -e
 set -x
 
 stack build
@@ -16,4 +15,5 @@ if [[ -z $raco ]]; then
   raco="/usr/racket/bin/raco"
 fi
 
+set -e
 "$raco" test -t $tests
