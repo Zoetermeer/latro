@@ -12,7 +12,8 @@
          infix-reordered
          il-gen
          typecheck
-         show-typed-ast)
+         show-typed-ast
+         use-core?)
 
 (define (needs-recompile? file depends-on-file)
   (> (file-or-directory-modify-seconds depends-on-file)
@@ -30,7 +31,9 @@
 (define (compile!)
   (system "stack build"))
 
-(define (call-interpreter opts program)
+(define use-core? (make-parameter #t))
+
+(define (call-interpreter opts program #:include-core? [include-core? #t])
   (parameterize ([current-directory "."])
     (call-with-output-file
       test-source-file
@@ -40,7 +43,8 @@
       #:exists 'truncate/replace)
     (with-output-to-string
       (λ ()
-        (system (format "stack exec -- latroi ../lib/Core.l ~a ~a" (string-join opts) test-source-file))))))
+        (define cmd (format "stack exec -- latroi ~a" (if (use-core?) "../lib/Core.l" "")))
+        (system (format "~a ~a ~a" cmd (string-join opts) test-source-file))))))
 
 (define (strip-quotation-marks s) s)
 

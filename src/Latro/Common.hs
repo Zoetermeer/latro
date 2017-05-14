@@ -2,6 +2,7 @@
 module Latro.Common where
 
 import Control.Monad.Except
+import Debug.Trace (trace)
 import Latro.Errors
 import Latro.Semant (SourcePos(..))
 
@@ -18,6 +19,11 @@ reportPosOnFail a moduleName p = do
   a `catchError` (\err -> throwError $ errWithSourcePos err moduleName p)
 
 withFailPos p moduleName a = reportPosOnFail a moduleName p
+
+
+traceStrict :: String -> a -> a
+traceStrict msg x = seq x $ trace msg x
+
 
 class Show a => PrettyShow a where
   showShort :: a -> String

@@ -26,41 +26,68 @@ type ModuleTypecheck      = CompilerModule (Untyped ILCompUnit) (Typed ILCompUni
 type ModuleInterp         = CompilerModule (Typed ILCompUnit) (IO Value)
 
 
--- |Alpha conversion environment
-data Frame = Frame
-  { index :: Int
-  , varIdEnv  :: RawIdEnv AlphaEntry
-  , typeIdEnv :: RawIdEnv AlphaEntry
+data TypeNamespace =
+    TypeNsAdt UniqId (RawIdEnv UniqId)
+  | TypeNsStruct UniqId (RawIdEnv UniqId)
+  | TypeNsSimple UniqId
+  deriving (Eq, Show)
+
+
+typeId :: TypeNamespace -> UniqId
+typeId (TypeNsAdt id _) = id
+typeId (TypeNsStruct id _) = id
+typeId (TypeNsSimple id) = id
+
+
+data Namespace = Ns
+  { name      :: UniqId
+  , scope     :: LexicalScope
+  , exports   :: LexicalScope
   }
   deriving (Eq, Show)
 
 
-mtFrame :: Int -> Frame
-mtFrame ind = Frame { index = ind
-                    , varIdEnv = mtRawIdEnv
-                    , typeIdEnv = mtRawIdEnv
-                    }
+mkNs :: UniqId -> Int -> Namespace
+mkNs nsId index = Ns { name = nsId, scope = mtLexicalScope index, exports = mtLexicalScope index }
 
 
-data AlphaEntry =
-    UniqIdEntry UniqId
-  | FrameEntry UniqId Frame
-  | UnknownEntry UniqId
+-- |Alpha conversion environment
+data LexicalScope = LexicalScope
+  { index     :: Int
+  , varIdEnv  :: RawIdEnv UniqId
+  , typeIdEnv :: RawIdEnv UniqId
+  , typeNsEnv :: UniqIdEnv TypeNamespace
+  , ctorEnv   :: RawIdEnv UniqId
+  }
   deriving (Eq, Show)
+
+
+mtLexicalScope :: Int -> LexicalScope
+mtLexicalScope ind =
+  LexicalScope { index     = ind
+               , varIdEnv  = mtRawIdEnv
+               , typeIdEnv = mtRawIdEnv
+               , typeNsEnv = mtUniqIdEnv
+               , ctorEnv   = mtRawIdEnv
+}
 
 
 data AlphaEnv = AlphaEnv
   { counter :: Int
-  , stack   :: [Frame]
-  , pass    :: Int
+  , stack   :: [LexicalScope]
+  , nsEnv   :: Map.Map (UniqAst QualifiedId) Namespace
+  , curPath :: Maybe (UniqAst QualifiedId)
+  , curNs   :: Maybe Namespace
   }
   deriving (Eq, Show)
 
 
 instance Environment AlphaEnv where
   mt = AlphaEnv { counter = i
-                , stack   = [mtFrame i]
-                , pass    = 0
+                , stack   = [mtLexicalScope i]
+                , nsEnv = Map.empty
+                , curPath = Nothing
+                , curNs = Nothing
                 }
     where i = 1
 

@@ -4,6 +4,19 @@
   (require "common.rkt"
            rackunit)
 
+  (test-case "it does not allow argument bindings to escape"
+    (check-match
+      @interp-sexp{
+        f(x, runForever) = {
+          if (runForever)
+            f(x, runForever)
+            x
+        }
+
+        main(_) = IO::println(runForever(3, False))
+      }
+      `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundUniqIdentifier runForever))))
+
   (test-case "it binds identifiers introduced in cons patterns in switches"
     (check-equal?
       @interp-lines{
@@ -48,6 +61,94 @@
       }
       6))
 
+	(test-case "it does not allow redefinition on pattern-based top-level bindings"
+		(check-match
+			@interp-sexp{
+				module M {
+					let [y, z] = [3, 4]
+					let [x, y] = [1, 2]
+				}
+
+				main(_) = IO::println(M::x + M::z)
+			}
+			`(AtPos (SourcePos ,_ 3 ,_) (CompilerModule AlphaConvert) (IdAlreadyBound y))))
+
+	(test-case "it does not allow redefinition on id-pattern-based top-level bindings"
+		(check-match
+			@interp-sexp{
+				module M {
+					let x = 42
+					let x = False
+				}
+
+				main(_) = IO::println(M::x)
+			}
+			`(AtPos (SourcePos ,_ 3 ,_) (CompilerModule AlphaConvert) (IdAlreadyBound x))))
+
+	(test-case "it does not allow redefinition on pattern-based, annotated top-level bindings"
+		(check-match
+			@interp-sexp{
+				module M {
+					x : Int
+					let x = 42
+
+					x : Bool
+					let x = False
+				}
+
+				main(_) = IO::println(M::x)
+			}
+			`(AtPos (SourcePos ,_ 6 ,_) (CompilerModule AlphaConvert) (IdAlreadyBound x))))
+
+	(test-case "it allows shadowing in pattern bindings"
+		(check-equal?
+			@interp-lines{
+				f(x) = switch(x) {
+					[x] -> x
+					_		-> 0
+				}
+
+				main(_) = IO::println(f([1]))
+			}
+			'("1")))
+
+	(test-case "it binds annotated locals"
+		(check-equal?
+			@interp-lines{
+				f(a) = {
+					x : Bool
+					let x = True
+
+					y : Bool
+					let y = True
+
+					if (x && y) { 1 } { 2 }
+				}
+
+				main(_) = IO::println(f(1))
+			}
+			'("1")))
+
+	(test-case "it does not allow redefinition on annotated locals"
+		(check-match
+			@interp-sexp{
+				f(a) = {
+					x : Bool
+					let x = True
+
+					y : Bool
+					let y = True
+
+					x : Int
+					let x = 42
+
+					if (x && y) { 1 } { 2 }
+				}
+
+				main(_) = IO::println(42)
+			}
+			`(AtPos (SourcePos ,_ 9 ,_) (CompilerModule AlphaConvert) (IdAlreadyBound x))))
+
   (test-case "it respects lexical scope for functions"
     (check-equal?
       @interp-sexp{
@@ -70,7 +171,37 @@
 
         main(_) = IO::println(M::v)
       }
-      `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier v))))
+      `(AtPos (SourcePos ,_ 8 ,_) (CompilerModule AlphaConvert) (UnboundQualIdentifier M::v))))
+
+  (test-case "it does not capture id's in lexical scope for modules as exports"
+    (check-match
+      @interp-sexp{
+        module m {
+          f : (-> Int)
+          f() = 42
+
+          module n { }
+        }
+
+        main(_) = IO::println(m::n::f())
+      }
+      `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundQualIdentifier m::n::f))))
+
+  (test-case "it does not allow nested modules to escape the local env"
+    (check-match
+      @interp-sexp{
+        module m {
+          module m1 {
+            g : Int -> Int -> Int
+            g(x, y) = {
+              y + x
+            }
+          }
+        }
+
+        main(_) = IO::println(m1::g(1, 1))
+      }
+      `(AtPos ,_ (CompilerModule AlphaConvert) (InvalidUniqModulePath m1))))
 
   (test-case "it can resolve submodule members of modules in the closure"
     (check-equal?
@@ -139,17 +270,56 @@
       }
       `(AtPos ,_ (CompilerModule AlphaConvert) (IdAlreadyBound v))))
 
-  (test-case "it does not allow rebinding of a non-module-bound id to a module"
-    (check-match
-      @interp-sexp{
+  (test-case "it allows rebinding of a non-module-bound id to a module"
+    (check-equal?
+      @interp-lines{
         let m = 42
         module m {
           let x = 43
+
+          f() = 42
         }
 
-        main(_) = IO::println("Uh oh it worked!")
+        import Core::List
+        import Core::Integer
+        main(_) = IO::println(toString(m::x + m) ++ " worked!")
       }
-      `(AtPos ,_ (CompilerModule AlphaConvert) (IdAlreadyBound m))))
+      '("\"85 worked!\"")))
+
+  (test-case "it does not allow rebinding at the top level"
+    (check-match
+      @interp-sexp{
+        let x = 42
+        let x = 43
+
+        main(_) = IO::println(x)
+      }
+      `(AtPos (SourcePos ,_ 2 ,_) (CompilerModule AlphaConvert) (IdAlreadyBound x))))
+
+  (test-case "it does not allow rebinding at the top level of a module"
+    (check-match
+      @interp-sexp{
+        module M {
+          let x = 42
+          let x = 43
+        }
+
+        main(_) = IO::println(M::x)
+      }
+      `(AtPos (SourcePos ,_ 3 ,_) (CompilerModule AlphaConvert) (IdAlreadyBound x))))
+
+  (test-case "it allows submodules to define variables with names matching those of a parent module"
+    (check-equal?
+      @interp-lines{
+        let x = 42
+
+        module M {
+          let x = 43
+        }
+
+        main(_) = IO::println(x)
+      }
+      '("42")))
 
   (test-case "it allows reopening of modules"
     (check-equal?
@@ -166,7 +336,7 @@
       }
       '("3")))
 
-  (test-case "it does allow rebinding of an id to a module in a nested scope"
+  (test-case "it allows rebinding of an id to a module in a nested scope"
     (check-equal?
       @interp-lines{
         let m = 42
@@ -180,7 +350,7 @@
       }
       '("85")))
 
-  (test-case "it does allow rebinding for values in nested scopes"
+  (test-case "it allows rebinding for values in nested scopes"
     (check-equal?
       @interp-sexp{
         let v = 42
@@ -270,6 +440,36 @@
       }
       'False))
 
+  (test-case "it does not allow multiple type declarations with the same id"
+    (check-match
+      @interp-sexp{
+        type Same = Int
+        type Same = Bool
+
+        f : Same
+        let f = False
+
+        main(_) = IO::println(f)
+      }
+      `(AtPos (SourcePos ,_ 2 ,_) (CompilerModule AlphaConvert) (IdAlreadyBound Same))))
+
+  (test-case "it allows type definitions to 'shadow' ones in the module closure"
+    (check-equal?
+      @interp-lines{
+        type Same = Int
+
+        module Inner {
+          type Same = Bool
+        }
+
+        f : Inner::Same -> Same -> Inner::Same
+        f(True, x) = False
+        f(_, x) = True
+
+        main(_) = IO::println(f(False, 42))
+      }
+      '("True")))
+
   (test-case "it does not add bindings introduced in subexpressions to the module export env"
     (check-match
       @interp-sexp{
@@ -284,7 +484,7 @@
 
         main(_) = IO::println(m::x)
       }
-      `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier x))))
+      `(AtPos (SourcePos ,_ 10 ,_) (CompilerModule AlphaConvert) (UnboundQualIdentifier m::x))))
 
   (test-case "it does not add locals in function bodies to the module export env"
     (check-match
@@ -299,22 +499,7 @@
 
         main(_) = IO::println(m::x)
       }
-      `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier x))))
-
-  (test-case "it does not re-export imported bindings"
-    (check-match
-      @interp-sexp{
-        module Foo {
-          let v = 42
-        }
-
-        module Bar {
-          import Foo
-        }
-
-        main(_) = IO::println(Bar::v)
-      }
-      `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier v))))
+      `(AtPos (SourcePos ,_ 9 ,_) (CompilerModule AlphaConvert) (UnboundQualIdentifier m::x))))
 
   (test-case "it does not allow bindings in a pattern to escape into other clauses"
     (check-match
@@ -330,7 +515,7 @@
             }
         }
       }
-      `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier x))))
+      `(AtPos (SourcePos ,_ 8 ,_) (CompilerModule AlphaConvert) (UnboundUniqIdentifier x))))
 
   (test-case "it does not allow bindings to escape from then/else scopes"
     (check-match
@@ -345,7 +530,7 @@
           IO::println(x)
         }
       }
-      `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier x))))
+      `(AtPos (SourcePos ,_ 8 ,_) (CompilerModule AlphaConvert) (UnboundUniqIdentifier x))))
 
   (test-case "it does not allow bindings to escape the test exp of an if/else"
     (check-match
@@ -357,7 +542,7 @@
               x
         }
       }
-      `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier x))))
+      `(AtPos (SourcePos ,_ 3 ,_) (CompilerModule AlphaConvert) (UnboundUniqIdentifier x))))
 
   (test-case "it does not require type definitions to be in order"
     (check-equal?
@@ -451,7 +636,7 @@
           x + y
         }
       }
-      `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier y))))
+      `(AtPos (SourcePos ,_ 2 ,_) (CompilerModule AlphaConvert) (UnboundUniqIdentifier y))))
 
   (test-case "it allows mutually recursive functions"
     (check-equal?
@@ -480,12 +665,12 @@
         }
 
         module M' {
-          let bar = N::foo
+          let bar = N::foo //The correct reference would be M::N::foo
         }
 
         main(_) = IO::println(M'::bar)
       }
-      `(AtPos (SourcePos ,_ 8 ,_) (CompilerModule AlphaConvert) (UnboundRawIdentifier N))))
+      `(AtPos (SourcePos ,_ 8 ,_) (CompilerModule AlphaConvert) (InvalidUniqModulePath N))))
 
   (test-case "it does not extend type name resolution to closures of closed modules"
     (check-match
@@ -497,7 +682,7 @@
         f : M::Str -> M::Str
         f(s) = s
       }
-      `(AtPos (SourcePos ,_ 5 ,_) (CompilerModule AlphaConvert) (UnboundRawIdentifier Str))))
+      `(AtPos (SourcePos ,_ 5 ,_) (CompilerModule AlphaConvert) (UnboundUniqIdentifier Str))))
 
   (test-case "it does not extend variable name resolution to closures of closed modules"
     (check-match
@@ -510,7 +695,23 @@
 
         main(_) = IO::println(M::foo + M::bar)
       }
-      `(AtPos (SourcePos ,_ 7 ,_) (CompilerModule AlphaConvert) (UnboundRawIdentifier foo))))
+      `(AtPos (SourcePos ,_ 7 ,_) (CompilerModule AlphaConvert) (UnboundQualIdentifier M::foo))))
+
+  (test-case "it does not drop exports defined before a submodule"
+    (parameterize ([use-core? #f])
+      (check-equal?
+        @interp-lines{
+          module Outer {
+            type A = | Foo(Int) | Bar(Int)
+
+            module Inner { }
+
+            let otherThing = 43
+          }
+
+          main(_) = prim(println)(Outer::Foo(Outer::otherThing))
+        }
+        '("Foo(43)"))))
 
   (test-case "it can resolve pattern names in the module closure"
     (check-equal?
@@ -532,7 +733,27 @@
       }
       43))
 
-  (test-case "does not re-export pattern names from the module closure"
+  (test-case "it can resolve constructors in the module closure"
+    (check-equal?
+      @interp-lines{
+        module Root {
+          type A = | Foo(Int) | Bar(Int)
+
+          module M {
+            f(a) = {
+              switch (a) {
+                0 -> Foo(42)
+                _ -> Bar(43)
+              }
+            }
+          }
+        }
+
+        main(_) = IO::println(Root::M::f(1))
+      }
+      '("Bar(43)")))
+
+  (test-case "it does not re-export pattern names from the module closure"
     (check-match
       @interp-sexp{
         type A = | Foo(Int) | Bar(Int)
@@ -548,24 +769,22 @@
           IO::println(v)
         }
       }
-      `(AtPos (SourcePos ,_ 7 ,_) (CompilerModule AlphaConvert) (UnboundRawIdentifier Foo))))
+			`(AtPos (SourcePos ,_ 7 ,_) (CompilerModule AlphaConvert) (UnboundConstructor M::Foo))))
 
-  #;(test-case "it does not allow module-exported type bindings to escape"
+  (test-case "it does not allow module-exported type bindings to escape"
     (check-match
       @interp-sexp{
         module Geometry {
-          type Point = struct {
-            X : Int
-            Y : Int
-          }
+          type Thing = Int[]
         }
 
         main(_) = {
-          let p = Point %{ X = 0; Y = 0; }
+          p : Thing
+          let p = [1, 2]
           IO::println(p)
         }
       }
-      `(AtPos (SourcePos ,_ 9 ,_) (CompilerModule AlphaConvert) (UnboundRawIdentifier Point))))
+      `(AtPos (SourcePos ,_ 6 ,_) (CompilerModule AlphaConvert) (UnboundUniqIdentifier Thing))))
 
   (test-case "it imports infix operators"
     (check-equal?
@@ -601,88 +820,6 @@
       }
       '("42")))
 
-  (test-case "it binds struct field initializer names at the top level"
-    (check-equal?
-      @interp-lines{
-        type Person = struct {
-          Name : String
-        }
-
-        main(_) = {
-          let p = Person %{ Name = "james"; }
-          IO::println(p.Name)
-        }
-      }
-      '("\"james\"")))
-
-  (test-case "it binds struct field initializers on locals returned by a function"
-    (check-equal?
-      @interp-lines{
-        type Person = struct {
-          Name : String
-        }
-
-        mkPerson(name) = Person %{ Name = name; }
-
-        main(_) = {
-          let p = mkPerson("james")
-          IO::println(p.Name)
-        }
-      }
-      '("\"james\"")))
-
-  (test-case "it resolves nested struct field initializers"
-    (check-equal?
-      @interp-lines{
-        module Geometry {
-          type Point = struct {
-            X : Int
-            Y : Int
-          }
-
-          type Line = struct {
-            A : Point
-            B : Point
-          }
-        }
-
-        main(_) = {
-          let l = Geometry::Line %{
-            A = Geometry::Point %{ X = 0; Y = 42; };
-            B = Geometry::Point %{ X = 3; Y = 4; };
-          }
-
-          IO::println(l.A.Y + 1)
-        }
-      }
-      '("43")))
-
-  #;(test-case "it rejects unbound id's on nested struct field references"
-    (check-match
-      @interp-sexp{
-        module Geometry {
-          type Point = struct {
-            X : Int
-            Y : Int
-          }
-
-          type Line = struct {
-            A : Point
-            B : Point
-          }
-        }
-
-        main(_) = {
-          let l = Geometry::Line %{
-            A = Geometry::Point %{ X = 0; Y = 42; };
-            B = Geometry::Point %{ X = 3; Y = 4; };
-          }
-
-          IO::println(l.A.BogusId + 1)
-        }
-      }
-      `(AtPos (SourcePos ,_ 19 ,_) (CompilerModule AlphaConvert) (UnboundRawIdentifier BogusId))))
-
   (test-case "it does not allow direct references to module names"
     (check-match
       @interp-sexp{
@@ -696,9 +833,9 @@
       }
       `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundUniqIdentifier Foo))))
 
-  (test-case "it can handle self-imports"
+  (test-case "it does not allow self-imports"
     (check-match
-      @interp-lines{
+      @interp-sexp{
         module Foo {
           import Foo
 
@@ -708,7 +845,7 @@
           IO::println(Foo::bar(42))
         }
       }
-      `("43")))
+      `(AtPos (SourcePos ,_ 2 ,_) (CompilerModule AlphaConvert) (OverlappingVarImport Foo (bar)))))
 
   (test-case "it can handle mutually recursive modules"
     (check-match
@@ -762,4 +899,147 @@
         }
       }
     '("ComplexA(ComplexB(SimpleA(42)))")))
+
+  (test-case "it accumulates separate, same-named module declarations"
+    (check-match
+      @interp-lines{
+        module A {
+          let one = 1
+        }
+
+        module A {
+          let two = 2
+        }
+
+        main(_) = IO::println(A::one + A::two)
+      }
+    '("3")))
+
+  (test-case "it does not allow shadowing across separate module declarations"
+    (check-match
+      @interp-sexp{
+        module A {
+          let one = 1
+        }
+
+        module A {
+          let one = 2
+        }
+
+        main(_) = IO::println(A::one)
+      }
+    `(AtPos ,_ (CompilerModule AlphaConvert) (IdAlreadyBound one))))
+
+  (test-case "it does not allow partially-qualified references to submodules if the containing module is imported"
+    (check-match
+      @interp-sexp{
+        module A {
+          module Foo {
+            let x = 42
+          }
+        }
+
+        module B {
+          module Bar {
+						let y = 43
+          }
+        }
+
+        import A
+        import B
+
+        main(_) = {
+          let x = A::Foo::x
+          let y = Bar::y //importing B should not  bind Bar
+
+          IO::println(x + y)
+        }
+      }
+      `(AtPos (SourcePos ,_ 18 ,_) (CompilerModule AlphaConvert) (InvalidUniqModulePath Bar))))
+
+  (test-case "it resolves recursive references in explicitly typed functions"
+    (parameterize ([use-core? #f])
+      (check-equal?
+        @interp-lines{
+          module ListStuff {
+            length<a> : a[] -> Int
+            length([])    = 0
+            length(x@"@"xs) = prim(intAdd)(1, length(xs))
+          }
+
+          main(_) = prim(println)(ListStuff::length([1, 2, 3]))
+        }
+        '("3"))))
+
+  (test-case "it resolves recursive references in implicitly typed functions"
+    (parameterize ([use-core? #f])
+      (check-equal?
+        @interp-lines{
+          module ListStuff {
+            length([])    = 0
+            length(x@"@"xs) = prim(intAdd)(1, length(xs))
+          }
+
+          main(_) = prim(println)(ListStuff::length([1, 2, 3]))
+        }
+        '("3"))))
+
+  (test-case "it resolves recursive references in top-level, implicitly typed functions"
+    (parameterize ([use-core? #f])
+      (check-equal?
+        @interp-lines{
+          length([])    = 0
+          length(x@"@"xs) = prim(intAdd)(1, length(xs))
+
+          main(_) = prim(println)(length([1, 2, 3]))
+        }
+        '("3"))))
+
+  (test-case "it resolves recursive references in top-level, explicitly typed functions"
+    (parameterize ([use-core? #f])
+      (check-equal?
+        @interp-lines{
+          length<a> : a[] -> Int
+          length([])    = 0
+          length(x@"@"xs) = prim(intAdd)(1, length(xs))
+
+          main(_) = prim(println)(length([1, 2, 3]))
+        }
+        '("3"))))
+
+  (test-case "it does not allow constructors on different types to have the same name"
+    (check-match
+      @interp-sexp{
+        type Foo =
+          | CtorA
+          | CtorB
+
+        type Bar =
+          | CtorA
+          | CtorB
+
+        main(_) = IO::println(42)
+      }
+      `(AtPos (SourcePos ,_ 6 ,_) (CompilerModule AlphaConvert) (IdAlreadyBound CtorA))))
+
+	(test-case "it rewrites aliases from type modules such that they use fully-qualified references"
+    (parameterize ([use-core? #f])
+      (check-equal?
+        @interp-lines{
+          module Outer {
+            module Maybe {
+              type <a>
+                | Just(a)
+                | Nothing
+
+
+              isJust<a> : Maybe<a> -> Bool
+              isJust(Just(_)) = True
+              isJust(_) = False
+            }
+          }
+
+          main(_) = prim(println)(Outer::Maybe::isJust(Outer::Maybe::Just(42)))
+        }
+        '("True"))))
 )

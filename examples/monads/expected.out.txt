@@ -1,2 +1,2 @@
 Just(6)
-Nothing()
+Nothing

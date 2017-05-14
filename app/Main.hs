@@ -58,14 +58,14 @@ data Phase =
 readPhaseName :: String -> Phase
 readPhaseName name =
   case map toLower name of
-    "parse" -> PhaseParse
+    "parse"    -> PhaseParse
     "collapse" -> PhaseCollapse
-    "alpha" -> PhaseAlphaConvert
-    "infix" -> PhaseInfixReorder
-    "ilgen" -> PhaseILGen
-    "type"  -> PhaseTypecheckType
-    "typed" -> PhaseTypecheckAst
-    _       -> PhaseUnknown name
+    "alpha"    -> PhaseAlphaConvert
+    "infix"    -> PhaseInfixReorder
+    "ilgen"    -> PhaseILGen
+    "type"     -> PhaseTypecheckType
+    "typed"    -> PhaseTypecheckAst
+    _          -> PhaseUnknown name
 
 
 data Opt =

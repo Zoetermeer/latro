@@ -72,6 +72,11 @@ instance Sexpable Err where
           , sexp qid
           ]
 
+  sexp (ErrUnboundConstructor qid) =
+    List  [ Symbol "UnboundConstructor"
+          , sexp qid
+          ]
+
   sexp (ErrIdAlreadyBound id) =
     List  [ Symbol "IdAlreadyBound"
           , sexp id
@@ -97,6 +102,12 @@ instance Sexpable Err where
   sexp (ErrInvalidStructType tyCon) =
     List  [ Symbol "InvalidStructType"
           , sexp tyCon
+          ]
+
+  sexp (ErrUnboundStructField qid fieldId) =
+    List  [ Symbol "UnboundStructField"
+          , sexp qid
+          , sexp fieldId
           ]
 
   sexp (ErrNotATyCon synTy) =
@@ -184,6 +195,24 @@ instance Sexpable Err where
           , sexp typeModuleId
           ]
 
+  sexp (ErrInvalidUniqModulePath qid) =
+    List  [ Symbol "InvalidUniqModulePath", sexp qid ]
+
+  sexp (ErrInvalidRawModulePath qid) =
+    List  [ Symbol "InvalidRawModulePath", sexp qid ]
+
+  sexp (ErrOverlappingVarImport qid varIds) =
+    List  [ Symbol "OverlappingVarImport"
+          , sexp qid
+          , toSexpList varIds
+          ]
+
+  sexp (ErrOverlappingTyImport qid tyIds) =
+    List  [ Symbol "OverlappingTyImport"
+          , sexp qid
+          , toSexpList tyIds
+          ]
+
   sexp (ErrInterpFailure s) =
     List  [ Symbol "InterpFailure"
           , Atom "Non-exhaustive pattern"
@@ -229,5 +258,11 @@ instance CompilerOutput Err where
 
   render (ErrUnboundQualIdentifier qid) =
     printf "Unbound identifier '%s'" $ render qid
+
+  render (ErrUnboundConstructor qid) =
+    printf "Unbound constructor '%s'" $ render qid
+
+  render (ErrUnboundStructField qid fieldId) =
+    printf "Struct type %s does not define member named '%s'" (render qid) (render fieldId)
 
   render err = showSexp err

@@ -2,6 +2,7 @@
 **/*.hi
 **/*.*#
 .stack-work/
+**/.DS_Store
 last-test.l
 /dist
 /src/Latro/alpha.rkt*

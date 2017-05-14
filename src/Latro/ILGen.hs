@@ -86,6 +86,10 @@ ilGen (ExpAssign p patE e) = do
   e' <- ilGen e
   return $ ILAssign p (ilGenPat patE) e'
 
+ilGen (ExpTopLevelAssign p patE e) = do
+  e' <- ilGen e
+  return $ ILAssign p (ilGenPat patE) e'
+
 ilGen (ExpWithAnn tyAnn e) = do
   e' <- ilGen e
   return $ ILWithAnn (nodeData tyAnn) tyAnn $ e'

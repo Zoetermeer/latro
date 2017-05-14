@@ -22,6 +22,10 @@ collectFunDefs _ es = ([], es)
 
 
 collapseBindingExp :: RawId -> [RawAst Exp] -> Collapsed (RawAst Exp, [RawAst Exp])
+collapseBindingExp id (e@(ExpTopLevelAssign _ (PatExpId _ pid) _) : es)
+  | id == pid = return (e, es)
+  | otherwise = throwError $ ErrNoBindingAfterTyAnn id
+
 collapseBindingExp id (e@(ExpAssign _ (PatExpId _ pid) _) : es)
   | id == pid = return (e, es)
   | otherwise = throwError $ ErrNoBindingAfterTyAnn id
@@ -51,10 +55,6 @@ collapse (ExpModule p id bodyEs) = do
   bodyEs' <- collapseEs bodyEs
   return $ ExpModule p id bodyEs'
 
-collapse (ExpTypeModule p id tyParamIds bodyEs) = do
-  bodyEs' <- collapseEs bodyEs
-  return $ ExpTypeModule p id tyParamIds bodyEs'
-
 collapse (ExpBegin p bodyEs) = do
   bodyEs' <- collapseEs bodyEs
   return $ ExpBegin p bodyEs'
@@ -74,6 +74,11 @@ collapseFunDef (FunDefFun p id patE bodyE) = do
 
 collapseEs :: [RawAst Exp] -> Collapsed [RawAst Exp]
 collapseEs [] = return []
+collapseEs (ExpTopLevelTyAnn tyAnn@(TyAnn _ aid _ _ _) : es) = do
+  (e, es') <- collapseBindingExp aid es
+  es'' <- collapseEs es'
+  return (ExpWithAnn tyAnn e : es'')
+
 collapseEs (ExpTyAnn tyAnn@(TyAnn _ aid _ _ _) : es) = do
   (e, es') <- collapseBindingExp aid es
   es'' <- collapseEs es'

@@ -1,3 +1,5 @@
+import Core::Maybe
+
 module Maybe {
   module MonadInfix {
     infixl (>>=)(Just(x), f) = f(x)

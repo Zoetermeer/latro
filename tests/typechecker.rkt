@@ -137,75 +137,6 @@
       }
       '("3")))
 
-  (test-case "it checks module-exported struct field initializers/getters"
-    (check-match
-      @interp-lines{
-        module Geometry {
-          type Point = struct {
-            X : Int
-            Y : Int
-          }
-
-          type Line = struct {
-            A : Point
-            B : Point
-          }
-        }
-
-        main(_) = {
-          let l = Geometry::Line %{
-            A = Geometry::Point %{ X = 0; Y = 0; };
-            B = Geometry::Point %{ X = 3; Y = 4; };
-          }
-
-          let x = Geometry::Y(Geometry::B(l))
-          IO::println(x)
-        }
-      }
-      '("4")))
-
-  (test-case "it rejects invalid arguments to struct field initializers"
-    (check-match
-      @interp-sexp{
-        type S = struct {
-          X : Int
-          Y : Int
-        }
-
-        main(_) = {
-          let s = S %{ X = 42; Y = False; }
-          let x = s.Y + 2
-          IO::println(x)
-        }
-      }
-      `(AtPos (SourcePos ,_ 7 ,_) (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))
-
-  (test-case "it rejects invalid arguments to nested struct field initializers"
-    (check-match
-      @interp-sexp{
-        module Geometry {
-          type Point = struct {
-            X : Int
-            Y : Int
-          }
-
-          type Line = struct {
-            A : Point
-            B : Point
-          }
-        }
-
-        main(_) = {
-          let l = Geometry::Line %{
-            A = Geometry::Point %{ X = 0; Y = False; };
-            B = Geometry::Point %{ X = 3; Y = 4; };
-          }
-
-          IO::println(l.A.Y + 1)
-        }
-      }
-      `(AtPos ,_ (CompilerModule Typecheck) (CantUnify (Expected Int) (Got Bool)))))
-
   (test-case "it checks expressions with module-binding components"
     (check-match
       @interp-sexp{
@@ -582,7 +513,6 @@
   (test-case "it checks ADT constructors"
     (check-match
       @interp-lines{
-        type String = Char[]
         type Foo =
           | A(Int)
           | B(String)
@@ -594,7 +524,6 @@
   (test-case "it fails on ill-typed ADT constructor applications"
     (check-match
       @interp-sexp{
-        type String = Char[]
         type Rope =
           | Leaf(String)
 
@@ -607,7 +536,6 @@
   (test-case "it checks recursive ADT's"
     (check-equal?
       @interp-lines{
-        type String = Char[]
         type Foo =
           | A(Int, String)
           | B(Bool, Foo)
@@ -673,7 +601,7 @@
           IO::println(None())
         }
       }
-      '("None()")))
+      '("None")))
 
   (test-case "it does not unify two distinct types with the same structure"
     (check-match
@@ -708,7 +636,6 @@
   (test-case "it checks monomorphic ADT patterns"
     (check-equal?
       @interp-lines{
-        type String = Char[]
         type Val =
           | B(Bool)
           | I(Int)
@@ -774,7 +701,7 @@
           IO::println(x)
         }
       }
-      `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier Some))))
+      `(AtPos (SourcePos ,_ 9 ,_) (CompilerModule AlphaConvert) (UnboundConstructor Some))))
 
   (test-case "it checks qualified ADT patterns"
     (check-equal?
@@ -1013,6 +940,9 @@
   (test-case "it checks functions with argument types accepting multiple type params"
     (check-equal?
       @interp-lines{
+        import Core
+        import Core::Maybe
+
         type t<k, v> = %(k, v)[]
 
         insert<k, v> : t<k, v> -> k -> v -> t<k, v>
@@ -1032,11 +962,14 @@
           IO::println(find(m, 1))
         }
       }
-      '("Nothing()" "Just(\"hello\")")))
+      '("Nothing" "Just(\"hello\")")))
 
   (test-case "it checks implicit functions with argument types accepting multiple type params"
     (check-equal?
       @interp-lines{
+        import Core::Maybe
+        import IO
+
         type t<k, v> = %(k, v)[]
 
         insert(map, key, val) = { %(key, val) @"@" map }
@@ -1050,11 +983,11 @@
 
         main(_) = {
           let m = [%(1, "hello")]
-          IO::println(find(m, 3))
-          IO::println(find(m, 1))
+          println(find(m, 3))
+          println(find(m, 1))
         }
       }
-      '("Nothing()" "Just(\"hello\")")))
+      '("Nothing" "Just(\"hello\")")))
 
   (test-case "it checks infix application of binary functions"
     (check-equal?
@@ -1145,7 +1078,7 @@
   (test-case "it expands monomorphic type modules with implicitly typed functions"
     (check-match
       @interp-lines{
-        module Maybe {
+        module Optionals {
           type<a> | Some(String)
                   | None
 
@@ -1154,7 +1087,7 @@
         }
 
         main(_) = {
-          IO::println(Maybe::isSome(Maybe::None()))
+          prim(println)(Optionals::isSome(Optionals::None()))
         }
       }
       '("False")))
@@ -1204,7 +1137,7 @@
                   | Nil
 
           tail<a> : Lst<a> -> Lst<a>
-          tail(Nil()) = Nil()
+          tail(Nil) = Nil()
           tail(Cons(_, tail)) = tail
 
           type IntList = Lst<Int>
@@ -1218,7 +1151,51 @@
           IO::println(tail(ints))
         }
       }
-      '("Cons(43, Nil())")))
+      '("Cons(43, Nil)")))
+
+  (test-case "it allows ADT patterns on 0-argument ctors without parens"
+    (check-match
+      @interp-lines{
+        isB(A) = False
+        isB(_) = True
+
+        type Foo = | A | B
+
+        main(_) = IO::println(isB(A()))
+      }
+      '("False")))
+
+	(test-case "it unifies no-parens, 0-argument ADT patterns with ctor applications"
+		(check-match
+			@interp-lines{
+        type Lst<a> =
+          | Nil
+          | Cons(a, Lst<a>)
+
+        tail(Nil) = Nil()
+        tail(Cons(_, ls)) = ls
+
+        main(_) = IO::println(tail(Nil()))
+      }
+      '("Nil")))
+
+	(test-case "it unifies forward-referencing, no-paren, 0-argument ADT patterns with ctor apps in type modules"
+		(check-match
+			@interp-lines{
+        module Weird {
+          type Int
+
+          tail(Nil) = Nil()
+          tail(Cons(_, ls)) = ls
+        }
+
+        type Lst<a> =
+          | Nil
+          | Cons(a, Lst<a>)
+
+        main(_) = IO::println(Weird::tail(Nil()))
+      }
+      '("Nil")))
 
   (test-case "it allows forward references in type annotations"
     (check-match

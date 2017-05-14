@@ -29,10 +29,12 @@ data Err =
   | ErrUnboundRawIdentifier RawId
   | ErrUnboundUniqIdentifier UniqId
   | ErrUnboundQualIdentifier (QualifiedId SourcePos UniqId)
+  | ErrUnboundConstructor (QualifiedId SourcePos UniqId)
   | ErrIdAlreadyBound UniqId
   | ErrCantUnify Ty Ty
   | ErrUndefinedMember SourcePos UniqId
   | ErrInvalidStructType Ty
+  | ErrUnboundStructField (QualifiedId SourcePos UniqId) UniqId
   | ErrNotATyCon (SynTy SourcePos UniqId)
   | ErrTooManyModuleDefs UniqId
   | ErrNoModuleDefInModuleDec UniqId
@@ -42,6 +44,8 @@ data Err =
   | ErrPartialTyConApp TyCon [Ty]
   | ErrInvalidRawModulePath (QualifiedId SourcePos RawId)
   | ErrInvalidUniqModulePath (QualifiedId SourcePos UniqId)
+  | ErrOverlappingVarImport (QualifiedId SourcePos UniqId) [RawId]
+  | ErrOverlappingTyImport (QualifiedId SourcePos UniqId) [RawId]
   | ErrInferenceFail (Map.Map UniqId Ty) Ty Ty
   | ErrPrimUnknown RawId
   | ErrProtocolAlreadyImplemented UniqId TyCon

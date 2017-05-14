@@ -182,6 +182,12 @@ FunHeader : SingleParamFunHeader { (fst $1, [snd $1]) }
           | MultiParamFunHeader { $1 }
           | fun '(' ')' { (pos $1, []) }
 
+CommaSeparatedLiteralExps : LiteralExp { [$1] }
+													| CommaSeparatedLiteralExps ',' LiteralExp { $1 ++ [$3] }
+													| {- empty -} { [] }
+
+LiteralListExp : '[' CommaSeparatedLiteralExps ']' { ExpList (pos $1) $2 }
+
 LiteralExp : num { ExpNum (pos $1) (tokValue $1) }
            | True { ExpBool (pos $1) True }
            | False { ExpBool (pos $1) False }
@@ -227,9 +233,10 @@ ExpOrAssign : let PatExp '=' Exp { ExpAssign (pos $1) $2 $4 }
 ExpOrAssigns : ExpOrAssign { [$1] }
              | ExpOrAssigns ExpOrAssign { $1 ++ [$2] }
 
-TopLevelBindingExp : let PatExp '=' LiteralExp { ExpAssign (pos $1) $2 $4 }
+TopLevelBindingExp : let PatExp '=' LiteralExp { ExpTopLevelAssign (pos $1) $2 $4 }
+									 | let PatExp '=' LiteralListExp { ExpTopLevelAssign (pos $1) $2 $4 }
                    | FunDef { ExpFunDef $1 }
-                   | TyAnn { ExpTyAnn $1 }
+                   | TyAnn { ExpTopLevelTyAnn $1 }
                    | import SimpleOrQualifiedId { ExpImport (pos $1) $2 }
 
 ZeroOrMoreTopLevelBindingExps : TopLevelBindingExp { [$1] }

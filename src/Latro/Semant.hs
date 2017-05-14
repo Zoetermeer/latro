@@ -17,6 +17,11 @@ data SourcePos = SourcePos SourceFilePath LineNumber ColNumber
 instance Out SourcePos
 
 
+instance Ord SourcePos where
+  (SourcePos pathA lineA colA) <= (SourcePos pathB lineB colB) =
+    pathA <= pathB && lineA <= lineB && colA <= colB
+
+
 mtSourcePos :: SourcePos
 mtSourcePos = SourcePos "??" 0 0
 
@@ -27,7 +32,7 @@ type RawId = String
 data QualifiedId a id =
     Id a id
   | Path a (QualifiedId a id) id
-  deriving (Generic, Ord, Show)
+  deriving (Generic, Show)
 
 
 instance Eq id => Eq (QualifiedId a id) where
@@ -37,7 +42,26 @@ instance Eq id => Eq (QualifiedId a id) where
   _ == _ = False
 
 
+instance (Ord a, Ord id) => Ord (QualifiedId a id) where
+  compare Id{} Path{} = LT
+  compare Path{} Id{} = GT
+  compare (Id _ ida) (Id _ idb) =
+    ida `compare` idb
+
+  compare (Path _ qida ida) (Path _ qidb idb) =
+    let cq = qida `compare` qidb
+        ci = ida `compare` idb
+    in case cq of
+        EQ -> ci
+        _  -> cq
+
+
 instance (Out a, Out id) => Out (QualifiedId a id)
+
+
+mkPath :: Maybe (UniqAst QualifiedId) -> UniqId -> UniqAst QualifiedId
+mkPath maybeQid id = maybe (Id mtSourcePos id) ((flip (Path mtSourcePos)) id) maybeQid
+
 
 class AstNode a where
   nodeData :: a b id -> b
@@ -276,11 +300,13 @@ data Exp a id =
   | ExpApp a (Exp a id) [Exp a id]
   | ExpPrim a id
   | ExpImport a (QualifiedId a id)
+  | ExpTopLevelAssign a (PatExp a id) (Exp a id)
   | ExpAssign a (PatExp a id) (Exp a id)
   | ExpTypeDec a (TypeDec a id)
   | ExpDataDec a (TypeDec a id)
   | ExpProtoDec a id id [Constraint a id] [TyAnn a id]
   | ExpProtoImp a (SynTy a id) id [Constraint a id] [Exp a id]
+  | ExpTopLevelTyAnn (TyAnn a id)
   | ExpTyAnn (TyAnn a id)
   | ExpWithAnn (TyAnn a id) (Exp a id)
   | ExpFunDef (FunDef a id)
@@ -320,9 +346,11 @@ instance AstNode Exp where
       ExpApp d _ _ -> d
       ExpPrim d _ -> d
       ExpImport d _ -> d
+      ExpTopLevelAssign d _ _ -> d
       ExpAssign d _ _ -> d
       ExpTypeDec d _ -> d
       ExpDataDec d _ -> d
+      ExpTopLevelTyAnn (TyAnn d _ _ _ _) -> d
       ExpTyAnn (TyAnn d _ _ _ _) -> d
       ExpProtoDec d _ _ _ _ -> d
       ExpProtoImp d _ _ _ _ -> d
@@ -398,6 +426,13 @@ getTypeDecId (TypeDecImplicit _ _) = Nothing
 getTypeDecId (TypeDecEmpty _ id _) = Just id
 
 
+renameTypeDec :: TypeDec a id -> id -> TypeDec a id
+renameTypeDec (TypeDecTy p id tyParamIds synTy) newId = TypeDecTy p newId tyParamIds synTy
+renameTypeDec (TypeDecAdt p id tyParamIds alts) newId = TypeDecAdt p newId tyParamIds alts
+renameTypeDec tyDec@TypeDecImplicit{} newId = tyDec
+renameTypeDec (TypeDecEmpty p id tyParamIds) newId = TypeDecEmpty p newId tyParamIds
+
+
 getTypeDecParams :: TypeDec a id -> [id]
 getTypeDecParams tyDec =
   case tyDec of
@@ -434,6 +469,10 @@ data SynTy a id =
 synTyArrowTys :: SynTy a id -> [SynTy a id]
 synTyArrowTys (SynTyArrow _ tyArgs retTy) = tyArgs ++ [retTy]
 synTyArrowTys sty = [sty]
+
+
+fieldAccessorFunId :: RawId -> RawId -> RawId
+fieldAccessorFunId tyId accId = "@" ++ tyId ++ "_" ++ accId
 
 
 instance AstNode SynTy where
@@ -481,7 +520,13 @@ instance Ord UniqId where
   (UniqId _ raw) `compare` (UserId raw') = raw `compare` raw'
 
 
+getRawId :: UniqId -> RawId
+getRawId (UserId rawId) = rawId
+getRawId (UniqId _ rawId) = rawId
+
+
 type RawIdEnv a = Map.Map RawId a
+type UniqIdEnv a = Map.Map UniqId a
 type Env a = Map.Map UniqId a
 type CloEnv a = Env a
 type VEnv = Env Value
@@ -491,9 +536,16 @@ type TEnv = Env Ty
 mtRawIdEnv :: RawIdEnv a
 mtRawIdEnv = Map.empty
 
+mtUniqIdEnv :: UniqIdEnv a
+mtUniqIdEnv = Map.empty
+
 mtEnv :: Env a
 mtEnv = Map.empty
 
+
+lookupUniqId :: UniqId -> RawIdEnv UniqId -> Maybe UniqId
+lookupUniqId uid@UniqId{} _ = Just uid
+lookupUniqId (UserId rawId) map = Map.lookup rawId map
 
 data CheckedData = OfTy SourcePos Ty
   deriving (Eq, Show)

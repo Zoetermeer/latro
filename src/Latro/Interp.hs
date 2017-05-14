@@ -8,7 +8,7 @@ import Data.Char (ord)
 import Data.Either.Utils (maybeToEither)
 import Data.List
 import qualified Data.Map as Map
-import Latro.AlphaConvert hiding (lookup, lookupVarId, reportErrorAt)
+import Latro.AlphaConvert hiding (exportVar, lookup, lookupVarId, reportErrorAt)
 import Latro.Common
 import Latro.Compiler
 import Latro.Errors

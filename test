@@ -7,7 +7,7 @@ stack build
 if [[ -n $1 ]]; then
   tests="tests/${1}.rkt"
 else
-  tests="tests/core.rkt tests/scoping.rkt tests/interpreter.rkt tests/typechecker.rkt tests/examples.rkt"
+  tests="tests/core.rkt tests/import-export.rkt tests/scoping.rkt tests/interpreter.rkt tests/typechecker.rkt tests/examples.rkt"
 fi
 
 raco="$(which raco)"

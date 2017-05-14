@@ -44,10 +44,6 @@ precedence && 11
 infixl (|>)(x, f) = f(x)
 precedence |> 12
 
-type Maybe<a> =
-  | Just(a)
-  | Nothing
-
 type Result<e, t> =
   | Ok(t)
   | Error(e)
@@ -63,7 +59,21 @@ module Core {
   charEqual(c1, c2) = prim(charEq)(c1, c2)
 
 
+  module Maybe {
+    type <a>
+      | Just(a)
+      | Nothing
+
+
+    isJust<a> : Maybe<a> -> Bool
+    isJust(Just(_)) = True
+    isJust(_) = False
+  }
+
+
   module List {
+    import Core
+
     length<a> : a[] -> Int
     length([])    = 0
     length(x@xs) = 1 + length(xs)
@@ -84,19 +94,19 @@ module Core {
     infixl (++)(a@as, bs) = a @ (as ++ bs)
 
 
-    head<a> : a[] -> Maybe<a>
-    head([]) = Nothing()
-    head(x@_) = Just(x)
+    head<a> : a[] -> Core::Maybe<a>
+    head([]) = Core::Maybe::Nothing()
+    head(x@_) = Core::Maybe::Just(x)
 
 
-    tail<a> : a[] -> Maybe<a[]>
-    tail([]) = Nothing()
-    tail(_@xs) = Just(xs)
+    tail<a> : a[] -> Core::Maybe<a[]>
+    tail([]) = Core::Maybe::Nothing()
+    tail(_@xs) = Core::Maybe::Just(xs)
 
 
-    atIndex<a> : a[] -> Int -> Maybe<a>
-    atIndex([], _)    = Nothing()
-    atIndex(x@_, 0)  = Just(x)
+    atIndex<a> : a[] -> Int -> Core::Maybe<a>
+    atIndex([], _)    = Core::Maybe::Nothing()
+    atIndex(x@_, 0)  = Core::Maybe::Just(x)
     atIndex(_@xs, n) = atIndex(xs, n - 1)
 
 
@@ -160,7 +170,7 @@ module Core {
   }
 
   module Integer {
-    import List
+    import Core::List
 
     digits : Int -> Int[]
     digits(0) = [0]
@@ -172,12 +182,12 @@ module Core {
 
     read/priv : String -> Int -> Int
     read/priv("", _) = 0
-    read/priv(c @ cs, p) = Character::unsafeRead(c) * pow(10, p) + read/priv(cs, p + 1)
+    read/priv(c @ cs, p) = Core::Character::unsafeRead(c) * pow(10, p) + read/priv(cs, p + 1)
 
 
     unsafeRead : String -> Int
     unsafeRead("") = 0
-    unsafeRead(str) = read/priv(List::reverse(str), 0)
+    unsafeRead(str) = read/priv(Core::List::reverse(str), 0)
 
 
     toString : Int -> String
@@ -210,7 +220,7 @@ module Core {
   }
 
   module String {
-    import List
+    import Core::List
 
     isEmpty : String -> Bool
     isEmpty("") = True
@@ -238,11 +248,11 @@ module Core {
 
 
     split/priv : String -> Char -> String -> String[] -> String[]
-    split/priv([], _, curWord, words) = List::reverse(curWord) @ words
+    split/priv([], _, curWord, words) = Core::List::reverse(curWord) @ words
 
     split/priv(c @ cs, matchChar, curWord, words) = {
-      if (Core::charEqual(c,matchChar)) {
-        let words' = if (isEmpty(curWord)) words List::reverse(curWord) @ words
+      if (charEqual(c,matchChar)) {
+        let words' = if (isEmpty(curWord)) words Core::List::reverse(curWord) @ words
         split/priv(cs, matchChar, "", words')
       } {
         split/priv(cs, matchChar, c @ curWord, words)
@@ -251,7 +261,7 @@ module Core {
 
     split : String -> Char -> String[]
     split(str, matchChar) = {
-      List::reverse(split/priv(str, matchChar, "", []))
+      Core::List::reverse(split/priv(str, matchChar, "", []))
     }
 
 

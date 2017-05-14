@@ -648,6 +648,8 @@ instance CompilerOutput Value where
       ValueChar c -> printf "'%c'" c
       ValueFun (Closure fid fty _ paramIds _) -> printf "fun %s : %s" (show fid) (render fty)
       ValueStruct struct -> "struct"
+      ValueAdt (Adt uid i []) ->
+        printf "%s" (show uid)
       ValueAdt (Adt uid i vs) ->
         printf "%s(%s)" (show uid) (concat . intersperse ", " $ map render vs)
       ValueTuple vs -> printf "%%(%s)" $ concat . intersperse ", " $ map render vs

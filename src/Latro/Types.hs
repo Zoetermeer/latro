@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 module Latro.Types where
 
-import Latro.AlphaConvert hiding (lookupVarIn, markVarEnv, reportErrorAt)
+import Latro.AlphaConvert hiding (exportTy, lookupVar, lookupVarIn, lookupTy, markVarEnv, reportErrorAt)
 import Latro.Common
 import Latro.Compiler
 import Control.Error.Util (hoistEither)

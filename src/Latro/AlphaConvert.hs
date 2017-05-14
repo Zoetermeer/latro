@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, NamedFieldPuns, TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleContexts, FlexibleInstances, NamedFieldPuns, TypeSynonymInstances #-}
 
 {-|
 Module      : AlphaConvert
@@ -8,14 +8,19 @@ The rewriting guarantees that we cannot have shadowing or substitution problems
 downstream.  As part of this transformation, we replace all qualified (raw) identifiers
 with their unqualified, alpha-converted equivalents and factor out module definitions
 altogether.
+
+The only special case is member accesses, which cannot be alpha-converted because
+the converter doesn't keep track of the types of variables.
 -}
 module Latro.AlphaConvert where
 
-import Control.Applicative
+import Control.Monad (when)
 import Control.Monad.Except
 import Control.Monad.State
-import Data.List (nub)
-import qualified Data.Map as Map (insert, lookup, union)
+import Data.List (intercalate, nub)
+import qualified Data.Map.Strict as Map
+import Data.Maybe (fromJust)
+import Debug.Trace
 import Latro.Common
 import Latro.Compiler
 import Latro.Errors
@@ -23,93 +28,123 @@ import Latro.Semant
 import Prelude hiding (lookup)
 import Text.Printf (printf)
 
-
 reportErrorAt a = reportPosOnFail a "AlphaConvert"
 
 
-isFirstPass :: AlphaConverted Bool
-isFirstPass = getsAC pass >>= \p -> return $ p == 0
-
-
-pushNewFrame :: AlphaConverted ()
-pushNewFrame = do
+pushNewLexicalScope :: AlphaConverted LexicalScope
+pushNewLexicalScope = do
   index <- nextIdIndexM
-  pushFrame $ mtFrame index
+  let scope = mtLexicalScope index
+  pushLexicalScope scope
+  return scope
 
 
-pushFrame :: Frame -> AlphaConverted ()
-pushFrame frame = do
+pushLexicalScope :: LexicalScope -> AlphaConverted ()
+pushLexicalScope scope = do
   index <- nextIdIndexM
-  modifyAC (\aEnv -> aEnv { stack = frame : stack aEnv })
+  modifyAC (\aEnv -> aEnv { stack = scope : stack aEnv })
 
 
-pushNewOrExistingFrame :: UniqId -> AlphaConverted UniqId
-pushNewOrExistingFrame id = do
-  curFrame <- getsAC $ head . stack
-  entry <- lookupEntryIn id [curFrame] varIdEnv
-  case entry of
-    FrameEntry uid frame ->
-      do modifyAC (\aEnv -> aEnv { stack = frame : stack aEnv })
-         return uid
-    UniqIdEntry _ ->
-      throwError $ ErrIdAlreadyBound id
-    _ ->
-      do pushNewFrame
-         return id
+pushNewOrExistingNamespace :: UniqId -> AlphaConverted Namespace
+pushNewOrExistingNamespace id = do
+  curPath <- getsAC curPath
+  curNs <- getsAC curNs
+  let nsPath = mkPath curPath id
+  maybeNs <- lookupNsSafe nsPath
+  ns <- case maybeNs of
+          Just ns -> do { pushLexicalScope (scope ns); return ns }
+          _       -> do { newScope <- pushNewLexicalScope; return $ mkNs id $ index newScope }
+  modifyAC (\aEnv -> aEnv { curPath = Just nsPath, curNs = Just ns, nsEnv = Map.insert nsPath ns (nsEnv aEnv) })
+  case (curPath, curNs) of
+    (Just outerPath, Just outerNs) -> modifyAC (\aEnv -> aEnv { nsEnv = Map.insert outerPath outerNs (nsEnv aEnv) })
+    _ -> return ()
+  return ns
 
 
-popFrame :: AlphaConverted Frame
-popFrame = do
-  (frame : frames) <- getsAC stack
-  modifyAC (\aEnv -> aEnv { stack = frames })
-  return frame
+popNs :: AlphaConverted ()
+popNs = do
+  maybeNsPath <- getsAC curPath
+  nsPath <- case maybeNsPath of
+              Just path -> return path
+              _         -> throwError $ ErrInterpFailure "Attempted to pop nonexistent namespace"
+  let outerPath = case nsPath of
+                    Id{} -> Nothing
+                    Path _ qid _ -> Just qid
+  nsLexicalScope <- popLexicalScope
+  maybeNs <- getsAC curNs
+  let ns = fromJust maybeNs
+  outerNs <- case outerPath of
+              Nothing -> return Nothing
+              Just path -> do { theNs <- lookupNs path; return $ Just theNs }
+  theNsEnv <- getsAC nsEnv
+  modifyAC (\aEnv -> aEnv { nsEnv = Map.insert nsPath (ns { scope = nsLexicalScope }) theNsEnv
+                          , curPath = outerPath
+                          , curNs = outerNs
+                          })
 
 
-inNewFrame :: AlphaConverted a -> AlphaConverted a
-inNewFrame thunk = do
-  pushNewFrame
+popLexicalScope :: AlphaConverted LexicalScope
+popLexicalScope = do
+  scopes <- getsAC stack
+  modifyAC (\aEnv -> aEnv { stack = tail scopes })
+  return $ head scopes
+
+
+inNewLexicalScope :: AlphaConverted a -> AlphaConverted a
+inNewLexicalScope thunk = do
+  pushNewLexicalScope
   v <- thunk
-  popFrame
+  popLexicalScope
   return v
 
 
-modifyFrame :: (Frame -> Frame) -> AlphaConverted ()
-modifyFrame fModify = do
-  (frame : frames) <- getsAC stack
-  modifyAC (\aEnv -> aEnv { stack = fModify frame : frames })
+modifyLexicalScope :: (LexicalScope -> LexicalScope) -> AlphaConverted ()
+modifyLexicalScope fModify = do
+  (scope : scopes) <- getsAC stack
+  modifyAC (\aEnv -> aEnv { stack = fModify scope : scopes })
 
 
-bindInCurrentFrame :: UniqId -> AlphaEntry -> AlphaConverted ()
-bindInCurrentFrame (UserId rawId) entry = do
-  (frame : frames) <- getsAC stack
-  let updatedVars = Map.insert rawId entry $ varIdEnv frame
-  modifyAC (\aEnv -> aEnv { stack = (frame { varIdEnv = updatedVars }) : frames })
+exportVar :: UniqId -> UniqId -> AlphaConverted ()
+exportVar (UserId rawId) uid = do
+  maybeNs <- getsAC curNs
+  case maybeNs of
+    Just ns -> let exports' = (exports ns) { varIdEnv = Map.insert rawId uid (varIdEnv (exports ns)) }
+               in do modifyAC (\aEnv -> aEnv { curNs = Just $ ns { exports = exports' } })
+    _       -> return ()
 
-bindInCurrentFrame _ _ = return ()
+
+exportTy :: UniqId -> UniqId -> AlphaConverted ()
+exportTy (UserId rawId) uid = do
+  maybeNs <- getsAC curNs
+  case maybeNs of
+    Just ns -> let exports' = (exports ns) { typeIdEnv = Map.insert rawId uid (typeIdEnv (exports ns)) }
+               in do modifyAC (\aEnv -> aEnv { curNs = Just $ ns { exports = exports' } })
+    _       -> return ()
+exportTy UniqId{} _ = return ()
 
 
 freshVarId :: Bool -> UniqId -> AlphaEnv -> (UniqId, AlphaEnv)
-freshVarId bindInFrame (UserId id) aEnv@AlphaEnv { counter, stack } =
-    (uniqId, aEnv { counter = counter', stack = frame' : frames })
+freshVarId bindInLexicalScope (UserId id) aEnv@AlphaEnv { counter, stack } =
+    (uniqId, aEnv { counter = counter', stack = scope' : scopes })
   where
     counter' = counter + 1
     uniqId = UniqId counter id
-    (frame : frames) = stack
-    frame' = if bindInFrame
-             then frame { varIdEnv = Map.insert id (UniqIdEntry uniqId) $ varIdEnv frame }
-             else frame
+    (scope : scopes) = stack
+    scope' = if bindInLexicalScope
+             then scope { varIdEnv = Map.insert id uniqId $ varIdEnv scope }
+             else scope
 
 freshVarId _ id aEnv = (id, aEnv)
 
 
 freshTypeId :: UniqId -> AlphaEnv -> (UniqId, AlphaEnv)
 freshTypeId (UserId id) aEnv@AlphaEnv { counter, stack } =
-    (uniqId, aEnv { counter = counter', stack = frame' : frames })
+    (uniqId, aEnv { counter = counter', stack = scope' : scopes })
   where
     counter' = counter + 1
     uniqId = UniqId counter id
-    (frame : frames) = stack
-    frame' = frame { typeIdEnv = Map.insert id (UniqIdEntry uniqId) $ typeIdEnv frame }
+    (scope : scopes) = stack
+    scope' = scope { typeIdEnv = Map.insert id uniqId $ typeIdEnv scope }
 
 freshTypeId id aEnv = (id, aEnv)
 
@@ -124,21 +159,29 @@ freshM userId@(UserId id) fMake = do
 freshM id _ = return id
 
 
+freshIdIfNotBoundM :: UniqId -> (LexicalScope -> RawIdEnv UniqId) -> (UniqId -> AlphaConverted UniqId) -> AlphaConverted UniqId
+freshIdIfNotBoundM uid@UniqId{} _ _ = return uid
+freshIdIfNotBoundM userId getEnv makeFreshId = do
+  curLexicalScope <- getsAC $ head . stack
+  when (isBoundIn userId [curLexicalScope] getEnv) (throwError $ ErrIdAlreadyBound userId)
+  makeFreshId userId
+
+
+
 freshVarIdM :: UniqId -> AlphaConverted UniqId
 freshVarIdM id = freshM id $ freshVarId True
 
 
 freshVarIdIfNotBoundM :: UniqId -> AlphaConverted UniqId
-freshVarIdIfNotBoundM uid@UniqId{} = return uid
-freshVarIdIfNotBoundM userId = do
-  curFrame <- getsAC $ head . stack
-  if isBoundIn userId [curFrame] varIdEnv
-    then throwError $ ErrIdAlreadyBound userId
-    else freshVarIdM userId
+freshVarIdIfNotBoundM id = freshIdIfNotBoundM id varIdEnv freshVarIdM
 
 
 freshTypeIdM :: UniqId -> AlphaConverted UniqId
 freshTypeIdM id = freshM id freshTypeId
+
+
+freshTypeIdIfNotBoundM :: UniqId -> AlphaConverted UniqId
+freshTypeIdIfNotBoundM id = freshIdIfNotBoundM id typeIdEnv freshTypeIdM
 
 
 nextIdIndex :: AlphaEnv -> Int
@@ -153,130 +196,102 @@ nextIdIndexM = do
   return next
 
 
-isBoundIn :: UniqId -> [Frame] -> (Frame -> RawIdEnv AlphaEntry) -> Bool
-isBoundIn uid@UniqId{} _ _ = False
+freshCtorIdM :: UniqId -> AlphaConverted UniqId
+freshCtorIdM id@(UserId rawId) = do
+  id' <- freshVarIdIfNotBoundM id
+  modifyLexicalScope (\sc -> sc { ctorEnv = Map.insert rawId id' (ctorEnv sc) })
+  return id'
+
+
+isBoundIn :: UniqId -> [LexicalScope] -> (LexicalScope -> RawIdEnv a) -> Bool
+isBoundIn uid@UniqId{} _ _ = True
 isBoundIn id [] _ = False
-isBoundIn userId@(UserId id) (frame : frames) getEnv =
-  case Map.lookup id (getEnv frame) of
-    Just anEntry -> True
-    _ -> isBoundIn userId frames getEnv
+isBoundIn userId@(UserId id) (scope : scopes) getEnv =
+  case Map.lookup id (getEnv scope) of
+    Just _ -> True
+    _      -> isBoundIn userId scopes getEnv
 
 
-lookupEntryIn :: UniqId -> [Frame] -> (Frame -> RawIdEnv AlphaEntry) -> AlphaConverted AlphaEntry
-lookupEntryIn uid@UniqId{} _ _ = return $ UniqIdEntry uid
-lookupEntryIn (UserId id) [] _ = do
-  firstPass <- isFirstPass
-  if firstPass
-    then return $ UnknownEntry $ UserId id
-    else throwError $ ErrUnboundRawIdentifier id
-
-lookupEntryIn userId@(UserId id) (frame : frames) getEnv =
-  case Map.lookup id (getEnv frame) of
-    Just anEntry -> return anEntry
-    _ -> lookupEntryIn userId frames getEnv
+lookupNsSafe :: UniqAst QualifiedId -> AlphaConverted (Maybe Namespace)
+lookupNsSafe qid = do
+  nsEnv <- getsAC nsEnv
+  return $ Map.lookup qid nsEnv
 
 
-lookupVarIn :: UniqId -> [Frame] -> AlphaConverted UniqId
-lookupVarIn uid@UniqId{} _ = return uid
-lookupVarIn userId@(UserId rawId) frames = do
-  entry <- lookupEntryIn userId frames varIdEnv
-  case entry of
-    UniqIdEntry uid -> return uid
-    FrameEntry uid _ -> return uid
-    UnknownEntry id -> throwError $ ErrUnboundRawIdentifier rawId
+lookupNs :: UniqAst QualifiedId -> AlphaConverted Namespace
+lookupNs qid = do
+  maybeNs <- lookupNsSafe qid
+  case maybeNs of
+    Just ns -> return ns
+    _       -> throwError $ ErrInvalidUniqModulePath qid
 
 
-lookupEntry :: UniqId -> (Frame -> RawIdEnv AlphaEntry) -> AlphaConverted AlphaEntry
-lookupEntry id fGetEnv = do
-  aEnv <- getAC
-  lookupEntryIn id (stack aEnv) fGetEnv
+lookupIn :: UniqId -> [LexicalScope] -> (LexicalScope -> RawIdEnv UniqId) -> AlphaConverted UniqId
+lookupIn id [] _ = throwError $ ErrUnboundUniqIdentifier id
+lookupIn id (scope : scopes) getEnv = do
+  case lookupUniqId id (getEnv scope) of
+    Just id -> return id
+    _       -> lookupIn id scopes getEnv
 
 
-lookupVarEntry :: UniqId -> AlphaConverted AlphaEntry
-lookupVarEntry id = lookupEntry id varIdEnv
+lookup :: UniqId -> (LexicalScope -> RawIdEnv UniqId) -> AlphaConverted UniqId
+lookup id getEnv = do
+  stack <- getsAC stack
+  lookupIn id stack getEnv
 
 
-lookupTypeEntry :: UniqId -> AlphaConverted AlphaEntry
-lookupTypeEntry id = lookupEntry id typeIdEnv
+class ACLookup a where
+  lookupVar   :: a -> AlphaConverted UniqId
+  lookupTy    :: a -> AlphaConverted UniqId
+  lookupCtor  :: a -> AlphaConverted UniqId
 
 
-lookupVarId :: UniqId -> AlphaConverted UniqId
-lookupVarId uid@UniqId{} = return uid
-lookupVarId userId = do
-  entry <- lookupVarEntry userId
-  return $ case entry of
-    UniqIdEntry uid -> uid
-    FrameEntry uid _ -> uid
-    UnknownEntry id -> id
+instance ACLookup (UniqAst QualifiedId) where
+  lookupVar (Id p id) = lookup id varIdEnv
+  lookupVar qid@(Path p innerQid id) = do
+    ns <- lookupNs innerQid `reportErrorAt` nodeData innerQid
+    catchError (lookupIn id [exports ns] varIdEnv) (\_ -> throwError $ ErrUnboundQualIdentifier qid) `reportErrorAt` p
 
 
-lookupTypeId :: UniqId -> AlphaConverted UniqId
-lookupTypeId uid@UniqId{} = return uid
-lookupTypeId userId = do
-  (UniqIdEntry uid) <- lookupTypeEntry userId
-  return uid
+  lookupTy (Id p id) = lookup id typeIdEnv
+  lookupTy (Path p qid id) = do
+    ns <- lookupNs qid
+    lookupIn id [exports ns] typeIdEnv `reportErrorAt` p
 
 
-lookupVarQualId :: UniqAst QualifiedId -> AlphaConverted AlphaEntry
-lookupVarQualId (Id p id) = lookupVarEntry id
-lookupVarQualId (Path p qid id) = do
-  firstPass <- isFirstPass
-  entry <- lookupVarQualId qid
-  case entry of
-    entry@UnknownEntry{} ->
-      if firstPass
-        then return entry
-        else throwError (ErrInvalidUniqModulePath qid) `reportErrorAt` p
-    entry@UniqIdEntry{} ->
-      if firstPass
-        then return entry
-        else throwError (ErrInvalidUniqModulePath qid) `reportErrorAt` p
-    FrameEntry _ frame ->
-      lookupEntryIn id [frame] varIdEnv
+  lookupCtor (Id p id) = lookup id ctorEnv
+  lookupCtor (Path p qid id) = do
+    ns <- lookupNs qid
+    lookupIn id [exports ns] ctorEnv `reportErrorAt` p
 
 
-lookupTypeQualId :: UniqAst QualifiedId -> AlphaConverted AlphaEntry
-lookupTypeQualId (Id p id) = lookupTypeEntry id
-lookupTypeQualId (Path p qid id) = do
-  firstPass <- isFirstPass
-  table <- lookupVarQualId qid
-  case table of
-    entry@UnknownEntry{} ->
-      if firstPass
-        then return entry
-        else throwError (ErrInvalidUniqModulePath qid) `reportErrorAt` p
-    UniqIdEntry _ ->
-      throwError (ErrInvalidUniqModulePath qid) `reportErrorAt` p
-    FrameEntry _ frame ->
-      lookupEntryIn id [frame] typeIdEnv
+instance ACLookup UniqId where
+  lookupVar uid@UniqId{} = return uid
+  lookupVar uid = do
+    scopes <- getsAC stack
+    lookupIn uid scopes varIdEnv
+
+
+  lookupTy uid@UniqId{} = return uid
+  lookupTy uid = do
+    scopes <- getsAC stack
+    lookupIn uid scopes typeIdEnv
+
+
+  lookupCtor uid@UniqId{} = return uid
+  lookupCtor userId = do
+    scopes <- getsAC stack
+    lookupIn userId scopes ctorEnv
 
 
 -- |Find the environment for the module at the base path of the given
 -- qualified ID.  If it's not a path, just return the current
 -- frame.
-baseStackFrame :: UniqAst QualifiedId -> AlphaConverted [Frame]
-baseStackFrame Id{} = getsAC stack
-baseStackFrame (Path _ qid _) = do
-  (FrameEntry _ frame) <- lookupVarQualId qid
-  return [frame]
-
-
-convertVarQualId :: UniqAst QualifiedId -> AlphaConverted (UniqAst QualifiedId)
-convertVarQualId qid = do
-    varEntry <- lookupVarQualId qid
-    case varEntry of
-      UnknownEntry _ -> return qid
-      UniqIdEntry uid -> return $ Id p uid
-  where p = nodeData qid
-
-
-convertTypeQualId :: UniqAst QualifiedId -> AlphaConverted (UniqAst QualifiedId)
-convertTypeQualId qid = do
-    entry <- lookupTypeQualId qid
-    case entry of
-      UniqIdEntry uid -> return $ Id p uid
-      UnknownEntry _ -> return qid
-  where p = nodeData qid
+baseStackLexicalScope :: UniqAst QualifiedId -> AlphaConverted [LexicalScope]
+baseStackLexicalScope Id{} = getsAC stack
+baseStackLexicalScope (Path _ qid _) = do
+  ns <- lookupNs qid
+  return [scope ns]
 
 
 convertTyAnn :: UniqAst TyAnn -> AlphaConverted (UniqAst TyAnn)
@@ -284,8 +299,7 @@ convertTyAnn (TyAnn p id tyParamIds ty constrs) = do
   id' <- freshVarIdM id
   tyParamIds' <- mapM freshTypeIdM tyParamIds
   ty' <- convertTy ty
-  constrs' <- mapM convertConstraint constrs
-  return $ TyAnn p id' tyParamIds' ty' constrs'
+  return $ TyAnn p id' tyParamIds' ty' constrs
 
 
 convertTy :: UniqAst SynTy -> AlphaConverted (UniqAst SynTy)
@@ -312,78 +326,65 @@ convertTy (SynTyList p ty) = do
 
 convertTy (SynTyRef p qid tyArgs) = do
   tyArgs' <- mapM convertTy tyArgs
-  qid' <- convertTypeQualId qid `reportErrorAt` p
-  return $ SynTyRef p qid' tyArgs'
+  tid' <- lookupTy qid `reportErrorAt` p
+  return $ SynTyRef p (Id p tid') tyArgs'
 
 
-convertConstraint :: UniqAst Constraint -> AlphaConverted (UniqAst Constraint)
-convertConstraint (Constraint p tyId protoId) = do
-  tyId' <- lookupTypeId tyId
-  protoId' <- lookupTypeId protoId
-  return $ Constraint p tyId' protoId'
-
-
-convertAdtAlternative :: Int -> UniqAst AdtAlternative -> AlphaConverted (UniqAst AdtAlternative)
-convertAdtAlternative index (AdtAlternative p id _ tys) = do
-  id' <- freshVarIdM id
-  tys' <- mapM convertTy tys
-  return $ AdtAlternative p id' index tys'
-
-
-convertPatExp :: UniqAst PatExp -> AlphaConverted (UniqAst PatExp)
-convertPatExp (PatExpWildcard p) = return $ PatExpWildcard p
-convertPatExp (PatExpNumLiteral p s) = return $ PatExpNumLiteral p s
-convertPatExp (PatExpBoolLiteral p b) = return $ PatExpBoolLiteral p b
-convertPatExp (PatExpStringLiteral p s) = return $ PatExpStringLiteral p s
-convertPatExp (PatExpCharLiteral p s) = return $ PatExpCharLiteral p s
-convertPatExp (PatExpTuple p es) = do
-  es' <- mapM convertPatExp es
+convertPatExp :: Bool -> UniqAst PatExp -> AlphaConverted (UniqAst PatExp)
+convertPatExp _ (PatExpWildcard p) = return $ PatExpWildcard p
+convertPatExp _ (PatExpNumLiteral p s) = return $ PatExpNumLiteral p s
+convertPatExp _ (PatExpBoolLiteral p b) = return $ PatExpBoolLiteral p b
+convertPatExp _ (PatExpStringLiteral p s) = return $ PatExpStringLiteral p s
+convertPatExp _ (PatExpCharLiteral p s) = return $ PatExpCharLiteral p s
+convertPatExp inTopLevel (PatExpTuple p es) = do
+  es' <- mapM (convertPatExp inTopLevel) es
   return $ PatExpTuple p es'
 
-convertPatExp (PatExpId p id) = do
-  id' <- freshVarIdIfNotBoundM id `reportErrorAt` p
-  return $ PatExpId p id'
+convertPatExp inTopLevel (PatExpId p id) = do
+  maybeCtorId <- (liftM Just) (lookupCtor id) `catchError` (\_ -> return Nothing)
+  case maybeCtorId of
+    Just ctorId -> convertPatExp inTopLevel $ PatExpAdt p (Id p ctorId) []
+    Nothing -> do
+      id' <- freshVarIdIfNotBoundM id `reportErrorAt` p
+      when inTopLevel $ exportVar id id'
+      return $ PatExpId p id'
 
-convertPatExp (PatExpAdt p qid es) = do
-  qid' <- convertVarQualId qid `reportErrorAt` nodeData qid
-  es' <- mapM convertPatExp es
-  return $ PatExpAdt p qid' es'
+convertPatExp inTopLevel (PatExpAdt p qid es) = do
+  uniqId <- lookupVar qid `catchError` (\err -> throwError (ErrUnboundConstructor qid) `reportErrorAt` nodeData qid)
+  es' <- mapM (convertPatExp inTopLevel) es
+  return $ PatExpAdt p (Id p uniqId) es'
 
-convertPatExp (PatExpList p es) = do
-  es' <- mapM convertPatExp es
+convertPatExp inTopLevel (PatExpList p es) = do
+  es' <- mapM (convertPatExp inTopLevel) es
   return $ PatExpList p es'
 
-convertPatExp (PatExpListCons p eHd eTl) = do
-  eHd' <- convertPatExp eHd
-  eTl' <- convertPatExp eTl
+convertPatExp inTopLevel (PatExpListCons p eHd eTl) = do
+  eHd' <- convertPatExp inTopLevel eHd
+  eTl' <- convertPatExp inTopLevel eTl
   return $ PatExpListCons p eHd' eTl'
 
 
 convertFunDef :: UniqAst FunDef -> AlphaConverted (UniqAst FunDef)
 convertFunDef (FunDefFun p id argPatEs bodyE) = do
-  argPatEs' <- mapM convertPatExp argPatEs
-  id' <- lookupVarId id
+  argPatEs' <- mapM (convertPatExp False) argPatEs
+  id' <- lookupVar id
   bodyE' <- convert bodyE
   return $ FunDefFun p id' argPatEs' bodyE'
 
 
 convertCaseClause :: UniqAst CaseClause -> AlphaConverted (UniqAst CaseClause)
 convertCaseClause (CaseClause p patE e) = do
-  pushNewFrame
-  patE' <- convertPatExp patE
+  pushNewLexicalScope
+  patE' <- convertPatExp False patE
   e' <- convert e
-  popFrame
+  popLexicalScope
   return $ CaseClause p patE' e'
 
 
 funDefToCaseClause :: UniqAst FunDef -> AlphaConverted (UniqAst CaseClause)
 funDefToCaseClause (FunDefFun p _ argPatEs bodyE) = do
   let tupPat = PatExpTuple p argPatEs
-  pushNewFrame
-  tupPat' <- convertPatExp tupPat
-  bodyE' <- convert bodyE
-  popFrame
-  return $ CaseClause p tupPat' bodyE'
+  return $ CaseClause p tupPat bodyE
 
 
 -- The rule is as follows (with this particular
@@ -409,21 +410,21 @@ funDefArity :: UniqAst FunDef -> Int
 funDefArity (FunDefFun _ _ patEs _) = length patEs
 
 
-desugarFunDefs :: UniqId -> [UniqAst FunDef] -> AlphaConverted (UniqAst FunDef, [UniqId])
+desugarFunDefs :: UniqId -> [UniqAst FunDef] -> AlphaConverted (UniqAst FunDef)
 desugarFunDefs fid funDefs =
-  let arities = nub $ map funDefArity funDefs
-      (FunDefFun startP _ argPatEs bodyE) = head funDefs
-  in
     case arities of
-      [len] -> do
-        paramIds <- replicateM len ((\_ -> freshVarIdM $ UserId "arg") ())
-        cases <- mapM funDefToCaseClause funDefs
-        let paramRefs = map (ExpRef startP) paramIds
+      [len] ->
+        let paramIds = map (\i -> UserId ("@arg" ++ show i)) [1..len]
+            paramRefs = map (ExpRef startP) paramIds
             paramPats = map (PatExpId startP) paramIds
             argsTup = ExpTuple startP paramRefs
-        return (FunDefFun startP fid paramPats (ExpSwitch startP argsTup cases), paramIds)
+        in do
+          cases <- mapM funDefToCaseClause funDefs
+          return $ FunDefFun startP fid paramPats (ExpSwitch startP argsTup cases)
       _ ->
         throwError $ ErrFunDefArityMismatch fid
+  where arities = nub $ map funDefArity funDefs
+        (FunDefFun startP _ argPatEs bodyE) = head funDefs
 
 
 -- cond {
@@ -491,6 +492,125 @@ convertBin c p a b = do
   return $ c p a' b'
 
 
+convertBindingAdtAlternative :: Int -> UniqAst AdtAlternative -> AlphaConverted (UniqAst AdtAlternative)
+convertBindingAdtAlternative index (AdtAlternative p id _ tys) = do
+  id' <- freshCtorIdM id `reportErrorAt` p
+  exportVar id id'
+  return $ AdtAlternative p id' index tys
+
+
+-- Populate the symbol table with alpha id's, but do
+-- not try to rewrite any bound occurrences of either variable,
+-- type, or type param references
+convertBinding :: UniqAst Exp -> AlphaConverted (UniqAst Exp)
+convertBinding (ExpTypeDec p (TypeDecAdt pInner id tyParamIds alts)) = do
+  id' <- freshTypeIdIfNotBoundM id `reportErrorAt` p
+  exportTy id id'
+  alts' <- mapMi convertBindingAdtAlternative alts
+  return $ ExpTypeDec p $ TypeDecAdt pInner id' tyParamIds alts'
+
+convertBinding (ExpTypeDec p (TypeDecTy pInner id tyParamIds (SynTyStruct stp fieldDefs))) = do
+    id' <- freshTypeIdIfNotBoundM id `reportErrorAt` p
+    exportTy id id'
+    return $ ExpTypeDec p $ TypeDecTy pInner id' tyParamIds $ SynTyStruct stp fieldDefs
+  where (fieldIds, fieldTys) = unzip fieldDefs
+
+convertBinding (ExpTypeDec p tyDec) = do
+  id' <- freshTypeIdIfNotBoundM id `reportErrorAt` p
+  exportTy id id'
+  return $ ExpTypeDec p $ renameTypeDec tyDec id'
+  where
+    (Just id) = getTypeDecId tyDec
+
+convertBinding (ExpBegin p es) = do
+  es' <- mapM convertBinding es
+  return $ ExpBegin p es'
+
+convertBinding (ExpModule p id bodyEs) = do
+  case implicitTyDecs of
+    [] -> do
+      ns <- pushNewOrExistingNamespace id
+      bodyEs' <- mapM convertBinding otherEs
+      popNs `reportErrorAt` p
+      return $ ExpModule p id bodyEs'
+    [tyDec] ->
+      convertBinding $ ExpTypeModule p id tyDec otherEs
+    _ -> throwError (ErrMultipleDataDecs id) `reportErrorAt` p
+  where
+    (implicitTyDecs, otherEs) = stripImplicitTypeDecs bodyEs
+
+convertBinding (ExpTypeModule p id tyDec bodyEs) = do
+  curPath <- getsAC curPath
+  typeId <- freshTypeIdM (UserId "@__data")
+  let absoluteModulePath = case curPath of
+                            Just outerPath -> Path p outerPath id
+                            _              -> Id p id
+      tyDecExp = tyDec `renameTo` typeId
+      tyParamIds = getTypeDecParams tyDec
+      expModule = ExpModule p id (tyDecExp : bodyEs)
+      typeParamIdRefs = map (\id -> SynTyRef p (Id p id) []) tyParamIds
+      aliasTyDec = ExpTypeDec p (TypeDecTy p id tyParamIds (SynTyRef p (Path p absoluteModulePath typeId) typeParamIdRefs))
+
+  aliasTyDec' <- convertBinding aliasTyDec
+  expModule' <- convertBinding expModule
+  return $ ExpBegin p [aliasTyDec', expModule']
+
+convertBinding (ExpFunDef (FunDefFun p id argPatEs bodyE)) = do
+  id' <- freshVarIdIfNotBoundM id
+  exportVar id id'
+  return $ ExpFunDef $ FunDefFun p id' argPatEs bodyE
+
+convertBinding (ExpFunDefClauses p id funDefs) = do
+  id' <- freshVarIdM id
+  exportVar id id'
+  funDef <- desugarFunDefs id' funDefs
+  return $ ExpFunDef funDef
+
+convertBinding (ExpTopLevelAssign p patExp e) = do
+  patExp' <- convertPatExp True patExp
+  return $ ExpTopLevelAssign p patExp' e
+
+convertBinding (ExpAssign p patExp e) = do
+  patExp' <- convertPatExp False patExp
+  return $ ExpAssign p patExp' e
+
+convertBinding (ExpTopLevelTyAnn (TyAnn _ id _ _ _)) =
+  throwError $ ErrInterpFailure $ "ExpTopLevelTyAnn " ++ show id ++ " not removed before alpha-conversion!"
+
+convertBinding (ExpTyAnn (TyAnn _ id _ _ _)) =
+  throwError $ ErrInterpFailure $ "ExpTyAnn " ++ show id ++ " not removed before alpha-conversion!"
+
+convertBinding (ExpWithAnn (TyAnn p aid tyParamIds synTy constrs) e) = do
+  case e of
+    ExpFunDefClauses{} ->
+      do e'@(ExpFunDef (FunDefFun fp fid argPatEs bodyE)) <- convertBinding e
+         let tyAnn = TyAnn p fid tyParamIds synTy constrs
+         return $ ExpWithAnn tyAnn e'
+    ExpAssign ep patExp@(PatExpId pp pid) e -> do
+      (PatExpId _ pid') <- convertPatExp False patExp
+      let tyAnn = TyAnn p pid' tyParamIds synTy constrs
+      return $ ExpWithAnn tyAnn $ ExpAssign ep (PatExpId pp pid') e
+    ExpTopLevelAssign ep patExp@(PatExpId pp pid) e -> do
+      (PatExpId _ pid') <- convertPatExp True patExp
+      let tyAnn = TyAnn p pid' tyParamIds synTy constrs
+      exportVar pid pid'
+      return $ ExpWithAnn tyAnn $ ExpAssign ep (PatExpId pp pid') e
+    ExpFunDef{} ->
+      do e'@(ExpFunDef (FunDefFun fp fid argPatEs bodyE)) <- convertBinding e
+         let tyAnn = TyAnn p fid tyParamIds synTy constrs
+         return $ ExpWithAnn tyAnn e'
+    _ ->
+      throwError $ ErrInterpFailure $ "in convert ExpWithAnn: " ++ show e
+
+convertBinding e = return e
+
+
+convertAdtAlternative :: Int -> UniqAst AdtAlternative -> AlphaConverted (UniqAst AdtAlternative)
+convertAdtAlternative index (AdtAlternative p id _ tys) = do
+  tys' <- mapM convertTy tys
+  return $ AdtAlternative p id index tys'
+
+
 convert :: UniqAst Exp -> AlphaConverted (UniqAst Exp)
 convert (ExpCons p a b) = convertBin ExpCons p a b
 convert (ExpInParens p e) = do
@@ -500,16 +620,12 @@ convert (ExpInParens p e) = do
 convert (ExpCustomInfix p lhe id rhe) = do
   lhe' <- convert lhe
   rhe' <- convert rhe
-  id' <- lookupVarId id `reportErrorAt` p
+  id' <- lookupVar id `reportErrorAt` p
   return $ ExpCustomInfix p lhe' id' rhe'
 
-convert (ExpMemberAccess p e@(ExpQualifiedRef _ qid) id) = do
-  entry <- lookupVarQualId qid
-  case entry of
-    UniqIdEntry{} -> do
-      e' <- convert e
-      return $ ExpMemberAccess p e' id
-    _ -> throwError (ErrUnboundQualIdentifier qid) `reportErrorAt` p
+convert (ExpMemberAccess p e@(ExpQualifiedRef qp qid) id) = do
+  qid' <- lookupVar qid
+  return $ ExpMemberAccess p (ExpRef qp qid') id
 
 convert (ExpMemberAccess p e id) = do
   e' <- convert e
@@ -523,153 +639,87 @@ convert (ExpApp p ratorE randEs) = do
 convert (ExpPrim p ratorId) = return $ ExpPrim p ratorId
 
 convert (ExpImport p qid) = do
-  firstPass <- isFirstPass
-  if firstPass
-    then return $ ExpImport p qid
-    else do
-      (FrameEntry moduleId Frame{ varIdEnv = modVarIdEnv, typeIdEnv = modTypeIdEnv }) <- lookupVarQualId qid
-      modifyFrame (\(curFrame@Frame{ varIdEnv, typeIdEnv }) ->
-                      curFrame { varIdEnv = Map.union varIdEnv modVarIdEnv
-                               , typeIdEnv = Map.union typeIdEnv modTypeIdEnv })
-      return $ ExpUnit p
+  ns <- lookupNs qid `reportErrorAt` p
+  theStack <- getsAC stack
+  let curLexicalScope     = head theStack
+      curVarIdEnv         = varIdEnv curLexicalScope
+      curTypeIdEnv        = typeIdEnv curLexicalScope
+      nsExports           = exports ns
+      modVarIdEnv         = varIdEnv nsExports
+      modTypeIdEnv        = typeIdEnv nsExports
+      overlappingVarIds   = Map.keys $ Map.intersection curVarIdEnv modVarIdEnv
+      overlappingTypeIds  = Map.keys $ Map.intersection curTypeIdEnv modTypeIdEnv
+  -- traceM $ "IMPORTING: " ++ show qid
+  -- traceM $ "STACK: " ++ intercalate "\\n" (map show theStack)
+  -- traceM $ "EXPORTS: " ++ show nsExports
+  -- traceM $ "LEXICAL: " ++ seq curLexicalScope (show curLexicalScope)
+  when (not (null overlappingVarIds)) $ throwError (ErrOverlappingVarImport qid overlappingVarIds) `reportErrorAt` p
+  when (not (null overlappingTypeIds)) $ throwError (ErrOverlappingTyImport qid overlappingTypeIds) `reportErrorAt` p
+  modifyLexicalScope (\(curLexicalScope@LexicalScope{ varIdEnv, typeIdEnv }) ->
+                        curLexicalScope { varIdEnv = Map.union varIdEnv modVarIdEnv
+                                        , typeIdEnv = Map.union typeIdEnv modTypeIdEnv })
+  return $ ExpUnit p
 
 convert (ExpFunDef (FunDefFun p id argPatEs bodyE)) = do
-  id' <- freshVarIdM id
-  pushNewFrame
-  argPatEs' <- mapM convertPatExp argPatEs
+  id' <- freshVarIdIfNotBoundM id
+  pushNewLexicalScope
+  argPatEs' <- mapM (convertPatExp False) argPatEs
   bodyE' <- convert bodyE
-  popFrame
+  popLexicalScope
   return $ ExpFunDef $ FunDefFun p id' argPatEs' bodyE'
 
-convert (ExpFunDefClauses p id funDefs) = do
-  id' <- freshVarIdM id
-  pushNewFrame
-  funDef <- fst <$> desugarFunDefs id' funDefs
-  popFrame
-  return $ ExpFunDef funDef
+convert (ExpTopLevelAssign p patExp e) = do
+  e' <- convert e
+  return $ ExpAssign p patExp e'
 
-convert (ExpModule p id bodyEs) =
-  case implicitTyDecs of
-    [] -> do
-      id' <- pushNewOrExistingFrame id `reportErrorAt` p
-      aEnv <- getAC
-      bodyEs' <- mapM convert nonImplicitTyDecEs
-      moduleFrame <- popFrame
-      bindInCurrentFrame id' $ FrameEntry id' moduleFrame
-      firstPass <- isFirstPass
-      if firstPass
-        then return $ ExpModule p id bodyEs'
-        else return $ ExpBegin p bodyEs'
-    [tyDec] ->
-      convert $ ExpTypeModule p id tyDec nonImplicitTyDecEs
-    _ -> throwError (ErrMultipleDataDecs id) `reportErrorAt` p
-  where
-    (implicitTyDecs, nonImplicitTyDecEs) = stripImplicitTypeDecs bodyEs
-
-convert (ExpTypeModule p id tyDec bodyEs) = do
-    typeId <- freshTypeIdM (UserId "data")
-    let tyDecExp = tyDec `renameTo` typeId
-        tyParamIds = getTypeDecParams tyDec
-        typeModule = ExpModule p id (tyDecExp : bodyEs)
-        typeParamIdRefs = map (\id -> SynTyRef p (Id p id) []) tyParamIds
-        aliasTyDec = ExpTypeDec p (TypeDecTy p id tyParamIds (SynTyRef p (Path p (Id p id) typeId) typeParamIdRefs))
-
-    expModule <- convert typeModule
-    aliasTyDec' <- convert aliasTyDec
-    return $ ExpBegin p [aliasTyDec', expModule]
-
+-- The pat exp must be converted after the right-hand side,
+-- so bindings occurring in the former do not show
+-- up in the latter
 convert (ExpAssign p patExp e) = do
   e' <- convert e
-  patExp' <- convertPatExp patExp
+  patExp' <- convertPatExp False patExp
   return $ ExpAssign p patExp' e'
-
-convert (ExpTypeDec p (TypeDecTy pInner id tyParamIds (SynTyStruct stp fields))) = do
-  id' <- freshTypeIdM id
-  tyParamIds' <- mapM freshTypeIdM tyParamIds
-  fields' <- mapM (\(id, ty) -> do id' <- freshVarIdM id
-                                   ty' <- convertTy ty
-                                   return (id', ty'))
-                  fields
-  return $ ExpTypeDec p $ TypeDecTy pInner id' tyParamIds' $ SynTyStruct p fields'
-
-convert (ExpTypeDec p (TypeDecTy pInner id tyParamIds ty)) = do
-  id' <- freshTypeIdM id
-  tyParamIds' <- mapM freshTypeIdM tyParamIds
-  ty' <- convertTy ty
-  return $ ExpTypeDec p $ TypeDecTy pInner id' tyParamIds' ty'
-
-convert (ExpTypeDec p (TypeDecAdt pInner id tyParamIds alts)) = do
-  id' <- freshTypeIdM id
-  tyParamIds' <- mapM freshTypeIdM tyParamIds
-  alts' <- mapMi convertAdtAlternative alts
-  return $ ExpTypeDec p $ TypeDecAdt pInner id' tyParamIds' alts'
-
-convert (ExpProtoDec p protoId tyParamId constrs tyAnns) = do
-  protoId' <- freshTypeIdM protoId
-  -- TODO: This is a symptom of a more general bug in the AC, where
-  -- type parameter id's leak out of their intended lexical scope.
-  -- We want any new bindings introduced in annotations to bind globally,
-  -- but not type parameter id's.  Parameterized types also suffer from this problem.
-  -- The solution is to add a new function to pop only segments of the current frame
-  -- (e.g. popFrameTyEnv).
-  -- pushNewFrame
-  tyParamId' <- freshTypeIdM tyParamId
-  constrs' <- mapM convertConstraint constrs
-  tyAnns' <- mapM convertTyAnn tyAnns
-  -- popFrame
-  return $ ExpProtoDec p protoId' tyParamId' constrs' tyAnns'
-
-convert (ExpProtoImp p synTy protoId constrs bodyEs) = do
-  protoId' <- lookupTypeId protoId
-  pushNewFrame
-  synTy' <- convertTy synTy
-  constrs' <- mapM convertConstraint constrs
-  bodyEs' <- mapM convert bodyEs
-  popFrame
-  return $ ExpProtoImp p synTy' protoId' constrs' bodyEs'
 
 convert (ExpTyAnn (TyAnn _ id _ _ _)) =
   throwError $ ErrInterpFailure $ "ExpTyAnn " ++ show id ++ " not removed before alpha-conversion!"
 
 convert (ExpWithAnn (TyAnn p aid tyParamIds synTy constrs) e) = do
-  aid' <- freshVarIdM aid
+  pushNewLexicalScope
   tyParamIds' <- mapM freshTypeIdM tyParamIds
   synTy' <- convertTy synTy
-  constrs' <- mapM convertConstraint constrs
-  let tyAnn = TyAnn p aid' tyParamIds' synTy' constrs'
+  let tyAnn = TyAnn p aid tyParamIds' synTy' constrs
   case e of
     ExpFunDef (FunDefFun fp fid argPatEs bodyE) ->
-      do pushNewFrame
-         argPatEs' <- mapM convertPatExp argPatEs
+      do pushNewLexicalScope
+         argPatEs' <- mapM (convertPatExp False) argPatEs
          bodyE' <- convert bodyE
-         popFrame
-         let e' = ExpFunDef (FunDefFun fp aid' argPatEs' bodyE')
+         popLexicalScope -- body frame
+         popLexicalScope -- enclosing frame for type param id's
+         let e' = ExpFunDef (FunDefFun fp aid argPatEs' bodyE')
          return $ ExpWithAnn tyAnn e'
-    ExpFunDefClauses p id funDefs ->
-      do pushNewFrame
-         funDef <- fst <$> desugarFunDefs aid' funDefs
-         popFrame
-         return $ ExpWithAnn tyAnn $ ExpFunDef funDef
-    ExpAssign ep (PatExpId pp pid) e ->
+    ExpAssign ep pat@(PatExpId pp pid) e ->
+      do popLexicalScope -- enclosing frame for type param id's
+         e' <- convert e
+         convertPatExp False pat
+         return $ ExpWithAnn tyAnn $ ExpAssign ep (PatExpId pp aid) e'
+    ExpTopLevelAssign ep (PatExpId pp pid) e ->
       do e' <- convert e
-         return $ ExpWithAnn tyAnn $ ExpAssign ep (PatExpId pp aid') e'
+         popLexicalScope -- enclosing frame for type param id's
+         return $ ExpWithAnn tyAnn $ ExpTopLevelAssign ep (PatExpId pp aid) e'
     _ -> throwError $ ErrInterpFailure $ "in convert ExpWithAnn: " ++ show e
 
 convert (ExpStruct p qid fields) = do
-  definitionContext <- baseStackFrame qid
-  qid' <- convertTypeQualId qid `reportErrorAt` nodeData qid
+  tid' <- lookupTy qid `reportErrorAt` nodeData qid
   fields' <- mapM (\(FieldInit fieldId fieldE) ->
                       do fieldE' <- convert fieldE
-                         fieldId' <- lookupVarIn fieldId definitionContext `reportErrorAt` p
-                         return $ FieldInit fieldId' fieldE')
+                         return $ FieldInit fieldId fieldE')
                   fields
-  return $ ExpStruct p qid' fields'
-
+  return $ ExpStruct p (Id (nodeData qid) tid') fields'
 
 convert (ExpIfElse p condE thenE elseE) = do
   condE' <- convert condE
-  thenE' <- inNewFrame $ convert thenE
-  elseE' <- inNewFrame $ convert elseE
+  thenE' <- inNewLexicalScope $ convert thenE
+  elseE' <- inNewLexicalScope $ convert elseE
   return $ ExpIfElse p condE' thenE' elseE'
 
 convert (ExpSwitch p e clauses) = do
@@ -677,7 +727,8 @@ convert (ExpSwitch p e clauses) = do
   clauses' <- mapM convertCaseClause clauses
   return $ ExpSwitch p e' clauses'
 
-convert e@(ExpCond _ clauses) = convert $ desugarCond e
+convert e@ExpCond{} = convert e'
+  where e' = desugarCond e
 
 convert (ExpTuple p es) = do
   es' <- mapM convert es
@@ -688,14 +739,14 @@ convert (ExpList p es) = do
   return $ ExpList p es'
 
 convert (ExpFun p argPatEs bodyE) = do
-  pushNewFrame
-  argPatEs' <- mapM convertPatExp argPatEs
+  pushNewLexicalScope
+  argPatEs' <- mapM (convertPatExp False) argPatEs
   bodyE' <- convert bodyE
-  popFrame
+  popLexicalScope
   return $ ExpFun p argPatEs' bodyE'
 
 convert (ExpPrecAssign p id level) = do
-  id' <- lookupVarId id
+  id' <- lookupVar id
   return $ ExpPrecAssign p id' level
 
 convert (ExpNum p s) = return $ ExpNum p s
@@ -709,23 +760,42 @@ convert (ExpBegin p es) = do
   es' <- mapM convert es
   return $ ExpBegin p es'
 
-convert (ExpQualifiedRef p (Id _ id)) = convert (ExpRef p id)
-convert (ExpQualifiedRef p path@(Path pp qid id)) = do
-  entry <- lookupVarQualId qid `reportErrorAt` pp
-  case entry of
-    UnknownEntry _ -> return $ ExpQualifiedRef p path
-    -- UniqIdEntry uid -> return $ ExpRef p uid
-    UniqIdEntry uid -> throwError $ ErrInvalidUniqModulePath qid
-    FrameEntry _ frame -> do
-      memberUid <- lookupVarIn id [frame] `reportErrorAt` pp
-      return $ ExpRef p memberUid
+convert (ExpModule p id bodyEs) = do
+  ns <- pushNewOrExistingNamespace id
+  bodyEs' <- mapM convert bodyEs
+  popNs `reportErrorAt` p
+  return $ ExpBegin p bodyEs'
+
+convert (ExpQualifiedRef p id) = do
+  id' <- lookupVar id `reportErrorAt` p
+  return $ ExpRef p id'
 
 convert (ExpRef p id) = do
-  entry <- lookupVarEntry id `reportErrorAt` p
-  case entry of
-    UnknownEntry _ -> return $ ExpRef p id
-    UniqIdEntry uid -> return $ ExpRef p uid
-    FrameEntry _ _ -> throwError (ErrUnboundUniqIdentifier id) `reportErrorAt` p
+  id' <- lookupVar id `reportErrorAt` p
+  return $ ExpRef p id'
+
+convert (ExpTypeDec p (TypeDecTy tp tid tyParamIds synTy)) = do
+  tid' <- lookupTy tid
+  pushNewLexicalScope
+  tyParamIds' <- mapM freshTypeIdM tyParamIds
+  synTy' <- convertTy synTy
+  popLexicalScope
+  return $ ExpTypeDec p $ TypeDecTy tp tid' tyParamIds' synTy'
+
+convert (ExpTypeDec p (TypeDecAdt tp tid tyParamIds alts)) = do
+  tid' <- lookupTy tid
+  pushNewLexicalScope
+  tyParamIds' <- mapM freshTypeIdM tyParamIds
+  alts' <- mapMi convertAdtAlternative alts
+  popLexicalScope
+  return $ ExpTypeDec p $ TypeDecAdt tp tid' tyParamIds' alts'
+
+convert (ExpTypeDec p (TypeDecEmpty tp tid tyParamIds)) = do
+  tid'  <- lookupTy tid
+  pushNewLexicalScope
+  tyParamIds' <- mapM freshTypeIdM tyParamIds
+  popLexicalScope
+  return $ ExpTypeDec p $ TypeDecEmpty tp tid' tyParamIds'
 
 convert e = throwError $ ErrInterpFailure $ printf "convert failed for: %s" $ show e
 
@@ -830,6 +900,7 @@ instance InjectUserIds Exp where
       ExpPrim p rator -> ExpPrim p $ UserId rator
       ExpImport p qid -> ExpImport p $ inject qid
       ExpAssign p patE e -> ExpAssign p (inject patE) (r e)
+      ExpTopLevelAssign p patE e -> ExpTopLevelAssign p (inject patE) (r e)
       ExpTypeDec p typeDec -> ExpTypeDec p $ inject typeDec
       ExpDataDec p typeDec -> ExpDataDec p $ inject typeDec
       ExpProtoDec p id tyId constrs tyAnns ->
@@ -837,6 +908,7 @@ instance InjectUserIds Exp where
       ExpProtoImp p synTy protoId constrs bodyEs ->
         ExpProtoImp p (inject synTy) (UserId protoId) (map inject constrs) (map inject bodyEs)
       ExpTyAnn tyAnn -> ExpTyAnn $ inject tyAnn
+      ExpTopLevelTyAnn tyAnn -> ExpTopLevelTyAnn $ inject tyAnn
       ExpWithAnn tyAnn e -> ExpWithAnn (inject tyAnn) $ inject e
       ExpFunDef funDef -> ExpFunDef $ inject funDef
       ExpFunDefClauses p id funDefs ->
@@ -893,10 +965,8 @@ modifyAC f = modify (\cEnv -> cEnv { alphaEnv = f (alphaEnv cEnv) })
 
 
 runAlphaConvert :: RawAst CompUnit -> AlphaConverted (UniqAst CompUnit)
-runAlphaConvert (CompUnit pos exps) = do
-  modifyAC (\acEnv -> acEnv { pass = 0 })
-  let withUserIds = map inject exps
-  exps' <- mapM convert withUserIds
-  modifyAC (\acEnv -> acEnv { pass = 1 })
-  exps'' <- mapM convert exps'
-  return $ CompUnit pos exps''
+runAlphaConvert (CompUnit pos es) = do
+  let withUserIds = map inject es
+  es' <- mapM convertBinding withUserIds
+  es'' <- mapM convert es'
+  return $ CompUnit pos es''

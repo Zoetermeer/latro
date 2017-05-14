@@ -64,11 +64,6 @@
         "\"hello\""
         "'f'")))
 
-  (test-case "it returns an error for unbound identifiers"
-    (check-match
-      @interp-sexp{main(_) = x}
-      `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier x))))
-
   (test-case "it evaluates arithmetic exps"
     (check-equal?
       @interp-lines{
@@ -128,19 +123,6 @@
         main(_) = IO::println(if (False) 42 43)
       }
       43))
-
-  (test-case "it does not allow argument bindings to escape"
-    (check-match
-      @interp-sexp{
-        f(x, runForever) = {
-          if (runForever)
-            f(x, runForever)
-            x
-        }
-
-        main(_) = IO::println(runForever(3, False))
-      }
-      `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier runForever))))
 
   (test-case "it evaluates non-literals in the test position"
     (check-equal?
@@ -384,36 +366,6 @@
       }
       14))
 
-  (test-case "it does not allow nested modules to escape the local env"
-    (check-match
-      @interp-sexp{
-        module m {
-          module m1 {
-            g : Int -> Int -> Int
-            g(x, y) = {
-              y + x
-            }
-          }
-        }
-
-        main(_) = IO::println(m1::g(1, 1))
-      }
-      `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier m1))))
-
-  (test-case "it does not capture id's in lexical scope for modules as exports"
-    (check-match
-      @interp-sexp{
-        module m {
-          f : (-> Int)
-          f() = 42
-
-          module n { }
-        }
-
-        main(_) = IO::println(m::n::f())
-      }
-      `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier f))))
-
   (test-case "it evaluates recursive functions"
     (check-equal?
       @interp-sexp{
@@ -447,7 +399,7 @@
           }
 
           f : (-> Int)
-          f() = n::o::v
+          f() = m::n::o::v
         }
 
         main(_) = IO::println(m::f())
@@ -497,104 +449,6 @@
       }
       6))
 
-  (test-case "it returns the empty struct"
-    (check-match
-      @interp-sexp{
-        type t = struct { }
-
-        main(_) = IO::println(t %{ })
-      }
-      't))
-
-  (test-case "it evaluates struct instances"
-    (check-match
-      @interp-sexp{
-        type Point = struct {
-          X : Int
-          Y : Int
-        }
-
-        main(_) = IO::println(Point %{ X = 3; Y = 4; })
-      }
-      'Point))
-
-  (test-case "it evaluates struct field accesses"
-    (check-equal?
-      @interp-sexp{
-        type Point = struct {
-          X : Int
-          Y : Int
-        }
-
-        main(_) = {
-          let p = Point %{ X = 3; Y = 4; }
-          IO::println(Y(p))
-        }
-      }
-      4))
-
-  (test-case "it returns an error on undefined-field accesses"
-    (check-match
-      @interp-sexp{
-        type t = struct { }
-
-        main(_) = {
-          let v = t %{ }
-          IO::println(x(v))
-        }
-      }
-      `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier x))))
-
-  (test-case "it evaluates nested struct field accesses"
-    (check-equal?
-      @interp-sexp{
-        type Point = struct {
-          X : Int
-          Y : Int
-        }
-
-        type Line = struct {
-          A : Point
-          B : Point
-        }
-
-        main(_) = {
-          let l = Line %{
-            A = Point %{ X = 0; Y = 0; };
-            B = Point %{ X = 3; Y = 4; };
-          }
-
-          IO::println(Y(B(l)))
-        }
-      }
-      4))
-
-  (test-case "it evaluates module-exported struct types"
-    (check-equal?
-      @interp-sexp{
-        module Geometry {
-          type Point = struct {
-            X : Int
-            Y : Int
-          }
-
-          type Line = struct {
-            A : Point
-            B : Point
-          }
-        }
-
-        main(_) = {
-          let l = Geometry::Line %{
-            A = Geometry::Point %{ X = 0; Y = 0; };
-            B = Geometry::Point %{ X = 3; Y = 4; };
-          }
-
-          IO::println(Geometry::Y(Geometry::B(l)))
-        }
-      }
-      4))
-
   (test-case "it exports algebraic data type constructors"
     (check-regexp-match
       #px"fun x\\d* : Int -> IntOption"
@@ -618,19 +472,6 @@
         main(_) = IO::println(Just(42))
       }
       '("Just(42)")))
-
-  (test-case "it scopes ADT defs/ctors to module exports"
-    (check-match
-      @interp-sexp{
-        module m {
-          type IntOption =
-            | Some(Int)
-            | None
-        }
-
-        main(_) = IO::println(Some(42))
-      }
-      `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundRawIdentifier Some))))
 
   (test-case "it evaluates multi-arity ADT constructors"
     (check-equal?
@@ -883,7 +724,6 @@
   (test-case "it evaluates ADT patterns"
     (check-equal?
       @interp-sexp{
-        type String = Char[]
         type StringOption =
           | Some(String)
           | None
@@ -1024,8 +864,6 @@
   (test-case "it evaluates a string-length function"
     (check-equal?
       @interp-sexp{
-        type String = Char[]
-
         len : String -> Int
         len("") = 0
         len(c @"@" cs) = { 1 + len(cs) }
@@ -1195,14 +1033,14 @@
     (check-equal?
       @interp-sexp{
         module Prims {
-          infixl (&&)(True, True) = True
-          infixl (&&)(_, _) = False
+          infixl (&&&)(True, True) = True
+          infixl (&&&)(_, _) = False
         }
 
         module Foo {
           import Prims
 
-          f() = True && False
+          f() = True &&& False
         }
 
         main(_) = IO::println(Foo::f())
@@ -1214,14 +1052,14 @@
       @interp-sexp{
         module Prims {
           module BoolOps {
-            infixl (&&)(True, True) = True
-            infixl (&&)(_, _) = False
+            infixl (&&&)(True, True) = True
+            infixl (&&&)(_, _) = False
           }
         }
 
         import Prims::BoolOps
 
-        main(_) = IO::println(True && False)
+        main(_) = IO::println(True &&& False)
       }
       'False))
 
