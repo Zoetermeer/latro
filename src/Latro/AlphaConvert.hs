@@ -17,7 +17,7 @@ module Latro.AlphaConvert where
 import Control.Monad (when)
 import Control.Monad.Except
 import Control.Monad.State
-import Data.List (intercalate, nub)
+import Data.List (nub)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromJust)
 import Debug.Trace
@@ -307,6 +307,7 @@ convertTy (SynTyInt p) = return $ SynTyInt p
 convertTy (SynTyBool p) = return $ SynTyBool p
 convertTy (SynTyChar p) = return $ SynTyChar p
 convertTy (SynTyUnit p) = return $ SynTyUnit p
+convertTy (SynTyPrim p id) = return $ SynTyPrim p id
 convertTy (SynTyArrow p paramTys retTy) = do
   paramTys' <- mapM convertTy paramTys `reportErrorAt` p
   retTy' <- convertTy retTy
@@ -849,6 +850,7 @@ instance InjectUserIds SynTy where
       SynTyString p -> SynTyString p
       SynTyChar p -> SynTyChar p
       SynTyUnit p -> SynTyUnit p
+      SynTyPrim p id -> SynTyPrim p $ UserId id
       SynTyArrow p argTys retTy -> SynTyArrow p (map inject argTys) (inject retTy)
       SynTyStruct p fieldInitPairs ->
         let (ids, tys) = unzip fieldInitPairs

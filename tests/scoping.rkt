@@ -281,7 +281,7 @@
         }
 
         import Core::List
-        import Core::Integer
+        import Core::Int
         main(_) = IO::println(toString(m::x + m) ++ " worked!")
       }
       '("\"85 worked!\"")))
@@ -702,7 +702,7 @@
       (check-equal?
         @interp-lines{
           module Outer {
-            type A = | Foo(Int) | Bar(Int)
+            type A = | Foo(primtype(int)) | Bar(primtype(int))
 
             module Inner { }
 
@@ -962,7 +962,7 @@
       (check-equal?
         @interp-lines{
           module ListStuff {
-            length<a> : a[] -> Int
+            length<a> : a[] -> primtype(int)
             length([])    = 0
             length(x@"@"xs) = prim(intAdd)(1, length(xs))
           }
@@ -999,7 +999,7 @@
     (parameterize ([use-core? #f])
       (check-equal?
         @interp-lines{
-          length<a> : a[] -> Int
+          length<a> : a[] -> primtype(int)
           length([])    = 0
           length(x@"@"xs) = prim(intAdd)(1, length(xs))
 
@@ -1033,7 +1033,7 @@
                 | Nothing
 
 
-              isJust<a> : Maybe<a> -> Bool
+              isJust<a> : Maybe<a> -> primtype(bool)
               isJust(Just(_)) = True
               isJust(_) = False
             }

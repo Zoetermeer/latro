@@ -48,6 +48,7 @@ data Err =
   | ErrOverlappingTyImport (QualifiedId SourcePos UniqId) [RawId]
   | ErrInferenceFail (Map.Map UniqId Ty) Ty Ty
   | ErrPrimUnknown RawId
+  | ErrPrimTypeUnknown RawId
   | ErrProtocolAlreadyImplemented UniqId TyCon
   | ErrMultipleDataDecs UniqId
   | ErrUserFail SourcePos String

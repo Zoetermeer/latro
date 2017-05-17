@@ -37,10 +37,6 @@ tokens :-
   let { lex' TokenLet }
   True { lex' TokenTrue }
   False { lex' TokenFalse }
-  Int { lex' TokenInt }
-  Bool { lex' TokenBool }
-  Char { lex' TokenCharTy }
-  Unit { lex' TokenUnit }
   if { lex' TokenIf }
   else { lex' TokenElse }
   switch { lex' TokenSwitch }
@@ -48,6 +44,7 @@ tokens :-
   case { lex' TokenCase }
   precedence { lex' TokenPrecedence }
   prim { lex' TokenPrim }
+  primtype { lex' TokenPrimType }
   protocol { lex' TokenProtocol }
   when { lex' TokenWhen }
   on { lex' TokenOn }
@@ -109,10 +106,6 @@ data TokenClass =
   | TokenLet
   | TokenTrue
   | TokenFalse
-  | TokenInt
-  | TokenBool
-  | TokenCharTy
-  | TokenUnit
   | TokenIf
   | TokenElse
   | TokenSwitch
@@ -120,6 +113,7 @@ data TokenClass =
   | TokenCase
   | TokenPrecedence
   | TokenPrim
+  | TokenPrimType
   | TokenProtocol
   | TokenWhen
   | TokenOn
@@ -185,10 +179,6 @@ unlex (TokenStruct) = "struct"
 unlex (TokenLet) = "let"
 unlex (TokenTrue) = "True"
 unlex (TokenFalse) = "False"
-unlex (TokenInt) = "Int"
-unlex (TokenBool) = "Bool"
-unlex (TokenCharTy) = "Char"
-unlex (TokenUnit) = "Unit"
 unlex (TokenIf) = "if"
 unlex (TokenElse) = "else"
 unlex (TokenSwitch) = "switch"
@@ -196,6 +186,7 @@ unlex (TokenCond) = "cond"
 unlex (TokenCase) = "case"
 unlex (TokenPrecedence) = "precedence"
 unlex (TokenPrim) = "prim"
+unlex (TokenPrimType) = "primtype"
 unlex (TokenProtocol) = "protocol"
 unlex (TokenWhen) = "when"
 unlex (TokenOn) = "on"

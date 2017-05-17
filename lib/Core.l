@@ -1,3 +1,13 @@
+type Int = primtype(int)
+type Bool = primtype(bool)
+type Char = primtype(char)
+type Unit = primtype(unit)
+type String = Char[]
+
+type Result<e, t> =
+  | Ok(t)
+  | Error(e)
+
 infixl (+)(a, b) = prim(intAdd)(a, b)
 infixl (-)(a, b) = prim(intSub)(a, b)
 infixl (*)(a, b) = prim(intMul)(a, b)
@@ -43,12 +53,6 @@ precedence && 11
 
 infixl (|>)(x, f) = f(x)
 precedence |> 12
-
-type Result<e, t> =
-  | Ok(t)
-  | Error(e)
-
-type String = Char[]
 
 module Core {
   id<a> : a -> a
@@ -160,7 +164,7 @@ module Core {
     }
   }
 
-  module Character {
+  module Char {
     toInt : Char -> Int
     toInt(c) = prim(charToInt)(c)
 
@@ -169,7 +173,7 @@ module Core {
     unsafeRead(c) = toInt(c) - 48
   }
 
-  module Integer {
+  module Int {
     import Core::List
 
     digits : Int -> Int[]
@@ -182,7 +186,7 @@ module Core {
 
     read/priv : String -> Int -> Int
     read/priv("", _) = 0
-    read/priv(c @ cs, p) = Core::Character::unsafeRead(c) * pow(10, p) + read/priv(cs, p + 1)
+    read/priv(c @ cs, p) = Core::Char::unsafeRead(c) * pow(10, p) + read/priv(cs, p + 1)
 
 
     unsafeRead : String -> Int

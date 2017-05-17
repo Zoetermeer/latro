@@ -1067,7 +1067,7 @@
         main : String[] -> Unit
         main(_) = {
           f : Int -> Int
-          let f = fun(x) = Core::Integer::toString(x)
+          let f = fun(x) = Core::Int::toString(x)
           x : Int
           let x = 42
           IO::println(f(x))
@@ -1183,8 +1183,6 @@
 		(check-match
 			@interp-lines{
         module Weird {
-          type Int
-
           tail(Nil) = Nil()
           tail(Cons(_, ls)) = ls
         }

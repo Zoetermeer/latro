@@ -61,7 +61,7 @@
       (check-equal?
         @interp-lines{
           module Root {
-            type A = | Foo(Int) | Bar(Int)
+            type A = | Foo(primtype(int)) | Bar(primtype(int))
 
             module M { }
           }

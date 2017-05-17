@@ -60,10 +60,37 @@ ilGenPrim (UserId id) =
     "intgeq" -> PrimIntGeq
     _ -> PrimUnknown id
 
+
+ilGenTy :: Show a => SynTy a UniqId -> SynTy a UniqId
+ilGenTy (SynTyPrim p id@(UserId tyId)) =
+  case tyId of
+    "int"  -> SynTyInt p
+    "bool" -> SynTyBool p
+    "char" -> SynTyChar p
+    "unit" -> SynTyUnit p
+    _      -> SynTyUnknown p id
+
+ilGenTy (SynTyArrow p paramTys retTy) =
+  SynTyArrow p (map ilGenTy paramTys) $ ilGenTy retTy
+
+ilGenTy (SynTyStruct p fields) =
+  SynTyStruct p $ map (\(fid, fty) -> (fid, ilGenTy fty)) fields
+
+ilGenTy (SynTyAdt p id alts) =
+  SynTyAdt p id $ map (\(AdtAlternative ap aid ai tys) -> AdtAlternative ap aid ai (map ilGenTy tys)) alts
+
+ilGenTy (SynTyList p sty) = SynTyList p $ ilGenTy sty
+
+ilGenTy (SynTyTuple p tys) = SynTyTuple p $ map ilGenTy tys
+ilGenTy sty = sty
+
+
+
 ilGen :: Show a => Exp a UniqId -> ILWriter IL a
 ilGen (ExpTypeDec p tyDec) = do
-  tell [tyDec]
-  return $ ILBegin p []
+    tell [tyDec']
+    return $ ILBegin p []
+  where tyDec' = mapTyDecTys tyDec ilGenTy
 
 ilGen (ExpCons p l r) = do
   hd <- ilGen l
@@ -90,9 +117,10 @@ ilGen (ExpTopLevelAssign p patE e) = do
   e' <- ilGen e
   return $ ILAssign p (ilGenPat patE) e'
 
-ilGen (ExpWithAnn tyAnn e) = do
+ilGen (ExpWithAnn (TyAnn p id tyParamIds ty straints) e) = do
   e' <- ilGen e
-  return $ ILWithAnn (nodeData tyAnn) tyAnn $ e'
+  let ty' = ilGenTy ty
+  return $ ILWithAnn p (TyAnn p id tyParamIds ty' straints) e'
 
 ilGen (ExpFunDef (FunDefFun p fid@(UniqId _ fName) argPatEs bodyE)) = do
     bodyE' <- ilGen bodyE

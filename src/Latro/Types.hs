@@ -635,6 +635,7 @@ tcTycon sty =
 -- A "syntax-level type" is just an
 -- AST representing a type
 tcTy :: UniqAst SynTy -> Checked Ty
+tcTy (SynTyPrim p tyId) = throwError (ErrPrimTypeUnknown $ getRawId tyId) `reportErrorAt` p
 tcTy (SynTyInt _) = return tyInt
 tcTy (SynTyBool _) = return tyBool
 tcTy (SynTyChar _) = return tyChar
@@ -684,6 +685,7 @@ tcTyDec :: UniqAst TypeDec -> Checked (TyCon, [Typed IL])
 tcTyDec (TypeDecTy _ id tyParamIds (SynTyInt _)) = return (TyConInt, [])
 tcTyDec (TypeDecTy _ id tyParamIds (SynTyBool _)) = return (TyConBool, [])
 tcTyDec (TypeDecTy _ id tyParamIds (SynTyChar _)) = return (TyConChar, [])
+tcTyDec (TypeDecTy _ id tyParamIds (SynTyUnit _)) = return (TyConUnit, [])
 tcTyDec (TypeDecTy _ id tyParamIds synTy@(SynTyRef _ qid synTyArgs)) = do
   mapM_ (\tyParamId -> exportTy tyParamId $ TyConTyVar tyParamId) tyParamIds
   tyArgs <- mapM tcTy synTyArgs

@@ -27,10 +27,6 @@ import Latro.Semant
   let { Token _ TokenLet }
   True { Token _ TokenTrue }
   False { Token _ TokenFalse }
-  Int { Token _ TokenInt }
-  Bool { Token _ TokenBool }
-  Char { Token _ TokenCharTy }
-  Unit { Token _ TokenUnit }
   if { Token _ TokenIf }
   else { Token _ TokenElse }
   switch { Token _ TokenSwitch }
@@ -38,6 +34,7 @@ import Latro.Semant
   case { Token _ TokenCase }
   precedence { Token _ TokenPrecedence }
   prim { Token _ TokenPrim }
+  primtype { Token _ TokenPrimType }
   protocol { Token _ TokenProtocol }
   when { Token _ TokenWhen }
   on { Token _ TokenOn }
@@ -322,10 +319,7 @@ OptionalImpClause : ':' Ty { Just $2 }
 TyArgs : '<' CommaSeparatedTys '>' { $2 }
        | {- empty -} { [] }
 
-SimpleTy : Int { SynTyInt (pos $1)  }
-         | Bool { SynTyBool (pos $1) }
-         | Char { SynTyChar (pos $1) }
-         | Unit { SynTyUnit (pos $1) }
+SimpleTy : primtype '(' simple_id ')' { SynTyPrim (pos $1) (tokValue $3) }
          | struct '{' TyStructFields '}' { SynTyStruct (pos $1) $3 }
          | TyTuple { $1 }
          | SimpleOrQualifiedAlphaNumericId TyArgs { SynTyRef (nodeData $1) $1 $2 }

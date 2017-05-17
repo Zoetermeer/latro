@@ -184,6 +184,9 @@ instance Sexpable Err where
           , sexp primId
           ]
 
+  sexp (ErrPrimTypeUnknown tyId) =
+    List  [ Symbol "PrimTypeUnknown", sexp tyId ]
+
   sexp (ErrProtocolAlreadyImplemented protoId tyCon) =
     List  [ Symbol "ProtocolAlreadyImplemented"
           , sexp protoId

@@ -433,6 +433,15 @@ renameTypeDec tyDec@TypeDecImplicit{} newId = tyDec
 renameTypeDec (TypeDecEmpty p id tyParamIds) newId = TypeDecEmpty p newId tyParamIds
 
 
+mapTyDecTys :: TypeDec a id -> (SynTy a id -> SynTy a id) -> TypeDec a id
+mapTyDecTys (TypeDecTy p id tyParamIds sty) f = TypeDecTy p id tyParamIds $ f sty
+mapTyDecTys (TypeDecAdt p id tyParamIds alts) f =
+  TypeDecAdt p id tyParamIds $ map (\(AdtAlternative ap aid ai atys) -> AdtAlternative ap aid ai (map f atys)) alts
+
+mapTyDecTys (TypeDecImplicit p tyDec) f = TypeDecImplicit p $ mapTyDecTys tyDec f
+mapTyDecTys (TypeDecEmpty p id tyParamIds) _ = TypeDecEmpty p id tyParamIds
+
+
 getTypeDecParams :: TypeDec a id -> [id]
 getTypeDecParams tyDec =
   case tyDec of
@@ -457,6 +466,8 @@ data SynTy a id =
   | SynTyString a
   | SynTyChar a
   | SynTyUnit a
+  | SynTyPrim a id
+  | SynTyUnknown a id
   | SynTyArrow a [SynTy a id] (SynTy a id)
   | SynTyStruct a [(id, SynTy a id)]
   | SynTyAdt a id [AdtAlternative a id]
@@ -483,6 +494,8 @@ instance AstNode SynTy where
       SynTyString d -> d
       SynTyChar d -> d
       SynTyUnit d -> d
+      SynTyPrim d _ -> d
+      SynTyUnknown d _ -> d
       SynTyArrow d _ _ -> d
       SynTyStruct d _ -> d
       SynTyAdt d _ _ -> d
