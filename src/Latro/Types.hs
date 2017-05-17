@@ -10,7 +10,7 @@ import Control.Monad.State
 import Data.Either.Utils (maybeToEither)
 import qualified Data.Map.Strict as Map
 import Data.List (sortBy)
-import Data.Maybe (catMaybes, fromMaybe, isNothing)
+import Data.Maybe (fromMaybe, isNothing, mapMaybe)
 import qualified Data.Set as Set
 import Debug.Trace (trace, traceM)
 import Latro.Errors
@@ -866,8 +866,7 @@ tc (ILMain p [paramId] bodyE) = do
   restoreVarEnv oldVarEnv
   return (tyUnit, ILMain (OfTy p tyMain) [paramId] bodyE')
 
-tc ilMain@ILMain{} = do
-  throwError (ErrWrongMainArity ilMain) `reportErrorAt` ilNodeData ilMain
+tc ilMain@ILMain{} = throwError (ErrWrongMainArity ilMain) `reportErrorAt` ilNodeData ilMain
 
 tc (ILRef p id) = do
   ty <- lookupVar id `reportErrorAt` p
@@ -1113,7 +1112,7 @@ tcTyDecs tyDecs = do
               idsAndTyDecs
     return $ concat ilSeqs
   where
-    idsAndTyDecs = catMaybes $ map (\tyDec -> do { id <- getTypeDecId tyDec; return (id, tyDec) }) tyDecs
+    idsAndTyDecs = mapMaybe (\tyDec -> do { id <- getTypeDecId tyDec; return (id, tyDec) }) tyDecs
 
 
 tcCompUnit :: Untyped ILCompUnit -> Bool -> Checked (Ty, Typed ILCompUnit)

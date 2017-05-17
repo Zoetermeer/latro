@@ -95,7 +95,7 @@ collapseEs (ExpFunDef (FunDefFun p fid argPatEs bodyE) : es) = do
 collapseEs (ExpBegin p bodyEs : es) = do
   bodyEs' <- collapseEs bodyEs
   es' <- collapseEs es
-  return ((ExpBegin p bodyEs') : es')
+  return (ExpBegin p bodyEs' : es')
 
 collapseEs (e : es) = do
   e' <- collapse e

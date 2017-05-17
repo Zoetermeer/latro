@@ -109,7 +109,7 @@ exportVar (UserId rawId) uid = do
   maybeNs <- getsAC curNs
   case maybeNs of
     Just ns -> let exports' = (exports ns) { varIdEnv = Map.insert rawId uid (varIdEnv (exports ns)) }
-               in do modifyAC (\aEnv -> aEnv { curNs = Just $ ns { exports = exports' } })
+               in modifyAC (\aEnv -> aEnv { curNs = Just $ ns { exports = exports' } })
     _       -> return ()
 
 
@@ -118,7 +118,7 @@ exportTy (UserId rawId) uid = do
   maybeNs <- getsAC curNs
   case maybeNs of
     Just ns -> let exports' = (exports ns) { typeIdEnv = Map.insert rawId uid (typeIdEnv (exports ns)) }
-               in do modifyAC (\aEnv -> aEnv { curNs = Just $ ns { exports = exports' } })
+               in modifyAC (\aEnv -> aEnv { curNs = Just $ ns { exports = exports' } })
     _       -> return ()
 exportTy UniqId{} _ = return ()
 
@@ -228,7 +228,7 @@ lookupNs qid = do
 
 lookupIn :: UniqId -> [LexicalScope] -> (LexicalScope -> RawIdEnv UniqId) -> AlphaConverted UniqId
 lookupIn id [] _ = throwError $ ErrUnboundUniqIdentifier id
-lookupIn id (scope : scopes) getEnv = do
+lookupIn id (scope : scopes) getEnv =
   case lookupUniqId id (getEnv scope) of
     Just id -> return id
     _       -> lookupIn id scopes getEnv
@@ -341,7 +341,7 @@ convertPatExp inTopLevel (PatExpTuple p es) = do
   return $ PatExpTuple p es'
 
 convertPatExp inTopLevel (PatExpId p id) = do
-  maybeCtorId <- (liftM Just) (lookupCtor id) `catchError` (\_ -> return Nothing)
+  maybeCtorId <- fmap Just (lookupCtor id) `catchError` (\_ -> return Nothing)
   case maybeCtorId of
     Just ctorId -> convertPatExp inTopLevel $ PatExpAdt p (Id p ctorId) []
     Nothing -> do
@@ -467,7 +467,7 @@ desugarCond (ExpCond p clauses) = desugarCondClauses p clauses
 
 stripImplicitTypeDecs :: [UniqAst Exp] -> ([UniqAst TypeDec], [UniqAst Exp])
 stripImplicitTypeDecs [] = ([], [])
-stripImplicitTypeDecs ((ExpTypeDec _ tyDec@(TypeDecImplicit _ innerTyDec)) : es) =
+stripImplicitTypeDecs (ExpTypeDec _ tyDec@(TypeDecImplicit _ innerTyDec) : es) =
     (innerTyDec : tyDecs, es')
   where
     (tyDecs, es') = stripImplicitTypeDecs es
@@ -580,7 +580,7 @@ convertBinding (ExpTopLevelTyAnn (TyAnn _ id _ _ _)) =
 convertBinding (ExpTyAnn (TyAnn _ id _ _ _)) =
   throwError $ ErrInterpFailure $ "ExpTyAnn " ++ show id ++ " not removed before alpha-conversion!"
 
-convertBinding (ExpWithAnn (TyAnn p aid tyParamIds synTy constrs) e) = do
+convertBinding (ExpWithAnn (TyAnn p aid tyParamIds synTy constrs) e) =
   case e of
     ExpFunDefClauses{} ->
       do e'@(ExpFunDef (FunDefFun fp fid argPatEs bodyE)) <- convertBinding e
@@ -649,12 +649,8 @@ convert (ExpImport p qid) = do
       modTypeIdEnv        = typeIdEnv nsExports
       overlappingVarIds   = Map.keys $ Map.intersection curVarIdEnv modVarIdEnv
       overlappingTypeIds  = Map.keys $ Map.intersection curTypeIdEnv modTypeIdEnv
-  -- traceM $ "IMPORTING: " ++ show qid
-  -- traceM $ "STACK: " ++ intercalate "\\n" (map show theStack)
-  -- traceM $ "EXPORTS: " ++ show nsExports
-  -- traceM $ "LEXICAL: " ++ seq curLexicalScope (show curLexicalScope)
-  when (not (null overlappingVarIds)) $ throwError (ErrOverlappingVarImport qid overlappingVarIds) `reportErrorAt` p
-  when (not (null overlappingTypeIds)) $ throwError (ErrOverlappingTyImport qid overlappingTypeIds) `reportErrorAt` p
+  unless (null overlappingVarIds) $ throwError (ErrOverlappingVarImport qid overlappingVarIds) `reportErrorAt` p
+  unless (null overlappingTypeIds) $ throwError (ErrOverlappingTyImport qid overlappingTypeIds) `reportErrorAt` p
   modifyLexicalScope (\(curLexicalScope@LexicalScope{ varIdEnv, typeIdEnv }) ->
                         curLexicalScope { varIdEnv = Map.union varIdEnv modVarIdEnv
                                         , typeIdEnv = Map.union typeIdEnv modTypeIdEnv })
