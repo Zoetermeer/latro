@@ -71,8 +71,10 @@ tokens :-
   [\,] { lex' TokenComma }
   [\_] { lex' TokenUnderscore }
   [\@] { lex' TokenAtSymbol }
+  [\#] { lex' TokenHash }
   $digit+ { lex TokenNumLit }
   [$alpha] [$alpha $digit \_ \']* { lex TokenSimpleId }
+  [\_] [$alpha $digit \_ \']+ [$alpha $digit \']+ { lex TokenSimpleId }
   [$alpha] [$alpha $digit \_ \' \- $special]+ { lex TokenMixedId }
   [$special]+ { lex TokenSpecialId }
   [\"] [^\"]* [\"] { lex TokenString }
@@ -140,6 +142,7 @@ data TokenClass =
   | TokenComma
   | TokenUnderscore
   | TokenAtSymbol
+  | TokenHash
   | TokenNumLit String
   | TokenSimpleId String
   | TokenMixedId String
@@ -213,6 +216,7 @@ unlex (TokenColon) = ":"
 unlex (TokenComma) = ","
 unlex (TokenUnderscore) = "_"
 unlex (TokenAtSymbol) = "@"
+unlex (TokenHash) = "#"
 unlex (TokenNumLit s) = s
 unlex (TokenSimpleId s) = s
 unlex (TokenMixedId s) = s

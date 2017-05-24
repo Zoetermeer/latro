@@ -13,7 +13,7 @@
             x
         }
 
-        main(_) = IO::println(runForever(3, False))
+        main(_) = IO.println(runForever(3, False))
       }
       `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundUniqIdentifier runForever))))
 
@@ -21,7 +21,7 @@
     (check-equal?
       @interp-lines{
         main(_) = {
-          IO::println(
+          IO.println(
             switch ([2, 3]) {
               [] -> [1]
               x@"@"xs -> xs
@@ -45,7 +45,7 @@
             _       -> 1
           }
 
-        main(_) = IO::println(f(%([10], False)))
+        main(_) = IO.println(f(%([10], False)))
       }
       '("11")))
 
@@ -57,7 +57,7 @@
         foo : foo -> foo -> foo
         foo(a, b) = a + b
 
-        main(_) = IO::println(foo(2, 4))
+        main(_) = IO.println(foo(2, 4))
       }
       6))
 
@@ -69,7 +69,7 @@
 					let [x, y] = [1, 2]
 				}
 
-				main(_) = IO::println(M::x + M::z)
+				main(_) = IO.println(M.x + M.z)
 			}
 			`(AtPos (SourcePos ,_ 3 ,_) (CompilerModule AlphaConvert) (IdAlreadyBound y))))
 
@@ -81,7 +81,7 @@
 					let x = False
 				}
 
-				main(_) = IO::println(M::x)
+				main(_) = IO.println(M.x)
 			}
 			`(AtPos (SourcePos ,_ 3 ,_) (CompilerModule AlphaConvert) (IdAlreadyBound x))))
 
@@ -96,7 +96,7 @@
 					let x = False
 				}
 
-				main(_) = IO::println(M::x)
+				main(_) = IO.println(M.x)
 			}
 			`(AtPos (SourcePos ,_ 6 ,_) (CompilerModule AlphaConvert) (IdAlreadyBound x))))
 
@@ -108,7 +108,7 @@
 					_		-> 0
 				}
 
-				main(_) = IO::println(f([1]))
+				main(_) = IO.println(f([1]))
 			}
 			'("1")))
 
@@ -125,7 +125,7 @@
 					if (x && y) { 1 } { 2 }
 				}
 
-				main(_) = IO::println(f(1))
+				main(_) = IO.println(f(1))
 			}
 			'("1")))
 
@@ -145,7 +145,7 @@
 					if (x && y) { 1 } { 2 }
 				}
 
-				main(_) = IO::println(42)
+				main(_) = IO.println(42)
 			}
 			`(AtPos (SourcePos ,_ 9 ,_) (CompilerModule AlphaConvert) (IdAlreadyBound x))))
 
@@ -155,7 +155,7 @@
         let v = 42
         foo(v) = v + 1
 
-        main(_) = IO::println(v + foo(3))
+        main(_) = IO.println(v + foo(3))
       }
       46))
 
@@ -169,9 +169,9 @@
           }
         }
 
-        main(_) = IO::println(M::v)
+        main(_) = IO.println(M.v)
       }
-      `(AtPos (SourcePos ,_ 8 ,_) (CompilerModule AlphaConvert) (UnboundQualIdentifier M::v))))
+      `(AtPos (SourcePos ,_ 8 ,_) (CompilerModule AlphaConvert) (UnboundQualIdentifier M.v))))
 
   (test-case "it does not capture id's in lexical scope for modules as exports"
     (check-match
@@ -183,9 +183,9 @@
           module n { }
         }
 
-        main(_) = IO::println(m::n::f())
+        main(_) = IO.println(m.n.f())
       }
-      `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundQualIdentifier m::n::f))))
+      `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundQualIdentifier m.n.f))))
 
   (test-case "it does not allow nested modules to escape the local env"
     (check-match
@@ -199,7 +199,7 @@
           }
         }
 
-        main(_) = IO::println(m1::g(1, 1))
+        main(_) = IO.println(m1.g(1, 1))
       }
       `(AtPos ,_ (CompilerModule AlphaConvert) (InvalidUniqModulePath m1))))
 
@@ -211,11 +211,11 @@
         }
 
         module M' {
-          let bar = M::foo
+          let bar = M.foo
         }
 
         main(_) = {
-          IO::println(M'::bar)
+          IO.println(M'.bar)
         }
       }
       '("42")))
@@ -228,11 +228,11 @@
         }
 
         module Arith {
-          add : Number::t -> Number::t -> Number::t
+          add : Number.t -> Number.t -> Number.t
           add(x, y) = x + y
         }
 
-        main(_) = IO::println(Arith::add(1, 2))
+        main(_) = IO.println(Arith.add(1, 2))
       }
       '("3")))
 
@@ -245,7 +245,7 @@
 
         module Div {
           type t =
-            | Num(Number::t)
+            | Num(Number.t)
             | ByZero
 
           div(x, 0) = ByZero()
@@ -253,8 +253,8 @@
         }
 
         main(_) = {
-          let Div::Num(answer) = Div::div(100, 10)
-          IO::println(answer)
+          let Div.Num(answer) = Div.div(100, 10)
+          IO.println(answer)
         }
       }
       '("10")))
@@ -265,7 +265,7 @@
         main(_) = {
           let v = 42
           let v = 43
-          IO::println(v)
+          IO.println(v)
         }
       }
       `(AtPos ,_ (CompilerModule AlphaConvert) (IdAlreadyBound v))))
@@ -280,9 +280,9 @@
           f() = 42
         }
 
-        import Core::List
-        import Core::Int
-        main(_) = IO::println(toString(m::x + m) ++ " worked!")
+        import Core.List
+        import Core.Int
+        main(_) = IO.println(toString(m.x + m) ++ " worked!")
       }
       '("\"85 worked!\"")))
 
@@ -292,7 +292,7 @@
         let x = 42
         let x = 43
 
-        main(_) = IO::println(x)
+        main(_) = IO.println(x)
       }
       `(AtPos (SourcePos ,_ 2 ,_) (CompilerModule AlphaConvert) (IdAlreadyBound x))))
 
@@ -304,7 +304,7 @@
           let x = 43
         }
 
-        main(_) = IO::println(M::x)
+        main(_) = IO.println(M.x)
       }
       `(AtPos (SourcePos ,_ 3 ,_) (CompilerModule AlphaConvert) (IdAlreadyBound x))))
 
@@ -317,7 +317,7 @@
           let x = 43
         }
 
-        main(_) = IO::println(x)
+        main(_) = IO.println(x)
       }
       '("42")))
 
@@ -332,7 +332,7 @@
           g(y) = y
         }
 
-        main(_) = IO::println(Foo::f(1) + Foo::g(2))
+        main(_) = IO.println(Foo.f(1) + Foo.g(2))
       }
       '("3")))
 
@@ -346,7 +346,7 @@
           }
         }
 
-        main(_) = IO::println(m + Foo::m::m)
+        main(_) = IO.println(m + Foo.m.m)
       }
       '("85")))
 
@@ -357,7 +357,7 @@
 
         main(_) = {
           let x = fun(x) = { let v = 43  v }(1)
-          IO::println(x)
+          IO.println(x)
         }
       }
       43))
@@ -377,9 +377,9 @@
         }
 
         main(_) = {
-          let %(a, b) = %(m::f(), m::x)
-          IO::println(a)
-          IO::println(b)
+          let %(a, b) = %(m.f(), m.x)
+          IO.println(a)
+          IO.println(b)
         }
       }
       '("Unit" "False")))
@@ -391,7 +391,7 @@
 
         main(_) = {
           let v = fun(x) = { let v = 43  v }(1) + v
-          IO::println(v)
+          IO.println(v)
         }
       }
       46))
@@ -405,7 +405,7 @@
 
         module Div {
           type t =
-            | Num(Number::t)
+            | Num(Number.t)
             | ByZero
 
           div(x, 0) = ByZero()
@@ -413,8 +413,8 @@
         }
 
         main(_) = {
-          let Div::Num(answer) = Div::div(100, 10)
-          IO::println(answer)
+          let Div.Num(answer) = Div.div(100, 10)
+          IO.println(answer)
         }
       }
       10))
@@ -436,7 +436,7 @@
           intId(i) = i
         }
 
-        main(_) = IO::println(I::B::boolId(False))
+        main(_) = IO.println(I.B.boolId(False))
       }
       'False))
 
@@ -449,7 +449,7 @@
         f : Same
         let f = False
 
-        main(_) = IO::println(f)
+        main(_) = IO.println(f)
       }
       `(AtPos (SourcePos ,_ 2 ,_) (CompilerModule AlphaConvert) (IdAlreadyBound Same))))
 
@@ -462,11 +462,11 @@
           type Same = Bool
         }
 
-        f : Inner::Same -> Same -> Inner::Same
+        f : Inner.Same -> Same -> Inner.Same
         f(True, x) = False
         f(_, x) = True
 
-        main(_) = IO::println(f(False, 42))
+        main(_) = IO.println(f(False, 42))
       }
       '("True")))
 
@@ -482,9 +482,9 @@
           }
         }
 
-        main(_) = IO::println(m::x)
+        main(_) = IO.println(m.x)
       }
-      `(AtPos (SourcePos ,_ 10 ,_) (CompilerModule AlphaConvert) (UnboundQualIdentifier m::x))))
+      `(AtPos (SourcePos ,_ 10 ,_) (CompilerModule AlphaConvert) (UnboundQualIdentifier m.x))))
 
   (test-case "it does not add locals in function bodies to the module export env"
     (check-match
@@ -497,9 +497,9 @@
           }
         }
 
-        main(_) = IO::println(m::x)
+        main(_) = IO.println(m.x)
       }
-      `(AtPos (SourcePos ,_ 9 ,_) (CompilerModule AlphaConvert) (UnboundQualIdentifier m::x))))
+      `(AtPos (SourcePos ,_ 9 ,_) (CompilerModule AlphaConvert) (UnboundQualIdentifier m.x))))
 
   (test-case "it does not allow bindings in a pattern to escape into other clauses"
     (check-match
@@ -527,7 +527,7 @@
             }
             0
 
-          IO::println(x)
+          IO.println(x)
         }
       }
       `(AtPos (SourcePos ,_ 8 ,_) (CompilerModule AlphaConvert) (UnboundUniqIdentifier x))))
@@ -553,7 +553,7 @@
         x : foo
         let x = 42
 
-        main(_) = IO::println(x)
+        main(_) = IO.println(x)
       }
       42))
 
@@ -567,7 +567,7 @@
         type Stm =
           | StmDef(Char[], Expr)
 
-        main(_) = IO::println([ StmDef("x", ExprNum(42)) ])
+        main(_) = IO.println([ StmDef("x", ExprNum(42)) ])
       }
       '("[StmDef(\"x\", ExprNum(42))]")))
 
@@ -577,15 +577,15 @@
         module Expr {
           type t =
             | ExprNum(Int)
-            | ExprStm(Stm::t)
+            | ExprStm(Stm.t)
         }
 
         module Stm {
           type t =
-            | StmDef(Char[], Expr::t)
+            | StmDef(Char[], Expr.t)
         }
 
-        main(_) = IO::println([ Stm::StmDef("x", Expr::ExprNum(42)) ])
+        main(_) = IO.println([ Stm.StmDef("x", Expr.ExprNum(42)) ])
       }
       '("[StmDef(\"x\", ExprNum(42))]")))
 
@@ -595,7 +595,7 @@
         let y = x
         let x = 42
 
-        main(_) = IO::println(y)
+        main(_) = IO.println(y)
       }
       42))
 
@@ -607,7 +607,7 @@
           let x = 42
         }
 
-        main(_) = IO::println(M::y)
+        main(_) = IO.println(M.y)
       }
       42))
 
@@ -615,14 +615,14 @@
     (check-equal?
       @interp-sexp{
         module M {
-          let y = N::x
+          let y = N.x
         }
 
         module N {
           let x = 42
         }
 
-        main(_) = IO::println(M::y)
+        main(_) = IO.println(M.y)
       }
       42))
 
@@ -641,7 +641,7 @@
   (test-case "it allows mutually recursive functions"
     (check-equal?
       @interp-lines{
-        import Core::List
+        import Core.List
 
         foo(0) = "zero"
         foo(x) = bar(x)
@@ -650,7 +650,7 @@
         bar(x) = "not zero"
 
         main(_) = {
-          IO::println(foo(0) ++ foo(1))
+          IO.println(foo(0) ++ foo(1))
         }
       }
       '("\"zeronot zero\"")))
@@ -665,10 +665,10 @@
         }
 
         module M' {
-          let bar = N::foo //The correct reference would be M::N::foo
+          let bar = N.foo //The correct reference would be M.N.foo
         }
 
-        main(_) = IO::println(M'::bar)
+        main(_) = IO.println(M'.bar)
       }
       `(AtPos (SourcePos ,_ 8 ,_) (CompilerModule AlphaConvert) (InvalidUniqModulePath N))))
 
@@ -679,7 +679,7 @@
 
         module M { }
 
-        f : M::Str -> M::Str
+        f : M.Str -> M.Str
         f(s) = s
       }
       `(AtPos (SourcePos ,_ 5 ,_) (CompilerModule AlphaConvert) (UnboundUniqIdentifier Str))))
@@ -693,9 +693,9 @@
           let bar = foo
         }
 
-        main(_) = IO::println(M::foo + M::bar)
+        main(_) = IO.println(M.foo + M.bar)
       }
-      `(AtPos (SourcePos ,_ 7 ,_) (CompilerModule AlphaConvert) (UnboundQualIdentifier M::foo))))
+      `(AtPos (SourcePos ,_ 7 ,_) (CompilerModule AlphaConvert) (UnboundQualIdentifier M.foo))))
 
   (test-case "it does not drop exports defined before a submodule"
     (parameterize ([use-core? #f])
@@ -709,7 +709,7 @@
             let otherThing = 43
           }
 
-          main(_) = prim(println)(Outer::Foo(Outer::otherThing))
+          main(_) = prim(println)(Outer.Foo(Outer.otherThing))
         }
         '("Foo(43)"))))
 
@@ -729,7 +729,7 @@
           }
         }
 
-        main(_) = IO::println(Root::M::f(Root::Foo(43)))
+        main(_) = IO.println(Root.M.f(Root.Foo(43)))
       }
       43))
 
@@ -749,7 +749,7 @@
           }
         }
 
-        main(_) = IO::println(Root::M::f(1))
+        main(_) = IO.println(Root.M.f(1))
       }
       '("Bar(43)")))
 
@@ -762,14 +762,14 @@
 
         main(_) = {
           let v = switch (Foo(42)) {
-            M::Foo(x) -> x
+            M.Foo(x) -> x
             _ -> 0
           }
 
-          IO::println(v)
+          IO.println(v)
         }
       }
-			`(AtPos (SourcePos ,_ 7 ,_) (CompilerModule AlphaConvert) (UnboundConstructor M::Foo))))
+			`(AtPos (SourcePos ,_ 7 ,_) (CompilerModule AlphaConvert) (UnboundConstructor M.Foo))))
 
   (test-case "it does not allow module-exported type bindings to escape"
     (check-match
@@ -781,7 +781,7 @@
         main(_) = {
           p : Thing
           let p = [1, 2]
-          IO::println(p)
+          IO.println(p)
         }
       }
       `(AtPos (SourcePos ,_ 6 ,_) (CompilerModule AlphaConvert) (UnboundUniqIdentifier Thing))))
@@ -798,7 +798,7 @@
           import Prims
 
           main(_) = {
-            IO::println(True && False)
+            IO.println(True && False)
           }
         }
       }
@@ -816,7 +816,7 @@
           let x = v
         }
 
-        main(_) = IO::println(Bar::x)
+        main(_) = IO.println(Bar.x)
       }
       '("42")))
 
@@ -842,7 +842,7 @@
           bar(x) = x + 1
         }
         main(_) = {
-          IO::println(Foo::bar(42))
+          IO.println(Foo.bar(42))
         }
       }
       `(AtPos (SourcePos ,_ 2 ,_) (CompilerModule AlphaConvert) (OverlappingVarImport Foo (bar)))))
@@ -868,7 +868,7 @@
 
         import B
         import A
-        main(_) = IO::println(g(101))
+        main(_) = IO.println(g(101))
       }
     '("1")))
 
@@ -895,7 +895,7 @@
         import A
         main(_) = {
           let a = ComplexA(ComplexB(SimpleA(42)))
-          IO::println(a)
+          IO.println(a)
         }
       }
     '("ComplexA(ComplexB(SimpleA(42)))")))
@@ -911,9 +911,79 @@
           let two = 2
         }
 
-        main(_) = IO::println(A::one + A::two)
+        module Main {
+          main(_) = IO.println(A.one + A.two)
+        }
       }
     '("3")))
+
+  (test-case "it does not blow away prior exports with a reopening definition of a submodule"
+    (check-equal?
+      @interp-lines{
+        module A {
+          f() = Outer.B.g()
+        }
+
+        module Outer.B {
+          g() = 42
+        }
+
+        module Outer {
+          module B { }
+        }
+
+        module Main {
+          main(_) = IO.println(A.f())
+        }
+      }
+      '("42")))
+
+  (test-case "it does not blow away prior exports with a reopening definition"
+    (check-equal?
+      @interp-lines{
+        module A {
+          f() = B.g()
+        }
+
+        module B {
+          g() = 42
+        }
+
+        module B { }
+
+        module Main {
+          main(_) = IO.println(A.f())
+        }
+      }
+      '("42")))
+
+  (test-case "it does not preserve bindings in the module closure of a prior partial module definition"
+    (check-match
+      @interp-sexp{
+        module Foo {
+          let v = 42
+
+          module A {
+            f() = v
+          }
+        }
+
+        module Foo.A {
+          import Core
+
+          h() = f() //Ensure we retained the binding for f
+          g() = h() + v //v should no longer be in scope
+        } //This is a tricky one because the reopening will end up overwriting Foo.A's entry in
+          //the global NS env, along with its module closure.  So when we "reopen" (aka convertLoc)
+          //the *initial* definition of A on line 926, we've lost the binding for `v` which should
+          //actually still be present.  We want to retain this but somehow drop it when we convertLoc
+          //on the `Foo.A` reopening on 931.
+
+        module Main {
+          main(_) = IO.println(Foo.A.g())
+        }
+      }
+      `(AtPos (SourcePos ,_ 13 ,_) (CompilerModule AlphaConvert) (UnboundUniqIdentifier v))))
 
   (test-case "it does not allow shadowing across separate module declarations"
     (check-match
@@ -926,7 +996,9 @@
           let one = 2
         }
 
-        main(_) = IO::println(A::one)
+        module Main {
+          main(_) = IO.println(A.one)
+        }
       }
     `(AtPos ,_ (CompilerModule AlphaConvert) (IdAlreadyBound one))))
 
@@ -945,17 +1017,19 @@
           }
         }
 
-        import A
-        import B
+        module Main {
+          import A
+          import B
 
-        main(_) = {
-          let x = A::Foo::x
-          let y = Bar::y //importing B should not  bind Bar
+          main(_) = {
+            let x = A.Foo.x
+            let y = Bar.y //importing B should not  bind Bar
 
-          IO::println(x + y)
+            IO.println(x + y)
+          }
         }
       }
-      `(AtPos (SourcePos ,_ 18 ,_) (CompilerModule AlphaConvert) (InvalidUniqModulePath Bar))))
+      `(AtPos (SourcePos ,_ 19 ,_) (CompilerModule AlphaConvert) (UnboundUniqModulePath Bar))))
 
   (test-case "it resolves recursive references in explicitly typed functions"
     (parameterize ([use-core? #f])
@@ -967,7 +1041,9 @@
             length(x@"@"xs) = prim(intAdd)(1, length(xs))
           }
 
-          main(_) = prim(println)(ListStuff::length([1, 2, 3]))
+          module Pgm {
+            main(_) = prim(println)(ListStuff.length([1, 2, 3]))
+          }
         }
         '("3"))))
 
@@ -980,7 +1056,9 @@
             length(x@"@"xs) = prim(intAdd)(1, length(xs))
           }
 
-          main(_) = prim(println)(ListStuff::length([1, 2, 3]))
+          module Pgm {
+            main(_) = prim(println)(ListStuff.length([1, 2, 3]))
+          }
         }
         '("3"))))
 
@@ -988,10 +1066,12 @@
     (parameterize ([use-core? #f])
       (check-equal?
         @interp-lines{
-          length([])    = 0
-          length(x@"@"xs) = prim(intAdd)(1, length(xs))
+          module Program {
+            length([])    = 0
+            length(x@"@"xs) = prim(intAdd)(1, length(xs))
 
-          main(_) = prim(println)(length([1, 2, 3]))
+            main(_) = prim(println)(length([1, 2, 3]))
+          }
         }
         '("3"))))
 
@@ -999,28 +1079,32 @@
     (parameterize ([use-core? #f])
       (check-equal?
         @interp-lines{
-          length<a> : a[] -> primtype(int)
-          length([])    = 0
-          length(x@"@"xs) = prim(intAdd)(1, length(xs))
+          module Program {
+            length<a> : a[] -> primtype(int)
+            length([])    = 0
+            length(x@"@"xs) = prim(intAdd)(1, length(xs))
 
-          main(_) = prim(println)(length([1, 2, 3]))
+            main(_) = prim(println)(length([1, 2, 3]))
+          }
         }
         '("3"))))
 
   (test-case "it does not allow constructors on different types to have the same name"
     (check-match
       @interp-sexp{
-        type Foo =
-          | CtorA
-          | CtorB
+        module Types {
+          type Foo =
+            | CtorA
+            | CtorB
 
-        type Bar =
-          | CtorA
-          | CtorB
+          type Bar =
+            | CtorA
+            | CtorB
 
-        main(_) = IO::println(42)
+          main(_) = IO.println(42)
+        }
       }
-      `(AtPos (SourcePos ,_ 6 ,_) (CompilerModule AlphaConvert) (IdAlreadyBound CtorA))))
+      `(AtPos (SourcePos ,_ 7 ,_) (CompilerModule AlphaConvert) (IdAlreadyBound CtorA))))
 
 	(test-case "it rewrites aliases from type modules such that they use fully-qualified references"
     (parameterize ([use-core? #f])
@@ -1039,7 +1123,9 @@
             }
           }
 
-          main(_) = prim(println)(Outer::Maybe::isJust(Outer::Maybe::Just(42)))
+          module Program {
+            main(_) = prim(println)(Outer.Maybe.isJust(Outer.Maybe.Just(42)))
+          }
         }
         '("True"))))
 )

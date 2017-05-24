@@ -39,7 +39,7 @@ instance Sexpable CheckedData where
 instance (Sexpable a, Sexpable id) => Sexpable (QualifiedId a id) where
   sexp (Id _ raw) = sexp raw
   sexp (Path _ qid raw) =
-    Symbol $ printf "%s::%s" (showSexp qid) (showSexp raw)
+    Symbol $ printf "%s.%s" (showSexp qid) (showSexp raw)
 
 
 instance (Sexpable a, CompilerOutput id) => CompilerOutput (QualifiedId a id) where
@@ -80,6 +80,10 @@ instance (Sexpable a, Sexpable id) => Sexpable (SynTy a id) where
 
   sexp (SynTyRef d qid tyParamIds) =
     List [ Symbol "Ref", sexp d, sexp qid, toSexpList tyParamIds ]
+
+
+instance CompilerOutput RawId where
+  render id = id
 
 
 instance Sexpable UniqId where
@@ -128,6 +132,19 @@ instance (Sexpable a, Sexpable id) => Sexpable (TypeDec a id) where
           , sexp id
           , toSexpList tyParamIds
           , toSexpList alts
+          ]
+
+  sexp (TypeDecImplicit d tyDec) =
+    List  [ Symbol "TypeDecImplicit"
+          , sexp d
+          , sexp tyDec
+          ]
+
+  sexp (TypeDecEmpty d id tyParamIds) =
+    List  [ Symbol "TypeDecEmpty"
+          , sexp d
+          , sexp id
+          , toSexpList tyParamIds
           ]
 
 

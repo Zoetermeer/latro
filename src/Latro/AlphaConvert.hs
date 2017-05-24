@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, FlexibleInstances, NamedFieldPuns, TypeSynonymInstances #-}
+{-# LANGUAGE Strict, FlexibleContexts, FlexibleInstances, NamedFieldPuns, TypeSynonymInstances #-}
 
 {-|
 Module      : AlphaConvert
@@ -14,137 +14,241 @@ the converter doesn't keep track of the types of variables.
 -}
 module Latro.AlphaConvert where
 
+import Control.Error.Util (hoistEither)
 import Control.Monad (when)
 import Control.Monad.Except
 import Control.Monad.State
-import Data.List (nub)
+import Data.Either.Utils (maybeToEither)
+import Data.List (intercalate, nub)
 import qualified Data.Map.Strict as Map
-import Data.Maybe (fromJust)
+import Data.Maybe (isJust)
 import Debug.Trace
 import Latro.Common
 import Latro.Compiler
 import Latro.Errors
+import Latro.Output
 import Latro.Semant
+import Latro.Semant.Display ()
 import Prelude hiding (lookup)
 import Text.Printf (printf)
 
 reportErrorAt a = reportPosOnFail a "AlphaConvert"
 
 
-pushNewLexicalScope :: AlphaConverted LexicalScope
-pushNewLexicalScope = do
-  index <- nextIdIndexM
-  let scope = mtLexicalScope index
-  pushLexicalScope scope
+-- Get the innermost namespace environment for the current scope
+-- Either the global one if we are at the top level,
+-- or the innermost namespace-scope one if inside a module
+-- definition
+getNsEnv :: AlphaConverted (QualIdEnv NamespaceScope)
+getNsEnv = do
+  _globalNsStack <- getsAC globalNsStack
+  case _globalNsStack of
+    [] -> getsAC globalNsEnv
+    (ns : _) -> return $ nsEnv ns
+
+
+-- Get either the innermost namespace on the namespace stack,
+-- or the top-level one
+getCurNs :: AlphaConverted NamespaceScope
+getCurNs = getsAC $ head . globalNsStack
+
+
+pushNs :: NamespaceScope -> AlphaConverted ()
+pushNs ns = modifyAC (\aEnv -> aEnv { globalNsStack = ns : globalNsStack aEnv })
+
+
+modifyCurNs :: (NamespaceScope -> NamespaceScope) -> AlphaConverted ()
+modifyCurNs f = do
+  ns <- getCurNs
+  modifyAC (\aEnv -> aEnv { globalNsStack = f ns : (tail $ globalNsStack aEnv) })
+
+
+getCurLocalScope :: AlphaConverted LocalScope
+getCurLocalScope = do
+  curNs <- getCurNs
+  return $ head $ localScopeStack curNs
+
+
+innerMostVarEnv :: AlphaConverted (RawIdEnv UniqId)
+innerMostVarEnv = do
+  curNs <- getCurNs
+  case localScopeStack curNs of
+    [] -> return $ varIdEnv curNs
+    (sc : _) -> return $ localVarIdEnv sc
+
+
+innerMostTypeEnv :: AlphaConverted (RawIdEnv UniqId)
+innerMostTypeEnv = do
+  curNs <- getCurNs
+  case localScopeStack curNs of
+    [] -> return $ typeIdEnv curNs
+    (sc : _) -> return $ localTypeIdEnv sc
+
+
+innerMostNsEnv :: AlphaConverted (QualIdEnv NamespaceScope)
+innerMostNsEnv = do
+  _globalNsStack <- getsAC globalNsStack
+  case _globalNsStack of
+    [] -> getsAC globalNsEnv
+    (ns : _) -> return $ nsEnv ns
+
+
+pushNewLocalScope :: AlphaConverted LocalScope
+pushNewLocalScope = do
+  ns <- getCurNs
+  let _localScopeStack = localScopeStack ns
+      (_varIdEnv, _typeIdEnv) = case _localScopeStack of
+                                  [] -> (varIdEnv ns, typeIdEnv ns)
+                                  (sc : _) -> (localVarIdEnv sc, localTypeIdEnv sc)
+      scope = mtScope { localVarIdEnv  = _varIdEnv
+                      , localTypeIdEnv = _typeIdEnv
+                      }
+  modifyCurNs (\ns -> ns { localScopeStack = scope : _localScopeStack })
   return scope
 
 
-pushLexicalScope :: LexicalScope -> AlphaConverted ()
-pushLexicalScope scope = do
-  index <- nextIdIndexM
-  modifyAC (\aEnv -> aEnv { stack = scope : stack aEnv })
+popLocalScope :: AlphaConverted ()
+popLocalScope =
+  modifyCurNs (\ns -> ns { localScopeStack = tail $ localScopeStack ns })
 
 
-pushNewOrExistingNamespace :: UniqId -> AlphaConverted Namespace
-pushNewOrExistingNamespace id = do
-  curPath <- getsAC curPath
-  curNs <- getsAC curNs
-  let nsPath = mkPath curPath id
-  maybeNs <- lookupNsSafe nsPath
-  ns <- case maybeNs of
-          Just ns -> do { pushLexicalScope (scope ns); return ns }
-          _       -> do { newScope <- pushNewLexicalScope; return $ mkNs id $ index newScope }
-  modifyAC (\aEnv -> aEnv { curPath = Just nsPath, curNs = Just ns, nsEnv = Map.insert nsPath ns (nsEnv aEnv) })
-  case (curPath, curNs) of
-    (Just outerPath, Just outerNs) -> modifyAC (\aEnv -> aEnv { nsEnv = Map.insert outerPath outerNs (nsEnv aEnv) })
-    _ -> return ()
+makeAbsolute :: UniqAst QualifiedId -> AlphaConverted (UniqAst QualifiedId)
+makeAbsolute qid = do
+  _globalNsStack <- getsAC globalNsStack
+  case _globalNsStack of
+    []             -> return qid
+    (parentNs : _) -> return (path parentNs +.+ qid)
+
+
+pushNewTopLevelNamespace :: UniqAst QualifiedId -> AlphaConverted NamespaceScope
+pushNewTopLevelNamespace qid = do
+  -- traceM ("pushNewTopLevelNamespace " ++ render qid)
+  _globalNsEnv <- getsAC globalNsEnv
+  let ns = (mkNs qid) { nsEnv = _globalNsEnv }
+  modifyAC (\aEnv -> aEnv { globalNsStack = ns : globalNsStack aEnv })
   return ns
 
 
-popNs :: AlphaConverted ()
-popNs = do
-  maybeNsPath <- getsAC curPath
-  nsPath <- case maybeNsPath of
-              Just path -> return path
-              _         -> throwError $ ErrInterpFailure "Attempted to pop nonexistent namespace"
-  let outerPath = case nsPath of
-                    Id{} -> Nothing
-                    Path _ qid _ -> Just qid
-  nsLexicalScope <- popLexicalScope
-  maybeNs <- getsAC curNs
-  let ns = fromJust maybeNs
-  outerNs <- case outerPath of
-              Nothing -> return Nothing
-              Just path -> do { theNs <- lookupNs path; return $ Just theNs }
-  theNsEnv <- getsAC nsEnv
-  modifyAC (\aEnv -> aEnv { nsEnv = Map.insert nsPath (ns { scope = nsLexicalScope }) theNsEnv
-                          , curPath = outerPath
-                          , curNs = outerNs
+pushNewSubNamespace :: UniqAst QualifiedId -> NamespaceScope -> AlphaConverted NamespaceScope
+pushNewSubNamespace qid parentNs = do
+  -- traceM ("pushNewSubNamespace " ++ render qid)
+  _globalNsEnv <- getsAC globalNsEnv
+  let nsPath = path parentNs +.+ qid
+      ns = (mkNs nsPath) { nsEnv      = nsEnv parentNs
+                         , varIdEnv   = varIdEnv parentNs
+                         , typeIdEnv  = typeIdEnv parentNs
+                         , ctorIdEnv  = ctorIdEnv parentNs
+                         }
+  pushNs ns
+  return ns
+
+
+-- Use this function to push a new namespace when opening a fresh
+-- module binding
+pushNewNamespace :: UniqAst QualifiedId -> AlphaConverted NamespaceScope
+pushNewNamespace qid = do
+  _globalNsStack <- getsAC globalNsStack
+  case _globalNsStack of
+    []        -> pushNewTopLevelNamespace qid
+    (ns : _)  -> pushNewSubNamespace qid ns
+
+
+-- Modules cannot be reopened.  This is only for second-pass alpha conversion
+-- work, so in this case nothing must be inherited from the global scope
+pushExistingNamespace :: UniqAst QualifiedId -> AlphaConverted NamespaceScope
+pushExistingNamespace qid = do
+    _globalNsStack <- getsAC globalNsStack
+    let maybeParent = if null _globalNsStack then Nothing else Just $ head _globalNsStack
+    ns <- getTheNs qid maybeParent
+    pushNs ns
+    return ns
+  where
+    getTheNs qid Nothing =
+      do _globalNsEnv <- getsAC globalNsEnv
+         ns <- lookupNs qid `reportErrorAt` nodeData qid
+         return $ ns { nsEnv = Map.union (nsEnv ns) _globalNsEnv, varIdEnv = exportVarIdEnv ns }
+    getTheNs qid (Just parentNs) =
+      do ns <- lookupNs (path parentNs +.+ qid) `reportErrorAt` nodeData qid
+         let ns' = ns { nsEnv = Map.union (nsEnv ns) (nsEnv parentNs)
+                      , varIdEnv = Map.union (exportVarIdEnv ns) (varIdEnv parentNs)
+                      , typeIdEnv = Map.union (exportTypeIdEnv ns) (typeIdEnv parentNs)
+                      , ctorIdEnv = Map.union (exportCtorIdEnv ns) (ctorIdEnv parentNs)
+                      }
+         return ns'
+
+
+traceGlobalNsStack :: AlphaConverted ()
+traceGlobalNsStack = do
+  _globalNsStack <- getsAC globalNsStack
+  traceM ("  globalNsStack: " ++ intercalate " --> " (map (render . path) _globalNsStack))
+
+
+popNs :: NamespaceScope -> AlphaConverted NamespaceScope
+popNs _ = do
+  ns <- getCurNs
+  -- traceM ("popNs " ++ render (path ns))
+  modifyAC (\aEnv -> aEnv { globalNsEnv = Map.insert (path ns) ns (globalNsEnv aEnv)
+                          , globalNsStack = tail $ globalNsStack aEnv
                           })
+  -- traceGlobalNsStack
+  return ns
 
 
-popLexicalScope :: AlphaConverted LexicalScope
-popLexicalScope = do
-  scopes <- getsAC stack
-  modifyAC (\aEnv -> aEnv { stack = tail scopes })
-  return $ head scopes
-
-
-inNewLexicalScope :: AlphaConverted a -> AlphaConverted a
-inNewLexicalScope thunk = do
-  pushNewLexicalScope
+inNewLocalScope :: AlphaConverted a -> AlphaConverted a
+inNewLocalScope thunk = do
+  pushNewLocalScope
   v <- thunk
-  popLexicalScope
+  popLocalScope
   return v
 
 
-modifyLexicalScope :: (LexicalScope -> LexicalScope) -> AlphaConverted ()
-modifyLexicalScope fModify = do
-  (scope : scopes) <- getsAC stack
-  modifyAC (\aEnv -> aEnv { stack = fModify scope : scopes })
+modifyLocalScope :: (LocalScope -> LocalScope) -> AlphaConverted ()
+modifyLocalScope fModify = do
+  _curNs <- getCurNs
+  let _localScopeStack          = localScopeStack _curNs
+      (_curScope : outerScopes) = _localScopeStack
+  modifyCurNs (\ns -> ns { localScopeStack = fModify _curScope : outerScopes })
+
+
+ensureVarBoundInNsScope :: UniqId -> AlphaConverted UniqId
+ensureVarBoundInNsScope uid@(UniqId _ rawId) = do
+  modifyCurNs (\ns -> ns { varIdEnv = Map.insert rawId uid (varIdEnv ns) })
+  return uid
+
+ensureVarBoundInNsScope uid = return uid
 
 
 exportVar :: UniqId -> UniqId -> AlphaConverted ()
 exportVar (UserId rawId) uid = do
-  maybeNs <- getsAC curNs
-  case maybeNs of
-    Just ns -> let exports' = (exports ns) { varIdEnv = Map.insert rawId uid (varIdEnv (exports ns)) }
-               in modifyAC (\aEnv -> aEnv { curNs = Just $ ns { exports = exports' } })
-    _       -> return ()
+  modifyCurNs (\ns -> ns { exportVarIdEnv = Map.insert rawId uid (exportVarIdEnv ns)
+                         , varIdEnv       = Map.insert rawId uid (varIdEnv ns)
+                         })
 
 
 exportTy :: UniqId -> UniqId -> AlphaConverted ()
 exportTy (UserId rawId) uid = do
-  maybeNs <- getsAC curNs
-  case maybeNs of
-    Just ns -> let exports' = (exports ns) { typeIdEnv = Map.insert rawId uid (typeIdEnv (exports ns)) }
-               in modifyAC (\aEnv -> aEnv { curNs = Just $ ns { exports = exports' } })
-    _       -> return ()
+  modifyCurNs (\ns -> ns { exportTypeIdEnv = Map.insert rawId uid (exportTypeIdEnv ns)
+                         , typeIdEnv       = Map.insert rawId uid (typeIdEnv ns)
+                         })
 exportTy UniqId{} _ = return ()
 
 
-freshVarId :: Bool -> UniqId -> AlphaEnv -> (UniqId, AlphaEnv)
-freshVarId bindInLexicalScope (UserId id) aEnv@AlphaEnv { counter, stack } =
-    (uniqId, aEnv { counter = counter', stack = scope' : scopes })
+freshVarId :: UniqId -> AlphaEnv -> (UniqId, AlphaEnv)
+freshVarId (UserId id) aEnv@AlphaEnv { counter } =
+    (uniqId, aEnv { counter = counter' })
   where
     counter' = counter + 1
     uniqId = UniqId counter id
-    (scope : scopes) = stack
-    scope' = if bindInLexicalScope
-             then scope { varIdEnv = Map.insert id uniqId $ varIdEnv scope }
-             else scope
 
-freshVarId _ id aEnv = (id, aEnv)
+freshVarId  id aEnv = (id, aEnv)
 
 
 freshTypeId :: UniqId -> AlphaEnv -> (UniqId, AlphaEnv)
-freshTypeId (UserId id) aEnv@AlphaEnv { counter, stack } =
-    (uniqId, aEnv { counter = counter', stack = scope' : scopes })
+freshTypeId (UserId id) aEnv@AlphaEnv { counter } =
+    (uniqId, aEnv { counter = counter' })
   where
     counter' = counter + 1
     uniqId = UniqId counter id
-    (scope : scopes) = stack
-    scope' = scope { typeIdEnv = Map.insert id uniqId $ typeIdEnv scope }
 
 freshTypeId id aEnv = (id, aEnv)
 
@@ -159,21 +263,24 @@ freshM userId@(UserId id) fMake = do
 freshM id _ = return id
 
 
-freshIdIfNotBoundM :: UniqId -> (LexicalScope -> RawIdEnv UniqId) -> (UniqId -> AlphaConverted UniqId) -> AlphaConverted UniqId
+freshIdIfNotBoundM :: UniqId -> RawIdEnv UniqId -> (UniqId -> AlphaConverted UniqId) -> AlphaConverted UniqId
 freshIdIfNotBoundM uid@UniqId{} _ _ = return uid
-freshIdIfNotBoundM userId getEnv makeFreshId = do
-  curLexicalScope <- getsAC $ head . stack
-  when (isBoundIn userId [curLexicalScope] getEnv) (throwError $ ErrIdAlreadyBound userId)
+freshIdIfNotBoundM userId env makeFreshId = do
+  when (isBoundIn userId env) (throwError $ ErrIdAlreadyBound userId)
   makeFreshId userId
 
 
-
 freshVarIdM :: UniqId -> AlphaConverted UniqId
-freshVarIdM id = freshM id $ freshVarId True
+freshVarIdM id = freshM id $ freshVarId
 
 
 freshVarIdIfNotBoundM :: UniqId -> AlphaConverted UniqId
-freshVarIdIfNotBoundM id = freshIdIfNotBoundM id varIdEnv freshVarIdM
+freshVarIdIfNotBoundM id = do
+  curNs <- getCurNs
+  let env = case localScopeStack curNs of
+              [] -> varIdEnv curNs
+              (scope : _) -> localVarIdEnv scope
+  freshIdIfNotBoundM id env freshVarIdM
 
 
 freshTypeIdM :: UniqId -> AlphaConverted UniqId
@@ -181,7 +288,9 @@ freshTypeIdM id = freshM id freshTypeId
 
 
 freshTypeIdIfNotBoundM :: UniqId -> AlphaConverted UniqId
-freshTypeIdIfNotBoundM id = freshIdIfNotBoundM id typeIdEnv freshTypeIdM
+freshTypeIdIfNotBoundM id = do
+  curNs <- getCurNs
+  freshIdIfNotBoundM id (typeIdEnv curNs) freshTypeIdM
 
 
 nextIdIndex :: AlphaEnv -> Int
@@ -199,187 +308,257 @@ nextIdIndexM = do
 freshCtorIdM :: UniqId -> AlphaConverted UniqId
 freshCtorIdM id@(UserId rawId) = do
   id' <- freshVarIdIfNotBoundM id
-  modifyLexicalScope (\sc -> sc { ctorEnv = Map.insert rawId id' (ctorEnv sc) })
   return id'
 
 
-isBoundIn :: UniqId -> [LexicalScope] -> (LexicalScope -> RawIdEnv a) -> Bool
-isBoundIn uid@UniqId{} _ _ = True
-isBoundIn id [] _ = False
-isBoundIn userId@(UserId id) (scope : scopes) getEnv =
-  case Map.lookup id (getEnv scope) of
-    Just _ -> True
-    _      -> isBoundIn userId scopes getEnv
+isBoundIn :: UniqId -> RawIdEnv a -> Bool
+isBoundIn uid@UniqId{} _ = True
+isBoundIn userId@(UserId id) env =
+  isJust $ Map.lookup id env
 
 
-lookupNsSafe :: UniqAst QualifiedId -> AlphaConverted (Maybe Namespace)
+bindLocalVar :: UniqId -> AlphaConverted UniqId
+bindLocalVar uid@(UniqId _ rawId) = do
+  modifyLocalScope (\scope -> scope { localVarIdEnv = Map.insert rawId uid (localVarIdEnv scope) })
+  return uid
+
+bindLocalVar uid = freshVarIdM uid >>= bindLocalVar
+
+
+bindLocalType :: UniqId -> AlphaConverted UniqId
+bindLocalType uid@(UniqId _ rawId) = do
+  modifyLocalScope (\scope -> scope { localTypeIdEnv = Map.insert rawId uid (localTypeIdEnv scope) })
+  return uid
+
+bindLocalType uid = freshTypeIdM uid >>= bindLocalType
+
+
+bindNsImport :: UniqAst QualifiedId -> NamespaceScope -> AlphaConverted ()
+bindNsImport qid importedNs = do
+  _globalNsStack <- getsAC globalNsStack
+  case _globalNsStack of
+    [] -> modifyAC (\aEnv -> aEnv { globalNsEnv = Map.insert qid importedNs (globalNsEnv aEnv) })
+    _ ->
+      modifyCurNs (\ns -> ns { nsEnv = Map.insert qid importedNs (nsEnv ns) })
+
+
+lookupNsGlobal :: UniqAst QualifiedId -> AlphaConverted NamespaceScope
+lookupNsGlobal qid = do
+  _globalNsEnv <- getsAC globalNsEnv
+  hoistEither $ maybeToEither (ErrUnboundQualIdentifier qid) $ Map.lookup qid _globalNsEnv
+
+
+lookupNsSafe :: UniqAst QualifiedId -> AlphaConverted (Maybe NamespaceScope)
 lookupNsSafe qid = do
-  nsEnv <- getsAC nsEnv
-  return $ Map.lookup qid nsEnv
+  env <- innerMostNsEnv
+  -- traceM ("Looking up ns: " ++ render qid)
+  -- traceM (intercalate ", " (map render (Map.keys env)))
+  return $ Map.lookup qid env
 
 
-lookupNs :: UniqAst QualifiedId -> AlphaConverted Namespace
+lookupNs :: UniqAst QualifiedId -> AlphaConverted NamespaceScope
 lookupNs qid = do
   maybeNs <- lookupNsSafe qid
-  case maybeNs of
-    Just ns -> return ns
-    _       -> throwError $ ErrInvalidUniqModulePath qid
+  hoistEither $ maybeToEither (ErrUnboundUniqModulePath qid) maybeNs
 
 
-lookupIn :: UniqId -> [LexicalScope] -> (LexicalScope -> RawIdEnv UniqId) -> AlphaConverted UniqId
-lookupIn id [] _ = throwError $ ErrUnboundUniqIdentifier id
-lookupIn id (scope : scopes) getEnv =
-  case lookupUniqId id (getEnv scope) of
-    Just id -> return id
-    _       -> lookupIn id scopes getEnv
+lookup :: UniqId -> (NamespaceScope -> RawIdEnv UniqId) -> AlphaConverted UniqId
+lookup uid fGetTable = getCurNs >>= lookupIn uid fGetTable
 
 
-lookup :: UniqId -> (LexicalScope -> RawIdEnv UniqId) -> AlphaConverted UniqId
-lookup id getEnv = do
-  stack <- getsAC stack
-  lookupIn id stack getEnv
+lookupIn :: UniqId -> (a -> RawIdEnv UniqId) -> a -> AlphaConverted UniqId
+lookupIn uid@UniqId{} _ _ = return uid
+lookupIn uid@(UserId id) fGetTable scope = do
+  let entry = Map.lookup id $ fGetTable scope
+  hoistEither $ maybeToEither (ErrUnboundUniqIdentifier uid) entry
 
 
-class ACLookup a where
+lookupInEnv :: UniqId -> RawIdEnv UniqId -> AlphaConverted UniqId
+lookupInEnv uid@UniqId{} _ = return uid
+lookupInEnv uid@(UserId id) env = do
+  let entry = Map.lookup id env
+  hoistEither $ maybeToEither (ErrUnboundUniqIdentifier uid) entry
+
+
+class AlphaIndex a where
   lookupVar   :: a -> AlphaConverted UniqId
   lookupTy    :: a -> AlphaConverted UniqId
   lookupCtor  :: a -> AlphaConverted UniqId
 
 
-instance ACLookup (UniqAst QualifiedId) where
-  lookupVar (Id p id) = lookup id varIdEnv
+instance AlphaIndex (UniqAst QualifiedId) where
+  lookupVar (Id p id) = innerMostVarEnv >>= lookupInEnv id
   lookupVar qid@(Path p innerQid id) = do
     ns <- lookupNs innerQid `reportErrorAt` nodeData innerQid
-    catchError (lookupIn id [exports ns] varIdEnv) (\_ -> throwError $ ErrUnboundQualIdentifier qid) `reportErrorAt` p
+    -- traceM ("lookupNs " ++ render innerQid)
+    -- traceM ("ns path: " ++ render (path ns))
+    -- traceM ("ns exports: " ++ show (exportVarIdEnv ns))
+    -- traceM $ show id
+    -- lookupIn id exportVarIdEnv ns
+    catchError (lookupIn id exportVarIdEnv ns) (\_ -> throwError $ ErrUnboundQualIdentifier qid) `reportErrorAt` p
 
 
-  lookupTy (Id p id) = lookup id typeIdEnv
+  lookupTy (Id p id) = innerMostTypeEnv >>= lookupInEnv id
   lookupTy (Path p qid id) = do
     ns <- lookupNs qid
-    lookupIn id [exports ns] typeIdEnv `reportErrorAt` p
+    catchError (lookupIn id exportTypeIdEnv ns) (\_ -> throwError $ ErrUnboundQualIdentifier qid) `reportErrorAt` p
 
 
-  lookupCtor (Id p id) = lookup id ctorEnv
+  lookupCtor (Id p id) = lookup id ctorIdEnv
   lookupCtor (Path p qid id) = do
     ns <- lookupNs qid
-    lookupIn id [exports ns] ctorEnv `reportErrorAt` p
+    catchError (lookupIn id exportCtorIdEnv ns) (\_ -> throwError $ ErrUnboundQualIdentifier qid) `reportErrorAt` p
 
 
-instance ACLookup UniqId where
+instance AlphaIndex UniqId where
   lookupVar uid@UniqId{} = return uid
-  lookupVar uid = do
-    scopes <- getsAC stack
-    lookupIn uid scopes varIdEnv
+  lookupVar uid = innerMostVarEnv >>= lookupInEnv uid
 
 
   lookupTy uid@UniqId{} = return uid
-  lookupTy uid = do
-    scopes <- getsAC stack
-    lookupIn uid scopes typeIdEnv
+  lookupTy uid = innerMostTypeEnv >>= lookupInEnv uid
 
 
   lookupCtor uid@UniqId{} = return uid
-  lookupCtor userId = do
-    scopes <- getsAC stack
-    lookupIn userId scopes ctorEnv
+  lookupCtor userId = getCurNs >>= lookupIn userId ctorIdEnv
 
 
--- |Find the environment for the module at the base path of the given
--- qualified ID.  If it's not a path, just return the current
--- frame.
-baseStackLexicalScope :: UniqAst QualifiedId -> AlphaConverted [LexicalScope]
-baseStackLexicalScope Id{} = getsAC stack
-baseStackLexicalScope (Path _ qid _) = do
-  ns <- lookupNs qid
-  return [scope ns]
+-- Any type that should update non-local environments
+-- with new alpha id's should implement (anything that can
+-- occur on a left-hand side)
+class AlphaTopLevel a where
+  convertTop :: a -> AlphaConverted a
 
 
-convertTyAnn :: UniqAst TyAnn -> AlphaConverted (UniqAst TyAnn)
-convertTyAnn (TyAnn p id tyParamIds ty constrs) = do
-  id' <- freshVarIdM id
-  tyParamIds' <- mapM freshTypeIdM tyParamIds
-  ty' <- convertTy ty
-  return $ TyAnn p id' tyParamIds' ty' constrs
+-- Any type of element that requires references in its tree
+-- to be rewritten to point to alpha id's
+class AlphaLocal a where
+  convertLoc :: a -> AlphaConverted a
 
 
-convertTy :: UniqAst SynTy -> AlphaConverted (UniqAst SynTy)
-convertTy (SynTyInt p) = return $ SynTyInt p
-convertTy (SynTyBool p) = return $ SynTyBool p
-convertTy (SynTyChar p) = return $ SynTyChar p
-convertTy (SynTyUnit p) = return $ SynTyUnit p
-convertTy (SynTyPrim p id) = return $ SynTyPrim p id
-convertTy (SynTyArrow p paramTys retTy) = do
-  paramTys' <- mapM convertTy paramTys `reportErrorAt` p
-  retTy' <- convertTy retTy
-  return $ SynTyArrow p paramTys' retTy'
-
-convertTy (SynTyStruct p fields) = do
-  fields' <- mapM (\(id, ty) -> do { ty' <- convertTy ty; return (id, ty') }) fields
-  return $ SynTyStruct p fields'
-
-convertTy (SynTyTuple p tys) = do
-  tys' <- mapM convertTy tys
-  return $ SynTyTuple p tys'
-
-convertTy (SynTyList p ty) = do
-  ty' <- convertTy ty
-  return $ SynTyList p ty'
-
-convertTy (SynTyRef p qid tyArgs) = do
-  tyArgs' <- mapM convertTy tyArgs
-  tid' <- lookupTy qid `reportErrorAt` p
-  return $ SynTyRef p (Id p tid') tyArgs'
+instance AlphaLocal (UniqAst TyAnn) where
+  convertLoc (TyAnn p id tyParamIds ty constrs) = do
+    id' <- freshVarIdM id
+    tyParamIds' <- mapM freshTypeIdM tyParamIds
+    ty' <- convertLoc ty
+    return $ TyAnn p id' tyParamIds' ty' constrs
 
 
-convertPatExp :: Bool -> UniqAst PatExp -> AlphaConverted (UniqAst PatExp)
-convertPatExp _ (PatExpWildcard p) = return $ PatExpWildcard p
-convertPatExp _ (PatExpNumLiteral p s) = return $ PatExpNumLiteral p s
-convertPatExp _ (PatExpBoolLiteral p b) = return $ PatExpBoolLiteral p b
-convertPatExp _ (PatExpStringLiteral p s) = return $ PatExpStringLiteral p s
-convertPatExp _ (PatExpCharLiteral p s) = return $ PatExpCharLiteral p s
-convertPatExp inTopLevel (PatExpTuple p es) = do
-  es' <- mapM (convertPatExp inTopLevel) es
-  return $ PatExpTuple p es'
+instance AlphaLocal (UniqAst SynTy) where
+  convertLoc (SynTyInt p) = return $ SynTyInt p
+  convertLoc (SynTyBool p) = return $ SynTyBool p
+  convertLoc (SynTyChar p) = return $ SynTyChar p
+  convertLoc  (SynTyUnit p) = return $ SynTyUnit p
+  convertLoc (SynTyPrim p id) = return $ SynTyPrim p id
+  convertLoc (SynTyArrow p paramTys retTy) = do
+    paramTys' <- mapM convertLoc paramTys `reportErrorAt` p
+    retTy' <- convertLoc retTy
+    return $ SynTyArrow p paramTys' retTy'
 
-convertPatExp inTopLevel (PatExpId p id) = do
-  maybeCtorId <- fmap Just (lookupCtor id) `catchError` (\_ -> return Nothing)
-  case maybeCtorId of
-    Just ctorId -> convertPatExp inTopLevel $ PatExpAdt p (Id p ctorId) []
-    Nothing -> do
-      id' <- freshVarIdIfNotBoundM id `reportErrorAt` p
-      when inTopLevel $ exportVar id id'
-      return $ PatExpId p id'
+  convertLoc (SynTyStruct p fields) = do
+    fields' <- mapM (\(id, ty) -> do { ty' <- convertLoc ty; return (id, ty') }) fields
+    return $ SynTyStruct p fields'
 
-convertPatExp inTopLevel (PatExpAdt p qid es) = do
-  uniqId <- lookupVar qid `catchError` (\err -> throwError (ErrUnboundConstructor qid) `reportErrorAt` nodeData qid)
-  es' <- mapM (convertPatExp inTopLevel) es
-  return $ PatExpAdt p (Id p uniqId) es'
+  convertLoc (SynTyTuple p tys) = do
+    tys' <- mapM convertLoc tys
+    return $ SynTyTuple p tys'
 
-convertPatExp inTopLevel (PatExpList p es) = do
-  es' <- mapM (convertPatExp inTopLevel) es
-  return $ PatExpList p es'
+  convertLoc (SynTyList p ty) = do
+    ty' <- convertLoc ty
+    return $ SynTyList p ty'
 
-convertPatExp inTopLevel (PatExpListCons p eHd eTl) = do
-  eHd' <- convertPatExp inTopLevel eHd
-  eTl' <- convertPatExp inTopLevel eTl
-  return $ PatExpListCons p eHd' eTl'
+  convertLoc (SynTyRef p qid tyArgs) = do
+    tyArgs' <- mapM convertLoc tyArgs
+    tid' <- lookupTy qid `reportErrorAt` p
+    return $ SynTyRef p (Id p tid') tyArgs'
 
 
-convertFunDef :: UniqAst FunDef -> AlphaConverted (UniqAst FunDef)
-convertFunDef (FunDefFun p id argPatEs bodyE) = do
-  argPatEs' <- mapM (convertPatExp False) argPatEs
-  id' <- lookupVar id
-  bodyE' <- convert bodyE
-  return $ FunDefFun p id' argPatEs' bodyE'
+-- We only apply convert to "top-level" patterns -- it is
+-- not used on right-hand sides
+instance AlphaTopLevel (UniqAst PatExp) where
+  convertTop (PatExpWildcard p) = return $ PatExpWildcard p
+  convertTop (PatExpNumLiteral p s) = return $ PatExpNumLiteral p s
+  convertTop (PatExpBoolLiteral p b) = return $ PatExpBoolLiteral p b
+  convertTop (PatExpStringLiteral p s) = return $ PatExpStringLiteral p s
+  convertTop (PatExpCharLiteral p s) = return $ PatExpCharLiteral p s
+  convertTop (PatExpTuple p es) = do
+    es' <- mapM convertTop es
+    return $ PatExpTuple p es'
+
+  convertTop (PatExpId p id) = do
+    maybeCtorId <- fmap Just (lookupCtor id) `catchError` (\_ -> return Nothing)
+    case maybeCtorId of
+      Just ctorId -> convertTop $ PatExpAdt p (Id p ctorId) []
+      Nothing -> do
+        id' <- freshVarIdIfNotBoundM id `reportErrorAt` p
+        exportVar id id'
+        return $ PatExpId p id'
+
+  convertTop (PatExpAdt p qid es) = do
+    uniqId <- lookupVar qid `catchError` (\err -> throwError (ErrUnboundConstructor qid) `reportErrorAt` nodeData qid)
+    es' <- mapM convertTop es
+    return $ PatExpAdt p (Id p uniqId) es'
+
+  convertTop (PatExpList p es) = do
+    es' <- mapM convertTop es
+    return $ PatExpList p es'
+
+  convertTop (PatExpListCons p eHd eTl) = do
+    eHd' <- convertTop eHd
+    eTl' <- convertTop eTl
+    return $ PatExpListCons p eHd' eTl'
 
 
-convertCaseClause :: UniqAst CaseClause -> AlphaConverted (UniqAst CaseClause)
-convertCaseClause (CaseClause p patE e) = do
-  pushNewLexicalScope
-  patE' <- convertPatExp False patE
-  e' <- convert e
-  popLexicalScope
-  return $ CaseClause p patE' e'
+convertLocPat :: Bool -> (UniqAst PatExp -> AlphaConverted (UniqAst PatExp))
+convertLocPat bindInNs = \e -> convertLoc (bindInNs, e) >>= return . snd
+
+
+-- `convertLoc` on the other hand is only applied on a right-hand
+-- side, e.g. in a function body
+instance AlphaLocal (Bool, UniqAst PatExp) where
+  convertLoc (b, PatExpWildcard p) = return (b, PatExpWildcard p)
+  convertLoc (b, PatExpNumLiteral p s) = return (b, PatExpNumLiteral p s)
+  convertLoc (b, PatExpBoolLiteral p bl) = return (b, PatExpBoolLiteral p bl)
+  convertLoc (b, PatExpStringLiteral p s) = return (b, PatExpStringLiteral p s)
+  convertLoc (b, PatExpCharLiteral p s) = return (b, PatExpCharLiteral p s)
+  convertLoc (bindInNs, PatExpTuple p es) = do
+    es' <- mapM (convertLocPat bindInNs) es
+    return (bindInNs, PatExpTuple p es')
+
+  convertLoc (bindInNs, PatExpId p id) = do
+    maybeCtorId <- fmap Just (lookupCtor id) `catchError` (\_ -> return Nothing)
+    case maybeCtorId of
+      Just ctorId -> convertLoc (bindInNs, PatExpAdt p (Id p ctorId) [])
+      Nothing ->
+        case bindInNs of
+          True -> do id' <- ensureVarBoundInNsScope id
+                     return (bindInNs, PatExpId p id')
+          _    -> do id' <- freshVarIdIfNotBoundM id `reportErrorAt` p
+                     bindLocalVar id'
+                     return (bindInNs, PatExpId p id')
+
+  convertLoc (bindInNs, PatExpAdt p qid es) = do
+    uniqId <- lookupVar qid `catchError` (\err -> throwError (ErrUnboundConstructor qid) `reportErrorAt` nodeData qid)
+    es' <- mapM (convertLocPat bindInNs) es
+    return (bindInNs, PatExpAdt p (Id p uniqId) es')
+
+  convertLoc (bindInNs, PatExpList p es) = do
+    es' <- mapM (convertLocPat bindInNs) es
+    return (bindInNs, PatExpList p es')
+
+  convertLoc (bindInNs, PatExpListCons p eHd eTl) = do
+    eHd' <- convertLocPat bindInNs eHd
+    eTl' <- convertLocPat bindInNs eTl
+    return (bindInNs, PatExpListCons p eHd' eTl')
+
+
+instance AlphaLocal (UniqAst CaseClause) where
+  convertLoc (CaseClause p patE e) = do
+    pushNewLocalScope
+    patE' <- convertLocPat False patE
+    e' <- convertLoc e
+    popLocalScope
+    return $ CaseClause p patE' e'
 
 
 funDefToCaseClause :: UniqAst FunDef -> AlphaConverted (UniqAst CaseClause)
@@ -488,313 +667,325 @@ convertBin :: (SourcePos -> UniqAst Exp -> UniqAst Exp -> UniqAst Exp)
            -> UniqAst Exp
            -> AlphaConverted (UniqAst Exp)
 convertBin c p a b = do
-  a' <- convert a
-  b' <- convert b
+  a' <- convertLoc a
+  b' <- convertLoc b
   return $ c p a' b'
 
 
-convertBindingAdtAlternative :: Int -> UniqAst AdtAlternative -> AlphaConverted (UniqAst AdtAlternative)
-convertBindingAdtAlternative index (AdtAlternative p id _ tys) = do
-  id' <- freshCtorIdM id `reportErrorAt` p
-  exportVar id id'
-  return $ AdtAlternative p id' index tys
+instance AlphaTopLevel (Int, UniqAst AdtAlternative) where
+  convertTop (index, AdtAlternative p id _ tys) = do
+    id' <- freshCtorIdM id `reportErrorAt` p
+    exportVar id id'
+    return (index, AdtAlternative p id' index tys)
 
 
 -- Populate the symbol table with alpha id's, but do
 -- not try to rewrite any bound occurrences of either variable,
 -- type, or type param references
-convertBinding :: UniqAst Exp -> AlphaConverted (UniqAst Exp)
-convertBinding (ExpTypeDec p (TypeDecAdt pInner id tyParamIds alts)) = do
-  id' <- freshTypeIdIfNotBoundM id `reportErrorAt` p
-  exportTy id id'
-  alts' <- mapMi convertBindingAdtAlternative alts
-  return $ ExpTypeDec p $ TypeDecAdt pInner id' tyParamIds alts'
-
-convertBinding (ExpTypeDec p (TypeDecTy pInner id tyParamIds (SynTyStruct stp fieldDefs))) = do
+instance AlphaTopLevel (UniqAst Exp) where
+  convertTop (ExpTypeDec p (TypeDecAdt pInner id tyParamIds alts)) = do
     id' <- freshTypeIdIfNotBoundM id `reportErrorAt` p
     exportTy id id'
-    return $ ExpTypeDec p $ TypeDecTy pInner id' tyParamIds $ SynTyStruct stp fieldDefs
-  where (fieldIds, fieldTys) = unzip fieldDefs
+    (_, alts') <- liftM unzip $ mapMi (\i alt -> convertTop (i, alt)) alts
+    return $ ExpTypeDec p $ TypeDecAdt pInner id' tyParamIds alts'
 
-convertBinding (ExpTypeDec p tyDec) = do
-  id' <- freshTypeIdIfNotBoundM id `reportErrorAt` p
-  exportTy id id'
-  return $ ExpTypeDec p $ renameTypeDec tyDec id'
-  where
-    (Just id) = getTypeDecId tyDec
+  convertTop (ExpTypeDec p (TypeDecTy pInner id tyParamIds (SynTyStruct stp fieldDefs))) = do
+      id' <- freshTypeIdIfNotBoundM id `reportErrorAt` p
+      exportTy id id'
+      return $ ExpTypeDec p $ TypeDecTy pInner id' tyParamIds $ SynTyStruct stp fieldDefs
+    where (fieldIds, fieldTys) = unzip fieldDefs
 
-convertBinding (ExpBegin p es) = do
-  es' <- mapM convertBinding es
-  return $ ExpBegin p es'
+  convertTop (ExpTypeDec p tyDec) = do
+    id' <- freshTypeIdIfNotBoundM id `reportErrorAt` p
+    exportTy id id'
+    return $ ExpTypeDec p $ renameTypeDec tyDec id'
+    where
+      (Just id) = getTypeDecId tyDec
 
-convertBinding (ExpModule p id bodyEs) = do
-  case implicitTyDecs of
-    [] -> do
-      ns <- pushNewOrExistingNamespace id
-      bodyEs' <- mapM convertBinding otherEs
-      popNs `reportErrorAt` p
-      return $ ExpModule p id bodyEs'
-    [tyDec] ->
-      convertBinding $ ExpTypeModule p id tyDec otherEs
-    _ -> throwError (ErrMultipleDataDecs id) `reportErrorAt` p
-  where
-    (implicitTyDecs, otherEs) = stripImplicitTypeDecs bodyEs
+  convertTop (ExpBegin p es) = do
+    es' <- mapM convertTop es
+    return $ ExpBegin p es'
 
-convertBinding (ExpTypeModule p id tyDec bodyEs) = do
-  curPath <- getsAC curPath
-  typeId <- freshTypeIdM (UserId "@__data")
-  let absoluteModulePath = case curPath of
-                            Just outerPath -> Path p outerPath id
-                            _              -> Id p id
-      tyDecExp = tyDec `renameTo` typeId
-      tyParamIds = getTypeDecParams tyDec
-      expModule = ExpModule p id (tyDecExp : bodyEs)
-      typeParamIdRefs = map (\id -> SynTyRef p (Id p id) []) tyParamIds
-      aliasTyDec = ExpTypeDec p (TypeDecTy p id tyParamIds (SynTyRef p (Path p absoluteModulePath typeId) typeParamIdRefs))
+  convertTop (ExpModule p qid bodyEs) = do
+    -- traceM ("convertTop " ++ render qid)
+    case implicitTyDecs of
+      [] -> do
+        -- traceGlobalNsStack
+        ns <- pushNewNamespace qid
+        bodyEs' <- mapM convertTop otherEs
+        -- traceGlobalNsStack
+        ns' <- popNs ns `reportErrorAt` p
+        return $ ExpModule p qid bodyEs'
+      [tyDec] ->
+        convertTop $ ExpTypeModule p qid tyDec otherEs
+      _ -> throwError (ErrMultipleDataDecs qid) `reportErrorAt` p
+    where
+      (implicitTyDecs, otherEs) = stripImplicitTypeDecs bodyEs
 
-  aliasTyDec' <- convertBinding aliasTyDec
-  expModule' <- convertBinding expModule
-  return $ ExpBegin p [aliasTyDec', expModule']
+  convertTop (ExpTypeModule p qid tyDec bodyEs) = do
+    curPath <- getCurNs >>= return . path
+    typeId <- freshTypeIdM (UserId "@__data")
+    absoluteModulePath <- makeAbsolute qid
+    -- traceM $ show absoluteModulePath
+    let tyDecExp = tyDec `renameTo` typeId
+        tyParamIds = getTypeDecParams tyDec
+        expModule = ExpModule p qid (tyDecExp : bodyEs)
+        typeParamIdRefs = map (\id -> SynTyRef p (Id p id) []) tyParamIds
+        dataTypePath = Path p absoluteModulePath typeId
+        aliasTyDec = ExpTypeDec p (TypeDecTy p (stripPath qid) tyParamIds (SynTyRef p dataTypePath typeParamIdRefs))
 
-convertBinding (ExpFunDef (FunDefFun p id argPatEs bodyE)) = do
-  id' <- freshVarIdIfNotBoundM id
-  exportVar id id'
-  return $ ExpFunDef $ FunDefFun p id' argPatEs bodyE
+    aliasTyDec' <- convertTop aliasTyDec
+    expModule' <- convertTop expModule
+    return $ ExpBegin p [aliasTyDec', expModule']
 
-convertBinding (ExpFunDefClauses p id funDefs) = do
-  id' <- freshVarIdM id
-  exportVar id id'
-  funDef <- desugarFunDefs id' funDefs
-  return $ ExpFunDef funDef
+  convertTop (ExpFunDef (FunDefFun p id argPatEs bodyE)) = do
+    id' <- freshVarIdIfNotBoundM id
+    exportVar id id'
+    return $ ExpFunDef $ FunDefFun p id' argPatEs bodyE
 
-convertBinding (ExpTopLevelAssign p patExp e) = do
-  patExp' <- convertPatExp True patExp
-  return $ ExpTopLevelAssign p patExp' e
+  convertTop (ExpFunDefClauses p id funDefs) = do
+    id' <- freshVarIdM id
+    exportVar id id'
+    funDef <- desugarFunDefs id' funDefs
+    return $ ExpFunDef funDef
 
-convertBinding (ExpAssign p patExp e) = do
-  patExp' <- convertPatExp False patExp
-  return $ ExpAssign p patExp' e
+  convertTop (ExpTopLevelAssign p patExp e) = do
+    patExp' <- convertTop patExp
+    return $ ExpTopLevelAssign p patExp' e
 
-convertBinding (ExpTopLevelTyAnn (TyAnn _ id _ _ _)) =
-  throwError $ ErrInterpFailure $ "ExpTopLevelTyAnn " ++ show id ++ " not removed before alpha-conversion!"
+  convertTop (ExpAssign p patExp e) = do
+    patExp' <- convertTop patExp
+    return $ ExpAssign p patExp' e
 
-convertBinding (ExpTyAnn (TyAnn _ id _ _ _)) =
-  throwError $ ErrInterpFailure $ "ExpTyAnn " ++ show id ++ " not removed before alpha-conversion!"
+  convertTop (ExpTopLevelTyAnn (TyAnn _ id _ _ _)) =
+    throwError $ ErrInterpFailure $ "ExpTopLevelTyAnn " ++ show id ++ " not removed before alpha-conversion!"
 
-convertBinding (ExpWithAnn (TyAnn p aid tyParamIds synTy constrs) e) =
-  case e of
-    ExpFunDefClauses{} ->
-      do e'@(ExpFunDef (FunDefFun fp fid argPatEs bodyE)) <- convertBinding e
-         let tyAnn = TyAnn p fid tyParamIds synTy constrs
-         return $ ExpWithAnn tyAnn e'
-    ExpAssign ep patExp@(PatExpId pp pid) e -> do
-      (PatExpId _ pid') <- convertPatExp False patExp
-      let tyAnn = TyAnn p pid' tyParamIds synTy constrs
-      return $ ExpWithAnn tyAnn $ ExpAssign ep (PatExpId pp pid') e
-    ExpTopLevelAssign ep patExp@(PatExpId pp pid) e -> do
-      (PatExpId _ pid') <- convertPatExp True patExp
-      let tyAnn = TyAnn p pid' tyParamIds synTy constrs
-      exportVar pid pid'
-      return $ ExpWithAnn tyAnn $ ExpAssign ep (PatExpId pp pid') e
-    ExpFunDef{} ->
-      do e'@(ExpFunDef (FunDefFun fp fid argPatEs bodyE)) <- convertBinding e
-         let tyAnn = TyAnn p fid tyParamIds synTy constrs
-         return $ ExpWithAnn tyAnn e'
-    _ ->
-      throwError $ ErrInterpFailure $ "in convert ExpWithAnn: " ++ show e
+  convertTop (ExpTyAnn (TyAnn _ id _ _ _)) =
+    throwError $ ErrInterpFailure $ "ExpTyAnn " ++ show id ++ " not removed before alpha-conversion!"
 
-convertBinding e = return e
+  convertTop (ExpWithAnn (TyAnn p aid tyParamIds synTy constrs) e) =
+    case e of
+      ExpFunDefClauses{} ->
+        do e'@(ExpFunDef (FunDefFun fp fid argPatEs bodyE)) <- convertTop e
+           let tyAnn = TyAnn p fid tyParamIds synTy constrs
+           return $ ExpWithAnn tyAnn e'
+      ExpAssign ep patExp@(PatExpId pp pid) e -> do
+        (PatExpId _ pid') <- convertLocPat False patExp
+        let tyAnn = TyAnn p pid' tyParamIds synTy constrs
+        return $ ExpWithAnn tyAnn $ ExpAssign ep (PatExpId pp pid') e
+      ExpTopLevelAssign ep patExp@(PatExpId pp pid) e -> do
+        (PatExpId _ pid') <- convertTop patExp
+        let tyAnn = TyAnn p pid' tyParamIds synTy constrs
+        exportVar pid pid'
+        return $ ExpWithAnn tyAnn $ ExpAssign ep (PatExpId pp pid') e
+      ExpFunDef{} ->
+        do e'@(ExpFunDef (FunDefFun fp fid argPatEs bodyE)) <- convertTop e
+           let tyAnn = TyAnn p fid tyParamIds synTy constrs
+           return $ ExpWithAnn tyAnn e'
+      _ ->
+        throwError $ ErrInterpFailure $ "in convert ExpWithAnn: " ++ show e
 
-
-convertAdtAlternative :: Int -> UniqAst AdtAlternative -> AlphaConverted (UniqAst AdtAlternative)
-convertAdtAlternative index (AdtAlternative p id _ tys) = do
-  tys' <- mapM convertTy tys
-  return $ AdtAlternative p id index tys'
+  convertTop e = return e
 
 
-convert :: UniqAst Exp -> AlphaConverted (UniqAst Exp)
-convert (ExpCons p a b) = convertBin ExpCons p a b
-convert (ExpInParens p e) = do
-  e' <- convert e
-  return $ ExpInParens p e'
+instance AlphaLocal (Int, UniqAst AdtAlternative) where
+  convertLoc (index, AdtAlternative p id _ tys) = do
+    tys' <- mapM convertLoc tys
+    return (index, AdtAlternative p id index tys')
 
-convert (ExpCustomInfix p lhe id rhe) = do
-  lhe' <- convert lhe
-  rhe' <- convert rhe
-  id' <- lookupVar id `reportErrorAt` p
-  return $ ExpCustomInfix p lhe' id' rhe'
 
-convert (ExpMemberAccess p e@(ExpQualifiedRef qp qid) id) = do
-  qid' <- lookupVar qid
-  return $ ExpMemberAccess p (ExpRef qp qid') id
+instance AlphaLocal (UniqAst Exp) where
+  convertLoc (ExpCons p a b) = convertBin ExpCons p a b
+  convertLoc (ExpInParens p e) = do
+    e' <- convertLoc e
+    return $ ExpInParens p e'
 
-convert (ExpMemberAccess p e id) = do
-  e' <- convert e
-  return $ ExpMemberAccess p e' id
+  convertLoc (ExpCustomInfix p lhe id rhe) = do
+    lhe' <- convertLoc lhe
+    rhe' <- convertLoc rhe
+    id' <- lookupVar id `reportErrorAt` p
+    return $ ExpCustomInfix p lhe' id' rhe'
 
-convert (ExpApp p ratorE randEs) = do
-  ratorE' <- convert ratorE
-  randEs' <- mapM convert randEs
-  return $ ExpApp p ratorE' randEs'
+  convertLoc (ExpMemberAccess p e@(ExpQualifiedRef qp qid) id) = do
+    qid' <- lookupVar qid
+    return $ ExpMemberAccess p (ExpRef qp qid') id
 
-convert (ExpPrim p ratorId) = return $ ExpPrim p ratorId
+  convertLoc (ExpMemberAccess p e id) = do
+    e' <- convertLoc e
+    return $ ExpMemberAccess p e' id
 
-convert (ExpImport p qid) = do
-  ns <- lookupNs qid `reportErrorAt` p
-  theStack <- getsAC stack
-  let curLexicalScope     = head theStack
-      curVarIdEnv         = varIdEnv curLexicalScope
-      curTypeIdEnv        = typeIdEnv curLexicalScope
-      nsExports           = exports ns
-      modVarIdEnv         = varIdEnv nsExports
-      modTypeIdEnv        = typeIdEnv nsExports
-      overlappingVarIds   = Map.keys $ Map.intersection curVarIdEnv modVarIdEnv
-      overlappingTypeIds  = Map.keys $ Map.intersection curTypeIdEnv modTypeIdEnv
-  unless (null overlappingVarIds) $ throwError (ErrOverlappingVarImport qid overlappingVarIds) `reportErrorAt` p
-  unless (null overlappingTypeIds) $ throwError (ErrOverlappingTyImport qid overlappingTypeIds) `reportErrorAt` p
-  modifyLexicalScope (\(curLexicalScope@LexicalScope{ varIdEnv, typeIdEnv }) ->
-                        curLexicalScope { varIdEnv = Map.union varIdEnv modVarIdEnv
-                                        , typeIdEnv = Map.union typeIdEnv modTypeIdEnv })
-  return $ ExpUnit p
+  convertLoc (ExpApp p ratorE randEs) = do
+    ratorE' <- convertLoc ratorE
+    randEs' <- mapM convertLoc randEs
+    return $ ExpApp p ratorE' randEs'
 
-convert (ExpFunDef (FunDefFun p id argPatEs bodyE)) = do
-  id' <- freshVarIdIfNotBoundM id
-  pushNewLexicalScope
-  argPatEs' <- mapM (convertPatExp False) argPatEs
-  bodyE' <- convert bodyE
-  popLexicalScope
-  return $ ExpFunDef $ FunDefFun p id' argPatEs' bodyE'
+  convertLoc (ExpPrim p ratorId) = return $ ExpPrim p ratorId
 
-convert (ExpTopLevelAssign p patExp e) = do
-  e' <- convert e
-  return $ ExpAssign p patExp e'
+  convertLoc (ExpImport p qid) = do
+    curNs <- getCurNs
+    ns <- lookupNsGlobal qid `reportErrorAt` p
+    let curVarIdEnv         = varIdEnv curNs
+        curTypeIdEnv        = typeIdEnv curNs
+        modVarIdEnv         = exportVarIdEnv ns
+        modTypeIdEnv        = exportTypeIdEnv ns
+        overlappingVarIds   = Map.keys $ Map.intersection curVarIdEnv modVarIdEnv
+        overlappingTypeIds  = Map.keys $ Map.intersection curTypeIdEnv modTypeIdEnv
+    unless (null overlappingVarIds) $ throwError (ErrOverlappingVarImport qid overlappingVarIds) `reportErrorAt` p
+    unless (null overlappingTypeIds) $ throwError (ErrOverlappingTyImport qid overlappingTypeIds) `reportErrorAt` p
+    modifyCurNs (\curNs -> curNs { varIdEnv  = Map.union curVarIdEnv modVarIdEnv
+                                 , typeIdEnv = Map.union curTypeIdEnv modTypeIdEnv
+                                 })
+    return $ ExpUnit p
 
--- The pat exp must be converted after the right-hand side,
--- so bindings occurring in the former do not show
--- up in the latter
-convert (ExpAssign p patExp e) = do
-  e' <- convert e
-  patExp' <- convertPatExp False patExp
-  return $ ExpAssign p patExp' e'
+  -- NNSE += { id -> GNSE[qid] }
+  convertLoc (ExpImportAs p qid id) = do
+    ns <- lookupNsGlobal qid `reportErrorAt` p
+    -- traceM $ show $ exportVarIdEnv ns
+    bindNsImport (Id p id) ns
+    return $ ExpUnit p
 
-convert (ExpTyAnn (TyAnn _ id _ _ _)) =
-  throwError $ ErrInterpFailure $ "ExpTyAnn " ++ show id ++ " not removed before alpha-conversion!"
+  convertLoc (ExpFunDef (FunDefFun p id argPatEs bodyE)) = do
+    ensureVarBoundInNsScope id
+    pushNewLocalScope
+    argPatEs' <- mapM (convertLocPat False) argPatEs
+    bodyE' <- convertLoc bodyE
+    popLocalScope
+    return $ ExpFunDef $ FunDefFun p id argPatEs' bodyE'
 
-convert (ExpWithAnn (TyAnn p aid tyParamIds synTy constrs) e) = do
-  pushNewLexicalScope
-  tyParamIds' <- mapM freshTypeIdM tyParamIds
-  synTy' <- convertTy synTy
-  let tyAnn = TyAnn p aid tyParamIds' synTy' constrs
-  case e of
-    ExpFunDef (FunDefFun fp fid argPatEs bodyE) ->
-      do pushNewLexicalScope
-         argPatEs' <- mapM (convertPatExp False) argPatEs
-         bodyE' <- convert bodyE
-         popLexicalScope -- body frame
-         popLexicalScope -- enclosing frame for type param id's
-         let e' = ExpFunDef (FunDefFun fp aid argPatEs' bodyE')
-         return $ ExpWithAnn tyAnn e'
-    ExpAssign ep pat@(PatExpId pp pid) e ->
-      do popLexicalScope -- enclosing frame for type param id's
-         e' <- convert e
-         convertPatExp False pat
-         return $ ExpWithAnn tyAnn $ ExpAssign ep (PatExpId pp aid) e'
-    ExpTopLevelAssign ep (PatExpId pp pid) e ->
-      do e' <- convert e
-         popLexicalScope -- enclosing frame for type param id's
-         return $ ExpWithAnn tyAnn $ ExpTopLevelAssign ep (PatExpId pp aid) e'
-    _ -> throwError $ ErrInterpFailure $ "in convert ExpWithAnn: " ++ show e
+  convertLoc (ExpTopLevelAssign p patExp e) = do
+    e' <- convertLoc e
+    patExp' <- convertLoc (True, patExp)
+    return $ ExpAssign p patExp e'
 
-convert (ExpStruct p qid fields) = do
-  tid' <- lookupTy qid `reportErrorAt` nodeData qid
-  fields' <- mapM (\(FieldInit fieldId fieldE) ->
-                      do fieldE' <- convert fieldE
-                         return $ FieldInit fieldId fieldE')
-                  fields
-  return $ ExpStruct p (Id (nodeData qid) tid') fields'
+  -- The pat exp must be converted after the right-hand side,
+  -- so bindings occurring in the former do not show
+  -- up in the latter
+  convertLoc (ExpAssign p patExp e) = do
+    e' <- convertLoc e
+    patExp' <- liftM snd $ convertLoc (False, patExp)
+    return $ ExpAssign p patExp' e'
 
-convert (ExpIfElse p condE thenE elseE) = do
-  condE' <- convert condE
-  thenE' <- inNewLexicalScope $ convert thenE
-  elseE' <- inNewLexicalScope $ convert elseE
-  return $ ExpIfElse p condE' thenE' elseE'
+  convertLoc (ExpTyAnn (TyAnn _ id _ _ _)) =
+    throwError $ ErrInterpFailure $ "ExpTyAnn " ++ show id ++ " not removed before alpha-conversion!"
 
-convert (ExpSwitch p e clauses) = do
-  e' <- convert e
-  clauses' <- mapM convertCaseClause clauses
-  return $ ExpSwitch p e' clauses'
+  convertLoc (ExpWithAnn (TyAnn p aid tyParamIds synTy constrs) e) = do
+    pushNewLocalScope
+    tyParamIds' <- mapM bindLocalType tyParamIds
+    synTy' <- convertLoc synTy
+    let tyAnn = TyAnn p aid tyParamIds' synTy' constrs
+    case e of
+      ExpFunDef (FunDefFun fp fid argPatEs bodyE) ->
+        do pushNewLocalScope
+           argPatEs' <- mapM (convertLocPat False) argPatEs
+           bodyE' <- convertLoc bodyE
+           popLocalScope -- body frame
+           popLocalScope -- enclosing frame for type param id's
+           let e' = ExpFunDef (FunDefFun fp aid argPatEs' bodyE')
+           return $ ExpWithAnn tyAnn e'
+      ExpAssign ep pat@(PatExpId pp pid) e ->
+        do popLocalScope -- enclosing frame for type param id's
+           e' <- convertLoc e
+           convertLocPat False pat
+           return $ ExpWithAnn tyAnn $ ExpAssign ep (PatExpId pp aid) e'
+      ExpTopLevelAssign ep (PatExpId pp pid) e ->
+        do e' <- convertLoc e
+           popLocalScope -- enclosing frame for type param id's
+           return $ ExpWithAnn tyAnn $ ExpTopLevelAssign ep (PatExpId pp aid) e'
+      _ -> throwError $ ErrInterpFailure $ "in convertLoc ExpWithAnn: " ++ show e
 
-convert e@ExpCond{} = convert e'
-  where e' = desugarCond e
+  convertLoc (ExpStruct p qid fields) = do
+    tid' <- lookupTy qid `reportErrorAt` nodeData qid
+    fields' <- mapM (\(FieldInit fieldId fieldE) ->
+                        do fieldE' <- convertLoc fieldE
+                           return $ FieldInit fieldId fieldE')
+                    fields
+    return $ ExpStruct p (Id (nodeData qid) tid') fields'
 
-convert (ExpTuple p es) = do
-  es' <- mapM convert es
-  return $ ExpTuple p es'
+  convertLoc (ExpIfElse p condE thenE elseE) = do
+    condE' <- convertLoc condE
+    thenE' <- inNewLocalScope $ convertLoc thenE
+    elseE' <- inNewLocalScope $ convertLoc elseE
+    return $ ExpIfElse p condE' thenE' elseE'
 
-convert (ExpList p es) = do
-  es' <- mapM convert es
-  return $ ExpList p es'
+  convertLoc (ExpSwitch p e clauses) = do
+    e' <- convertLoc e
+    clauses' <- mapM convertLoc clauses
+    return $ ExpSwitch p e' clauses'
 
-convert (ExpFun p argPatEs bodyE) = do
-  pushNewLexicalScope
-  argPatEs' <- mapM (convertPatExp False) argPatEs
-  bodyE' <- convert bodyE
-  popLexicalScope
-  return $ ExpFun p argPatEs' bodyE'
+  convertLoc e@ExpCond{} = convertLoc e'
+    where e' = desugarCond e
 
-convert (ExpPrecAssign p id level) = do
-  id' <- lookupVar id
-  return $ ExpPrecAssign p id' level
+  convertLoc (ExpTuple p es) = do
+    es' <- mapM convertLoc es
+    return $ ExpTuple p es'
 
-convert (ExpNum p s) = return $ ExpNum p s
-convert (ExpBool p b) = return $ ExpBool p b
-convert (ExpString p s) = return $ ExpString p s
-convert (ExpChar p s) = return $ ExpChar p s
-convert (ExpUnit p) = return $ ExpUnit p
-convert (ExpFail p msg) = return $ ExpFail p msg
+  convertLoc (ExpList p es) = do
+    es' <- mapM convertLoc es
+    return $ ExpList p es'
 
-convert (ExpBegin p es) = do
-  es' <- mapM convert es
-  return $ ExpBegin p es'
+  convertLoc (ExpFun p argPatEs bodyE) = do
+    pushNewLocalScope
+    argPatEs' <- mapM (convertLocPat False) argPatEs
+    bodyE' <- convertLoc bodyE
+    popLocalScope
+    return $ ExpFun p argPatEs' bodyE'
 
-convert (ExpModule p id bodyEs) = do
-  ns <- pushNewOrExistingNamespace id
-  bodyEs' <- mapM convert bodyEs
-  popNs `reportErrorAt` p
-  return $ ExpBegin p bodyEs'
+  convertLoc (ExpPrecAssign p id level) = do
+    id' <- lookupVar id `reportErrorAt` p
+    return $ ExpPrecAssign p id' level
 
-convert (ExpQualifiedRef p id) = do
-  id' <- lookupVar id `reportErrorAt` p
-  return $ ExpRef p id'
+  convertLoc (ExpNum p s) = return $ ExpNum p s
+  convertLoc (ExpBool p b) = return $ ExpBool p b
+  convertLoc (ExpString p s) = return $ ExpString p s
+  convertLoc (ExpChar p s) = return $ ExpChar p s
+  convertLoc (ExpUnit p) = return $ ExpUnit p
+  convertLoc (ExpFail p msg) = return $ ExpFail p msg
 
-convert (ExpRef p id) = do
-  id' <- lookupVar id `reportErrorAt` p
-  return $ ExpRef p id'
+  convertLoc (ExpBegin p es) = do
+    es' <- mapM convertLoc es
+    return $ ExpBegin p es'
 
-convert (ExpTypeDec p (TypeDecTy tp tid tyParamIds synTy)) = do
-  tid' <- lookupTy tid
-  pushNewLexicalScope
-  tyParamIds' <- mapM freshTypeIdM tyParamIds
-  synTy' <- convertTy synTy
-  popLexicalScope
-  return $ ExpTypeDec p $ TypeDecTy tp tid' tyParamIds' synTy'
+  convertLoc (ExpModule p qid bodyEs) = do
+    -- traceM ("convertLoc " ++ render qid)
+    ns <- pushExistingNamespace qid
+    traceM ("convertLoc " ++ render qid)
+    traceM ("  varIdEnv: " ++ (intercalate ", " (map render (Map.keys (varIdEnv ns)))))
+    bodyEs' <- mapM convertLoc bodyEs
+    popNs ns `reportErrorAt` p
+    return $ ExpBegin p bodyEs'
 
-convert (ExpTypeDec p (TypeDecAdt tp tid tyParamIds alts)) = do
-  tid' <- lookupTy tid
-  pushNewLexicalScope
-  tyParamIds' <- mapM freshTypeIdM tyParamIds
-  alts' <- mapMi convertAdtAlternative alts
-  popLexicalScope
-  return $ ExpTypeDec p $ TypeDecAdt tp tid' tyParamIds' alts'
+  convertLoc (ExpQualifiedRef p qid) = do
+    id' <- lookupVar qid `reportErrorAt` p
+    return $ ExpRef p id'
 
-convert (ExpTypeDec p (TypeDecEmpty tp tid tyParamIds)) = do
-  tid'  <- lookupTy tid
-  pushNewLexicalScope
-  tyParamIds' <- mapM freshTypeIdM tyParamIds
-  popLexicalScope
-  return $ ExpTypeDec p $ TypeDecEmpty tp tid' tyParamIds'
+  convertLoc (ExpRef p id) = do
+    id' <- lookupVar id `reportErrorAt` p
+    return $ ExpRef p id'
 
-convert e = throwError $ ErrInterpFailure $ printf "convert failed for: %s" $ show e
+  convertLoc (ExpTypeDec p (TypeDecTy tp tid tyParamIds synTy)) = do
+    tid' <- lookupTy tid
+    pushNewLocalScope
+    tyParamIds' <- mapM bindLocalType tyParamIds
+    synTy' <- convertLoc synTy
+    popLocalScope
+    return $ ExpTypeDec p $ TypeDecTy tp tid' tyParamIds' synTy'
+
+  convertLoc (ExpTypeDec p (TypeDecAdt tp tid tyParamIds alts)) = do
+    tid' <- lookupTy tid
+    pushNewLocalScope
+    tyParamIds' <- mapM bindLocalType tyParamIds
+    (_, alts') <- liftM unzip $ mapMi (\i alt -> convertLoc (i, alt)) alts
+    popLocalScope
+    return $ ExpTypeDec p $ TypeDecAdt tp tid' tyParamIds' alts'
+
+  convertLoc (ExpTypeDec p (TypeDecEmpty tp tid tyParamIds)) = do
+    tid'  <- lookupTy tid
+    pushNewLocalScope
+    tyParamIds' <- mapM bindLocalType tyParamIds
+    popLocalScope
+    return $ ExpTypeDec p $ TypeDecEmpty tp tid' tyParamIds'
+
+  convertLoc e = throwError $ ErrInterpFailure $ printf "convertLoc failed for: %s" $ show e
 
 
 class InjectUserIds a where
@@ -897,6 +1088,7 @@ instance InjectUserIds Exp where
       ExpApp p rator rands -> ExpApp p (r rator) (map r rands)
       ExpPrim p rator -> ExpPrim p $ UserId rator
       ExpImport p qid -> ExpImport p $ inject qid
+      ExpImportAs p qid id -> ExpImportAs p (inject qid) $ UserId id
       ExpAssign p patE e -> ExpAssign p (inject patE) (r e)
       ExpTopLevelAssign p patE e -> ExpTopLevelAssign p (inject patE) (r e)
       ExpTypeDec p typeDec -> ExpTypeDec p $ inject typeDec
@@ -913,10 +1105,10 @@ instance InjectUserIds Exp where
         ExpFunDefClauses p (UserId id) (map inject funDefs)
       ExpInterfaceDec p id paramIds tyAnns ->
         ExpInterfaceDec p (UserId id) (map UserId paramIds) (map inject tyAnns)
-      ExpModule p id bodyEs ->
-        ExpModule p (UserId id) (map inject bodyEs)
-      ExpTypeModule p id tyDec bodyEs ->
-        ExpTypeModule p (UserId id) (inject tyDec) (map inject bodyEs)
+      ExpModule p qid bodyEs ->
+        ExpModule p (inject qid) (map inject bodyEs)
+      ExpTypeModule p qid tyDec bodyEs ->
+        ExpTypeModule p (inject qid) (inject tyDec) (map inject bodyEs)
       ExpStruct p qid fieldInits ->
         ExpStruct p (inject qid) (map inject fieldInits)
       ExpIfElse p e thenE elseE ->
@@ -965,6 +1157,6 @@ modifyAC f = modify (\cEnv -> cEnv { alphaEnv = f (alphaEnv cEnv) })
 runAlphaConvert :: RawAst CompUnit -> AlphaConverted (UniqAst CompUnit)
 runAlphaConvert (CompUnit pos es) = do
   let withUserIds = map inject es
-  es' <- mapM convertBinding withUserIds
-  es'' <- mapM convert es'
+  es' <- mapM convertTop withUserIds
+  es'' <- mapM convertLoc es'
   return $ CompUnit pos es''

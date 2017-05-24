@@ -42,15 +42,15 @@ data Err =
   | ErrNoBindingAfterTyAnn RawId
   | ErrCircularType Ty Ty
   | ErrPartialTyConApp TyCon [Ty]
-  | ErrInvalidRawModulePath (QualifiedId SourcePos RawId)
-  | ErrInvalidUniqModulePath (QualifiedId SourcePos UniqId)
+  | ErrUnboundRawModulePath (QualifiedId SourcePos RawId)
+  | ErrUnboundUniqModulePath (QualifiedId SourcePos UniqId)
   | ErrOverlappingVarImport (QualifiedId SourcePos UniqId) [RawId]
   | ErrOverlappingTyImport (QualifiedId SourcePos UniqId) [RawId]
   | ErrInferenceFail (Map.Map UniqId Ty) Ty Ty
   | ErrPrimUnknown RawId
   | ErrPrimTypeUnknown RawId
   | ErrProtocolAlreadyImplemented UniqId TyCon
-  | ErrMultipleDataDecs UniqId
+  | ErrMultipleDataDecs (QualifiedId SourcePos UniqId)
   | ErrUserFail SourcePos String
   | ErrInterpFailure String
   | ErrNotImplemented String

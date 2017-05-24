@@ -1,5 +1,6 @@
 module Latro.Errors.Display where
 
+import Data.List (intercalate)
 import Latro.Errors
 import Latro.Output
 import Latro.Semant
@@ -198,11 +199,11 @@ instance Sexpable Err where
           , sexp typeModuleId
           ]
 
-  sexp (ErrInvalidUniqModulePath qid) =
-    List  [ Symbol "InvalidUniqModulePath", sexp qid ]
+  sexp (ErrUnboundUniqModulePath qid) =
+    List  [ Symbol "UnboundUniqModulePath", sexp qid ]
 
-  sexp (ErrInvalidRawModulePath qid) =
-    List  [ Symbol "InvalidRawModulePath", sexp qid ]
+  sexp (ErrUnboundRawModulePath qid) =
+    List  [ Symbol "UnboundRawModulePath", sexp qid ]
 
   sexp (ErrOverlappingVarImport qid varIds) =
     List  [ Symbol "OverlappingVarImport"
@@ -267,5 +268,13 @@ instance CompilerOutput Err where
 
   render (ErrUnboundStructField qid fieldId) =
     printf "Struct type %s does not define member named '%s'" (render qid) (render fieldId)
+
+  render (ErrUnboundUniqModulePath qid) =
+    printf "Unbound module '%s'" $ render qid
+
+  render (ErrOverlappingVarImport importedModuleQid shadowedRawIds) =
+    printf "Import of module '%s' would shadow bound variables: %s"
+      (render importedModuleQid)
+      (intercalate ", " (map render shadowedRawIds))
 
   render err = showSexp err

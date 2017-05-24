@@ -61,6 +61,7 @@ import Latro.Semant
   ',' { Token _ TokenComma }
   '_' { Token _ TokenUnderscore }
   '@' { Token _ TokenAtSymbol }
+  '#' { Token _ TokenHash }
   num { Token _ (TokenNumLit _) }
   simple_id { Token _ (TokenSimpleId _) }
   mixed_id { Token _ (TokenMixedId _) }
@@ -73,7 +74,7 @@ import Latro.Semant
 
 %%
 
-CompUnit : OneOrMoreModuleLevelExps { CompUnit (firstPos $1) $1 }
+CompUnit : OneOrMoreTopLevelExps { CompUnit (firstPos $1) $1 }
 
 InteractiveCompUnit : InteractiveExp { CompUnit (nodeData $1) [$1] }
 
@@ -85,6 +86,15 @@ ZeroOrMoreExps : Exp { [$1] }
                | {- empty -} { [] }
 
 Block : '{' ExpOrAssigns '}' { ExpBegin (pos $1) $2 }
+
+TopLevelExp : ModuleDec { $1 }
+
+ZeroOrMoreTopLevelExps : TopLevelExp { [$1] }
+                       | ZeroOrMoreTopLevelExps TopLevelExp { $1 ++ [$2] }
+                       | {- empty -} { [] }
+
+OneOrMoreTopLevelExps : TopLevelExp { [$1] }
+                      | OneOrMoreTopLevelExps TopLevelExp { $1 ++ [$2] }
 
 ZeroOrMoreModuleLevelExps : ModuleLevelExp { [$1] }
                           | ZeroOrMoreModuleLevelExps ModuleLevelExp { $1 ++ [$2] }
@@ -99,7 +109,7 @@ ModuleLevelExp : InterfaceDecExp { $1 }
                | ProtoImp { $1 }
                | ModuleDec { $1 }
                | PrecedenceAssign { $1 }
-               | TopLevelBindingExp { $1 }
+               | ModuleLevelBindingExp { $1 }
 
 InteractiveExp : InterfaceDecExp { $1 }
                | TypeDec { ExpTypeDec (nodeData $1) $1 }
@@ -107,8 +117,11 @@ InteractiveExp : InterfaceDecExp { $1 }
                | PrecedenceAssign { $1 }
                | ExpOrAssign { $1 }
 
-ModuleDec : module SimpleOrMixedId '{' ZeroOrMoreModuleLevelExps '}'
-  { ExpModule (pos $3) (tokValue $2) $4 }
+ImportExp : import SimpleOrQualifiedId { ExpImport (pos $1) $2 }
+          | import SimpleOrQualifiedId '=' simple_id { ExpImportAs (pos $1) $2 (tokValue $4) }
+
+ModuleDec : module SimpleOrQualifiedId '{' ZeroOrMoreModuleLevelExps '}'
+  { ExpModule (pos $3) $2 $4 }
 
 Constraint : when SimpleOrMixedId ':' SimpleOrMixedId { Constraint (pos $1) (tokValue $2) (tokValue $4) }
 
@@ -121,7 +134,7 @@ ProtoDecBody : '{' ZeroOrMoreTyAnns '}' { $2 }
 ProtoDec : protocol SimpleOrMixedId on SimpleOrMixedId Constraints ProtoDecBody
            { ExpProtoDec (pos $1) (tokValue $2) (tokValue $4) $5 $6 }
 
-ProtoImp : imp SimpleTy ':' SimpleOrMixedId Constraints '{' ZeroOrMoreTopLevelBindingExps '}' { ExpProtoImp (pos $1) $2 (tokValue $4) $5 $7 }
+ProtoImp : imp SimpleTy ':' SimpleOrMixedId Constraints '{' ZeroOrMoreModuleLevelBindingExps '}' { ExpProtoImp (pos $1) $2 (tokValue $4) $5 $7 }
 
 TupleRestExps : ',' Exp { [$2] }
               | TupleRestExps ',' Exp { $1 ++ [$3] }
@@ -202,7 +215,7 @@ AtomExp : '(' Exp ')' { ExpInParens (nodeData $2) $2 }
         | prim '(' simple_id ')' { ExpPrim (pos $1) (tokValue $3) }
         | LiteralExp { $1 }
 
-MemberAccessExp : AppExp '.' SimpleOrMixedId { ExpMemberAccess (nodeData $1) $1 (tokValue $3) }
+MemberAccessExp : AppExp '#' SimpleOrMixedId { ExpMemberAccess (nodeData $1) $1 (tokValue $3) }
                 | AtomExp { $1 }
 
 AppExp : AppExp '(' ArgExps ')' { ExpApp (nodeData $1) $1 $3 }
@@ -225,20 +238,21 @@ Exp : CustomInfixExp { $1 }
 ExpOrAssign : let PatExp '=' Exp { ExpAssign (pos $1) $2 $4 }
             | TyAnn { ExpTyAnn $1 }
             | import SimpleOrQualifiedId { ExpImport (pos $1) $2 }
+            | import SimpleOrQualifiedId '=' simple_id { ExpImportAs (pos $1) $2 (tokValue $4) }
             | Exp { $1 }
 
 ExpOrAssigns : ExpOrAssign { [$1] }
              | ExpOrAssigns ExpOrAssign { $1 ++ [$2] }
 
-TopLevelBindingExp : let PatExp '=' LiteralExp { ExpTopLevelAssign (pos $1) $2 $4 }
-									 | let PatExp '=' LiteralListExp { ExpTopLevelAssign (pos $1) $2 $4 }
-                   | FunDef { ExpFunDef $1 }
-                   | TyAnn { ExpTopLevelTyAnn $1 }
-                   | import SimpleOrQualifiedId { ExpImport (pos $1) $2 }
+ModuleLevelBindingExp : let PatExp '=' LiteralExp { ExpTopLevelAssign (pos $1) $2 $4 }
+                      | let PatExp '=' LiteralListExp { ExpTopLevelAssign (pos $1) $2 $4 }
+                      | FunDef { ExpFunDef $1 }
+                      | TyAnn { ExpTopLevelTyAnn $1 }
+                      | ImportExp { $1 }
 
-ZeroOrMoreTopLevelBindingExps : TopLevelBindingExp { [$1] }
-                              | ZeroOrMoreTopLevelBindingExps TopLevelBindingExp { $1 ++ [$2] }
-                              | {- empty -} { [] }
+ZeroOrMoreModuleLevelBindingExps : ModuleLevelBindingExp { [$1] }
+                                 | ZeroOrMoreModuleLevelBindingExps ModuleLevelBindingExp { $1 ++ [$2] }
+                                 | {- empty -} { [] }
 
 PrecedenceAssign : precedence SpecialId num { ExpPrecAssign (pos $1) (tokValue $2) (read (tokValue $3)) }
 
@@ -348,9 +362,9 @@ SimpleOrQualifiedId : SimpleOrMixedId  { Id (pos $1) (tokValue $1) }
                     | QualifiedId { $1 }
 
 SimpleOrQualifiedAlphaNumericId : simple_id { Id (pos $1) (tokValue $1) }
-                                | SimpleOrQualifiedId '::' simple_id { Path (nodeData $1) $1 (tokValue $3) }
+                                | SimpleOrQualifiedId '.' simple_id { Path (nodeData $1) $1 (tokValue $3) }
 
-QualifiedId : SimpleOrQualifiedId '::' SimpleOrMixedId { Path (nodeData $1) $1 (tokValue $3) }
+QualifiedId : SimpleOrQualifiedId '.' SimpleOrMixedId { Path (nodeData $1) $1 (tokValue $3) }
 
 SimpleOrMixedId : simple_id { $1 }
                 | mixed_id { $1 }

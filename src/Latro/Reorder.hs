@@ -60,6 +60,7 @@ reorder env e =
     ExpMemberAccess p e id -> ExpMemberAccess p (r e) id
     ExpApp p ratorE randEs -> ExpApp p (r ratorE) $ map r randEs
     eImp@ExpImport{} -> eImp
+    eImp@ExpImportAs{} -> eImp
     ExpAssign p patE e -> ExpAssign p patE $ r e
     eTy@ExpTypeDec{} -> eTy
     eAnn@ExpTyAnn{} -> eAnn
@@ -120,6 +121,8 @@ rewriteInfix (ExpApp p ratorE randEs) =
   ExpApp p (rewriteInfix ratorE) $ map rewriteInfix randEs
 
 rewriteInfix eImp@(ExpImport _ _) = eImp
+
+rewriteInfix eImp@(ExpImportAs _ _ _) = eImp
 
 rewriteInfix (ExpAssign p patE e) =
   ExpAssign p patE $ rewriteInfix e

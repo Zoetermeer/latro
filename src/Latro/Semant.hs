@@ -63,6 +63,20 @@ mkPath :: Maybe (UniqAst QualifiedId) -> UniqId -> UniqAst QualifiedId
 mkPath maybeQid id = maybe (Id mtSourcePos id) ((flip (Path mtSourcePos)) id) maybeQid
 
 
+pathCombine :: QualifiedId a id -> QualifiedId a id -> QualifiedId a id
+pathCombine qid (Path p qid' id) = Path p (qid `pathCombine` qid') id
+pathCombine qid (Id p id) = Path p qid id
+
+
+infixl 5 +.+
+(+.+) = pathCombine
+
+
+stripPath :: UniqAst QualifiedId -> UniqId
+stripPath (Id _ id) = id
+stripPath (Path _ _ id) = id
+
+
 class AstNode a where
   nodeData :: a b id -> b
 
@@ -300,6 +314,7 @@ data Exp a id =
   | ExpApp a (Exp a id) [Exp a id]
   | ExpPrim a id
   | ExpImport a (QualifiedId a id)
+  | ExpImportAs a (QualifiedId a id) id
   | ExpTopLevelAssign a (PatExp a id) (Exp a id)
   | ExpAssign a (PatExp a id) (Exp a id)
   | ExpTypeDec a (TypeDec a id)
@@ -312,8 +327,8 @@ data Exp a id =
   | ExpFunDef (FunDef a id)
   | ExpFunDefClauses a id [FunDef a id]
   | ExpInterfaceDec a id [id] [TyAnn a id]
-  | ExpModule a id [Exp a id]
-  | ExpTypeModule a id (TypeDec a id) [Exp a id]
+  | ExpModule a (QualifiedId a id) [Exp a id]
+  | ExpTypeModule a (QualifiedId a id) (TypeDec a id) [Exp a id]
   | ExpStruct a (QualifiedId a id) [FieldInit a id]
   | ExpIfElse a (Exp a id) (Exp a id) (Exp a id)
   | ExpMakeAdt a id Int [Exp a id]
@@ -346,6 +361,7 @@ instance AstNode Exp where
       ExpApp d _ _ -> d
       ExpPrim d _ -> d
       ExpImport d _ -> d
+      ExpImportAs d _ _ -> d
       ExpTopLevelAssign d _ _ -> d
       ExpAssign d _ _ -> d
       ExpTypeDec d _ -> d
@@ -417,6 +433,8 @@ instance AstNode TypeDec where
     case td of
       TypeDecTy d _ _ _ -> d
       TypeDecAdt d _ _ _ -> d
+      TypeDecImplicit d _ -> d
+      TypeDecEmpty d _ _ -> d
 
 
 getTypeDecId :: TypeDec a id -> Maybe id
@@ -540,6 +558,7 @@ getRawId (UniqId _ rawId) = rawId
 
 type RawIdEnv a = Map.Map RawId a
 type UniqIdEnv a = Map.Map UniqId a
+type QualIdEnv v = Map.Map (UniqAst QualifiedId) v
 type Env a = Map.Map UniqId a
 type CloEnv a = Env a
 type VEnv = Env Value

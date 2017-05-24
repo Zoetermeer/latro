@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns, StrictData #-}
 module Latro.Compiler where
 
 import Control.Monad.Except
@@ -26,6 +27,9 @@ type ModuleTypecheck      = CompilerModule (Untyped ILCompUnit) (Typed ILCompUni
 type ModuleInterp         = CompilerModule (Typed ILCompUnit) (IO Value)
 
 
+-- |Alpha conversion environment
+-- Global scope --> Namespace scope --> Local scope
+
 data TypeNamespace =
     TypeNsAdt UniqId (RawIdEnv UniqId)
   | TypeNsStruct UniqId (RawIdEnv UniqId)
@@ -39,57 +43,74 @@ typeId (TypeNsStruct id _) = id
 typeId (TypeNsSimple id) = id
 
 
-data Namespace = Ns
-  { name      :: UniqId
-  , scope     :: LexicalScope
-  , exports   :: LexicalScope
-  }
-  deriving (Eq, Show)
-
-
-mkNs :: UniqId -> Int -> Namespace
-mkNs nsId index = Ns { name = nsId, scope = mtLexicalScope index, exports = mtLexicalScope index }
-
-
--- |Alpha conversion environment
-data LexicalScope = LexicalScope
-  { index     :: Int
-  , varIdEnv  :: RawIdEnv UniqId
-  , typeIdEnv :: RawIdEnv UniqId
-  , typeNsEnv :: UniqIdEnv TypeNamespace
-  , ctorEnv   :: RawIdEnv UniqId
-  }
-  deriving (Eq, Show)
-
-
-mtLexicalScope :: Int -> LexicalScope
-mtLexicalScope ind =
-  LexicalScope { index     = ind
-               , varIdEnv  = mtRawIdEnv
-               , typeIdEnv = mtRawIdEnv
-               , typeNsEnv = mtUniqIdEnv
-               , ctorEnv   = mtRawIdEnv
-}
-
 
 data AlphaEnv = AlphaEnv
-  { counter :: Int
-  , stack   :: [LexicalScope]
-  , nsEnv   :: Map.Map (UniqAst QualifiedId) Namespace
-  , curPath :: Maybe (UniqAst QualifiedId)
-  , curNs   :: Maybe Namespace
+  { counter         :: Int
+  -- Includes all defined namespaces, and imported aliased ones at the global (outermost) scope
+  , globalNsEnv     :: QualIdEnv NamespaceScope
+  -- The stack of namespace scopes for the current context.
+  -- The head is the innermost namespace scope.
+  , globalNsStack   :: [NamespaceScope]
   }
   deriving (Eq, Show)
+
+type GlobalScope = AlphaEnv
 
 
 instance Environment AlphaEnv where
-  mt = AlphaEnv { counter = i
-                , stack   = [mtLexicalScope i]
-                , nsEnv = Map.empty
-                , curPath = Nothing
-                , curNs = Nothing
+  mt = AlphaEnv { counter       = i
+                , globalNsEnv   = Map.empty
+                , globalNsStack = []
                 }
     where i = 1
+
+data NamespaceScope = Ns
+  { path            :: UniqAst QualifiedId
+  -- All defined and namespace-imported namespaces (superset of the global NS env)
+  , nsEnv           :: QualIdEnv NamespaceScope
+  -- All variables imported and bound at this scope
+  , varIdEnv        :: RawIdEnv UniqId
+  -- All types imported and bound at this scope
+  , typeIdEnv       :: RawIdEnv UniqId
+  -- All constructors imported and bound at this scope
+  , ctorIdEnv       :: RawIdEnv UniqId
+  -- The stack of local scopes for the current context.
+  -- The head is the innermost local scope.
+  -- Local scopes only apply to the right-hand side of a variable binding occurrence,
+  -- or a type binding occurrence.  A type environment is needed even for
+  -- the variable case, because type variables can be introduced in a local scope.
+  , localScopeStack :: [LocalScope]
+  -- Exported variables
+  , exportVarIdEnv  :: RawIdEnv UniqId
+  -- Exported types
+  , exportTypeIdEnv :: RawIdEnv UniqId
+  -- Exported constructors
+  , exportCtorIdEnv :: RawIdEnv UniqId
+  }
+  deriving (Eq, Show)
+
+
+mkNs :: UniqAst QualifiedId -> NamespaceScope
+mkNs path = Ns { path = path
+               , nsEnv = Map.empty
+               , varIdEnv = Map.empty
+               , typeIdEnv = Map.empty
+               , ctorIdEnv = Map.empty
+               , localScopeStack = []
+               , exportVarIdEnv = Map.empty
+               , exportTypeIdEnv = Map.empty
+               , exportCtorIdEnv = Map.empty
+               }
+
+
+data LocalScope = LocalScope
+  { localVarIdEnv  :: RawIdEnv UniqId
+  , localTypeIdEnv :: RawIdEnv UniqId
+  } deriving (Eq, Show)
+
+
+mtScope :: LocalScope
+mtScope = LocalScope { localVarIdEnv = mtRawIdEnv, localTypeIdEnv = mtRawIdEnv }
 
 
 -- |Infix-application reordering environment
