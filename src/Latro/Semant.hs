@@ -72,6 +72,11 @@ infixl 5 +.+
 (+.+) = pathCombine
 
 
+basePath :: UniqAst QualifiedId -> UniqAst QualifiedId
+basePath (Path _ qid _) = qid
+basePath id = id
+
+
 stripPath :: UniqAst QualifiedId -> UniqId
 stripPath (Id _ id) = id
 stripPath (Path _ _ id) = id
@@ -532,6 +537,11 @@ instance Out UniqId
 instance Show UniqId where
   show (UserId raw) = raw
   show (UniqId _ raw) = raw
+
+
+showFullUniqId :: UniqId -> String
+showFullUniqId (UserId raw) = "(UserId '" ++ raw ++ "')"
+showFullUniqId (UniqId i raw) = "(UniqId " ++ show i ++ " '" ++ raw ++ "')"
 
 instance Eq UniqId where
   (UserId raw) == (UserId raw') = raw == raw'

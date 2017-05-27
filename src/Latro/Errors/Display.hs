@@ -217,6 +217,17 @@ instance Sexpable Err where
           , toSexpList tyIds
           ]
 
+  sexp (ErrOverlappingCtorImport qid ctorIds) =
+    List  [ Symbol "OverlappingCtorImport"
+          , sexp qid
+          , toSexpList ctorIds
+          ]
+
+  sexp (ErrIllegalTopLevelTypeModule qid) =
+    List  [ Symbol "IllegalTopLevelTypeModule"
+          , sexp qid
+          ]
+
   sexp (ErrInterpFailure s) =
     List  [ Symbol "InterpFailure"
           , Atom "Non-exhaustive pattern"

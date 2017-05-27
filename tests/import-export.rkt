@@ -17,6 +17,7 @@
           }
 
           module Program {
+            import Bar
             main(_) = prim(println)(Bar.v)
           }
 
@@ -24,23 +25,36 @@
 
           module Goo { let y = 8 }
         }
-        `(AtPos (SourcePos ,_ 10 ,_) (CompilerModule AlphaConvert) (UnboundQualIdentifier Bar.v)))))
+        `(AtPos (SourcePos ,_ 11 ,_) (CompilerModule AlphaConvert) (UnboundQualIdentifier Bar.v)))))
 
-  (test-case "it imports type modules"
+  (test-case "it defines type modules"
     (parameterize ([use-core? #f])
       (check-equal?
         @interp-lines{
-          module Root {
-            module Foo {
-              type | A | B
-            }
+          module Root.Foo {
+            type | A | B
+          }
 
-            module Main {
-              main(_) = ()
-            }
+          module Main {
+            main(_) = ()
           }
         }
         '())))
+
+  (test-case "it does not allow top-level type modules"
+    (parameterize ([use-core? #f])
+      (check-match
+        @interp-sexp{
+          module Foo {
+            type | A | B
+          }
+
+          module Main {
+            import Foo
+            main(_) = ()
+          }
+        }
+        `(AtPos (SourcePos ,_ 1 ,_) (CompilerModule AlphaConvert) (IllegalTopLevelTypeModule Foo)))))
 
   (test-case "it does not allow rebinding of imported identifiers"
     (parameterize ([use-core? #f])
@@ -57,6 +71,7 @@
           }
 
           module Main {
+            import Y
             main(_) = prim(println)(Y.foo(1))
           }
         }
@@ -78,7 +93,7 @@
             import B
             import A
 
-            main(_) = prim(println)(B.foo(1))
+            main(_) = prim(println)(foo(1))
           }
         }
         `(AtPos (SourcePos ,_ 11 ,_) (CompilerModule AlphaConvert) (OverlappingVarImport A (foo))))))
@@ -89,29 +104,50 @@
         @interp-lines{
           module Root {
             type A = | Foo(primtype(int)) | Bar(primtype(int))
-
-            module M { }
           }
 
           module P {
-            main(_) = prim(println)(Root.Foo(42))
+            import Root
+            main(_) = prim(println)(Foo(42))
           }
         }
         '("Foo(42)"))))
 
-  (test-case "it imports into the module closure"
+  (test-case "it does not import parent exports into submodules"
+    (check-match
+      @interp-sexp{
+        module Foo {
+          length(ls) = 3
+        }
+
+        module Foo.Bar {
+          len(ls) = length(ls)
+        }
+
+        module Pgm {
+          import Foo.Bar
+          import IO
+          main(_) = println(Foo.Bar.len([1, 2, 3]))
+        }
+      }
+      `(AtPos (SourcePos ,_ 6 ,_) (CompilerModule AlphaConvert) (UnboundUniqIdentifier length))))
+
+  (test-case "it binds explicitly imported variables from parent modules"
     (check-equal?
       @interp-lines{
         module Foo {
           length(ls) = 3
+        }
 
-          module Bar {
-            len(ls) = length(ls)
-          }
+        module Foo.Bar {
+          import Foo
+          len(ls) = length(ls)
         }
 
         module Pgm {
-          main(_) = IO.println(Foo.Bar.len([1, 2, 3]))
+          import Foo.Bar
+          import IO
+          main(_) = println(len([1, 2, 3]))
         }
       }
       '("3")))
@@ -121,28 +157,12 @@
       @interp-lines{
         module Program {
           import Core.List = Lst
+          import IO
 
           main(_) = IO.println(Lst.append([1, 2], [3, 4]))
         }
       }
       '("[1, 2, 3, 4]")))
-
-  (test-case "it keeps module aliases in scope in deeply nested scopes"
-    (check-equal?
-      @interp-lines{
-        module Program {
-          import Core.String = Str
-
-          module Foo {
-            module Bar {
-              f(a, b) = Str.areEqual(a, b)
-            }
-          }
-
-          main(_) = IO.println(Program.Foo.Bar.f("hello", "world"))
-        }
-      }
-      '("False")))
 
   (test-case "it lexically scopes alias imports"
     (check-match
@@ -154,10 +174,61 @@
         }
 
         module Program {
-          main(_) = IO.println(Lst.append([3, 4], [5, 6]))
+          import Foo
+          import IO
+          main(_) = println(Lst.append([3, 4], [5, 6]))
         }
       }
-      `(AtPos (SourcePos ,_ 8 ,_) (CompilerModule AlphaConvert) (UnboundUniqModulePath Lst))))
+      `(AtPos (SourcePos ,_ 10 ,_) (CompilerModule AlphaConvert) (UnboundUniqModulePath Lst))))
+
+  (test-case "it allows reopening and accumulates exports"
+    (check-equal?
+      @interp-lines{
+        module A {
+          f() = 42
+        }
+
+        module B {
+      
+        }
+
+        module A {
+          g() = f()
+        }
+
+        module Main {
+          import A
+          import Core
+          import IO
+          main(_) = println(g() + f())
+        }
+      }
+      '("84")))
+
+  (test-case "it drops all imported bindings in a module reopening"
+    (check-match
+      @interp-sexp{
+        module Foo {
+          let x = 42
+        }
+
+        module Bar {
+          import Foo
+
+          let y = x
+        }
+
+        module Bar {
+          let z = x
+        }
+
+        module Main {
+          import Bar
+          import IO
+          main(_) = println(z)
+        }
+      }
+      `(AtPos (SourcePos ,_ 12 ,_) (CompilerModule AlphaConvert) (UnboundUniqIdentifier x))))
 
   (test-case "it defines modules with qualified names"
     (check-equal?
@@ -167,7 +238,9 @@
         }
 
         module Main {
-          main(_) = IO.println(Foo.Bar.v)
+          import Foo.Bar
+          import IO
+          main(_) = println(Foo.Bar.v)
         }
       }
       '("42")))
@@ -185,8 +258,109 @@
 
         module Main {
           import Core
-          main(_) = IO.println(Foo.Bar.v + Foo.x)
+          import Foo
+          import Foo.Bar
+          import IO
+          main(_) = println(v + x)
         }
       }
       '("83")))
+
+  (test-case "it does not implicitly import bindings in a parent module defined further down"
+    (check-match
+      @interp-sexp{
+        module Foo.Bar {
+          let v = x
+        }
+
+        module Foo {
+          let x = 41
+        }
+
+        module Main {
+          import Foo.Bar
+          import IO
+          main(_) = println(v)
+        }
+      }
+      `(AtPos (SourcePos ,_ 2 ,_) (CompilerModule AlphaConvert) (UnboundUniqIdentifier x))))
+
+  (test-case "it replaces the implicit importing of a parent module when an explicit import is used"
+    (check-match
+      @interp-sexp{
+        module Foo.Bar {
+          import Foo = F
+          let v = x
+        }
+
+        module Foo {
+          let x = 41
+        }
+
+        module Main {
+          import Foo.Bar
+          import IO
+          main(_) = println(v)
+        }
+      }
+      `(AtPos (SourcePos ,_ 3 ,_) (CompilerModule AlphaConvert) (UnboundUniqIdentifier x))))
+
+  (test-case "it allows aliased imports of parent modules"
+    (check-equal?
+      @interp-lines{
+        module Foo.Bar {
+          import Foo = F
+          let v = F.x
+        }
+
+        module Foo {
+          let x = 41
+        }
+
+        module Main {
+          import Foo.Bar
+          import IO
+          main(_) = println(Foo.Bar.v)
+        }
+      }
+      '("41")))
+
+  (test-case "it allows fully-qualified references on imported modules"
+    (check-equal?
+      @interp-lines{
+        module Foo {
+          let x = 42
+        }
+
+        module Bar {
+          import Foo
+
+          let y = Foo.x
+        }
+
+        module Main {
+          import Bar
+          import IO
+          main(_) = println(Bar.y)
+        }
+      }
+      '("42")))
+
+  (test-case "it does not allow fully-qualified references to unimported modules"
+    (check-match
+      @interp-sexp{
+        module Foo {
+          let x = 42
+        }
+
+        module Bar {
+          let y = Foo.x
+        }
+
+        module Main {
+          import IO
+          main(_) = println(Bar.y)
+        }
+      }
+      `(AtPos (SourcePos ,_ 6 ,_) (CompilerModule AlphaConvert) (UnboundUniqModulePath Foo))))
 )

@@ -1005,20 +1005,16 @@
   (test-case "it does not allow partially-qualified references to submodules if the containing module is imported"
     (check-match
       @interp-sexp{
-        module A {
-          module Foo {
-            let x = 42
-          }
+        module A.Foo {
+          let x = 42
         }
 
-        module B {
-          module Bar {
-						let y = 43
-          }
+        module B.Bar {
+          let y = 43
         }
 
         module Main {
-          import A
+          import A.Foo
           import B
 
           main(_) = {
@@ -1042,6 +1038,7 @@
           }
 
           module Pgm {
+            import ListStuff
             main(_) = prim(println)(ListStuff.length([1, 2, 3]))
           }
         }
@@ -1057,6 +1054,7 @@
           }
 
           module Pgm {
+            import ListStuff
             main(_) = prim(println)(ListStuff.length([1, 2, 3]))
           }
         }
@@ -1110,20 +1108,22 @@
     (parameterize ([use-core? #f])
       (check-equal?
         @interp-lines{
-          module Outer {
-            module Maybe {
-              type <a>
-                | Just(a)
-                | Nothing
+          module Outer.Maybe {
+            import Outer
+
+            type <a>
+              | Just(a)
+              | Nothing
 
 
-              isJust<a> : Maybe<a> -> primtype(bool)
-              isJust(Just(_)) = True
-              isJust(_) = False
-            }
+            isJust<a> : Maybe<a> -> primtype(bool)
+            isJust(Just(_)) = True
+            isJust(_) = False
           }
 
           module Program {
+            import Outer.Maybe
+
             main(_) = prim(println)(Outer.Maybe.isJust(Outer.Maybe.Just(42)))
           }
         }

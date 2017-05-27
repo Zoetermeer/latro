@@ -48,19 +48,21 @@ data AlphaEnv = AlphaEnv
   { counter         :: Int
   -- Includes all defined namespaces, and imported aliased ones at the global (outermost) scope
   , globalNsEnv     :: QualIdEnv NamespaceScope
-  -- The stack of namespace scopes for the current context.
-  -- The head is the innermost namespace scope.
-  , globalNsStack   :: [NamespaceScope]
+  , curNamespace    :: NamespaceScope
   }
   deriving (Eq, Show)
 
 type GlobalScope = AlphaEnv
 
 
+topLevelNs :: NamespaceScope
+topLevelNs = mkNs $ Id mtSourcePos $ UserId "/"
+
+
 instance Environment AlphaEnv where
   mt = AlphaEnv { counter       = i
                 , globalNsEnv   = Map.empty
-                , globalNsStack = []
+                , curNamespace  = topLevelNs
                 }
     where i = 1
 

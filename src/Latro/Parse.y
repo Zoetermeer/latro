@@ -107,7 +107,6 @@ ModuleLevelExp : InterfaceDecExp { $1 }
                | TypeDec { ExpTypeDec (nodeData $1) $1 }
                | ProtoDec { $1 }
                | ProtoImp { $1 }
-               | ModuleDec { $1 }
                | PrecedenceAssign { $1 }
                | ModuleLevelBindingExp { $1 }
 

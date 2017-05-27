@@ -1,9 +1,6 @@
 module Core {
-  type Int = primtype(int)
   type Bool = primtype(bool)
-  type Char = primtype(char)
   type Unit = primtype(unit)
-  type String = Char[]
 
   type Result<e, t> =
     | Ok(t)
@@ -28,9 +25,9 @@ module Core {
   not(True) = False
   not(_)    = True
 
-  infixl (< )(a, b)   = prim(intLt)(a, b)
+  infixl (< )(a, b)  = prim(intLt)(a, b)
   infixl (<=)(a, b)  = prim(intLeq)(a, b)
-  infixl (> )(a, b)   = prim(intGt)(a, b)
+  infixl (> )(a, b)  = prim(intGt)(a, b)
   infixl (>=)(a, b)  = prim(intGeq)(a, b)
   infixl (==)(a, b)  = prim(intEq)(a, b)
   infixl (!=)(a, b)  = not(a == b)
@@ -61,6 +58,10 @@ module Core {
 
 
 module Core.Char {
+  import Core
+
+  type primtype(char)
+
   toInt : Char -> Int
   toInt(c) = prim(charToInt)(c)
 
@@ -75,10 +76,10 @@ module Core.Char {
 
 
 module Core.Maybe {
-  type <a>
-    | Just(a)
-    | Nothing
+  import Core
 
+  type <a> | Just(a)
+           | Nothing
 
   isJust<a> : Maybe<a> -> Bool
   isJust(Just(_)) = True
@@ -87,7 +88,9 @@ module Core.Maybe {
 
 
 module Core.List {
-  import Core.Maybe
+  import Core
+  import Core.Maybe = Maybe
+
 
   length<a> : a[] -> Int
   length([])    = 0
@@ -109,29 +112,29 @@ module Core.List {
   infixl (++)(a@as, bs) = a @ (as ++ bs)
 
 
-  head<a> : a[] -> Core.Maybe<a>
-  head([]) = Nothing()
-  head(x@_) = Just(x)
+  head<a> : a[] -> Maybe<a>
+  head([]) = Maybe.Nothing()
+  head(x@_) = Maybe.Just(x)
 
 
-  tail<a> : a[] -> Core.Maybe<a[]>
-  tail([]) = Nothing()
-  tail(_@xs) = Just(xs)
+  tail<a> : a[] -> Maybe<a[]>
+  tail([]) = Maybe.Nothing()
+  tail(_@xs) = Maybe.Just(xs)
 
 
-  atIndex<a> : a[] -> Int -> Core.Maybe<a>
-  atIndex([], _)    = Nothing()
-  atIndex(x@_, 0)  = Just(x)
+  atIndex<a> : a[] -> Int -> Maybe<a>
+  atIndex([], _)   = Maybe.Nothing()
+  atIndex(x@_, 0)  = Maybe.Just(x)
   atIndex(_@xs, n) = atIndex(xs, n - 1)
 
 
   map<a, b> : (a -> b) -> a[] -> b[]
-  map(_, []) = []
+  map(_, [])   = []
   map(f, x@xs) = f(x) @ map(f, xs)
 
 
   each<a> : (a -> Unit) -> a[] -> Unit
-  each(_, []) = ()
+  each(_, [])   = ()
   each(f, x@xs) = {
     f(x)
     each(f, xs)
@@ -139,13 +142,13 @@ module Core.List {
 
 
   foldl<a, b> : (a -> b -> b) -> b -> a[] -> b
-  foldl(f, b, []) = b
+  foldl(f, b, [])   = b
   foldl(f, b, x@xs) = foldl(f, f(x, b), xs)
 
 
   foldr<a, b> : (a -> b -> b) -> b -> a[] -> b
   foldr(f, b, x@xs) = f(x, foldr(f, b, xs))
-  foldr(f, b, [])    = b
+  foldr(f, b, [])   = b
 
 
   select<a> : (a -> Bool) -> a -> %(a[], a[]) -> %(a[], a[])
@@ -164,7 +167,7 @@ module Core.List {
 
 
   reverse<a> : a[] -> a[]
-  reverse([]) = []
+  reverse([])     = []
   reverse(x @ xs) = reverse(xs) ++ [x]
 
 
@@ -176,7 +179,12 @@ module Core.List {
 }
 
 module Core.Int {
+  import Core
+  import Core.Char = Char
   import Core.List
+  import Core.List = List
+
+  type primtype(int)
 
   digits : Int -> Int[]
   digits(0) = [0]
@@ -186,14 +194,17 @@ module Core.Int {
     if (n' == 0) [m] digits(n') ++ [m]
   }
 
+  readAChar : Char -> Int
+  readAChar(c) = Char.unsafeRead(c)
+
   read/priv : String -> Int -> Int
   read/priv("", _) = 0
-  read/priv(c @ cs, p) = Core.Char.unsafeRead(c) * pow(10, p) + read/priv(cs, p + 1)
+  read/priv(c @ cs, p) = readAChar(c) * pow(10, p) + read/priv(cs, p + 1)
 
 
   unsafeRead : String -> Int
   unsafeRead("") = 0
-  unsafeRead(str) = read/priv(Core.List.reverse(str), 0)
+  unsafeRead(str) = read/priv(List.reverse(str), 0)
 
 
   toString : Int -> String
@@ -226,7 +237,12 @@ module Core.Int {
 }
 
 module Core.String {
+  import Core
+  import Core.Char = Char
   import Core.List
+  import Core.List = List
+
+  type (Char[])
 
   isEmpty : String -> Bool
   isEmpty("") = True
@@ -236,8 +252,8 @@ module Core.String {
   equal? : String -> String -> Bool
   equal?([], []) = True
   equal?(a @ as, b @ bs) = cond {
-    Core.Char.equal?(a, b) -> equal?(as, bs)
-    _                      -> False
+    Char.equal?(a, b) -> equal?(as, bs)
+    _                         -> False
   }
 
   areEqual(_, _) = False
@@ -254,11 +270,11 @@ module Core.String {
 
 
   split/priv : String -> Char -> String -> String[] -> String[]
-  split/priv([], _, curWord, _words) = Core.List.reverse(curWord) @ _words
+  split/priv([], _, curWord, _words) = List.reverse(curWord) @ _words
 
   split/priv(c @ cs, matchChar, curWord, _words) = {
-    if (charEqual(c,matchChar)) {
-      let words' = if (isEmpty(curWord)) _words Core.List.reverse(curWord) @ _words
+    if (Char.equal?(c,matchChar)) {
+      let words' = if (isEmpty(curWord)) _words List.reverse(curWord) @ _words
       split/priv(cs, matchChar, "", words')
     } {
       split/priv(cs, matchChar, c @ curWord, _words)
@@ -267,7 +283,7 @@ module Core.String {
 
   split : String -> Char -> String[]
   split(str, matchChar) = {
-    Core.List.reverse(split/priv(str, matchChar, "", []))
+    List.reverse(split/priv(str, matchChar, "", []))
   }
 
 

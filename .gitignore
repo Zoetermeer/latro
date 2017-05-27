@@ -16,5 +16,6 @@ last-test.l
 /src/last-test.l
 /tests/compiled/
 /tests/last-test.l
+/tests/scratch.l
 /tests/scratch.rkt
 //tests/*.rkt~

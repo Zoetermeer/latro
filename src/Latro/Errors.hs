@@ -46,6 +46,8 @@ data Err =
   | ErrUnboundUniqModulePath (QualifiedId SourcePos UniqId)
   | ErrOverlappingVarImport (QualifiedId SourcePos UniqId) [RawId]
   | ErrOverlappingTyImport (QualifiedId SourcePos UniqId) [RawId]
+  | ErrOverlappingCtorImport (QualifiedId SourcePos UniqId) [RawId]
+  | ErrIllegalTopLevelTypeModule (QualifiedId SourcePos UniqId)
   | ErrInferenceFail (Map.Map UniqId Ty) Ty Ty
   | ErrPrimUnknown RawId
   | ErrPrimTypeUnknown RawId
