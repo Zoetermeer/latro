@@ -169,6 +169,15 @@ exportTy (UserId rawId) uid = do
 exportTy UniqId{} _ = return ()
 
 
+exportCtor :: UniqId -> UniqId -> AlphaConverted ()
+exportCtor userId@(UserId rawId) uid = do
+  modifyCurNs (\ns -> ns { exportCtorIdEnv = Map.insert rawId uid (exportCtorIdEnv ns)
+                         , ctorIdEnv       = Map.insert rawId uid (ctorIdEnv ns)
+                         })
+  exportVar userId uid
+exportCtor UniqId{} _ = return ()
+
+
 freshVarId :: UniqId -> AlphaEnv -> (UniqId, AlphaEnv)
 freshVarId (UserId id) aEnv@AlphaEnv { counter } =
     (uniqId, aEnv { counter = counter' })
@@ -607,7 +616,7 @@ convertBin c p a b = do
 instance AlphaTopLevel (Int, UniqAst AdtAlternative) where
   convertTop (index, AdtAlternative p id _ tys) = do
     id' <- freshCtorIdM id `reportErrorAt` p
-    exportVar id id'
+    exportCtor id id'
     return (index, AdtAlternative p id' index tys)
 
 
