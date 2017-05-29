@@ -1,15 +1,19 @@
-import Core
-import Core.List
-import JsonLexer
-import Parser
+module Json.Tests {
+  import Core
+  import Core.List
+  import IO
+  import Json
+  import Json.Token = Token
+  import Json.Value
 
-quote : String -> String
-quote(s) = ['"'] ++ s ++ ['"']
+  quote : String -> String
+  quote(s) = ['"'] ++ s ++ ['"']
 
-main(_) = {
-  IO.println(read("{}"))
-  IO.println(read(quote("hello")))
-  IO.println(read("[,]{?"))
+  main(_) = {
+    println(Token.read("{}"))
+    println(Token.read(quote("hello")))
+    println(Token.read("[,]{?"))
 
-  IO.println(parse("[" ++ quote("hello") ++ "]"))
+    println(parse("[" ++ quote("hello") ++ "]"))
+  }
 }

@@ -1,35 +1,26 @@
-module Result {
-  module MonadInfix {
-    @(>>=)(Ok(x), f) = f(x)
-    @(>>=)(Error(e), _)   = Error(e)
-
-    return(x) = Ok(x)
-  }
-}
-
-module Parser {
+module Json.Value {
   import Core
-  import JsonLexer
-  import Result.MonadInfix
+  import Core.Result.MonadInfix
+  import Json
+  import Json.Token = Token
 
   type Field = %(String, Value)
 
-  type Value =
-    | JsonObject(Field[])
-    | JsonArray(Value[])
-    | JsonString(String)
-    | JsonNumber(Int)
-    | JsonBool(Bool)
-    | JsonNull
+  type | Object(Field[])
+       | Array(Value[])
+       | String(String)
+       | Number(Int)
+       | Bool(Bool)
+       | Null
 
 
   parseArray(ts) = {
-    def rv = parseValue(ts)
+    let rv = parseValue(ts)
     switch (rv) {
-      Ok(%(value, t :: ts')) -> {
+      Ok(%(value, t @ ts')) -> {
         switch (t) {
-          TokRBracket() -> Ok(%(JsonArray([value]), ts'))
-          _ -> Error("Expected ']'")
+          Token.RBracket -> Ok(%(Array([value]), ts'))
+          _              -> Error("Expected ']'")
         }
       }
       _ -> Error("Invalid array element")
@@ -37,22 +28,22 @@ module Parser {
   }
 
 
-  parseValue : Tok[] -> Result{String, %(Value, Tok[])}
-  parseValue([]) = Ok(%(JsonNull(), []))
-  parseValue(t :: ts) = {
+  parseValue : Token[] -> Result<String, %(Value, Token[])>
+  parseValue([]) = Ok(%(Null(), []))
+  parseValue(t @ ts) = {
     switch (t) {
-      TokLBracket() -> parseArray(ts)
-      TokString(s)  -> Ok(%(JsonString(s), ts))
-      TokNull       -> Ok(%(JsonNull(), ts))
+      Token.LBracket() -> parseArray(ts)
+      Token.String(s)  -> Ok(%(String(s), ts))
+      Token.NullLit    -> Ok(%(Null(), ts))
     }
   }
 
 
-  parse : String -> Result{String, Value}
+  parse : String -> Result<String, Value>
   parse(input) = {
-    read(input)         >>= fun(tokens) =
+    Token.read(input)   >>= fun(tokens) =
     parseValue(tokens)  >>= fun(rv) = {
-      def %(value, tokens') = rv
+      let %(value, tokens') = rv
       return(value)
     }
   }

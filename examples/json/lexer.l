@@ -1,72 +1,77 @@
-module Result {
-  module MonadInfix {
-    @(>>=)(Ok(x), f) = f(x)
-    @(>>=)(Error(e), _)   = Error(e)
+module Core.Result.MonadInfix {
+  import Core
 
-    return(x) = Ok(x)
-  }
+  infixl (>>=)(Ok(x), f) = f(x)
+  infixl (>>=)(Error(e), _)   = Error(e)
+
+  return(x) = Ok(x)
 }
 
-module JsonLexer {
+module Json.Token {
   import Core
   import Core.List
-  import Result.MonadInfix
+  import Core.Result.MonadInfix
+  import Json
 
 
-  type Tok =
-    | TokLBrace
-    | TokRBrace
-    | TokComma
-    | TokLBracket
-    | TokRBracket
-    | TokString(String)
-    | TokNumber(Int)
-    | TokTrue
-    | TokFalse
-    | TokNull
-    | TokEof
+  type | LBrace
+       | RBrace
+       | Comma
+       | LBracket
+       | RBracket
+       | String(String)
+       | Number(Int)
+       | TrueLit
+       | FalseLit
+       | NullLit
+       | Eof
 
 
-  lexStr/private : String -> Result{String, %(String, String)}
+  accept : Token -> String -> Result<String, %(Token, String)>
+  accept(tok, rest) = Ok(%(tok, rest))
+
+
+  lexStr/private : String -> Result<String, %(String, String)>
   lexStr/private("") = Error("Unterminated string constant.")
-  lexStr/private('"' :: cs) = Ok(%("", cs))
-  lexStr/private(c :: cs) =
+  lexStr/private('"' @ cs) = Ok(%("", cs))
+  lexStr/private(c @ cs) =
     lexStr/private(cs) >>= fun(answer) = {
-      def %(str, inputRest) = answer
-      Ok(%(c :: str, inputRest))
+      let %(str, inputRest) = answer
+      Ok(%(c @ str, inputRest))
     }
 
 
-  lexStr : String -> Result{String, %(Tok, String)}
+  lexStr : String -> Result<String, %(Token, String)>
   lexStr(input) =
     lexStr/private(input) >>= fun(answer) = {
-      def %(strContents, rest) = answer
-      Ok(%(TokString(strContents), rest))
+      let %(strContents, rest) = answer
+      accept(String(strContents), rest)
     }
 
 
-  lex([]) = Ok(%(TokEof(), ""))
-  lex(c :: cs) = {
+  lex([]) = Ok(%(Eof(), ""))
+  lex(c @ cs) = {
     switch (c) {
-      '{' -> Ok(%(TokLBrace(), cs))
-      '}' -> Ok(%(TokRBrace(), cs))
-      ',' -> Ok(%(TokComma(), cs))
-      '[' -> Ok(%(TokLBracket(), cs))
-      ']' -> Ok(%(TokRBracket(), cs))
+      '{' -> accept(LBrace(), cs)
+      '{' -> Ok(%(LBrace(), cs))
+      '}' -> Ok(%(RBrace(), cs))
+      ',' -> Ok(%(Comma(), cs))
+      '[' -> Ok(%(LBracket(), cs))
+      ']' -> Ok(%(RBracket(), cs))
       '"' -> lexStr(cs)
       _   -> Error("Invalid token '" ++ [c] ++ "'.")
     }
   }
 
 
-  read : String -> Result{String, Tok[]}
+  read : String -> Result<String, Token[]>
   read(input) = {
     lex(input) >>= fun(answer) = {
-      def %(token, input') = answer
+      let %(token, input') = answer
       switch (token) {
-        TokEof() -> Ok([])
-        _        ->
-          read(input') >>= fun(toks) = Ok(token :: toks)
+        Eof -> Ok([])
+        _   ->
+          read(input') >>= fun(toks) = Ok(token @ toks)
       }
     }
   }
