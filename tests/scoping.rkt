@@ -7,57 +7,73 @@
   (test-case "it does not allow argument bindings to escape"
     (check-match
       @interp-sexp{
-        f(x, runForever) = {
-          if (runForever)
-            f(x, runForever)
-            x
-        }
+        module Test {
+          import IO
+          f(x, runForever) = {
+            if (runForever)
+              f(x, runForever)
+              x
+          }
 
-        main(_) = IO.println(runForever(3, False))
+          main(_) = println(runForever(3, False))
+        }
       }
       `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundUniqIdentifier runForever))))
 
   (test-case "it binds identifiers introduced in cons patterns in switches"
     (check-equal?
       @interp-lines{
-        main(_) = {
-          IO.println(
-            switch ([2, 3]) {
-              [] -> [1]
-              x@"@"xs -> xs
-            }
-          )
+        module Test {
+          import IO
+          main(_) = {
+            println(
+              switch ([2, 3]) {
+                [] -> [1]
+                x@"@"xs -> xs
+              }
+            )
+          }
         }
       }
       '("[3]")))
 
-  (test-case "it allows arbitrary rebinding in nested switch scopes"
-    (check-equal?
-      @interp-lines{
-        f(x) =
-          switch (x) {
-            %(x, y) -> {
-              switch (x) {
-                x@"@"_ -> x + 1
-                _    -> 0
-              }
-            }
-            _       -> 1
-          }
+  (test-case "it does not allow arbitrary rebinding in patterns in nested switch scopes"
+    (check-match
+      @interp-sexp{
+        module Test {
+          import Core
+          import IO
 
-        main(_) = IO.println(f(%([10], False)))
+          f(x) =
+            switch (x) {
+              %(x, y) -> {
+                switch (x) {
+                  x@"@"_ -> x + 1
+                  _    -> 0
+                }
+              }
+              _       -> 1
+            }
+
+          main(_) = println(f(%([10], False)))
+        }
       }
-      '("11")))
+      `(AtPos (SourcePos ,_ 7 ,_) (CompilerModule AlphaConvert) (IdAlreadyBound x))))
 
   (test-case "it distinguishes between type and value names in annotations"
     (check-equal?
       @interp-sexp{
-        type foo = Int
+        module Test {
+          import Core
+          import IO
 
-        foo : foo -> foo -> foo
-        foo(a, b) = a + b
+          type foo = Int
 
-        main(_) = IO.println(foo(2, 4))
+          foo : foo -> foo -> foo
+          foo(a, b) = a + b
+
+          main(_) = println(foo(2, 4))
+        }
       }
       6))
 
@@ -65,99 +81,111 @@
 		(check-match
 			@interp-sexp{
 				module M {
+          import Core
+          import IO
+
 					let [y, z] = [3, 4]
 					let [x, y] = [1, 2]
-				}
 
-				main(_) = IO.println(M.x + M.z)
+				  main(_) = println(M.x + M.z)
+				}
 			}
-			`(AtPos (SourcePos ,_ 3 ,_) (CompilerModule AlphaConvert) (IdAlreadyBound y))))
+			`(AtPos (SourcePos ,_ 6 ,_) (CompilerModule AlphaConvert) (IdAlreadyBound y))))
 
 	(test-case "it does not allow redefinition on id-pattern-based top-level bindings"
 		(check-match
 			@interp-sexp{
 				module M {
+          import IO
+
 					let x = 42
 					let x = False
-				}
 
-				main(_) = IO.println(M.x)
+				  main(_) = IO.println(M.x)
+				}
 			}
-			`(AtPos (SourcePos ,_ 3 ,_) (CompilerModule AlphaConvert) (IdAlreadyBound x))))
+			`(AtPos (SourcePos ,_ 5 ,_) (CompilerModule AlphaConvert) (IdAlreadyBound x))))
 
 	(test-case "it does not allow redefinition on pattern-based, annotated top-level bindings"
 		(check-match
 			@interp-sexp{
 				module M {
+          import Core
+          import IO
+
 					x : Int
 					let x = 42
 
 					x : Bool
 					let x = False
+
+				  main(_) = IO.println(M.x)
 				}
-
-				main(_) = IO.println(M.x)
 			}
-			`(AtPos (SourcePos ,_ 6 ,_) (CompilerModule AlphaConvert) (IdAlreadyBound x))))
+			`(AtPos (SourcePos ,_ 9 ,_) (CompilerModule AlphaConvert) (IdAlreadyBound x))))
 
-	(test-case "it allows shadowing in pattern bindings"
-		(check-equal?
-			@interp-lines{
-				f(x) = switch(x) {
-					[x] -> x
-					_		-> 0
-				}
+	(test-case "it does not allow shadowing in pattern bindings"
+		(check-match
+			@interp-sexp{
+        module Test {
+          import IO
 
-				main(_) = IO.println(f([1]))
+          f(x) = switch(x) {
+            [x] -> x
+            _		-> 0
+          }
+
+          main(_) = println(f([1]))
+        }
 			}
-			'("1")))
+			`(AtPos (SourcePos ,_ 5 ,_) (CompilerModule AlphaConvert) (IdAlreadyBound x))))
 
 	(test-case "it binds annotated locals"
 		(check-equal?
 			@interp-lines{
-				f(a) = {
-					x : Bool
-					let x = True
+        module Test {
+          import Core
+          import IO
 
-					y : Bool
-					let y = True
+          f(a) = {
+            x : Bool
+            let x = True
 
-					if (x && y) { 1 } { 2 }
-				}
+            y : Bool
+            let y = True
 
-				main(_) = IO.println(f(1))
+            if (x && y) { 1 } { 2 }
+          }
+
+          main(_) = println(f(1))
+        }
 			}
 			'("1")))
 
 	(test-case "it does not allow redefinition on annotated locals"
 		(check-match
 			@interp-sexp{
-				f(a) = {
-					x : Bool
-					let x = True
+        module Test {
+          import Core
+          import IO
 
-					y : Bool
-					let y = True
+          f(a) = {
+            x : Bool
+            let x = True
 
-					x : Int
-					let x = 42
+            y : Bool
+            let y = True
 
-					if (x && y) { 1 } { 2 }
-				}
+            x : Int
+            let x = 42
 
-				main(_) = IO.println(42)
+            if (x && y) { 1 } { 2 }
+          }
+
+          main(_) = println(42)
+        }
 			}
-			`(AtPos (SourcePos ,_ 9 ,_) (CompilerModule AlphaConvert) (IdAlreadyBound x))))
-
-  (test-case "it respects lexical scope for functions"
-    (check-equal?
-      @interp-sexp{
-        let v = 42
-        foo(v) = v + 1
-
-        main(_) = IO.println(v + foo(3))
-      }
-      46))
+			`(AtPos (SourcePos ,_ 13 ,_) (CompilerModule AlphaConvert) (IdAlreadyBound x))))
 
   (test-case "it does not export local definitions on modules"
     (check-match
@@ -169,81 +197,68 @@
           }
         }
 
-        main(_) = IO.println(M.v)
+        module Main {
+          import IO
+          import M
+
+          main(_) = IO.println(M.v)
+        }
       }
-      `(AtPos (SourcePos ,_ 8 ,_) (CompilerModule AlphaConvert) (UnboundQualIdentifier M.v))))
+      `(AtPos (SourcePos ,_ 12 ,_) (CompilerModule AlphaConvert) (UnboundQualIdentifier M.v))))
 
   (test-case "it does not capture id's in lexical scope for modules as exports"
     (check-match
       @interp-sexp{
         module m {
+          import Core
+
           f : (-> Int)
           f() = 42
-
-          module n { }
         }
 
-        main(_) = IO.println(m.n.f())
+        module m.n { }
+
+        module Main {
+          import IO
+          import m
+          import m.n
+
+          main(_) = IO.println(m.n.f())
+        }
       }
       `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundQualIdentifier m.n.f))))
 
-  (test-case "it does not allow nested modules to escape the local env"
+  (test-case "it does not bind nested modules at the root level"
     (check-match
       @interp-sexp{
-        module m {
-          module m1 {
-            g : Int -> Int -> Int
-            g(x, y) = {
-              y + x
-            }
+        module m.m1 {
+          import Core
+
+          g : Int -> Int -> Int
+          g(x, y) = {
+            y + x
           }
         }
 
-        main(_) = IO.println(m1.g(1, 1))
-      }
-      `(AtPos ,_ (CompilerModule AlphaConvert) (InvalidUniqModulePath m1))))
-
-  (test-case "it can resolve submodule members of modules in the closure"
-    (check-equal?
-      @interp-lines{
-        module M {
-          let foo = 42
-        }
-
-        module M' {
-          let bar = M.foo
-        }
-
-        main(_) = {
-          IO.println(M'.bar)
+        module Main {
+          import m1
+          main(_) = IO.println(m1.g(1, 1))
         }
       }
-      '("42")))
-
-  (test-case "it can resolve types defined on sibling modules"
-    (check-equal?
-      @interp-lines{
-        module Number {
-          type t = Int
-        }
-
-        module Arith {
-          add : Number.t -> Number.t -> Number.t
-          add(x, y) = x + y
-        }
-
-        main(_) = IO.println(Arith.add(1, 2))
-      }
-      '("3")))
+      `(AtPos (SourcePos ,_ 11 ,_) (CompilerModule AlphaConvert) (UnboundUniqModulePath m1))))
 
   (test-case "it can resolve qualified type names with matching local id's"
     (check-equal?
       @interp-lines{
         module Number {
+          import Core
           type t = Int
         }
 
         module Div {
+          import Core
+          import Number = Number
+
           type t =
             | Num(Number.t)
             | ByZero
@@ -252,49 +267,43 @@
           div(x, y) = Num(x / y)
         }
 
-        main(_) = {
-          let Div.Num(answer) = Div.div(100, 10)
-          IO.println(answer)
+        module Main {
+          import Core
+          import Div
+          import IO
+
+          main(_) = {
+            let Div.Num(answer) = Div.div(100, 10)
+            IO.println(answer)
+          }
         }
       }
       '("10")))
 
-  (test-case "it does not allow rebinding in the same scope"
-    (check-match
-      @interp-sexp{
-        main(_) = {
-          let v = 42
-          let v = 43
-          IO.println(v)
-        }
-      }
-      `(AtPos ,_ (CompilerModule AlphaConvert) (IdAlreadyBound v))))
-
   (test-case "it allows rebinding of a non-module-bound id to a module"
     (check-equal?
       @interp-lines{
-        let m = 42
-        module m {
-          let x = 43
-
-          f() = 42
+        module M {
+          let m = 42
         }
 
-        import Core.List
-        import Core.Int
-        main(_) = IO.println(toString(m.x + m) ++ " worked!")
-      }
-      '("\"85 worked!\"")))
+        module M.m {
+          import M
+          let x = m
 
-  (test-case "it does not allow rebinding at the top level"
-    (check-match
-      @interp-sexp{
-        let x = 42
-        let x = 43
+          f() = x
+        }
 
-        main(_) = IO.println(x)
+        module Main {
+          import Core
+          import IO
+          import M
+          import M.m = m
+
+          main(_) = println(m.f() + m)
+        }
       }
-      `(AtPos (SourcePos ,_ 2 ,_) (CompilerModule AlphaConvert) (IdAlreadyBound x))))
+      '("84")))
 
   (test-case "it does not allow rebinding at the top level of a module"
     (check-match
@@ -304,22 +313,33 @@
           let x = 43
         }
 
-        main(_) = IO.println(M.x)
+        module Main {
+          import IO
+          import M
+          main(_) = println(M.x)
+        }
       }
       `(AtPos (SourcePos ,_ 3 ,_) (CompilerModule AlphaConvert) (IdAlreadyBound x))))
 
   (test-case "it allows submodules to define variables with names matching those of a parent module"
     (check-equal?
       @interp-lines{
-        let x = 42
-
         module M {
+          let x = 42
+        }
+
+        module M.N {
           let x = 43
         }
 
-        main(_) = IO.println(x)
+        module Main {
+          import IO
+          import M.N
+
+          main(_) = println(x)
+        }
       }
-      '("42")))
+      '("43")))
 
   (test-case "it allows reopening of modules"
     (check-equal?
@@ -332,40 +352,22 @@
           g(y) = y
         }
 
-        main(_) = IO.println(Foo.f(1) + Foo.g(2))
+        module Main {
+          import Core
+          import Foo
+          import IO
+
+          main(_) = println(Foo.f(1) + Foo.g(2))
+        }
       }
       '("3")))
 
-  (test-case "it allows rebinding of an id to a module in a nested scope"
-    (check-equal?
-      @interp-lines{
-        let m = 42
-        module Foo {
-          module m {
-            let m = 43
-          }
-        }
-
-        main(_) = IO.println(m + Foo.m.m)
-      }
-      '("85")))
-
-  (test-case "it allows rebinding for values in nested scopes"
-    (check-equal?
+  (test-case "it does not allow shadowing/rebinding in a nested 'if' scope"
+    (check-match
       @interp-sexp{
-        let v = 42
-
-        main(_) = {
-          let x = fun(x) = { let v = 43  v }(1)
-          IO.println(x)
-        }
-      }
-      43))
-
-  (test-case "it allows rebinding in a nested 'if' scope"
-    (check-equal?
-      @interp-lines{
         module m {
+          import IO
+
           let x = False
 
           f() = {
@@ -374,36 +376,45 @@
               }
               ()
           }
-        }
 
-        main(_) = {
-          let %(a, b) = %(m.f(), m.x)
-          IO.println(a)
-          IO.println(b)
+          main(_) = {
+            let %(a, b) = %(f(), x)
+            println(a)
+            println(b)
+          }
         }
       }
-      '("Unit" "False")))
+      `(AtPos (SourcePos ,_ 8 ,_) (CompilerModule AlphaConvert) (IdAlreadyBound x))))
 
-  (test-case "it refers to the correct value after a rebinding in a nested scope"
-    (check-equal?
+  (test-case "it does not allow shadowing/rebinding of module-level variables in a local scope"
+    (check-match
       @interp-sexp{
-        let v = 3
+        module Test {
+          import Core
+          import IO
 
-        main(_) = {
-          let v = fun(x) = { let v = 43  v }(1) + v
-          IO.println(v)
+          let v = 3
+
+          main(_) = {
+            let v = fun(x) = { let v = 43  v }(1) + v
+            println(v)
+          }
         }
       }
-      46))
+      `(AtPos (SourcePos ,_ 8 ,_) (CompilerModule AlphaConvert) (IdAlreadyBound v))))
 
   (test-case "it resolves module-scoped types with matching names"
     (check-equal?
       @interp-sexp{
         module Number {
+          import Core
           type t = Int
         }
 
         module Div {
+          import Core
+          import Number = Number
+
           type t =
             | Num(Number.t)
             | ByZero
@@ -412,61 +423,90 @@
           div(x, y) = Num(x / y)
         }
 
-        main(_) = {
-          let Div.Num(answer) = Div.div(100, 10)
-          IO.println(answer)
+        module Main {
+          import Div
+          import IO
+
+          main(_) = {
+            let Div.Num(answer) = Div.div(100, 10)
+            println(answer)
+          }
         }
       }
       10))
 
   (test-case "it scopes shadowing type identifiers"
     (check-equal?
-      @interp-sexp{
+      @interp-lines{
         module I {
+          import Core
           type t = Int
+        }
 
-          module B {
-            type t = Bool
+        module I.B {
+          import Core
+          type t = Bool
 
-            boolId : t -> t
-            boolId(b) = b
-          }
+          boolId : t -> t
+          boolId(b) = b
+        }
 
+        module I {
           intId : t -> t
           intId(i) = i
         }
 
-        main(_) = IO.println(I.B.boolId(False))
+        module Main {
+          import IO
+          import I
+          main(_) = println(I.intId(42))
+        }
       }
-      'False))
+      '("42")))
 
   (test-case "it does not allow multiple type declarations with the same id"
     (check-match
       @interp-sexp{
-        type Same = Int
-        type Same = Bool
+        module Test {
+          import Core
+          import IO
 
-        f : Same
-        let f = False
+          type Same = Int
+          type Same = Bool
 
-        main(_) = IO.println(f)
+          f : Same
+          let f = False
+
+          main(_) = println(f)
+        }
       }
-      `(AtPos (SourcePos ,_ 2 ,_) (CompilerModule AlphaConvert) (IdAlreadyBound Same))))
+      `(AtPos (SourcePos ,_ 6 ,_) (CompilerModule AlphaConvert) (IdAlreadyBound Same))))
 
   (test-case "it allows type definitions to 'shadow' ones in the module closure"
     (check-equal?
       @interp-lines{
-        type Same = Int
+        module Outer {
+          import Core
+          type Same = Int
+        }
 
-        module Inner {
+        module Outer.Inner {
+          import Core
           type Same = Bool
         }
 
-        f : Inner.Same -> Same -> Inner.Same
-        f(True, x) = False
-        f(_, x) = True
+        module Test {
+          import Core
+          import IO
+          import Outer = Outer
+          import Outer.Inner = Inner
 
-        main(_) = IO.println(f(False, 42))
+          f : Inner.Same -> Outer.Same -> Inner.Same
+          f(True, x) = False
+          f(_, x) = True
+
+          main(_) = println(f(False, 42))
+        }
       }
       '("True")))
 
@@ -482,14 +522,20 @@
           }
         }
 
-        main(_) = IO.println(m.x)
+        module Main {
+          import IO
+          import m
+          main(_) = println(m.x)
+        }
       }
-      `(AtPos (SourcePos ,_ 10 ,_) (CompilerModule AlphaConvert) (UnboundQualIdentifier m.x))))
+      `(AtPos (SourcePos ,_ 13 ,_) (CompilerModule AlphaConvert) (UnboundQualIdentifier m.x))))
 
   (test-case "it does not add locals in function bodies to the module export env"
     (check-match
       @interp-sexp{
         module m {
+          import Core
+
           f : (-> Int)
           f() = {
             let x = 42
@@ -497,105 +543,143 @@
           }
         }
 
-        main(_) = IO.println(m.x)
+        module Main {
+          import IO
+          import m
+          main(_) = println(m.x)
+        }
       }
-      `(AtPos (SourcePos ,_ 9 ,_) (CompilerModule AlphaConvert) (UnboundQualIdentifier m.x))))
+      `(AtPos (SourcePos ,_ 14 ,_) (CompilerModule AlphaConvert) (UnboundQualIdentifier m.x))))
 
   (test-case "it does not allow bindings in a pattern to escape into other clauses"
     (check-match
       @interp-sexp{
-        type Foo =
-          | B(Bool)
-          | I(Int)
+        module Test {
+          import Core
+          type Foo =
+            | B(Bool)
+            | I(Int)
 
-        main(_) = {
-          let _ = switch (I(42)) {
-              I(x) -> x
-              B(b) -> x
-            }
+          main(_) = {
+            let _ = switch (I(42)) {
+                I(x) -> x
+                B(b) -> x
+              }
+          }
         }
       }
-      `(AtPos (SourcePos ,_ 8 ,_) (CompilerModule AlphaConvert) (UnboundUniqIdentifier x))))
+      `(AtPos (SourcePos ,_ 10 ,_) (CompilerModule AlphaConvert) (UnboundUniqIdentifier x))))
 
   (test-case "it does not allow bindings to escape from then/else scopes"
     (check-match
       @interp-sexp{
-        main(_) = {
-          let v = if (True) {
-              let x = 42
-              x
-            }
-            0
+        module Main {
+          import IO
 
-          IO.println(x)
+          main(_) = {
+            let v = if (True) {
+                let x = 42
+                x
+              }
+              0
+
+            println(x)
+          }
         }
       }
-      `(AtPos (SourcePos ,_ 8 ,_) (CompilerModule AlphaConvert) (UnboundUniqIdentifier x))))
+      `(AtPos (SourcePos ,_ 11 ,_) (CompilerModule AlphaConvert) (UnboundUniqIdentifier x))))
 
   (test-case "it does not allow bindings to escape the test exp of an if/else"
     (check-match
       @interp-sexp{
-        main(_) = {
-          let _ = if (if (True) { let x = 42 True } False) {
+        module Main {
+          main(_) = {
+            let _ = if (if (True) { let x = 42 True } False) {
+                  x
+                }
                 x
-              }
-              x
+          }
         }
       }
-      `(AtPos (SourcePos ,_ 3 ,_) (CompilerModule AlphaConvert) (UnboundUniqIdentifier x))))
+      `(AtPos (SourcePos ,_ 4 ,_) (CompilerModule AlphaConvert) (UnboundUniqIdentifier x))))
 
   (test-case "it does not require type definitions to be in order"
     (check-equal?
-      @interp-sexp{
-        type foo = bar
-        type bar = Int
+      @interp-lines{
+        module M {
+          import Core
+          import IO
 
-        x : foo
-        let x = 42
+          type foo = bar
+          type bar = Int
 
-        main(_) = IO.println(x)
+          x : foo
+          let x = 42
+
+          main(_) = println(x)
+        }
       }
-      42))
+      '("42")))
 
   (test-case "it allows circular dependencies between types"
     (check-equal?
       @interp-lines{
-        type Expr =
-          | ExprNum(Int)
-          | ExprStm(Stm)
+        module Syntax {
+          import Core
+          import IO
 
-        type Stm =
-          | StmDef(Char[], Expr)
+          type Expr =
+            | ExprNum(Int)
+            | ExprStm(Stm)
 
-        main(_) = IO.println([ StmDef("x", ExprNum(42)) ])
+          type Stm =
+            | StmDef(Char[], Expr)
+
+          main(_) = println([ StmDef("x", ExprNum(42)) ])
+        }
       }
       '("[StmDef(\"x\", ExprNum(42))]")))
 
-  (test-case "it allows circular dependencies between module-level types"
+  (test-case "it allows circular dependencies between types in different modules"
     (check-equal?
       @interp-lines{
         module Expr {
-          type t =
+          import Core
+          import Stm
+
+          type e =
             | ExprNum(Int)
-            | ExprStm(Stm.t)
+            | ExprStm(Stm.s)
         }
 
         module Stm {
-          type t =
-            | StmDef(Char[], Expr.t)
+          import Core
+          import Expr
+
+          type s =
+            | StmDef(Char[], Expr.e)
         }
 
-        main(_) = IO.println([ Stm.StmDef("x", Expr.ExprNum(42)) ])
+        module Main {
+          import IO
+          import Expr
+          import Stm
+          main(_) = println([ Stm.StmDef("x", Expr.ExprNum(42)) ])
+        }
       }
       '("[StmDef(\"x\", ExprNum(42))]")))
 
-  (test-case "it allows use-before-defines in top-level definitions"
+  (test-case "it allows use-before-defines in module-level definitions"
     (check-equal?
       @interp-sexp{
-        let y = x
-        let x = 42
+        module M {
+          import IO
 
-        main(_) = IO.println(y)
+          let y = x
+          let x = 42
+
+          main(_) = println(y)
+        }
       }
       42))
 
@@ -607,7 +691,11 @@
           let x = 42
         }
 
-        main(_) = IO.println(M.y)
+        module Main {
+          import IO
+          import M
+          main(_) = println(M.y)
+        }
       }
       42))
 
@@ -615,6 +703,7 @@
     (check-equal?
       @interp-sexp{
         module M {
+          import N
           let y = N.x
         }
 
@@ -622,35 +711,44 @@
           let x = 42
         }
 
-        main(_) = IO.println(M.y)
+        module Main {
+          import IO
+          import M
+          main(_) = println(M.y)
+        }
       }
       42))
 
   (test-case "it does not allow use-before-defines in local contexts"
     (check-match
       @interp-sexp{
-        foo(a) = {
-          let x = y
-          let y = a
+        module M {
+          foo(a) = {
+            let x = y
+            let y = a
 
-          x + y
+            x + y
+          }
         }
       }
-      `(AtPos (SourcePos ,_ 2 ,_) (CompilerModule AlphaConvert) (UnboundUniqIdentifier y))))
+      `(AtPos (SourcePos ,_ 3 ,_) (CompilerModule AlphaConvert) (UnboundUniqIdentifier y))))
 
   (test-case "it allows mutually recursive functions"
     (check-equal?
       @interp-lines{
-        import Core.List
+        module Main {
+          import Core.List
+          import IO
 
-        foo(0) = "zero"
-        foo(x) = bar(x)
+          foo(0) = "zero"
+          foo(x) = bar(x)
 
-        bar(0) = foo(0)
-        bar(x) = "not zero"
+          bar(0) = foo(0)
+          bar(x) = "not zero"
 
-        main(_) = {
-          IO.println(foo(0) ++ foo(1))
+          main(_) = {
+            println(foo(0) ++ foo(1))
+          }
         }
       }
       '("\"zeronot zero\"")))
@@ -658,133 +756,126 @@
   (test-case "it fails on incorrect qualified paths"
     (check-match
       @interp-sexp{
-        module M {
-          module N {
-            let foo = 42
-          }
+        module M { }
+
+        module M.N {
+          let foo = 42
         }
 
         module M' {
           let bar = N.foo //The correct reference would be M.N.foo
         }
 
-        main(_) = IO.println(M'.bar)
-      }
-      `(AtPos (SourcePos ,_ 8 ,_) (CompilerModule AlphaConvert) (InvalidUniqModulePath N))))
+        module Main {
+          import IO
+          import M
+          import N
+          import M'
 
-  (test-case "it does not extend type name resolution to closures of closed modules"
-    (check-match
-      @interp-sexp{
-        type Str = Char[]
-
-        module M { }
-
-        f : M.Str -> M.Str
-        f(s) = s
-      }
-      `(AtPos (SourcePos ,_ 5 ,_) (CompilerModule AlphaConvert) (UnboundUniqIdentifier Str))))
-
-  (test-case "it does not extend variable name resolution to closures of closed modules"
-    (check-match
-      @interp-sexp{
-        let foo = 42
-
-        module M {
-          let bar = foo
+          main(_) = println(M'.bar)
         }
-
-        main(_) = IO.println(M.foo + M.bar)
       }
-      `(AtPos (SourcePos ,_ 7 ,_) (CompilerModule AlphaConvert) (UnboundQualIdentifier M.foo))))
+      `(AtPos (SourcePos ,_ 8 ,_) (CompilerModule AlphaConvert) (UnboundUniqModulePath N))))
 
-  (test-case "it does not drop exports defined before a submodule"
-    (parameterize ([use-core? #f])
-      (check-equal?
-        @interp-lines{
-          module Outer {
-            type A = | Foo(primtype(int)) | Bar(primtype(int))
-
-            module Inner { }
-
-            let otherThing = 43
-          }
-
-          main(_) = prim(println)(Outer.Foo(Outer.otherThing))
-        }
-        '("Foo(43)"))))
-
-  (test-case "it can resolve pattern names in the module closure"
+  (test-case "it can resolve pattern names in a reopening"
     (check-equal?
       @interp-sexp{
-        module Root {
+        module MA {
+          import Core
           type A = | Foo(Int) | Bar(Int)
+        }
 
-          module M {
-            f(a) = {
-              switch (a) {
-                Foo(x) -> x
-                _ -> 0
-              }
+        module MA {
+          f(a) = {
+            switch (a) {
+              Foo(x) -> x
+              _ -> 0
             }
           }
         }
 
-        main(_) = IO.println(Root.M.f(Root.Foo(43)))
+        module Main {
+          import IO
+          import MA
+          main(_) = println(MA.f(MA.Foo(43)))
+        }
       }
       43))
 
-  (test-case "it can resolve constructors in the module closure"
+  (test-case "it can resolve imported constructors"
     (check-equal?
       @interp-lines{
         module Root {
+          import Core
           type A = | Foo(Int) | Bar(Int)
+        }
 
-          module M {
-            f(a) = {
-              switch (a) {
-                0 -> Foo(42)
-                _ -> Bar(43)
-              }
+        module Root.M {
+          import Root
+
+          f(a) = {
+            switch (a) {
+              0 -> Foo(42)
+              _ -> Bar(43)
             }
           }
         }
 
-        main(_) = IO.println(Root.M.f(1))
+        module Main {
+          import IO
+          import Root.M
+
+          main(_) = println(Root.M.f(1))
+        }
       }
       '("Bar(43)")))
 
-  (test-case "it does not re-export pattern names from the module closure"
+  (test-case "it does not re-export imported pattern names"
     (check-match
       @interp-sexp{
-        type A = | Foo(Int) | Bar(Int)
+        module MA {
+          import Core
+          type A = | Foo(Int) | Bar(Int)
+        }
 
-        module M { }
+        module M { import MA }
 
-        main(_) = {
-          let v = switch (Foo(42)) {
-            M.Foo(x) -> x
-            _ -> 0
+        module Main {
+          import IO
+          import MA
+          import M
+
+          main(_) = {
+            let v = switch (Foo(42)) {
+              M.Foo(x) -> x
+              _ -> 0
+            }
+
+            println(v)
           }
-
-          IO.println(v)
         }
       }
-			`(AtPos (SourcePos ,_ 7 ,_) (CompilerModule AlphaConvert) (UnboundConstructor M.Foo))))
+			`(AtPos (SourcePos ,_ 15 ,_) (CompilerModule AlphaConvert) (UnboundConstructor M.Foo))))
 
   (test-case "it does not allow module-exported type bindings to escape"
     (check-match
       @interp-sexp{
         module Geometry {
+          import Core
           type Thing = Int[]
         }
 
-        main(_) = {
-          p : Thing
-          let p = [1, 2]
-          IO.println(p)
+        module Main {
+          import IO
+
+          main(_) = {
+            p : Thing
+            let p = [1, 2]
+            println(p)
+          }
         }
       }
-      `(AtPos (SourcePos ,_ 6 ,_) (CompilerModule AlphaConvert) (UnboundUniqIdentifier Thing))))
+      `(AtPos (SourcePos ,_ 10 ,_) (CompilerModule AlphaConvert) (UnboundUniqIdentifier Thing))))
 
   (test-case "it imports infix operators"
     (check-equal?
@@ -795,10 +886,11 @@
         }
 
         module Foo {
+          import IO
           import Prims
 
           main(_) = {
-            IO.println(True && False)
+            println(True && False)
           }
         }
       }
@@ -816,19 +908,32 @@
           let x = v
         }
 
-        main(_) = IO.println(Bar.x)
+        module Main {
+          import Bar
+          import IO
+
+          main(_) = println(Bar.x)
+        }
       }
       '("42")))
 
   (test-case "it does not allow direct references to module names"
     (check-match
       @interp-sexp{
-        type Foo = | Bar(Int)
+        module M {
+          import Core
+          type Foo = | Bar(Int)
+        }
 
         module Foo { }
 
-        main(_) = {
-          let _ = if (False) Foo(42) Bar(42)
+        module Main {
+          import M
+          import Foo
+
+          main(_) = {
+            let _ = if (False) Foo(42) Bar(42)
+          }
         }
       }
       `(AtPos ,_ (CompilerModule AlphaConvert) (UnboundUniqIdentifier Foo))))
@@ -841,8 +946,10 @@
 
           bar(x) = x + 1
         }
-        main(_) = {
-          IO.println(Foo.bar(42))
+
+        module Main {
+          import IO
+          main(_) = println(Foo.bar(42))
         }
       }
       `(AtPos (SourcePos ,_ 2 ,_) (CompilerModule AlphaConvert) (OverlappingVarImport Foo (bar)))))
@@ -852,6 +959,8 @@
       @interp-lines{
         module A {
           import B
+          import Core
+
           f(x) = cond {
             x < 100 -> g(x)
             _       -> 1
@@ -860,15 +969,21 @@
 
         module B {
           import A
+          import Core
+
           g(x) = cond {
             x < 100 -> x
             _       -> f(x)
           }
         }
 
-        import B
-        import A
-        main(_) = IO.println(g(101))
+        module Main {
+          import B
+          import A
+          import IO
+
+          main(_) = println(g(101))
+        }
       }
     '("1")))
 
@@ -891,11 +1006,46 @@
             | ComplexB(AType<B>)
         }
 
-        import B
-        import A
-        main(_) = {
-          let a = ComplexA(ComplexB(SimpleA(42)))
-          IO.println(a)
+        module Main {
+          import B
+          import A
+          import IO
+
+          main(_) = {
+            let a = ComplexA(ComplexB(SimpleA(42)))
+            println(a)
+          }
+        }
+      }
+    '("ComplexA(ComplexB(SimpleA(42)))")))
+
+  #;(test-case "it can handle mutually recursive type module definitions"
+    (check-match
+      @interp-lines{
+        module Stuff.AType {
+          import Stuff
+
+          type <a> | SimpleA(a)
+                   | ComplexA(BType<a>)
+        }
+
+        module Stuff.BType {
+          import Stuff
+
+          type <b> | SimpleB(b)
+                   | ComplexB(AType<b>)
+        }
+
+        module Main {
+          import IO
+          import Stuff
+          import Stuff.AType
+          import Stuff.BType
+
+          main(_) = {
+            let a = ComplexA(ComplexB(SimpleA(42)))
+            println(a)
+          }
         }
       }
     '("ComplexA(ComplexB(SimpleA(42)))")))
@@ -912,7 +1062,10 @@
         }
 
         module Main {
-          main(_) = IO.println(A.one + A.two)
+          import A
+          import Core
+          import IO
+          main(_) = println(A.one + A.two)
         }
       }
     '("3")))
@@ -921,6 +1074,8 @@
     (check-equal?
       @interp-lines{
         module A {
+          import Outer.B
+
           f() = Outer.B.g()
         }
 
@@ -928,20 +1083,23 @@
           g() = 42
         }
 
-        module Outer {
-          module B { }
-        }
+        module OuterB { }
 
         module Main {
-          main(_) = IO.println(A.f())
+          import A
+          import Core
+          import IO
+          import Outer.B
+          main(_) = println(A.f() + g())
         }
       }
-      '("42")))
+      '("84")))
 
   (test-case "it does not blow away prior exports with a reopening definition"
     (check-equal?
       @interp-lines{
         module A {
+          import B
           f() = B.g()
         }
 
@@ -952,20 +1110,23 @@
         module B { }
 
         module Main {
-          main(_) = IO.println(A.f())
+          import A
+          import IO
+          main(_) = println(A.f())
         }
       }
       '("42")))
 
-  (test-case "it does not preserve bindings in the module closure of a prior partial module definition"
+  (test-case "it does not preserve bindings from imports in a prior module opening"
     (check-match
       @interp-sexp{
         module Foo {
           let v = 42
+        }
 
-          module A {
-            f() = v
-          }
+        module Foo.A {
+          import Foo
+          f() = v
         }
 
         module Foo.A {
@@ -973,17 +1134,14 @@
 
           h() = f() //Ensure we retained the binding for f
           g() = h() + v //v should no longer be in scope
-        } //This is a tricky one because the reopening will end up overwriting Foo.A's entry in
-          //the global NS env, along with its module closure.  So when we "reopen" (aka convertLoc)
-          //the *initial* definition of A on line 926, we've lost the binding for `v` which should
-          //actually still be present.  We want to retain this but somehow drop it when we convertLoc
-          //on the `Foo.A` reopening on 931.
+        } 
 
         module Main {
-          main(_) = IO.println(Foo.A.g())
+          import IO
+          main(_) = println(Foo.A.g())
         }
       }
-      `(AtPos (SourcePos ,_ 13 ,_) (CompilerModule AlphaConvert) (UnboundUniqIdentifier v))))
+      `(AtPos (SourcePos ,_ 14 ,_) (CompilerModule AlphaConvert) (UnboundUniqIdentifier v))))
 
   (test-case "it does not allow shadowing across separate module declarations"
     (check-match
@@ -1009,6 +1167,8 @@
           let x = 42
         }
 
+        module B { }
+
         module B.Bar {
           let y = 43
         }
@@ -1018,14 +1178,14 @@
           import B
 
           main(_) = {
-            let x = A.Foo.x
+            let x' = A.Foo.x
             let y = Bar.y //importing B should not  bind Bar
 
-            IO.println(x + y)
+            IO.println(x' + y)
           }
         }
       }
-      `(AtPos (SourcePos ,_ 19 ,_) (CompilerModule AlphaConvert) (UnboundUniqModulePath Bar))))
+      `(AtPos (SourcePos ,_ 17 ,_) (CompilerModule AlphaConvert) (UnboundUniqModulePath Bar))))
 
   (test-case "it resolves recursive references in explicitly typed functions"
     (parameterize ([use-core? #f])

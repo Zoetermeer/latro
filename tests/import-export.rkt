@@ -363,4 +363,66 @@
         }
       }
       `(AtPos (SourcePos ,_ 6 ,_) (CompilerModule AlphaConvert) (UnboundUniqModulePath Foo))))
+
+  (test-case "it imports infix operators"
+    (check-equal?
+      @interp-sexp{
+        module Prims {
+          infixl (&&&)(True, True) = True
+          infixl (&&&)(_, _) = False
+        }
+
+        module Foo {
+          import Prims
+
+          f() = True &&& False
+        }
+
+        module Main {
+          import IO
+          import Foo
+          main(_) = println(Foo.f())
+        }
+      }
+      'False))
+
+  (test-case "it imports submodule infix operators"
+    (check-equal?
+      @interp-sexp{
+        module Prims.BoolOps {
+          infixl (&&&)(True, True) = True
+          infixl (&&&)(_, _) = False
+        }
+
+        module Main {
+          import IO
+          import Prims.BoolOps
+          main(_) = println(True &&& False)
+        }
+      }
+      'False))
+
+  (test-case "it does not allow pattern bindings to escape modules"
+    (check-match
+      @interp-sexp{
+        module Opt {
+          type t<a> = | Some(a) | None
+
+          GetOne() = Some(42)
+        }
+
+        module Main {
+          import IO
+          import Opt = Opt
+          main(_) = {
+            let x = switch (Opt.GetOne()) {
+                Some(43) -> False
+                _ -> True
+              }
+
+            IO.println(x)
+          }
+        }
+      }
+      `(AtPos (SourcePos ,_ 12 ,_) (CompilerModule AlphaConvert) (UnboundConstructor Some))))
 )

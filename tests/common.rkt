@@ -5,7 +5,9 @@
          interp-e
          interp-e-sexp
          interp-lines
+         interp-lines-with-wrapper-module
          interp-sexp
+         interp-sexp-with-wrapper-module
          line
          parse-tree
          alpha-convert
@@ -88,8 +90,16 @@
 (define (interp-lines . s)
   (string-split (call '() (apply string-append s)) "\n"))
 
+(define (interp-lines-with-wrapper-module . s)
+  (define wrapped (format "module Test { import Core import IO  ~a }" (apply string-append s)))
+  (string-split (call '() wrapped) "\n"))
+
 (define (interp-sexp . s)
   (call-and-read '("-s") (apply string-append s)))
+
+(define (interp-sexp-with-wrapper-module . s)
+  (define wrapped (format "module Test { import Core import IO  ~a }" (apply string-append s)))
+  (call-and-read '("-s") wrapped))
 
 (define (interp-e-sexp . s)
   (call-and-read '("-e") (apply string-append s)))

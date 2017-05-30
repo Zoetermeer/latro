@@ -639,8 +639,8 @@ instance AlphaTopLevel (UniqAst Exp) where
   convertTop (ExpTypeDec p tyDec) = do
     id' <- freshTypeIdIfNotBoundM id `reportErrorAt` p
     exportTy id id'
-    traceM ("convertTop " ++ show (ExpTypeDec p (renameTypeDec tyDec id')))
-    traceM ("  id: " ++ showFullUniqId id')
+    -- traceM ("convertTop " ++ show (ExpTypeDec p (renameTypeDec tyDec id')))
+    -- traceM ("  id: " ++ showFullUniqId id')
     return $ ExpTypeDec p $ renameTypeDec tyDec id'
     where
       (Just id) = getTypeDecId tyDec
@@ -650,7 +650,7 @@ instance AlphaTopLevel (UniqAst Exp) where
     return $ ExpBegin p es'
 
   convertTop (ExpModule p qid bodyEs) = do
-    traceM ("convertTop " ++ render qid)
+    -- traceM ("convertTop " ++ render qid)
     case implicitTyDecs of
       [] -> do
         ns <- openNamespaceDef qid
@@ -765,7 +765,7 @@ instance AlphaLocal (UniqAst Exp) where
   convertLoc (ExpPrim p ratorId) = return $ ExpPrim p ratorId
 
   convertLoc (ExpImport p qid) = do
-    traceM ("convertLoc ExpImport " ++ render qid)
+    -- traceM ("convertLoc ExpImport " ++ render qid)
     curNs <- getCurNs
     ns <- lookupNsGlobal qid `reportErrorAt` p
     let curVarIdEnv         = varIdEnv curNs
@@ -895,7 +895,7 @@ instance AlphaLocal (UniqAst Exp) where
     return $ ExpBegin p es'
 
   convertLoc (ExpModule p qid bodyEs) = do
-    traceM ("convertLoc " ++ render qid)
+    -- traceM ("convertLoc " ++ render qid)
     ns <- openNamespaceForConvert qid
     -- traceM ("convertLoc " ++ render qid)
     -- traceM ("  varIdEnv: " ++ (intercalate ", " (map render (Map.keys (varIdEnv ns)))))
@@ -912,8 +912,8 @@ instance AlphaLocal (UniqAst Exp) where
     return $ ExpRef p id'
 
   convertLoc (ExpTypeDec p (TypeDecTy tp tid tyParamIds synTy)) = do
-    traceM ("At " ++ show p ++ ":")
-    traceM ("  convertLoc " ++ showFullUniqId tid)
+    -- traceM ("At " ++ show p ++ ":")
+    -- traceM ("  convertLoc " ++ showFullUniqId tid)
     tid' <- lookupTy tid
     pushNewLocalScope
     tyParamIds' <- mapM bindLocalType tyParamIds

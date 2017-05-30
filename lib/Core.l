@@ -52,6 +52,63 @@ module Core {
   id(v) = v
 }
 
+module Core.Int {
+  import Core
+  import Core.Char = Char
+  import Core.List
+  import Core.List = List
+
+  type primtype(int)
+
+  digits : Int -> Int[]
+  digits(0) = [0]
+  digits(n) = {
+    let m = mod(n, 10)
+    let n' = n / 10
+    if (n' == 0) [m] digits(n') ++ [m]
+  }
+
+  readAChar : Char -> Int
+  readAChar(c) = Char.unsafeRead(c)
+
+  read/priv : String -> Int -> Int
+  read/priv("", _) = 0
+  read/priv(c @ cs, p) = readAChar(c) * pow(10, p) + read/priv(cs, p + 1)
+
+
+  unsafeRead : String -> Int
+  unsafeRead("") = 0
+  unsafeRead(str) = read/priv(List.reverse(str), 0)
+
+
+  toString : Int -> String
+  toString(0) = "0"
+  toString(n) = {
+    cond {
+      n < 0 -> "-" ++ toString(n - n * 2)
+      _     -> {
+        let r = mod(n, 10)
+        let c = switch (r) {
+          0 -> '0'
+          1 -> '1'
+          2 -> '2'
+          3 -> '3'
+          4 -> '4'
+          5 -> '5'
+          6 -> '6'
+          7 -> '7'
+          8 -> '8'
+          9 -> '9'
+        }
+        let n' = n / 10
+        cond {
+          n' == 0 -> [c]
+          _       -> toString(n') ++ [c]
+        }
+      }
+    }
+  }
+}
 
 module Core.Char {
   import Core
@@ -64,6 +121,13 @@ module Core.Char {
 
   unsafeRead : Char -> Int
   unsafeRead(c) = toInt(c) - 48
+
+
+  isDigit : Char -> Bool
+  isDigit(c) = {
+    let i = toInt(c)
+    i >= 48 && i <= 57
+  }
 
 
   equal? : Char -> Char -> Bool
@@ -171,64 +235,6 @@ module Core.List {
   take(x @ xs, n) = cond {
     n == 0 -> []
     _      -> x @ take(xs, n - 1)
-  }
-}
-
-module Core.Int {
-  import Core
-  import Core.Char = Char
-  import Core.List
-  import Core.List = List
-
-  type primtype(int)
-
-  digits : Int -> Int[]
-  digits(0) = [0]
-  digits(n) = {
-    let m = mod(n, 10)
-    let n' = n / 10
-    if (n' == 0) [m] digits(n') ++ [m]
-  }
-
-  readAChar : Char -> Int
-  readAChar(c) = Char.unsafeRead(c)
-
-  read/priv : String -> Int -> Int
-  read/priv("", _) = 0
-  read/priv(c @ cs, p) = readAChar(c) * pow(10, p) + read/priv(cs, p + 1)
-
-
-  unsafeRead : String -> Int
-  unsafeRead("") = 0
-  unsafeRead(str) = read/priv(List.reverse(str), 0)
-
-
-  toString : Int -> String
-  toString(0) = "0"
-  toString(n) = {
-    cond {
-      n < 0 -> "-" ++ toString(n - n * 2)
-      _     -> {
-        let r = mod(n, 10)
-        let c = switch (r) {
-          0 -> '0'
-          1 -> '1'
-          2 -> '2'
-          3 -> '3'
-          4 -> '4'
-          5 -> '5'
-          6 -> '6'
-          7 -> '7'
-          8 -> '8'
-          9 -> '9'
-        }
-        let n' = n / 10
-        cond {
-          n' == 0 -> [c]
-          _       -> toString(n') ++ [c]
-        }
-      }
-    }
   }
 }
 

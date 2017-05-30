@@ -1,10 +1,8 @@
-import Core::Maybe
+module Core.Maybe.Monadic {
+  import Core.Maybe
 
-module Maybe {
-  module MonadInfix {
-    infixl (>>=)(Just(x), f) = f(x)
-    infixl (>>=)(_, _) = Nothing()
+  infixl (>>=)(Just(x), f) = f(x)
+  infixl (>>=)(_, _) = Nothing()
 
-    return(x) = Just(x)
-  }
+  return(x) = Just(x)
 }

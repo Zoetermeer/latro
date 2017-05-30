@@ -14,6 +14,9 @@ module Json.Tests {
     println(Token.read(quote("hello")))
     println(Token.read("[,]{?"))
 
+    println(Token.read("42"))
+
     println(parse("[" ++ quote("hello") ++ "]"))
+    println(parse("[42, 43, 44]"))
   }
 }

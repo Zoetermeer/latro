@@ -15,6 +15,9 @@ module Json.Value {
        | Null
 
 
+  parseObject(ts) = Error("not implemented")
+
+
   parseArray(ts) = {
     let rv = parseValue(ts)
     switch (rv) {
@@ -33,8 +36,10 @@ module Json.Value {
   parseValue([]) = Ok(%(Null(), []))
   parseValue(t @ ts) = {
     switch (t) {
-      Token.LBracket() -> parseArray(ts)
+      Token.LBrace     -> parseObject(ts)
+      Token.LBracket   -> parseArray(ts)
       Token.String(s)  -> Ok(%(String(s), ts))
+      Token.Number(n)  -> Ok(%(Number(n), ts))
       Token.NullLit    -> Ok(%(Null(), ts))
     }
   }

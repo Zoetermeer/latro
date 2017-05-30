@@ -1,5 +1,7 @@
 module Json.Token {
   import Core
+  import Core.Char = Char
+  import Core.Int = Int
   import Core.List
   import Core.Result
   import Core.Result.Monadic
@@ -19,8 +21,8 @@ module Json.Token {
        | Eof
 
 
-  accept : Token -> String -> Result<String, %(Token, String)>
-  accept(tok, rest) = Ok(%(tok, rest))
+  accept<a> : a -> String -> Result<String, %(a, String)>
+  accept(v, rest) = Ok(%(v, rest))
 
 
   lexStr/private : String -> Result<String, %(String, String)>
@@ -41,16 +43,42 @@ module Json.Token {
     }
 
 
+  lexNum/priv : String -> Result<String, %(String, String)>
+  lexNum/priv("") = accept("", [])
+  lexNum/priv(c @ cs) = cond {
+    Char.isDigit(c) -> {
+      lexNum/priv(cs) >>= fun(answer) = {
+        let %(restOfStr, inputRest) = answer
+        accept(c @ restOfStr, inputRest)
+      }
+    }
+    _ -> accept("", c @ cs)
+  }
+
+
+  lexNum : String -> Result<String, %(Token, String)>
+  lexNum(input) = {
+    lexNum/priv(input) >>= fun(answer) = {
+      let %(numStr, inputRest) = answer
+      accept(Number(Int.unsafeRead(numStr)), inputRest)
+    }
+  }
+
+
   lex([]) = Ok(%(Eof(), ""))
   lex(c @ cs) = {
     switch (c) {
+      ' ' -> lex(cs)
       '{' -> accept(LBrace(), cs)
       '}' -> accept(RBrace(), cs)
       ',' -> accept(Comma(), cs)
       '[' -> accept(LBracket(), cs)
       ']' -> accept(RBracket(), cs)
       '"' -> lexStr(cs)
-      _   -> Error("Invalid token '" ++ [c] ++ "'.")
+      _   -> cond {
+        Char.isDigit(c) -> lexNum(c @ cs)
+        _               -> Error("Invalid token '" ++ [c] ++ "'.")
+      }
     }
   }
 
