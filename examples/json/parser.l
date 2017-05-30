@@ -1,6 +1,7 @@
 module Json.Value {
   import Core
-  import Core.Result.MonadInfix
+  import Core.Result
+  import Core.Result.Monadic
   import Json
   import Json.Token = Token
 

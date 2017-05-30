@@ -2,10 +2,6 @@ module Core {
   type Bool = primtype(bool)
   type Unit = primtype(unit)
 
-  type Result<e, t> =
-    | Ok(t)
-    | Error(e)
-
   infixl (+)(a, b) = prim(intAdd)(a, b)
   infixl (-)(a, b) = prim(intSub)(a, b)
   infixl (*)(a, b) = prim(intMul)(a, b)
@@ -235,6 +231,22 @@ module Core.Int {
     }
   }
 }
+
+module Core.Result {
+  type <e, t> | Ok(t)
+              | Error(e)
+}
+
+module Core.Result.Monadic {
+  import Core
+  import Core.Result
+
+  infixl (>>=)(Ok(x), f) = f(x)
+  infixl (>>=)(Error(e), _)   = Error(e)
+
+  return(x) = Ok(x)
+}
+
 
 module Core.String {
   import Core

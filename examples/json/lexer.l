@@ -1,16 +1,8 @@
-module Core.Result.MonadInfix {
-  import Core
-
-  infixl (>>=)(Ok(x), f) = f(x)
-  infixl (>>=)(Error(e), _)   = Error(e)
-
-  return(x) = Ok(x)
-}
-
 module Json.Token {
   import Core
   import Core.List
-  import Core.Result.MonadInfix
+  import Core.Result
+  import Core.Result.Monadic
   import Json
 
 
@@ -53,11 +45,10 @@ module Json.Token {
   lex(c @ cs) = {
     switch (c) {
       '{' -> accept(LBrace(), cs)
-      '{' -> Ok(%(LBrace(), cs))
-      '}' -> Ok(%(RBrace(), cs))
-      ',' -> Ok(%(Comma(), cs))
-      '[' -> Ok(%(LBracket(), cs))
-      ']' -> Ok(%(RBracket(), cs))
+      '}' -> accept(RBrace(), cs)
+      ',' -> accept(Comma(), cs)
+      '[' -> accept(LBracket(), cs)
+      ']' -> accept(RBracket(), cs)
       '"' -> lexStr(cs)
       _   -> Error("Invalid token '" ++ [c] ++ "'.")
     }
