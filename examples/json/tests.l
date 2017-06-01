@@ -18,5 +18,7 @@ module Json.Tests {
 
     println(parse("[" ++ quote("hello") ++ "]"))
     println(parse("[42, 43, 44]"))
+
+    println(parse("{" ++ quote("name") ++ ":" ++ quote("james") ++ "}"))
   }
 }

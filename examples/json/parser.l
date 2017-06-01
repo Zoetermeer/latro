@@ -7,6 +7,8 @@ module Json.Value {
 
   type Field = %(String, Value)
 
+  mkField(name, value) = %(name, value)
+
   type | Object(Field[])
        | Array(Value[])
        | String(String)
@@ -14,8 +16,36 @@ module Json.Value {
        | Bool(Bool)
        | Null
 
+  accept<a> : a -> Token[] -> Result<String, %(a, Token[])>
+  accept(v, rest) = Ok(%(v, rest))
 
-  parseObject(ts) = Error("not implemented")
+
+  parseFields(Token.String(fieldName) @ Token.Colon @ valueTokens) = {
+    parseValue(valueTokens) >>= fun(rv) = {
+      let %(value, tokens') = rv
+      let field = mkField(fieldName, value)
+      switch (tokens') {
+        Token.Comma @ tokens'' -> {
+          parseFields(tokens'') >>= fun(rv') = {
+            let %(fields, tokens''') = rv'
+            accept(field @ fields, tokens''')
+          }
+        }
+        _ -> accept([field], tokens')
+      }
+    }
+  }
+
+
+  parseObject(Token.LBrace @ ts) = {
+    parseFields(ts) >>= fun(rv) = {
+      let %(fields, tokens') = rv
+      switch (tokens') {
+        Token.RBrace @ tokens'' -> accept(Object(fields), tokens'')
+        _                       -> Error("Unterminated object")
+      }
+    }
+  }
 
 
   parseArray(ts) = {
@@ -36,7 +66,7 @@ module Json.Value {
   parseValue([]) = Ok(%(Null(), []))
   parseValue(t @ ts) = {
     switch (t) {
-      Token.LBrace     -> parseObject(ts)
+      Token.LBrace     -> parseObject(t @ ts)
       Token.LBracket   -> parseArray(ts)
       Token.String(s)  -> Ok(%(String(s), ts))
       Token.Number(n)  -> Ok(%(Number(n), ts))

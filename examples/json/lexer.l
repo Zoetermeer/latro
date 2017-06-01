@@ -13,6 +13,7 @@ module Json.Token {
        | Comma
        | LBracket
        | RBracket
+       | Colon
        | String(String)
        | Number(Int)
        | TrueLit
@@ -74,6 +75,7 @@ module Json.Token {
       ',' -> accept(Comma(), cs)
       '[' -> accept(LBracket(), cs)
       ']' -> accept(RBracket(), cs)
+      ':' -> accept(Colon(), cs)
       '"' -> lexStr(cs)
       _   -> cond {
         Char.isDigit(c) -> lexNum(c @ cs)
