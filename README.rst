@@ -374,7 +374,7 @@ Latro allows any identifier bound to a value (variables, functions, etc.)
 to include some non-alphanumeric characters.  These special characters
 currently are:
 
-``!  /  \  @  |  ~  &  =  <  >  _  '``
+``!  /  \  |  ~  &  =  <  >  _  '``
 
 Any identifier beginning with an alphabetical character followed by either
 a number or one of the special characters above may be used anywhere a "regular"
@@ -434,7 +434,7 @@ Would be parsed as:
 
 ``True || (False && True)``
 
-Note that built-in operators such as ``::``, and terms
+Note that built-in operators such as ``@``, and terms
 such as function application, have precedence 0 and cannot
 be preceded by user-defined ones.
 
@@ -526,7 +526,7 @@ accessor:
 
 .. code:: ocaml
 
-  p.Name // "john"
+  p#Name // "john"
 
 Which is also bound to a function:
 
@@ -583,131 +583,147 @@ grouped into modules like so:
     len(c@cs) = 1 + len(cs)
   }
 
-  String::len("hello world") // 11
+  String.len("hello world") // 11
 
 Note also here we are using a list pattern on strings, which works because
 strings are really just a list of Unicode characters.
 
-Modules can also be arbitrarily nested:
+Module definitions cannot be "nested".  Latro modules are more analogous to
+those found in Haskell, or namespaces in C# -- they are simply named
+groupings of types and values.  We can define submodules, or sub-namespaces,
+by assigning a module a qualified name:
 
 .. code:: scala
 
-  module StringStuff {
+  module String {
     type t = Char[]
-    module ExtraStringStuff {
-      append : t -> t -> t
-      append(c@cs, b) = c @ append(cs, b)
-      append(_, b) = b
-    }
   }
 
-  StringStuff::ExtraStringStuff::append("hello", " world") // "hello world"
+  module String.Utils {
+    import String
 
-Submodules can refer to all of the types and/or values defined 
-in parent modules directly, as the ``ExtraStringStuff`` module
-refers directly to the type ``t`` above.
+    append : t -> t -> t
+    append(c@cs, b) = c @ append(cs, b)
+    append(_, b) = b
+  }
 
-We can bring in all of the bindings exported by a module using
+  String.Utils.append("hello", " world") // "hello world"
+
+Note that submodules do not capture any bindings from ancestor
+ones.  A module's ancestors are all qualified names bound in the
+"base path" of the module's name.  For example, the module:
+
+.. code:: scala
+
+  module Foo.Bar.Baz { }
+
+Would have ancestors ``Foo.Bar`` and ``Foo``.  A submodule defined
+with a name in this way does not have any special relationship to
+its ancestors; it is merely a convenience mechanism by which we
+can logically group together many namespaces in a program underneath
+a common parent name.  Also note, that a submodule must explicitly
+import an ancestor to gain access to its bindings.
+
+As shown in the preceding examples, we can bring in all of the bindings exported by a module using
 an ``import`` expression, such that
 they can be referred to without using a qualified module path:
 
 .. code:: scala
 
-  module StringStuff {
-    type t = Char[]
-    module ExtraStringStuff {
-      append : t -> t -> t
-      append(c@cs, b) = c @ append(cs, b)
-      append(_, b) = b
-    }
+  module A {
+    let v = 42
   }
 
-  import StringStuff::ExtraStringStuff
-  append("hello", " world") // "hello world"
+  module B {
+    import A
+
+    let x = v
+  }
+
+If we import using the ``import <name>`` form, we still retain the ability
+to refer to a module member using a fully qualified path.  The following is
+equivalent to the previous example:
+
+.. code:: scala
+
+  module A {
+    let v = 42
+  }
+
+  module B {
+    import A
+
+    let x = A.v
+  }
+
+Larger programs may contain many different module definitions, increasing the
+likelihood that we may bind the same name in two different ones.  We can *alias*
+an imported module, assigning it a local path that is only in scope in the
+body of the importing module:
+
+.. code:: scala
+
+  module Foo {
+    let v = 0
+  }
+
+  module Bar {
+    let v = 1
+  }
+
+  module Baz {
+    import Foo = F
+    import Bar = B
+
+    let v = F.v + B.v
+  }
+
+References to members of aliased imports must always be "fully qualified"
+in the sense that we must always prefix references with the name of the alias.
+
+**Reopening**
+
+We can "reopen" a module and add bindings to it at any time.  A reopening definition
+will implicitly import all prior bindings introduced into the module we are reopening, e.g.:
+
+.. code:: scala
+
+  module M {
+    let y = x + 1
+  }
+
+  module N {
+    import M
+
+    let z = x + y
+  }
+
+  module M {
+    let x = 1
+  }
+
+Notice that definition order does not matter at the module level; we are free
+to refer to bindings introduced "further down" in the source and can have
+mutally recursive bindings.
 
 
 **Modules and the toplevel**
 
-*Note that the implementation of rules outlined in this section is work-in-progress,
-so code examples that currently work may violate these rules and may
-break once that work is completed.*
+All bindings in a Latro source file must go inside the body of a module declaration.
+A source file may contain any number of these module definitions, but there is
+no notion of a "top-level" binding.  The motivation for this rule is that
+other source files included in a build have no way of referring to any hypothetical
+top-level bindings, so they are only useful in the source file in which they are
+defined.
 
-Modules follow special scoping rules depending on their definition context.
-The "top level" of any Latro code file is not a module; modules must be explicitly
-defined.  Any such module that is defined directly at the top level will not
-close over other bindings at the top level (though it will have access to other
-modules defined at the same level).  Submodules, however, *do* close over all
-bindings introduced in parent modules.
+The interpreter will concatenate all source files and reorder module definitions
+as it sees fit.  The native compiler will support true separate compilation,
+where source files are compiled in discrete steps and subsequently linked
+together in either an executable or library.  In this hypothetical future, 
+top-level bindings may be permitted.  But the interpreter implementation's
+source-file concatenation behavior means that top-level bindings in one source
+file would pollute the environment of another source file.
 
-Note that by "close over" we mean that outer bindings will be available inside
-a module; however these bindings will *not* be exported by the module itself
-(similar to how function closures have outer bindings available in the body, although
-these bindings do not manifest themselves as formal parameters).
-
-The rationale for this is that while we want to allow arbitrary code at the
-toplevel for writing scripts and small examples, in larger code we want to confine
-all code to modules.  We wish to prevent arbitrary side effects from occurring
-when importing some other code file that may occur in toplevel code.
-
-Modules are a critical language feature that allow grouping of code into
-*namespaces*.  A module/namespace definition need not be confined to a single
-code file or definition; modules are "open" in the sense that we can reopen
-a module later to add bindings to it.
-
-.. code:: scala
-
-  module M {
-    let foo = 42
-  }
-
-  module M {
-    let bar = 43
-  }
-
-  M::bar + M::foo
-
-Module names are resolved using *qualified identifiers* or paths, where a
-path is a sequence of module names separated by double colons (``::``).  Resolution applies
-to the module-reopening semantics, so that a submodule opening will not extend
-some other toplevel module with the same name:
-
-.. code:: scala
-
-  module M {
-    let foo = 42
-  }
-
-  module N {
-    module M {
-      let bar = 43
-    }
-  }
-
-  M::bar + M::foo // ERROR: Unbound identifier 'bar'!
-
-This code does not compile because ``bar`` is defined on the module
-``N::M``, not ``M``.  But if we were to try to define a function
-directly in ``N`` that refers to ``M``:
-
-.. code:: scala
-
-  module M {
-    let foo = 42
-  }
-
-  module N {
-    module M {
-      let bar = 43
-    }
-
-    f() = M::foo //ERROR: Unbound identifier 'M::foo'!
-  }
-
-We can refer directly to the submodule ``M`` inside ``N``, so here
-the submodule name shadows the other ``M`` defined at the top level.
-Other languages mitigate this by including a global-scoping operator
-for namespaces and/or module paths, so something like this will probably
-end up in Latro.
 
 Type modules
 ------------
@@ -718,9 +734,7 @@ a "type module" specifically for this purpose:
 
 .. code:: scala
 
-  import IO
-
-  module Option {
+  module Program.Option {
     type<a> | Some(a)
             | None
 
@@ -729,11 +743,16 @@ a "type module" specifically for this purpose:
     isPresent(_) = False
   }
 
-  main(_) = {
-    let o = Option::Some(42)
-    switch (Option::isPresent(o)) {
-      True -> println("it's there")
-      _    -> println("it's not there")
+  module Program {
+    import IO
+    import Program.Option
+
+    main(_) = {
+      let o = Some(42)
+      switch (isPresent(o)) {
+        True -> println("it's there")
+        _    -> println("it's not there")
+      }
     }
   }
 
@@ -741,9 +760,13 @@ This ends up desugaring into something like:
 
 .. code:: scala
 
-  type Option<a> = Option::__t<a>
+  module Program {
+    type Option<a> = Program.Option.1432@made_up_name<a>
+  }
 
-  module Option {
+  module Program.Option {
+    import Program
+
     type 1432@made_up_name<a> =
       | Some(a)
       | None
@@ -765,10 +788,12 @@ All of the examples work on the latest version of Latro at HEAD.
   - `Rope data structure implementation`_
   - `Monads`_
   - `Basic string-utilities module implementation`_
+  - `Monadic JSON parser`_
 
 .. _Rope data structure implementation: https://github.com/Zoetermeer/L/blob/master/examples/rope/rope.l
 .. _Monads: https://github.com/Zoetermeer/L/blob/master/examples/monads/
 .. _Basic string-utilities module implementation: https://github.com/Zoetermeer/L/blob/master/examples/string/string.l
+.. _Monadic JSON parser: https://github.com/Zoetermeer/L/blob/master/examples/json/
 
 Each of these example directories contains a file called ``tests.l`` with examples,
 and a corresponding file called ``expected.out.txt`` with the expected output from running the
@@ -798,6 +823,7 @@ and build the ``latroi`` interpreter executable:
 
   $> stack setup
   $> stack build
+  $> stack install
 
 Running the REPL
 ----------------
@@ -808,7 +834,7 @@ To start Latro in interactive (REPL) mode, simply run the executable:
 
 ::
 
-  $> stack exec latroi
+  $> latroi
   λ> //type some code here!
 
 Sometimes it is convenient to load a source file directly into the REPL.
@@ -840,6 +866,8 @@ defined there:
 
   λ> :l lib/Core.l
   Unit
+  λ> import Core
+  Unit
   λ> 1 + 1
   2
   λ> let add = (+)
@@ -870,7 +898,7 @@ Running source-file programs
 
 ::
 
-  $> latro [OPTIONS] <file1> <file2> ...
+  $> latroi [OPTIONS] <file1> <file2> ...
 
 Runs the interpreter on the program given in the files.
 
@@ -918,17 +946,22 @@ Here's a full-blown example -- the `test suite for the typechecker`_.
 
 .. _test suite for the typechecker: https://github.com/Zoetermeer/latro/blob/master/tests/typechecker.rkt
 
-A specific test suite can be run by running its corresponding file directly in Racket, e.g.:
+A specific test suite can be run by using the ``test`` shell script in the top level of
+the Latro source directory.
 
 ::
 
+  $> ./test typechecker
   $> racket tests/typechecker.rkt
 
-Or we can run the entire test suite from the top-level directory:
+This will run the tests found in ``tests/typechecker.rkt``.
+
+We can also run the entire test suite from the top-level directory using
+the same script by running it with no arguments:
 
 ::
 
-  $> ./run_tests.sh
+  $> ./test
 
 
 Roadmap
