@@ -1,16 +1,13 @@
 module Json.Tests.Repl {
   import Core
   import IO
-  import Json
   import Json.Value
 
   repl() =
-    IO.readln()
+    readln()
     |> parse
-    |> IO.println
+    |> println
     |> fun(u) = repl()
 
-  main(_) = {
-    repl() 
-  }
+  main(_) = repl()
 }
