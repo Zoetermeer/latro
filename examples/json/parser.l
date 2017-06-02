@@ -1,13 +1,21 @@
+module Json.Value.Field {
+  import Core
+  import Json
+  import Json.Value
+
+  type %(String, Value)
+
+  new : String -> Value -> Field
+  new(key, value) = %(key, value)
+}
+
 module Json.Value {
   import Core
   import Core.Result
   import Core.Result.Monadic
   import Json
   import Json.Token = Token
-
-  type Field = %(String, Value)
-
-  mkField(name, value) = %(name, value)
+  import Json.Value.Field = Field
 
   type | Object(Field[])
        | Array(Value[])
@@ -23,7 +31,7 @@ module Json.Value {
   parseFields(Token.String(fieldName) @ Token.Colon @ valueTokens) = {
     parseValue(valueTokens) >>= fun(rv) = {
       let %(value, tokens') = rv
-      let field = mkField(fieldName, value)
+      let field = Field.new(fieldName, value)
       switch (tokens') {
         Token.Comma @ tokens'' -> {
           parseFields(tokens'') >>= fun(rv') = {
@@ -48,16 +56,30 @@ module Json.Value {
   }
 
 
-  parseArray(ts) = {
-    let rv = parseValue(ts)
-    switch (rv) {
-      Ok(%(value, t @ ts')) -> {
-        switch (t) {
-          Token.RBracket -> Ok(%(Array([value]), ts'))
-          _              -> Error("Expected ']'")
+  parseElements(ts) = {
+    parseValue(ts) >>= fun(rv) = {
+      let %(value, ts') = rv
+      switch (ts') {
+        Token.Comma @ ts'' -> {
+          parseElements(ts'') >>= fun(restV) = {
+            let %(rest, ts''') = restV
+            accept(value @ rest, ts''')
+          }
         }
+        _                  -> accept([value], ts')
+      } 
+    }
+    
+  }
+
+
+  parseArray(ts) = {
+    parseElements(ts) >>= fun(ev) = {
+      let %(elements, ts') = ev
+      switch (ts') {
+        Token.RBracket @ ts'' -> accept(Array(elements), ts'')
+        _                     -> Error("Expected ']'")
       }
-      _ -> Error("Invalid array element")
     }
   }
 

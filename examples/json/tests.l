@@ -20,5 +20,11 @@ module Json.Tests {
     println(parse("[42, 43, 44]"))
 
     println(parse("{" ++ quote("name") ++ ":" ++ quote("james") ++ "}"))
+
+    let json = "{"
+               ++ quote("name") ++ ":" ++ "42, "
+               ++ quote("items") ++ ":" ++ "[" ++ quote("foo") ++ ", " ++ quote("bar") ++ "]"
+               ++ "}"
+    println(parse(json)) 
   }
 }

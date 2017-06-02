@@ -788,7 +788,7 @@ All of the examples work on the latest version of Latro at HEAD.
   - `Rope data structure implementation`_
   - `Monads`_
   - `Basic string-utilities module implementation`_
-  - `Monadic JSON parser`_
+  - `Monadic JSON parser`_ (with REPL!)
 
 .. _Rope data structure implementation: https://github.com/Zoetermeer/L/blob/master/examples/rope/rope.l
 .. _Monads: https://github.com/Zoetermeer/L/blob/master/examples/monads/

@@ -1,0 +1,8 @@
+Ok([LBrace, RBrace])
+Ok([String("hello")])
+Error("Invalid token '?'.")
+Ok([Number(42)])
+Ok(Array([String("hello")]))
+Ok(Array([Number(42), Number(43), Number(44)]))
+Ok(Object([%("name", String("james"))]))
+Ok(Object([%("name", Number(42)), %("items", Array([String("foo"), String("bar")]))]))
