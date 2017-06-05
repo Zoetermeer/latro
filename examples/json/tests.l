@@ -1,6 +1,6 @@
 module Json.Tests {
   import Core (String)
-  import Core.List
+  import Core.List (++)
   import IO
   import Json.Token = Token (read)
   import Json.Value (parse)

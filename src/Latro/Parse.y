@@ -121,12 +121,12 @@ InteractiveExp : InterfaceDecExp { $1 }
 ImportExp : import SimpleOrQualifiedId { ExpImport (pos $1) $2 }
           | import SimpleOrQualifiedId '=' simple_id { ExpImportAs (pos $1) $2 (tokValue $4) }
 
-CommaSeparatedSimpleOrMixedIds : SimpleOrMixedId { [tokValue $1] }
-                               | CommaSeparatedSimpleOrMixedIds ',' SimpleOrMixedId { $1 ++ [tokValue $3] }
+CommaSeparatedSimpleOrMixedIds : AnyId { [tokValue $1] }
+                               | CommaSeparatedSimpleOrMixedIds ',' AnyId { $1 ++ [tokValue $3] }
 
 ImportExceptClause : except '(' CommaSeparatedSimpleOrMixedIds ')' { ImportClauseExcept (pos $1) $3 }
 
-Renaming : SimpleOrMixedId '->' SimpleOrMixedId { (tokValue $1, tokValue $3) }
+Renaming : AnyId '->' AnyId { (tokValue $1, tokValue $3) }
 
 CommaSeparatedRenamings : Renaming { [$1] }
                         | CommaSeparatedRenamings ',' Renaming { $1 ++ [$3] }

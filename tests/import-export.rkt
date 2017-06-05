@@ -500,4 +500,16 @@
         }
       }
       '("3")))
+
+  (test-case "it accepts infix operator names in import filters"
+    (check-match
+      @interp-sexp{
+        module Test {
+          import Core { except(+) }
+          import IO
+
+          main(_) = println(10 - 3 + 4)
+        }
+      }
+      `(AtPos (SourcePos ,_ 5 ,_) (CompilerModule AlphaConvert) (UnboundUniqIdentifier +))))
 )
