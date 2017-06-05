@@ -22,6 +22,7 @@ import Data.Either.Utils (maybeToEither)
 import Data.List (intercalate, nub)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (isJust)
+import qualified Data.Set as Set
 import Debug.Trace
 import Latro.Common
 import Latro.Compiler
@@ -278,9 +279,71 @@ bindLocalType uid@(UniqId _ rawId) = do
 bindLocalType uid = freshTypeIdM uid >>= bindLocalType
 
 
-bindNsImport :: UniqAst QualifiedId -> NamespaceScope -> AlphaConverted ()
-bindNsImport qid importedNs = do
+importNs :: UniqAst QualifiedId -> NamespaceScope -> AlphaConverted ()
+importNs qid ns = do
+  curNs <- getCurNs
+  let p                   = nodeData qid
+      curVarIdEnv         = varIdEnv curNs
+      curTypeIdEnv        = typeIdEnv curNs
+      curCtorIdEnv        = ctorIdEnv curNs
+      modVarIdEnv         = exportVarIdEnv ns
+      modTypeIdEnv        = exportTypeIdEnv ns
+      modCtorIdEnv        = exportCtorIdEnv ns
+      overlappingVarIds   = Map.keys $ Map.intersection curVarIdEnv modVarIdEnv
+      overlappingTypeIds  = Map.keys $ Map.intersection curTypeIdEnv modTypeIdEnv
+      overlappingCtorIds  = Map.keys $ Map.intersection curCtorIdEnv modCtorIdEnv
+  unless (null overlappingVarIds) $ throwError (ErrOverlappingVarImport qid overlappingVarIds) `reportErrorAt` p
+  unless (null overlappingTypeIds) $ throwError (ErrOverlappingTyImport qid overlappingTypeIds) `reportErrorAt` p
+  unless (null overlappingCtorIds) $ throwError (ErrOverlappingCtorImport qid overlappingCtorIds) `reportErrorAt` p
+  modifyCurNs (\curNs -> curNs { varIdEnv  = Map.union curVarIdEnv modVarIdEnv
+                               , typeIdEnv = Map.union curTypeIdEnv modTypeIdEnv
+                               , ctorIdEnv = Map.union curCtorIdEnv modCtorIdEnv
+                               })
+  bindNsAs qid ns
+
+
+bindNsAs :: UniqAst QualifiedId -> NamespaceScope -> AlphaConverted ()
+bindNsAs qid importedNs = do
   modifyCurNs (\ns -> ns { nsEnv = Map.insert qid importedNs (nsEnv ns) })
+
+
+class NsFilter a where
+  filterNs :: NamespaceScope -> a -> NamespaceScope
+
+
+instance NsFilter [UniqId] where
+  filterNs ns [] = ns
+  filterNs ns onlyIds = ns { exportVarIdEnv  = restrictKeys (exportVarIdEnv ns) onlyIdSet
+                           , exportTypeIdEnv = restrictKeys (exportTypeIdEnv ns) onlyIdSet
+                           , exportCtorIdEnv = restrictKeys (exportCtorIdEnv ns) onlyIdSet
+                           }
+    where onlyIdSet = Set.fromList $ map show onlyIds
+          restrictKeys m keySet = Map.filterWithKey (\k _ -> Set.member k keySet) m
+
+
+instance (Show id) => NsFilter (ImportClause a id) where
+  filterNs ns (ImportClauseExcept p exceptIds)
+    = ns { exportVarIdEnv  = withoutKeys (exportVarIdEnv ns) exceptIdSet
+         , exportTypeIdEnv = withoutKeys (exportTypeIdEnv ns) exceptIdSet
+         , exportCtorIdEnv = withoutKeys (exportCtorIdEnv ns) exceptIdSet
+         }
+    where exceptIdSet = Set.fromList $ map show exceptIds
+          withoutKeys m keySet = Map.filterWithKey (\k _ -> Set.notMember k keySet) m
+
+  filterNs ns (ImportClauseRenaming p renamePairs)
+    = ns { exportVarIdEnv = renameKeys (exportVarIdEnv ns) renamePairs
+         , exportTypeIdEnv = renameKeys (exportTypeIdEnv ns) renamePairs
+         , exportCtorIdEnv = renameKeys (exportCtorIdEnv ns) renamePairs
+         }
+    where renameKeys m [] = m
+          renameKeys m ((fromId, toId) : pairs)
+            = renameKeys m' pairs
+              where fromIdRaw = show fromId
+                    toIdRaw = show toId 
+                    maybeV = Map.lookup fromIdRaw m
+                    m'     = case maybeV of
+                               Just v -> Map.insert toIdRaw v $ Map.delete fromIdRaw m
+                               _      -> m
 
 
 lookupNsGlobalSafe :: UniqAst QualifiedId -> AlphaConverted (Maybe NamespaceScope)
@@ -766,32 +829,25 @@ instance AlphaLocal (UniqAst Exp) where
 
   convertLoc (ExpImport p qid) = do
     -- traceM ("convertLoc ExpImport " ++ render qid)
-    curNs <- getCurNs
     ns <- lookupNsGlobal qid `reportErrorAt` p
-    let curVarIdEnv         = varIdEnv curNs
-        curTypeIdEnv        = typeIdEnv curNs
-        curCtorIdEnv        = ctorIdEnv curNs
-        modVarIdEnv         = exportVarIdEnv ns
-        modTypeIdEnv        = exportTypeIdEnv ns
-        modCtorIdEnv        = exportCtorIdEnv ns
-        overlappingVarIds   = Map.keys $ Map.intersection curVarIdEnv modVarIdEnv
-        overlappingTypeIds  = Map.keys $ Map.intersection curTypeIdEnv modTypeIdEnv
-        overlappingCtorIds  = Map.keys $ Map.intersection curCtorIdEnv modCtorIdEnv
-    unless (null overlappingVarIds) $ throwError (ErrOverlappingVarImport qid overlappingVarIds) `reportErrorAt` p
-    unless (null overlappingTypeIds) $ throwError (ErrOverlappingTyImport qid overlappingTypeIds) `reportErrorAt` p
-    unless (null overlappingCtorIds) $ throwError (ErrOverlappingCtorImport qid overlappingCtorIds) `reportErrorAt` p
-    modifyCurNs (\curNs -> curNs { varIdEnv  = Map.union curVarIdEnv modVarIdEnv
-                                 , typeIdEnv = Map.union curTypeIdEnv modTypeIdEnv
-                                 , ctorIdEnv = Map.union curCtorIdEnv modCtorIdEnv
-                                 , nsEnv     = Map.insert qid ns (nsEnv curNs)
-                                 })
+    importNs qid ns
     return $ ExpUnit p
 
   -- NNSE += { id -> GNSE[qid] }
   convertLoc (ExpImportAs p qid id) = do
     ns <- lookupNsGlobal qid `reportErrorAt` p
     -- traceM $ show $ exportVarIdEnv ns
-    bindNsImport (Id p id) ns
+    bindNsAs (Id p id) ns
+    return $ ExpUnit p
+
+  convertLoc (ExpSelectiveImport p (ExpImport ip qid) importOnlyIds clauses) = do
+    ns <- lookupNsGlobal qid `reportErrorAt` ip
+    importNs qid $ foldl filterNs (filterNs ns importOnlyIds) clauses
+    return $ ExpUnit p
+
+  convertLoc (ExpSelectiveImport p (ExpImportAs ip qid id) importOnlyIds clauses) = do
+    ns <- lookupNsGlobal qid `reportErrorAt` ip
+    bindNsAs (Id ip id) $ foldl filterNs (filterNs ns importOnlyIds) clauses
     return $ ExpUnit p
 
   convertLoc (ExpFunDef (FunDefFun p id argPatEs bodyE)) = do
@@ -1028,6 +1084,12 @@ instance InjectUserIds Constraint where
   inject (Constraint p tyId protoId) = Constraint p (UserId tyId) (UserId protoId)
 
 
+instance InjectUserIds ImportClause where
+  inject (ImportClauseExcept p ids) = ImportClauseExcept p $ map UserId ids
+  inject (ImportClauseRenaming p renamePairs) =
+    ImportClauseRenaming p $ map (\(fromId, toId) -> (UserId fromId, UserId toId)) renamePairs
+
+
 instance InjectUserIds Exp where
   inject e =
     case e of
@@ -1040,6 +1102,8 @@ instance InjectUserIds Exp where
       ExpPrim p rator -> ExpPrim p $ UserId rator
       ExpImport p qid -> ExpImport p $ inject qid
       ExpImportAs p qid id -> ExpImportAs p (inject qid) $ UserId id
+      ExpSelectiveImport p importE ids clauses ->
+        ExpSelectiveImport p (inject importE) (map UserId ids) (map inject clauses)
       ExpAssign p patE e -> ExpAssign p (inject patE) (r e)
       ExpTopLevelAssign p patE e -> ExpTopLevelAssign p (inject patE) (r e)
       ExpTypeDec p typeDec -> ExpTypeDec p $ inject typeDec

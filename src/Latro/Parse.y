@@ -39,6 +39,8 @@ import Latro.Semant
   when { Token _ TokenWhen }
   on { Token _ TokenOn }
   infixl { Token _ TokenInfixl }
+  except { Token _ TokenExcept }
+  renaming { Token _ TokenRenaming }
   ':=' { Token _ TokenAssign }
   '->' { Token _ TokenArrow }
   '=>' { Token _ TokenRocket }
@@ -118,6 +120,33 @@ InteractiveExp : InterfaceDecExp { $1 }
 
 ImportExp : import SimpleOrQualifiedId { ExpImport (pos $1) $2 }
           | import SimpleOrQualifiedId '=' simple_id { ExpImportAs (pos $1) $2 (tokValue $4) }
+
+CommaSeparatedSimpleOrMixedIds : SimpleOrMixedId { [tokValue $1] }
+                               | CommaSeparatedSimpleOrMixedIds ',' SimpleOrMixedId { $1 ++ [tokValue $3] }
+
+ImportExceptClause : except '(' CommaSeparatedSimpleOrMixedIds ')' { ImportClauseExcept (pos $1) $3 }
+
+Renaming : SimpleOrMixedId '->' SimpleOrMixedId { (tokValue $1, tokValue $3) }
+
+CommaSeparatedRenamings : Renaming { [$1] }
+                        | CommaSeparatedRenamings ',' Renaming { $1 ++ [$3] }
+
+ImportRenamingClause : renaming '(' CommaSeparatedRenamings ')' { ImportClauseRenaming (pos $1) $3 }
+
+ImportClause : ImportExceptClause { $1 }
+             | ImportRenamingClause { $1 }
+
+ImportClauses : ImportClause { [$1] }
+              | ImportClauses ImportClause { $1 ++ [$2] }
+
+ImportSubset : '(' CommaSeparatedSimpleOrMixedIds ')' { $2 }
+
+
+SelectiveImportExp : ImportExp ImportSubset '{' ImportClauses '}' { ExpSelectiveImport (nodeData $1) $1 $2 $4 }
+                   | ImportExp '{' ImportClauses '}' { ExpSelectiveImport (nodeData $1) $1 [] $3 }
+                   | ImportExp ImportSubset { ExpSelectiveImport (nodeData $1) $1 $2 [] }
+                   | ImportExp { $1 }
+
 
 ModuleDec : module SimpleOrQualifiedId '{' ZeroOrMoreModuleLevelExps '}'
   { ExpModule (pos $3) $2 $4 }
@@ -247,7 +276,7 @@ ModuleLevelBindingExp : let PatExp '=' LiteralExp { ExpTopLevelAssign (pos $1) $
                       | let PatExp '=' LiteralListExp { ExpTopLevelAssign (pos $1) $2 $4 }
                       | FunDef { ExpFunDef $1 }
                       | TyAnn { ExpTopLevelTyAnn $1 }
-                      | ImportExp { $1 }
+                      | SelectiveImportExp { $1 }
 
 ZeroOrMoreModuleLevelBindingExps : ModuleLevelBindingExp { [$1] }
                                  | ZeroOrMoreModuleLevelBindingExps ModuleLevelBindingExp { $1 ++ [$2] }
@@ -393,6 +422,20 @@ firstPos (e:_) = nodeData e
 
 lexwrap :: (Token -> Alex a) -> Alex a
 lexwrap = (alexMonadScan' >>=)
+
+getIdStr :: Token -> Alex String
+getIdStr tok@(Token _ tokC) =
+  case tokC of
+    TokenSimpleId s  -> return s
+    TokenMixedId s   -> return s
+    TokenSpecialId s -> return s
+    _                -> happyError tok
+
+expectContextSensitiveKw :: Token -> String -> Alex Bool
+expectContextSensitiveKw tok matchStr = do
+  str <- getIdStr tok
+  unless (str == matchStr) $ happyError tok
+  return True 
 
 happyError :: Token -> Alex a
 happyError (Token (SourcePos _ line col) t) =

@@ -1,10 +1,9 @@
 module Json.Tests {
-  import Core
+  import Core (String)
   import Core.List
   import IO
-  import Json
-  import Json.Token = Token
-  import Json.Value
+  import Json.Token = Token (read)
+  import Json.Value (parse)
 
   quote : String -> String
   quote(s) = ['"'] ++ s ++ ['"']

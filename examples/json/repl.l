@@ -1,7 +1,16 @@
 module Json.Tests.Repl {
   import Core
-  import IO
-  import Json.Value
+  import IO.(readln, print, println).{
+    except(readln, print)
+    renaming(println -> printLine)
+  }
+
+  import IO.{
+    except(readln, print)
+    renaming(println -> printLine)
+  }
+
+  import Json.Value.(parse)
 
   repl() =
     readln()

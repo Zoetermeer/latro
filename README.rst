@@ -681,6 +681,91 @@ body of the importing module:
 References to members of aliased imports must always be "fully qualified"
 in the sense that we must always prefix references with the name of the alias.
 
+**Import filtering/renaming**
+
+Sometimes even aliasing an entire module is a bit heavy-handed for our needs.
+We can restrict the set of bindings imported from a particular module
+using a filter:
+
+.. code:: scala
+
+  module Foo {
+    let x = 3
+    let y = 4
+    let z = 5
+  }
+
+  module Bar {
+    import Foo (y)
+    import IO
+
+    main(_) = println(x) //ERROR: Unbound identifier 'x'
+  }
+
+We can also do the inverse of the above, saying we want to import all bindings
+from a module except certain ones using an _excepting filter_:
+
+.. code:: scala
+
+  module Foo {
+    let x = 3
+    let y = 4
+    let z = 5
+  }
+
+  module Bar {
+    import Core
+    import Foo { except(z, y) }
+    import IO
+
+    main(_) = println(x + y + z) //ERROR: Unbound identifier 'y'
+  }
+
+Imported bindings can also be _renamed_ for the scope of the import:
+
+.. code:: scala
+
+  module Foo {
+    let x = 3
+    let y = 4
+    let z = 5
+  }
+
+  module Bar {
+    import Core
+    import Foo {
+      except(z)
+      renaming (z -> a, y -> b)
+    }
+    import IO
+
+    main(_) = println(x + b + a) //12
+  }
+
+All of these filters can be combined, in concert with aliases, in interesting
+ways:
+
+.. code:: scala
+
+  module Foo {
+    let a = 3
+    let b = 4
+    let c = 5
+    let d = 6
+  }
+
+  module Bar {
+    import Core
+    import Foo = F (a, d) {
+      except(d)
+      renaming (a -> d)
+    }
+    import IO
+
+    main(_) = println(d) //3
+  }
+
+
 **Reopening**
 
 We can "reopen" a module and add bindings to it at any time.  A reopening definition

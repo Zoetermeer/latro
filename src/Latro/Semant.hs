@@ -311,6 +311,16 @@ data ILCompUnit a = ILCompUnit a [TypeDec a UniqId] [IL a]
   deriving (Eq, Show)
 
 
+data ImportClause a id =
+    ImportClauseExcept a [id]
+  | ImportClauseRenaming a [(id, id)]
+  deriving (Eq, Show)
+
+instance AstNode ImportClause where
+  nodeData (ImportClauseExcept p _) = p
+  nodeData (ImportClauseRenaming p _) = p  
+
+
 data Exp a id =
   ExpCons a (Exp a id) (Exp a id)
   | ExpInParens a (Exp a id)
@@ -320,6 +330,10 @@ data Exp a id =
   | ExpPrim a id
   | ExpImport a (QualifiedId a id)
   | ExpImportAs a (QualifiedId a id) id
+    -- The exp is the original import exp (either regular or import-as).  Type could be refined here
+    -- The list of ids is the import-subset (empty if none specified)
+    -- Import clauses are the except/renaming clauses
+  | ExpSelectiveImport a (Exp a id) [id] [ImportClause a id]
   | ExpTopLevelAssign a (PatExp a id) (Exp a id)
   | ExpAssign a (PatExp a id) (Exp a id)
   | ExpTypeDec a (TypeDec a id)
@@ -367,6 +381,7 @@ instance AstNode Exp where
       ExpPrim d _ -> d
       ExpImport d _ -> d
       ExpImportAs d _ _ -> d
+      ExpSelectiveImport d _ _ _ -> d
       ExpTopLevelAssign d _ _ -> d
       ExpAssign d _ _ -> d
       ExpTypeDec d _ -> d

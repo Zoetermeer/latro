@@ -425,4 +425,79 @@
         }
       }
       `(AtPos (SourcePos ,_ 12 ,_) (CompilerModule AlphaConvert) (UnboundConstructor Some))))
+
+  (test-case "it restricts the set of imported bindings with selective imports"
+    (check-match
+      @interp-sexp{
+        module M {
+          let x = 1
+          let y = 2
+          let z = 3
+        }
+
+        module N {
+          import M (x, z)
+          import Core
+
+          v() = x + y
+        }
+
+        module Main {
+          import N
+          import IO
+
+          main(_) = println(v())
+        }
+      }
+      `(AtPos (SourcePos ,_ 11 ,_) (CompilerModule AlphaConvert) (UnboundUniqIdentifier y))))
+
+  (test-case "it restricts the set of imported bindings with excepting imports"
+    (check-match
+      @interp-sexp{
+        module M {
+          let x = 1
+          let y = 2
+          let z = 3
+        }
+
+        module N {
+          import M { except(z) }
+          import Core
+
+          v() = x + y + z
+        }
+
+        module Main {
+          import IO
+          import N = M
+
+          main(_) = println(M.v())
+        }
+      }
+      `(AtPos (SourcePos ,_ 11 ,_) (CompilerModule AlphaConvert) (UnboundUniqIdentifier z))))
+
+  (test-case "it renames imported bindings"
+    (check-equal?
+      @interp-lines{
+        module M {
+          let x = 1
+          let y = 2
+          let z = 3
+        }
+
+        module N {
+          import Core
+          import M (x, y, z) { except(z) renaming(x -> z) }
+
+          v() = z + y
+        }
+
+        module Main {
+          import N
+          import IO
+
+          main(_) = println(N.v())
+        }
+      }
+      '("3")))
 )
