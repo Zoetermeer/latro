@@ -47,7 +47,6 @@ tokens :-
   primtype { lex' TokenPrimType }
   protocol { lex' TokenProtocol }
   when { lex' TokenWhen }
-  on { lex' TokenOn }
   infixl { lex' TokenInfixl }
   except { lex' TokenExcept }
   renaming { lex' TokenRenaming }
@@ -120,7 +119,6 @@ data TokenClass =
   | TokenPrimType
   | TokenProtocol
   | TokenWhen
-  | TokenOn
   | TokenInfixl
   | TokenExcept
   | TokenRenaming
@@ -196,7 +194,6 @@ unlex (TokenPrim) = "prim"
 unlex (TokenPrimType) = "primtype"
 unlex (TokenProtocol) = "protocol"
 unlex (TokenWhen) = "when"
-unlex (TokenOn) = "on"
 unlex (TokenInfixl) = "infixr"
 unlex (TokenExcept) = "except"
 unlex (TokenRenaming) = "renaming"

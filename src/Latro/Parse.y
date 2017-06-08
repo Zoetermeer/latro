@@ -37,7 +37,6 @@ import Latro.Semant
   primtype { Token _ TokenPrimType }
   protocol { Token _ TokenProtocol }
   when { Token _ TokenWhen }
-  on { Token _ TokenOn }
   infixl { Token _ TokenInfixl }
   except { Token _ TokenExcept }
   renaming { Token _ TokenRenaming }
@@ -151,7 +150,7 @@ SelectiveImportExp : ImportExp ImportSubset '{' ImportClauses '}' { ExpSelective
 ModuleDec : module SimpleOrQualifiedId '{' ZeroOrMoreModuleLevelExps '}'
   { ExpModule (pos $3) $2 $4 }
 
-Constraint : when SimpleOrMixedId ':' SimpleOrMixedId { Constraint (pos $1) (tokValue $2) (tokValue $4) }
+Constraint : when simple_id ':' simple_id { Constraint (pos $1) (tokValue $2) (tokValue $4) }
 
 Constraints : Constraint { [$1] }
             | Constraints Constraint { $1 ++ [$2] }
@@ -159,8 +158,8 @@ Constraints : Constraint { [$1] }
 
 ProtoDecBody : '{' ZeroOrMoreTyAnns '}' { $2 }
 
-ProtoDec : protocol SimpleOrMixedId on SimpleOrMixedId Constraints ProtoDecBody
-           { ExpProtoDec (pos $1) (tokValue $2) (tokValue $4) $5 $6 }
+ProtoDec : protocol simple_id '(' simple_id ')' Constraints ProtoDecBody
+           { ExpProtoDec (pos $1) (tokValue $2) (tokValue $4) $6 $7 }
 
 ProtoImp : imp SimpleTy ':' SimpleOrMixedId Constraints '{' ZeroOrMoreModuleLevelBindingExps '}' { ExpProtoImp (pos $1) $2 (tokValue $4) $5 $7 }
 
