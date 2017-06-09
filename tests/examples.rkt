@@ -5,7 +5,8 @@
            rackunit)
 
   (define examples
-    '("json"
+    '("encoding"
+      "json"
       "monads"
       "rope"))
 

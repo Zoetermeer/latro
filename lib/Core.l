@@ -6,11 +6,13 @@ module Core {
   infixl (-)(a, b) = prim(intSub)(a, b)
   infixl (*)(a, b) = prim(intMul)(a, b)
   infixl (/)(a, b) = prim(intDiv)(a, b)
+  infixl (**)(n, p) = pow(n, p)
 
   precedence + 6
   precedence - 6
   precedence * 5
   precedence / 5
+  precedence ** 4
 
   mod(n, d) = prim(intMod)(n, d)
 
