@@ -20,7 +20,9 @@
         }
 
         module Program {
-          main(_) = prim(println)(42)
+          import IO
+          import M
+          main(_) = IO.println(42 === 43)
         }
       }
       '("42")))

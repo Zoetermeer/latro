@@ -62,6 +62,8 @@ reorder env e =
     eImp@ExpImport{} -> eImp
     eImp@ExpImportAs{} -> eImp
     ExpAssign p patE e -> ExpAssign p patE $ r e
+    ExpProtoImp p synTy protoId straints bodyEs ->
+      ExpProtoImp p synTy protoId straints $ map r bodyEs
     eTy@ExpTypeDec{} -> eTy
     eAnn@ExpTyAnn{} -> eAnn
     ExpWithAnn tyAnn e -> ExpWithAnn tyAnn $ r e
@@ -126,6 +128,9 @@ rewriteInfix eImp@(ExpImportAs _ _ _) = eImp
 
 rewriteInfix (ExpAssign p patE e) =
   ExpAssign p patE $ rewriteInfix e
+
+rewriteInfix (ExpProtoImp p synTy protoId straints bodyEs) =
+  ExpProtoImp p synTy protoId straints $ map rewriteInfix bodyEs
 
 rewriteInfix eTy@(ExpTypeDec _ _) = eTy
 rewriteInfix eAnn@(ExpTyAnn _) = eAnn

@@ -152,7 +152,13 @@ ensureVarBoundInNsScope uid@(UniqId _ rawId) = do
   modifyCurNs (\ns -> ns { varIdEnv = Map.insert rawId uid (varIdEnv ns) })
   return uid
 
-ensureVarBoundInNsScope uid = return uid
+ensureVarBoundInNsScope uid = do
+  -- If the user id is a FunDef name, it should be
+  -- a FunDef in the body of a protocol implementation.
+  -- We want to adjust it to match the unique ID of the
+  -- protocol *definition's* corresponding declaration ID.
+  uniqId <- lookupVar uid
+  return uniqId
 
 
 exportVar :: UniqId -> UniqId -> AlphaConverted ()
@@ -891,12 +897,12 @@ instance AlphaLocal (UniqAst Exp) where
     return $ ExpUnit p
 
   convertLoc (ExpFunDef (FunDefFun p id argPatEs bodyE)) = do
-    ensureVarBoundInNsScope id
+    id' <- ensureVarBoundInNsScope id
     pushNewLocalScope
     argPatEs' <- mapM convertLoc argPatEs
     bodyE' <- convertLoc bodyE
     popLocalScope
-    return $ ExpFunDef $ FunDefFun p id argPatEs' bodyE'
+    return $ ExpFunDef $ FunDefFun p id' argPatEs' bodyE'
 
   convertLoc (ExpTopLevelAssign p patExp e) = do
     e' <- convertLoc e
