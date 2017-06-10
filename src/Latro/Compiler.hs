@@ -67,41 +67,47 @@ instance Environment AlphaEnv where
     where i = 1
 
 data NamespaceScope = Ns
-  { path            :: UniqAst QualifiedId
+  { path              :: UniqAst QualifiedId
   -- All defined and namespace-imported namespaces (superset of the global NS env)
-  , nsEnv           :: QualIdEnv NamespaceScope
+  , nsEnv             :: QualIdEnv NamespaceScope
   -- All variables imported and bound at this scope
-  , varIdEnv        :: RawIdEnv UniqId
+  , varIdEnv          :: RawIdEnv UniqId
   -- All types imported and bound at this scope
-  , typeIdEnv       :: RawIdEnv UniqId
+  , typeIdEnv         :: RawIdEnv UniqId
   -- All constructors imported and bound at this scope
-  , ctorIdEnv       :: RawIdEnv UniqId
+  , ctorIdEnv         :: RawIdEnv UniqId
+  -- All protocols imported and bound at this scope
+  , protoIdEnv        :: RawIdEnv UniqId
   -- The stack of local scopes for the current context.
   -- The head is the innermost local scope.
   -- Local scopes only apply to the right-hand side of a variable binding occurrence,
   -- or a type binding occurrence.  A type environment is needed even for
   -- the variable case, because type variables can be introduced in a local scope.
-  , localScopeStack :: [LocalScope]
+  , localScopeStack   :: [LocalScope]
   -- Exported variables
-  , exportVarIdEnv  :: RawIdEnv UniqId
+  , exportVarIdEnv    :: RawIdEnv UniqId
   -- Exported types
-  , exportTypeIdEnv :: RawIdEnv UniqId
+  , exportTypeIdEnv   :: RawIdEnv UniqId
   -- Exported constructors
-  , exportCtorIdEnv :: RawIdEnv UniqId
+  , exportCtorIdEnv   :: RawIdEnv UniqId
+  -- Exported protocols
+  , exportProtoIdEnv  :: RawIdEnv UniqId
   }
   deriving (Eq, Show)
 
 
 mkNs :: UniqAst QualifiedId -> NamespaceScope
-mkNs path = Ns { path = path
-               , nsEnv = Map.empty
-               , varIdEnv = Map.empty
-               , typeIdEnv = Map.empty
-               , ctorIdEnv = Map.empty
-               , localScopeStack = []
-               , exportVarIdEnv = Map.empty
-               , exportTypeIdEnv = Map.empty
-               , exportCtorIdEnv = Map.empty
+mkNs path = Ns { path             = path
+               , nsEnv            = Map.empty
+               , varIdEnv         = Map.empty
+               , typeIdEnv        = Map.empty
+               , ctorIdEnv        = Map.empty
+               , protoIdEnv       = Map.empty
+               , localScopeStack  = []
+               , exportVarIdEnv   = Map.empty
+               , exportTypeIdEnv  = Map.empty
+               , exportCtorIdEnv  = Map.empty
+               , exportProtoIdEnv = Map.empty
                }
 
 

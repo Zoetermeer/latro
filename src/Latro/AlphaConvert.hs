@@ -179,24 +179,22 @@ exportCtor userId@(UserId rawId) uid = do
 exportCtor UniqId{} _ = return ()
 
 
-freshVarId :: UniqId -> AlphaEnv -> (UniqId, AlphaEnv)
-freshVarId (UserId id) aEnv@AlphaEnv { counter } =
+exportProto :: UniqId -> UniqId -> AlphaConverted ()
+exportProto (UserId rawId) uid = do
+  modifyCurNs (\ns -> ns { exportProtoIdEnv = Map.insert rawId uid (exportProtoIdEnv ns)
+                         , protoIdEnv       = Map.insert rawId uid (protoIdEnv ns)
+                         })
+exportProto UniqId{} _ = return ()
+
+
+freshId :: UniqId -> AlphaEnv -> (UniqId, AlphaEnv)
+freshId (UserId id) aEnv@AlphaEnv { counter } =
     (uniqId, aEnv { counter = counter' })
   where
     counter' = counter + 1
     uniqId = UniqId counter id
 
-freshVarId  id aEnv = (id, aEnv)
-
-
-freshTypeId :: UniqId -> AlphaEnv -> (UniqId, AlphaEnv)
-freshTypeId (UserId id) aEnv@AlphaEnv { counter } =
-    (uniqId, aEnv { counter = counter' })
-  where
-    counter' = counter + 1
-    uniqId = UniqId counter id
-
-freshTypeId id aEnv = (id, aEnv)
+freshId id aEnv = (id, aEnv)
 
 
 freshM :: UniqId -> (UniqId -> AlphaEnv -> (UniqId, AlphaEnv)) -> AlphaConverted UniqId
@@ -209,15 +207,15 @@ freshM userId@(UserId id) fMake = do
 freshM id _ = return id
 
 
-freshIdIfNotBoundM :: UniqId -> RawIdEnv UniqId -> (UniqId -> AlphaConverted UniqId) -> AlphaConverted UniqId
-freshIdIfNotBoundM uid@UniqId{} _ _ = return uid
-freshIdIfNotBoundM userId env makeFreshId = do
+freshIdIfNotBoundM :: UniqId -> RawIdEnv UniqId -> AlphaConverted UniqId
+freshIdIfNotBoundM uid@UniqId{} _ = return uid
+freshIdIfNotBoundM userId env = do
   when (isBoundIn userId env) (throwError $ ErrIdAlreadyBound userId)
-  makeFreshId userId
+  freshM userId freshId
 
 
 freshVarIdM :: UniqId -> AlphaConverted UniqId
-freshVarIdM id = freshM id $ freshVarId
+freshVarIdM id = freshM id freshId
 
 
 freshVarIdIfNotBoundM :: UniqId -> AlphaConverted UniqId
@@ -226,17 +224,27 @@ freshVarIdIfNotBoundM id = do
   let env = case localScopeStack curNs of
               [] -> varIdEnv curNs
               (scope : _) -> localVarIdEnv scope
-  freshIdIfNotBoundM id env freshVarIdM
+  freshIdIfNotBoundM id env
 
 
 freshTypeIdM :: UniqId -> AlphaConverted UniqId
-freshTypeIdM id = freshM id freshTypeId
+freshTypeIdM id = freshM id freshId
 
 
 freshTypeIdIfNotBoundM :: UniqId -> AlphaConverted UniqId
 freshTypeIdIfNotBoundM id = do
   curNs <- getCurNs
-  freshIdIfNotBoundM id (typeIdEnv curNs) freshTypeIdM
+  freshIdIfNotBoundM id (typeIdEnv curNs)
+
+
+freshProtoIdM :: UniqId -> AlphaConverted UniqId
+freshProtoIdM id = freshM id freshId
+
+
+freshProtoIdIfNotBoundM :: UniqId -> AlphaConverted UniqId
+freshProtoIdIfNotBoundM id = do
+  curNs <- getCurNs
+  freshIdIfNotBoundM id (protoIdEnv curNs)
 
 
 nextIdIndex :: AlphaEnv -> Int
@@ -396,6 +404,7 @@ class AlphaIndex a where
   lookupVar   :: a -> AlphaConverted UniqId
   lookupTy    :: a -> AlphaConverted UniqId
   lookupCtor  :: a -> AlphaConverted UniqId
+  lookupProto :: a -> AlphaConverted UniqId
 
 
 instance AlphaIndex (UniqAst QualifiedId) where
@@ -422,6 +431,12 @@ instance AlphaIndex (UniqAst QualifiedId) where
     catchError (lookupIn id exportCtorIdEnv ns) (\_ -> throwError $ ErrUnboundQualIdentifier qid) `reportErrorAt` p
 
 
+  lookupProto (Id p id) = lookup id protoIdEnv
+  lookupProto (Path p qid id) = do
+    ns <- lookupNs qid
+    catchError (lookupIn id exportProtoIdEnv ns) (\_ -> throwError $ ErrUnboundQualIdentifier qid) `reportErrorAt` p
+
+
 instance AlphaIndex UniqId where
   lookupVar uid@UniqId{} = return uid
   lookupVar uid = innerMostVarEnv >>= lookupInEnv uid
@@ -433,6 +448,10 @@ instance AlphaIndex UniqId where
 
   lookupCtor uid@UniqId{} = return uid
   lookupCtor userId = getCurNs >>= lookupIn userId ctorIdEnv
+
+
+  lookupProto uid@UniqId{} = return uid
+  lookupProto userId = getCurNs >>= lookupIn userId protoIdEnv
 
 
 -- Any type that should update non-local environments
@@ -791,13 +810,34 @@ instance AlphaTopLevel (UniqAst Exp) where
       _ ->
         throwError $ ErrInterpFailure $ "in convert ExpWithAnn: " ++ show e
 
+  convertTop (ExpProtoDec p id tyId straints tyAnns) = do
+    id' <- freshProtoIdIfNotBoundM id
+    exportProto id id'
+    tyAnns' <- mapM convertTop tyAnns
+    return $ ExpProtoDec p id' tyId straints tyAnns'
+    
+
   convertTop e = return e
+
+
+instance AlphaTopLevel (UniqAst TyAnn) where
+  convertTop (TyAnn p id tyParamIds synTy []) = do
+    id' <- freshVarIdIfNotBoundM id
+    exportVar id id'
+    return $ TyAnn p id' tyParamIds synTy []
 
 
 instance AlphaLocal (Int, UniqAst AdtAlternative) where
   convertLoc (index, AdtAlternative p id _ tys) = do
     tys' <- mapM convertLoc tys
     return (index, AdtAlternative p id index tys')
+
+
+instance AlphaLocal (UniqAst Constraint) where
+  convertLoc (Constraint p tyId protoId) = do
+    tyId' <- lookupTy tyId
+    protoId' <- lookupProto protoId
+    return $ Constraint p tyId' protoId'
 
 
 instance AlphaLocal (UniqAst Exp) where
@@ -861,6 +901,20 @@ instance AlphaLocal (UniqAst Exp) where
   convertLoc (ExpTopLevelAssign p patExp e) = do
     e' <- convertLoc e
     return $ ExpAssign p patExp e'
+
+  convertLoc (ExpProtoDec p id tyId straints tyAnns) = do
+    pushNewLocalScope
+    tyId' <- bindLocalType tyId
+    straints' <- mapM convertLoc straints
+    tyAnns' <- mapM convertLoc tyAnns
+    return $ ExpProtoDec p id tyId' straints' tyAnns'
+
+  convertLoc (ExpProtoImp p synTy protoId straints bodyEs) = do
+    protoId' <- lookupProto protoId
+    synTy' <- convertLoc synTy
+    straints' <- mapM convertLoc straints
+    bodyEs' <- mapM convertLoc bodyEs
+    return $ ExpProtoImp p synTy' protoId' straints' bodyEs'
 
   -- The pat exp must be converted after the right-hand side,
   -- so bindings occurring in the former do not show

@@ -117,6 +117,13 @@ ilGen (ExpTopLevelAssign p patE e) = do
   e' <- ilGen e
   return $ ILAssign p (ilGenPat patE) e'
 
+ilGen (ExpProtoDec p protoId tyId straints tyAnns) =
+  return $ ILProtoDec p protoId tyId straints tyAnns
+
+ilGen (ExpProtoImp p synTy protoId straints bodyEs) = do
+  bodyEs' <- mapM ilGen bodyEs
+  return $ ILProtoImp p synTy protoId straints bodyEs'
+
 ilGen (ExpWithAnn (TyAnn p id tyParamIds ty straints) e) = do
   e' <- ilGen e
   let ty' = ilGenTy ty

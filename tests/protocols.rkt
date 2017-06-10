@@ -5,18 +5,23 @@
            rackunit)
 
   (test-case "it parses"
-    (parameterize ([use-core? #f])
-      (check-equal?
-        @interp-lines{
-          module M {
-            protocol Eq(a) {
-              infixl (==) : a -> a -> Bool
-            }
+    (check-equal?
+      @interp-lines{
+        module M {
+          import Core
+
+          protocol Eq(a) {
+            infixl (===) : a -> a -> Bool
           }
 
-          module Program {
-            main(_) = prim(println)(42)
+          imp Int : Eq {
+            infixl (===)(x, y) = x == y
           }
         }
-        '("42"))))
+
+        module Program {
+          main(_) = prim(println)(42)
+        }
+      }
+      '("42")))
 )

@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 module Latro.Types where
 
-import Latro.AlphaConvert hiding (exportTy, lookupVar, lookupVarIn, lookupTy, markVarEnv, reportErrorAt)
+import qualified Latro.AlphaConvert as AlphaConvert
 import Latro.Common
 import Latro.Compiler
 import Control.Error.Util (hoistEither)
@@ -165,7 +165,7 @@ tyMain = TyApp TyConArrow [tyList tyStr, tyUnit]
 makeFresh :: RawId -> Checked UniqId
 makeFresh raw = do
   tcAlphaEnv <- getsTC tcAlphaEnv
-  let (uniqId, tcAlphaEnv') = freshTypeId (UserId raw) tcAlphaEnv
+  let (uniqId, tcAlphaEnv') = AlphaConvert.freshId (UserId raw) tcAlphaEnv
   modifyTC (\tcEnv -> tcEnv { tcAlphaEnv = tcAlphaEnv' })
   return uniqId
 

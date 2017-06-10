@@ -8,7 +8,7 @@ import Data.Char (ord)
 import Data.Either.Utils (maybeToEither)
 import Data.List
 import qualified Data.Map as Map
-import Latro.AlphaConvert hiding (exportVar, lookup, lookupVarId, reportErrorAt)
+import qualified Latro.AlphaConvert as AlphaConvert
 import Latro.Common
 import Latro.Compiler
 import Latro.Errors
@@ -78,8 +78,8 @@ restoreEnv = putInterp
 freshId :: Eval UniqId
 freshId = do
   alphaEnv <- gets alphaEnv
-  let index = nextIdIndex alphaEnv
-  let (uniqId, alphaEnv') = freshVarId (UserId (printf "%s%i" "x" index)) alphaEnv
+  let index = AlphaConvert.nextIdIndex alphaEnv
+  let (uniqId, alphaEnv') = AlphaConvert.freshId (UserId (printf "%s%i" "x" index)) alphaEnv
   modify (\cEnv -> cEnv { alphaEnv = alphaEnv' })
   return uniqId
 
