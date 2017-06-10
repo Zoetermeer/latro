@@ -50,6 +50,9 @@ module Core {
   infixl (|>)(x, f) = f(x)
   precedence |> 12
 
+  infixl (>>)<a, b, c> : (a -> b) -> (b -> c) -> (a -> c)
+  infixl (>>)(f, g) = fun(a) = g(f(a))
+
   id<a> : a -> a
   id(v) = v
 }
