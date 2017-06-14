@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE Strict, FlexibleContexts #-}
 module Latro.Types where
 
 import qualified Latro.AlphaConvert as AlphaConvert
@@ -13,6 +13,7 @@ import Data.List (sortBy)
 import Data.Maybe (fromMaybe, isNothing, mapMaybe)
 import qualified Data.Set as Set
 import Debug.Trace (trace, traceM)
+import Latro.Ast
 import Latro.Errors
 import Latro.Semant
 import Latro.Semant.Display ()
@@ -326,6 +327,7 @@ occursIn tyMeta@(TyMeta metaId) ty =
     TyVar _ -> False
     TyMeta otherMetaId -> metaId == otherMetaId
     TyRef _ -> False
+    TyScheme ty _ -> occursIn tyMeta ty
 
 occursIn _ _ = False
 
@@ -457,6 +459,20 @@ instantiate (TyPoly tyParamIds ty) = do
   ty' <- subst ty
   restorePolyEnv oldPolyEnv
   return ty'
+
+instantiate (TyOverloaded context ty) = do
+  oldPolyEnv <- markPolyEnv
+  mapM_ (\(paramId, protoId) -> do
+          meta <- freshMeta
+          bindPoly paramId $ TyScheme meta [TyConstraint protoId])
+        context
+  ty' <- subst ty
+  restorePolyEnv oldPolyEnv
+  return ty'
+
+instantiate (TyScheme ty straints) = do
+  ty' <- instantiate ty
+  return $ TyScheme ty' straints
 
 instantiate ty = return ty
 
@@ -606,7 +622,9 @@ unify tya tyb = do
 
     (ty, tyScheme@TyScheme{}) -> unify tyScheme ty
 
-    -- (TyScheme ty straints, ty) ->
+    (TyScheme tyA straints, tyB) -> do
+      ty' <- unify tyA tyB
+      return $ TyScheme ty' straints
 
     (ta, tb) -> unifyFail ta tb
 
@@ -872,7 +890,9 @@ tc ilMain@ILMain{} = throwError (ErrWrongMainArity ilMain) `reportErrorAt` ilNod
 
 tc (ILRef p id) = do
   ty <- lookupVar id `reportErrorAt` p
+  -- traceM $ "tc ILRef " ++ show id ++ ": " ++ show ty
   ty' <- instantiate ty
+  -- traceM $ "  (instantiated) " ++ show id ++ ": " ++ show ty'
   return (ty', ILRef (OfTy p ty') id)
 
 tc (ILStr p s) = return (tyStr, ILStr (OfTy p tyStr) s)
@@ -1065,7 +1085,8 @@ tc (ILProtoDec p protoId tyParamId straints tyAnns) = do
   exportTy tyParamId $ TyConTyScheme (TyConTyVar tyParamId) constraints
   mapM_ (\(TyAnn _ name tyParamIds synTy straints) -> do
             ty <- tcTy synTy
-            bindVar name $ TyPoly [tyParamId] ty)
+            -- bindVar name $ TyPoly [tyParamId] ty)
+            bindVar name $ TyOverloaded [(tyParamId, protoId)] ty)
         tyAnns
   -- TODO: 1) Need to generate actual functions here,
   -- one for each declaration, that take dictionaries as arguments

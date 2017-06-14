@@ -3,6 +3,7 @@ module Latro.Reorder where
 import Control.Monad.State
 import Data.Map as Map hiding (map)
 import Data.Maybe
+import Latro.Ast
 import Latro.Compiler
 import Latro.Semant
 

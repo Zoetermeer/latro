@@ -4,13 +4,14 @@ import Control.Monad.Except
 import Control.Monad.State
 import Data.Char (toLower)
 import Latro.AlphaConvert
+import Latro.Ast
 import Latro.Collapse
 import Latro.Compiler
 import Latro.Errors.Display ()
 import Latro.ILGen
 import Latro.Interp
 import Latro.Output
-import Latro.Parse
+import Latro.Parser
 import Latro.Reorder
 import Latro.Semant
 import Latro.Semant.Display ()

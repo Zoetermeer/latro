@@ -7,13 +7,18 @@
   (test-case "it binds struct field initializer names at the top level"
     (check-equal?
       @interp-lines{
-        type Person = struct {
-          Name : String
-        }
+        module Main {
+          import Core
+          import IO
 
-        main(_) = {
-          let p = Person %{ Name = "james"; }
-          IO::println(p.Name)
+          type Person = struct {
+            Name : String
+          }
+
+          main(_) = {
+            let p = Person %{ Name = "james"; }
+            IO.println(p#Name)
+          }
         }
       }
       '("\"james\"")))
@@ -21,15 +26,20 @@
   (test-case "it binds struct field initializers on locals returned by a function"
     (check-equal?
       @interp-lines{
-        type Person = struct {
-          Name : String
-        }
+        module Main {
+          import Core
+          import IO (println)
 
-        mkPerson(name) = Person %{ Name = name; }
+          type Person = struct {
+            Name : String
+          }
 
-        main(_) = {
-          let p = mkPerson("james")
-          IO::println(p.Name)
+          mkPerson(name) = Person %{ Name = name; }
+
+          main(_) = {
+            let p = mkPerson("james")
+            println(p#Name)
+          }
         }
       }
       '("\"james\"")))
@@ -38,6 +48,8 @@
     (check-equal?
       @interp-lines{
         module Geometry {
+          import Core
+
           type Point = struct {
             X : Int
             Y : Int
@@ -49,13 +61,19 @@
           }
         }
 
-        main(_) = {
-          let l = Geometry::Line %{
-            A = Geometry::Point %{ X = 0; Y = 42; };
-            B = Geometry::Point %{ X = 3; Y = 4; };
-          }
+        module Main {
+          import Core (+)
+          import Geometry
+          import IO (println)
 
-          IO::println(l.A.Y + 1)
+          main(_) = {
+            let l = Geometry.Line %{
+              A = Geometry.Point %{ X = 0; Y = 42; };
+              B = Geometry.Point %{ X = 3; Y = 4; };
+            }
+
+            IO.println(l#A#Y + 1)
+          }
         }
       }
       '("43")))

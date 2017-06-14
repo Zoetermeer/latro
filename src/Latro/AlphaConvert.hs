@@ -24,6 +24,7 @@ import qualified Data.Map.Strict as Map
 import Data.Maybe (isJust)
 import qualified Data.Set as Set
 import Debug.Trace
+import Latro.Ast
 import Latro.Common
 import Latro.Compiler
 import Latro.Errors

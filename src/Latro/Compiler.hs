@@ -5,6 +5,7 @@ import Control.Monad.Except
 import Control.Monad.State
 import Data.Functor.Identity
 import Data.Map as Map
+import Latro.Ast
 import Latro.Errors
 import Latro.Semant
 

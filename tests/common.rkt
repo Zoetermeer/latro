@@ -24,8 +24,8 @@
 
 (define lexer-file "./Lex.x")
 (define lexer-module "./Lex.hs")
-(define parser-file "./Parse.y")
-(define parser-module "./Parse.hs")
+(define parser-file "./Grammar.y")
+(define parser-module "./Grammar.hs")
 (define main-module "./Main.hs")
 (define test-source-file "./last-test.l")
 

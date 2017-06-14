@@ -2,6 +2,7 @@ module Latro.ILGen where
 
 import Control.Monad.Writer
 import Data.Char (toLower)
+import Latro.Ast
 import Latro.Compiler
 import Latro.Semant
 

@@ -5,6 +5,7 @@ Description : Collapses all multi-clause functions into single-body ones
 module Latro.Collapse where
 
 import Control.Monad.Except
+import Latro.Ast
 import Latro.Compiler
 import Latro.Errors
 import Latro.Semant

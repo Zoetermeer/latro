@@ -3,8 +3,8 @@ module Latro.Common where
 
 import Control.Monad.Except
 import Debug.Trace (trace)
+import Latro.Ast (SourcePos(..))
 import Latro.Errors
-import Latro.Semant (SourcePos(..))
 
 
 type FailMessage = String

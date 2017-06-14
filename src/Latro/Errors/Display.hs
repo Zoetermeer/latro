@@ -1,9 +1,9 @@
 module Latro.Errors.Display where
 
 import Data.List (intercalate)
+import Latro.Ast
 import Latro.Errors
 import Latro.Output
-import Latro.Semant
 import Latro.Semant.Display
 import Latro.Sexpable
 import Text.PrettyPrint hiding (render)

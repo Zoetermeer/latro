@@ -29,16 +29,18 @@ executable latroi
 library
   hs-source-dirs:      src/
   exposed-modules:     Latro.AlphaConvert
+                       Latro.Ast
                        Latro.Collapse
                        Latro.Common
                        Latro.Compiler
                        Latro.Errors
                        Latro.Errors.Display
+                       Latro.Grammar
                        Latro.ILGen
                        Latro.Interp
                        Latro.Lex
                        Latro.Output
-                       Latro.Parse
+                       Latro.Parser
                        Latro.Reorder
                        Latro.Semant
                        Latro.Semant.Display

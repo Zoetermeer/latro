@@ -1,12 +1,11 @@
 {
 
-module Latro.Parse where
+module Latro.Grammar where
 
 import Control.Monad.Except
 import Data.Bifunctor (first)
-import Latro.Errors
 import Latro.Lex
-import Latro.Semant
+import Latro.Ast
 
 }
 
@@ -439,17 +438,5 @@ expectContextSensitiveKw tok matchStr = do
 happyError :: Token -> Alex a
 happyError (Token (SourcePos _ line col) t) =
   alexError' (AlexPn 0 line col) ("parse error at token '" ++ unlex t ++ "'")
-
-
-parse :: Alex a -> FilePath -> String -> Either Err a
-parse rule filePath input = first (\errMsg -> ErrSyntax errMsg) $ runAlex' rule filePath input
-
-
-parseInteractive :: FilePath -> String -> Either Err (CompUnit SourcePos RawId)
-parseInteractive = parse ruleParseInteractive
-
-
-parseTopLevel :: FilePath -> String -> Either Err (CompUnit SourcePos RawId)
-parseTopLevel = parse ruleParseTopLevel
 
 }

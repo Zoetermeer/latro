@@ -9,6 +9,7 @@ import Data.Either.Utils (maybeToEither)
 import Data.List
 import qualified Data.Map as Map
 import qualified Latro.AlphaConvert as AlphaConvert
+import Latro.Ast
 import Latro.Common
 import Latro.Compiler
 import Latro.Errors

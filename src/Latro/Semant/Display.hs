@@ -3,6 +3,7 @@ module Latro.Semant.Display where
 
 import Data.List (intercalate, intersperse)
 import qualified Data.Map as Map
+import Latro.Ast
 import Latro.Output
 import Latro.Semant
 import Latro.Sexpable

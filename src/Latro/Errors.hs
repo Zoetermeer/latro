@@ -1,6 +1,7 @@
 module Latro.Errors where
 
 import qualified Data.Map as Map
+import Latro.Ast
 import Latro.Semant
 
 

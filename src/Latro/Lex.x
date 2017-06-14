@@ -13,7 +13,7 @@ module Latro.Lex
 
 import Prelude hiding (lex)
 import Control.Monad (liftM)
-import Latro.Semant (SourcePos(..))
+import Latro.Ast (SourcePos(..))
 
 }
 
