@@ -512,7 +512,7 @@ subst ty =
     var@(TyVar id) -> do
       maybeTy <- lookupPoly id
       case maybeTy of
-        Just ty -> subst ty
+        Just ty -> return ty
         _ -> return var
 
     TyPoly tyParamIds ty -> do
