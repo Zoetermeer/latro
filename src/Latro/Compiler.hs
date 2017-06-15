@@ -132,16 +132,19 @@ type VarEnv = Map.Map UniqId Ty
 
 
 data TCEnv = TCEnv
-  { varEnv        :: VarEnv
-  , typeEnv       :: Map.Map UniqId TyCon
-  , tcAlphaEnv    :: AlphaEnv
-  , patEnv        :: Map.Map UniqId Ty
-  , fieldIndexEnv :: Map.Map UniqId Int
-  , polyEnv       :: Map.Map UniqId Ty
-  , metaEnv       :: Map.Map UniqId Ty
-  , protoEnv      :: Map.Map UniqId Protocol
+  { varEnv         :: VarEnv
+  , typeEnv        :: Map.Map UniqId TyCon
+  , tcAlphaEnv     :: AlphaEnv
+  , patEnv         :: Map.Map UniqId Ty
+  , fieldIndexEnv  :: Map.Map UniqId Int
+  , polyEnv        :: Map.Map UniqId Ty
+  , metaEnv        :: Map.Map UniqId Ty
+  , protoEnv       :: Map.Map UniqId [MethodId]
   -- protocolId --o--> (implementing tycon --o--> instance dictionary)
-  , impEnv        :: Map.Map UniqId (Map.Map TyCon (ImpDict CheckedData))
+  -- The 'instance dictionary' will be an instance of the tuple/ADT type
+  -- we declare to represent the dictionary itself
+  , impEnv         :: Map.Map UniqId (Map.Map TyCon (Typed IL))
+  , methodEnv      :: Map.Map MethodId ProtocolId
   }
   deriving (Eq, Show)
 
@@ -149,15 +152,16 @@ data TCEnv = TCEnv
 instance Environment TCEnv where
   mt =
     TCEnv
-      { varEnv        = Map.empty
-      , typeEnv       = Map.empty
-      , tcAlphaEnv    = mt
-      , patEnv        = Map.empty
-      , fieldIndexEnv = Map.empty
-      , polyEnv       = Map.empty
-      , metaEnv       = Map.empty
-      , protoEnv      = Map.empty
-      , impEnv        = Map.empty
+      { varEnv          = Map.empty
+      , typeEnv         = Map.empty
+      , tcAlphaEnv      = mt
+      , patEnv          = Map.empty
+      , fieldIndexEnv   = Map.empty
+      , polyEnv         = Map.empty
+      , metaEnv         = Map.empty
+      , protoEnv        = Map.empty
+      , impEnv          = Map.empty
+      , methodEnv       = Map.empty
       }
 
 

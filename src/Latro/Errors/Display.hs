@@ -194,6 +194,24 @@ instance Sexpable Err where
           , sexp tyCon
           ]
 
+  sexp (ErrDoesNotImplementProtocol tyCon protoId) =
+    List  [ Symbol "DoesNotImplementProtocol"
+          , sexp tyCon
+          , sexp protoId
+          ]
+
+  sexp (ErrCannotResolveProtocolImp ty protoId) =
+    List  [ Symbol "ErrCannotResolveProtocolImp"
+          , sexp ty
+          , sexp protoId
+          ]
+
+  sexp (ErrUnknownMethodId methodId protoId) =
+    List  [ Symbol "UnknownMethodId"
+          , sexp methodId
+          , sexp protoId
+          ]
+
   sexp (ErrMultipleDataDecs typeModuleId) =
     List  [ Symbol "MultipleDataDecs"
           , sexp typeModuleId
@@ -287,5 +305,20 @@ instance CompilerOutput Err where
     printf "Import of module '%s' would shadow bound variables: %s"
       (render importedModuleQid)
       (intercalate ", " (map render shadowedRawIds))
+
+  render (ErrDoesNotImplementProtocol tyCon protoId) =
+    printf "No %s implementation found for %s"
+      (render protoId)
+      (render tyCon)
+
+  render (ErrCannotResolveProtocolImp ty protoId) =
+    printf "Cannot resolve protocol %s implementation for type: %s"
+      (render protoId)
+      (render ty)
+
+  render (ErrUnknownMethodId methodId protoId) =
+    printf "Protocol %s does not declare method with name '%s'"
+      (render protoId)
+      (render methodId)
 
   render err = showSexp err

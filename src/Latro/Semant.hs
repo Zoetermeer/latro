@@ -92,7 +92,18 @@ data IL a =
   | ILBegin a [IL a]
   | ILFail a String
   | ILMain a [UniqId] (IL a)
+  | ILPlaceholder a OverloadPlaceholder
   deriving (Eq, Show)
+
+
+-- This is left inexhaustive for now.  We would prefer
+-- to blow up on non-binding ocurrences in things like
+-- protocol implementations
+ilBindingId :: IL a -> UniqId
+ilBindingId e =
+  case e of
+    ILWithAnn _ tyAnn _ -> bindingId tyAnn
+    ILFunDef _ id _ _ -> id
 
 
 instance ILNode IL where
@@ -122,6 +133,7 @@ instance ILNode IL where
       ILBegin d _ -> d
       ILFail d _ -> d
       ILMain d _ _ -> d
+      ILPlaceholder d _ -> d
 
 
 data ILCompUnit a = ILCompUnit a [TypeDec a UniqId] [IL a]
@@ -232,21 +244,10 @@ type FieldName = UniqId
 type CtorName = UniqId
 
 
-data Protocol = Protocol ProtocolId TyVarId [MethodId]
+data OverloadPlaceholder =
+    PlaceholderMethod MethodId Ty
+  | PlaceholderDict ProtocolId Ty
   deriving (Eq, Show)
-
-
--- data Imp = Imp TyCon Protocol
---   deriving (Eq, Show)
-
-
-data ImpDictValue a =
-    ImpDictValueFun [UniqId] (IL a)
-  | ImpDictValueSuperDict (ImpDictValue a)
-  deriving (Eq, Show)
-
-
-type ImpDict a = Map.Map UniqId (ImpDictValue a)
 
 
 data TyConstraint = TyConstraint ProtocolId
@@ -258,26 +259,27 @@ instance Show TyConstraint where
   show = pretty
 
 
+type Context = [(Ty, ProtocolId)]
+
+
 data Ty =
     TyApp TyCon [Ty]
-  | TyPoly [TyVarId] Ty
+  | TyPoly [TyVarId] Context Ty
   | TyVar TyVarId
   | TyMeta TyVarId
   | TyRef (QualifiedId SourcePos UniqId) -- Only for recursive type definitions
-  | TyScheme Ty [TyConstraint]
-  | TyOverloaded [(UniqId, ProtocolId)] Ty
+  | TyOverloaded Context Ty -- Only for instantiated types
   deriving Generic
 
 
 instance Eq Ty where
   (TyApp tyConA tyAs) == (TyApp tyConB tyBs) =
     tyConA == tyConB && tyAs == tyBs
-  (TyPoly aVars tyA) == (TyPoly bVars tyB) =
-    tyA == tyB
+  (TyPoly aVars ctxA tyA) == (TyPoly bVars ctxB tyB) =
+    ctxA == ctxB && tyA == tyB
   (TyVar idA) == (TyVar idB) = idA == idB
   (TyMeta idA) == (TyMeta idB) = idA == idB
   (TyRef idA) == (TyRef idB) = idA == idB
-  (TyScheme tyA _) == (TyScheme tyB _) = tyA == tyB
   _ == _ = False
 
 
@@ -316,7 +318,6 @@ data TyCon =
   | TyConTyFun [TyVarId] Ty
   | TyConUnique UniqId TyCon
   | TyConTyVar TyVarId -- In the body of a tyfun/poly
-  | TyConTyScheme TyCon [TyConstraint] -- In the body of a protocol dec
   deriving Generic
 
 
@@ -335,7 +336,6 @@ ordIndex tyCon =
     TyConTyFun _ _ -> 9
     TyConUnique _ _ -> 10
     TyConTyVar _ -> 11
-    TyConTyScheme tyCon _ -> ordIndex tyCon
 
 
 instance Ord TyCon where
@@ -354,7 +354,6 @@ instance Eq TyCon where
   TyConArrow == TyConArrow = True
   TyConUnique ida _ == TyConUnique idb _ = ida == idb
   TyConTyVar ida == TyConTyVar idb = ida == idb
-  TyConTyScheme tyConA _ == TyConTyScheme tyConB _ = tyConA == tyConB
   _ == _ = False
 
 

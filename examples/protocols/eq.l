@@ -1,49 +1,40 @@
-//Implicit free type variable identifiers
-//Still need the single-param restriction check
-//
 protocol Eq(a) {
   infixl (==) : a -> a -> Bool
+  notEq       : a -> a -> Bool
 }
 
 //-->
+type EqDict<t1> = | MkEqDict(t1 -> t1 -> Bool, t1 -> t1 -> Bool)
 
-==<a> : EqDict -> a -> a -> Bool
-        where a : Eq
-==(eqDict, x, y) = eqDict[a](x, y)
+
+infixl (==)<t2>  : EqDict<t2> -> (t2 -> t2 -> Bool) where t2 : Eq
+infixl (==)(dict) =
+  switch (dict) {
+    MkEqDict(eqf, _) -> fun(x, y) = eqf(x, y)
+  }
+
+
+notEq<t3>        : EqDict<t3> -> t3 -> t3 -> Bool
+notEq(MkEqDict(_, notEqF), x, y) = notEqF(x, y)
+//---
 
 imp Eq(Int) {
   infixl (==)(x, y) = prim(intEq)(x, y)
+  notEq(x, y)       = not(x == y)
 }
 
 //-->
 
-DE[Eq] += { Int |-> fun(x, y) = prim(intEq)(x, y) }
+let EqIntDict = MkEqDict(
+  fun(x, y) = prim(intEq)(x, y),
+  fun(x, y) = (==)(x, y)
+)
 
-member(_, []) = False
-member(v, x @ xs) = {
-  cond {
-    v == x -> True
-    _      -> member(v, xs)
-  }
-}
+//---
+
+areEq(a, b) = a == b
 
 //-->
 
-member(eqDict, v, xs) = {
-  let args = %(v, xs)
-  switch (args) {
-    case %(_, [])     -> False
-    case %(v, x @ xs) -> {
-      cond {
-        (prim(lookup)(eqDict, ==))(v, x) -> True
-        _                                -> member(eqDict, v, xs)
-      }
-    }
-  }
-}
-
-
-//Example
-main(_) = {
-  prim(println)(42 == 43)
-}
+areEq<a> : EqDict<a> -> a -> a -> Bool
+areEq(d, x, y) = (==)(d, x, y)

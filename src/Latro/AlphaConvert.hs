@@ -19,16 +19,14 @@ import Control.Monad (when)
 import Control.Monad.Except
 import Control.Monad.State
 import Data.Either.Utils (maybeToEither)
-import Data.List (intercalate, nub)
+import Data.List (nub)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (isJust)
 import qualified Data.Set as Set
-import Debug.Trace
 import Latro.Ast
 import Latro.Common
 import Latro.Compiler
 import Latro.Errors
-import Latro.Output
 import Latro.Semant
 import Latro.Semant.Display ()
 import Prelude hiding (lookup)

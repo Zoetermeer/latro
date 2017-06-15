@@ -485,6 +485,25 @@ instance (Sexpable a) => Sexpable (IL a) where
               , toSexpList paramIds
               , sexp bodyE
               ]
+      ILPlaceholder d ph ->
+        List  [ Symbol "ILPlaceholder"
+              , sexp d
+              , sexp ph
+              ]
+
+
+instance Sexpable OverloadPlaceholder where
+  sexp (PlaceholderMethod methodId ty) =
+    List [ Symbol "PlaceholderMethod"
+         , sexp methodId
+         , sexp ty
+         ]
+
+  sexp (PlaceholderDict protoId ty) =
+    List [ Symbol "PlaceholderDict"
+         , sexp protoId
+         , sexp ty
+         ] 
 
 
 instance (Sexpable a) => Sexpable (ILCompUnit a) where
@@ -578,11 +597,28 @@ instance Sexpable Ty where
           , toSexpList tys
           ]
 
-  sexp (TyPoly tyVars ty) =
+  sexp (TyPoly tyVars [] ty) =
     List  [ Symbol "Poly"
           , toSexpList tyVars
           , sexp ty
           ]
+
+  sexp (TyPoly tyVars ctx ty) =
+    List  [ Symbol "Poly"
+          , toSexpList tyVars
+          , ctxSexp
+          , sexp ty
+          ]
+    where
+      ctxSexp = List $ map (\(ty, protoId) -> List [ sexp ty, sexp protoId ]) ctx
+
+  sexp (TyOverloaded ctx ty) =
+    List  [ Symbol "Overloaded"
+          , ctxSexp
+          , sexp ty
+          ]
+    where
+      ctxSexp = List $ map (\(ty, protoId) -> List [ sexp ty, sexp protoId ]) ctx
 
   sexp (TyVar tyVar) = List [ Symbol "Var", sexp tyVar ]
   sexp (TyMeta id) = List [ Symbol "Meta", sexp id ]
@@ -611,15 +647,22 @@ instance CompilerOutput Ty where
            (render tyCon)
            (renderCommaSep tys)
 
-  render (TyPoly _ ty) = render ty
+  render (TyPoly _ [] ty) = render ty
+
+  render (TyPoly _ ctx ty) =
+    printf "(%s) => %s"
+           contextStr
+           (render ty) 
+    where contextStr = intercalate "," $ map (\(ty, protoId) -> printf "%s : %s" (render ty) (render protoId)) ctx
 
   render (TyVar tyVar) = render tyVar
   render (TyMeta id) = render id
   render (TyRef qid) = render qid
-  render (TyScheme ty straints) =
-    printf "(%s) => %s"
-           (renderCommaSep straints)
-           (render ty)
+  render (TyOverloaded context ty) =
+      printf "(%s) => %s"
+             contextStr
+             (render ty) 
+    where contextStr = intercalate "," $ map (\(ty, protoId) -> printf "%s : %s" (render ty) (render protoId)) context
   -- render ty = showSexp ty
 
 
