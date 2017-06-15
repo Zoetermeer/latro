@@ -264,7 +264,7 @@ data Ty =
   | TyVar TyVarId
   | TyMeta TyVarId
   | TyRef (QualifiedId SourcePos UniqId) -- Only for recursive type definitions
-  | TyScheme Ty [TyConstraint]
+  | TyConstrained Ty [TyConstraint]
   | TyOverloaded [(UniqId, ProtocolId)] Ty
   deriving Generic
 
@@ -277,7 +277,8 @@ instance Eq Ty where
   (TyVar idA) == (TyVar idB) = idA == idB
   (TyMeta idA) == (TyMeta idB) = idA == idB
   (TyRef idA) == (TyRef idB) = idA == idB
-  (TyScheme tyA _) == (TyScheme tyB _) = tyA == tyB
+  (TyConstrained tyA straintsA) == (TyConstrained tyB straintsB) =
+    tyA == tyB && straintsA == straintsB
   _ == _ = False
 
 
@@ -316,7 +317,7 @@ data TyCon =
   | TyConTyFun [TyVarId] Ty
   | TyConUnique UniqId TyCon
   | TyConTyVar TyVarId -- In the body of a tyfun/poly
-  | TyConTyScheme TyCon [TyConstraint] -- In the body of a protocol dec
+  | TyConProtoParam TyVarId ProtocolId
   deriving Generic
 
 
@@ -335,7 +336,7 @@ ordIndex tyCon =
     TyConTyFun _ _ -> 9
     TyConUnique _ _ -> 10
     TyConTyVar _ -> 11
-    TyConTyScheme tyCon _ -> ordIndex tyCon
+    TyConProtoParam _ _ -> 12
 
 
 instance Ord TyCon where
@@ -354,7 +355,8 @@ instance Eq TyCon where
   TyConArrow == TyConArrow = True
   TyConUnique ida _ == TyConUnique idb _ = ida == idb
   TyConTyVar ida == TyConTyVar idb = ida == idb
-  TyConTyScheme tyConA _ == TyConTyScheme tyConB _ = tyConA == tyConB
+  TyConProtoParam idA protoA == TyConProtoParam idB protoB =
+    idA == idB && protoA == protoB
   _ == _ = False
 
 

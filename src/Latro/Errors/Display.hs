@@ -194,6 +194,12 @@ instance Sexpable Err where
           , sexp tyCon
           ]
 
+  sexp (ErrDoesNotImplementProtocol tyCon protoId) =
+    List  [ Symbol "DoesNotImplementProtocol"
+          , sexp tyCon
+          , sexp protoId
+          ]
+
   sexp (ErrMultipleDataDecs typeModuleId) =
     List  [ Symbol "MultipleDataDecs"
           , sexp typeModuleId
@@ -287,5 +293,10 @@ instance CompilerOutput Err where
     printf "Import of module '%s' would shadow bound variables: %s"
       (render importedModuleQid)
       (intercalate ", " (map render shadowedRawIds))
+
+  render (ErrDoesNotImplementProtocol tyCon protoId) =
+    printf "No %s implementation found for %s"
+      (render protoId)
+      (render tyCon)
 
   render err = showSexp err

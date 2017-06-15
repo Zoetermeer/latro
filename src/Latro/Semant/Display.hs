@@ -616,7 +616,7 @@ instance CompilerOutput Ty where
   render (TyVar tyVar) = render tyVar
   render (TyMeta id) = render id
   render (TyRef qid) = render qid
-  render (TyScheme ty straints) =
+  render (TyConstrained ty straints) =
     printf "(%s) => %s"
            (renderCommaSep straints)
            (render ty)
@@ -656,6 +656,7 @@ instance CompilerOutput TyCon where
   render (TyConUnique id TyConTyFun{}) = render id
   render (TyConTyFun tyVarIds ty) = "<<tyfun>>"
   render (TyConTyVar varId) = render varId
+  render (TyConProtoParam varId protoId) = "<<protocol " ++ render protoId ++ " type param>> " ++ render varId
 
 
 instance CompilerOutput Value where

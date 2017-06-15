@@ -297,8 +297,7 @@ class HasTyConstraints a where
 instance HasTyConstraints TyCon where
   constraints (TyConTyFun _ ty) = constraints ty
   constraints (TyConUnique _ tyCon) = constraints tyCon
-  constraints (TyConTyScheme tyCon straints) =
-    constraints tyCon ++ straints
+  constraints (TyConProtoParam _ protoId) = [TyConstraint protoId]
   constraints _ = []
 
 instance HasTyConstraints Ty where
@@ -307,7 +306,7 @@ instance HasTyConstraints Ty where
       TyApp tyCon tyArgs ->
         constraints tyCon ++  concatMap constraints tyArgs
       TyPoly _ ty -> constraints ty
-      TyScheme ty straints -> constraints ty ++ straints
+      TyConstrained ty straints -> constraints ty ++ straints
       _ -> []
 
 
@@ -327,7 +326,7 @@ occursIn tyMeta@(TyMeta metaId) ty =
     TyVar _ -> False
     TyMeta otherMetaId -> metaId == otherMetaId
     TyRef _ -> False
-    TyScheme ty _ -> occursIn tyMeta ty
+    TyConstrained ty _ -> occursIn tyMeta ty
 
 occursIn _ _ = False
 
@@ -364,13 +363,12 @@ allMetaIdsInTyCon _ = []
 allMetaIdsIn :: Ty -> [UniqId]
 allMetaIdsIn ty =
   case ty of
-    TyApp tyCon tyArgs ->
-      allMetaIdsInTyCon tyCon ++ concatMap allMetaIdsIn tyArgs
-    TyPoly _ ty -> allMetaIdsIn ty
-    TyVar _ -> []
-    TyMeta id -> [id]
-    TyRef _ -> []
-    TyScheme ty _ -> allMetaIdsIn ty
+    TyApp tyCon tyArgs -> allMetaIdsInTyCon tyCon ++ concatMap allMetaIdsIn tyArgs
+    TyPoly _ ty        -> allMetaIdsIn ty
+    TyVar _            -> []
+    TyMeta id          -> [id]
+    TyRef _            -> []
+    TyConstrained ty _ -> allMetaIdsIn ty
 
 
 referencedMetaIds :: UniqId -> Checked [UniqId]
@@ -464,15 +462,11 @@ instantiate (TyOverloaded context ty) = do
   oldPolyEnv <- markPolyEnv
   mapM_ (\(paramId, protoId) -> do
           meta <- freshMeta
-          bindPoly paramId $ TyScheme meta [TyConstraint protoId])
+          bindPoly paramId $ TyConstrained meta [TyConstraint protoId])
         context
   ty' <- subst ty
   restorePolyEnv oldPolyEnv
   return ty'
-
-instantiate (TyScheme ty straints) = do
-  ty' <- instantiate ty
-  return $ TyScheme ty' straints
 
 instantiate ty = return ty
 
@@ -504,6 +498,9 @@ subst ty =
       | otherwise ->
         throwError $ ErrPartialTyConApp tyCon tyArgs
 
+    TyApp (TyConProtoParam tyVarId protoId) [] ->
+      return $ TyConstrained (TyVar tyVarId) [TyConstraint protoId]
+
     TyApp tyCon tyArgs -> do
       tyCon' <- substTyCon tyCon
       tyArgs' <- mapM subst tyArgs
@@ -512,23 +509,30 @@ subst ty =
     var@(TyVar id) -> do
       maybeTy <- lookupPoly id
       case maybeTy of
-        Just ty -> subst ty
+        Just ty -> return ty
         _ -> return var
 
     TyPoly tyParamIds ty -> do
       ty' <- subst ty
       return $ TyPoly tyParamIds ty'
 
+    TyConstrained ty straints -> do
+      ty' <- subst ty
+      return $ TyConstrained ty' straints
+
     TyRef (Id _ id) -> do
       tyCon <- lookupTy id
       tyCon' <- substTyCon tyCon
       return $ TyApp tyCon' []
 
-    TyScheme ty straints -> do
-      ty' <- subst ty
-      return $ TyScheme ty' straints
-
     _ -> throwError $ ErrInterpFailure $ "Inexhaustive case in 'subst' for type: " ++ show ty
+
+
+checkConstraints :: TyCon -> [TyConstraint] -> Checked ()
+checkConstraints _ [] = return ()
+checkConstraints tyCon (TyConstraint protoId : straints) =
+  throwError $ ErrDoesNotImplementProtocol tyCon protoId
+  
 
 
 -- Helper for type mismatches (we don't want
@@ -620,11 +624,15 @@ unify tya tyb = do
       tyb <- lookupTyQual qid
       unify ty $ TyApp tyb []
 
-    (ty, tyScheme@TyScheme{}) -> unify tyScheme ty
+    (ty, tyConstr@TyConstrained{}) -> unify tyConstr ty
 
-    (TyScheme tyA straints, tyB) -> do
+    (TyConstrained tyA straints, tyB@(TyApp tyCon tyArgs)) -> do
+      checkConstraints tyCon straints
+      unify tyA tyB 
+
+    (TyConstrained tyA straints, tyB) -> do
       ty' <- unify tyA tyB
-      return $ TyScheme ty' straints
+      return $ TyConstrained ty' straints
 
     (ta, tb) -> unifyFail ta tb
 
@@ -675,8 +683,8 @@ tcTy (SynTyRef _ qid synTyArgs) = do
   tyCon <- lookupTyQual qid
   case tyCon of
     TyConTyVar id'                -> return $ TyVar id'
-    TyConTyScheme tyCon' straints ->
-      return $ TyScheme (TyApp tyCon' []) straints
+    TyConProtoParam tyVarId protoId ->
+      return $ TyConstrained (TyVar tyVarId) [TyConstraint protoId]
     _ -> do
       tyArgs <- mapM tcTy synTyArgs
       return $ TyApp tyCon tyArgs
@@ -1082,11 +1090,13 @@ tc (ILProtoDec p protoId tyParamId straints tyAnns) = do
   -- Bind the target type as a tyvar (tycon), with its given constraints
   -- and an added one for the protocol dec being checked
   let constraints = TyConstraint protoId : getProtoConstraints straints
-  exportTy tyParamId $ TyConTyScheme (TyConTyVar tyParamId) constraints
+  exportTy tyParamId $ TyConProtoParam tyParamId protoId
   mapM_ (\(TyAnn _ name tyParamIds synTy straints) -> do
             ty <- tcTy synTy
             -- bindVar name $ TyPoly [tyParamId] ty)
-            bindVar name $ TyOverloaded [(tyParamId, protoId)] ty)
+            bindVar name $ TyOverloaded [(tyParamId, protoId)] ty
+            traceM $ show "protocol method: " ++ show ty
+        )
         tyAnns
   -- TODO: 1) Need to generate actual functions here,
   -- one for each declaration, that take dictionaries as arguments

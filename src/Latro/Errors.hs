@@ -53,6 +53,7 @@ data Err =
   | ErrPrimUnknown RawId
   | ErrPrimTypeUnknown RawId
   | ErrProtocolAlreadyImplemented UniqId TyCon
+  | ErrDoesNotImplementProtocol TyCon ProtocolId
   | ErrMultipleDataDecs (QualifiedId SourcePos UniqId)
   | ErrUserFail SourcePos String
   | ErrInterpFailure String
