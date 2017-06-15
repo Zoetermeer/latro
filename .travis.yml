@@ -32,4 +32,4 @@ install:
 script:
   - stack build alex happy
   - travis_wait stack build
-  - ./test
+  - travis_wait 30 ./test
