@@ -620,6 +620,11 @@ instance CompilerOutput Ty where
     printf "(%s) => %s"
            (renderCommaSep straints)
            (render ty)
+  render (TyOverloaded context ty) =
+      printf "(%s) => %s"
+             contextStr
+             (render ty) 
+    where contextStr = intercalate "," $ map (\(ty, protoId) -> printf "%s : %s" (render ty) (render protoId)) context
   -- render ty = showSexp ty
 
 

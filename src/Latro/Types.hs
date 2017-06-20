@@ -369,6 +369,9 @@ allMetaIdsIn ty =
     TyMeta id          -> [id]
     TyRef _            -> []
     TyConstrained ty _ -> allMetaIdsIn ty
+    TyOverloaded context ty ->
+      let contextMetas = concatMap allMetaIdsIn $ fst $ unzip context
+      in contextMetas ++ allMetaIdsIn ty
 
 
 referencedMetaIds :: UniqId -> Checked [UniqId]
@@ -425,6 +428,8 @@ trimUnusedPolyParams (TyPoly tyParamIds ty) =
         TyVar id -> [id]
         TyMeta id -> []
         TyRef _ -> []
+        TyOverloaded context ty ->
+          allTyVarIds ty ++ concatMap allTyVarIds (fst (unzip context))
     paramIdSet = Set.fromList tyParamIds
     usedParamIdSet = Set.fromList $ allTyVarIds ty
     tyParamIds' = Set.toList $ Set.intersection paramIdSet usedParamIdSet
@@ -460,13 +465,14 @@ instantiate (TyPoly tyParamIds ty) = do
 
 instantiate (TyOverloaded context ty) = do
   oldPolyEnv <- markPolyEnv
-  mapM_ (\(paramId, protoId) -> do
-          meta <- freshMeta
-          bindPoly paramId $ TyConstrained meta [TyConstraint protoId])
-        context
+  context' <- mapM (\(TyVar paramId, protoId) -> do
+                      meta <- freshMeta
+                      bindPoly paramId meta
+                      return (meta, protoId))
+              context
   ty' <- subst ty
   restorePolyEnv oldPolyEnv
-  return ty'
+  return $ TyOverloaded context' ty'
 
 instantiate ty = return ty
 
@@ -519,6 +525,11 @@ subst ty =
     TyConstrained ty straints -> do
       ty' <- subst ty
       return $ TyConstrained ty' straints
+
+    TyOverloaded context ty -> do
+      context' <- mapM (\(ty, protoId) -> do { ty' <- subst ty; return (ty', protoId) }) context
+      ty' <- subst ty
+      return $ TyOverloaded context' ty'
 
     TyRef (Id _ id) -> do
       tyCon <- lookupTy id
@@ -633,6 +644,10 @@ unify tya tyb = do
     (TyConstrained tyA straints, tyB) -> do
       ty' <- unify tyA tyB
       return $ TyConstrained ty' straints
+
+    (TyOverloaded straints tyA, tyB) -> do
+      ty' <- unify tyA tyB
+      return $ TyOverloaded straints ty'
 
     (ta, tb) -> unifyFail ta tb
 
@@ -880,6 +895,39 @@ addBindingsForPat patE ty =
   throwError $ ErrPatMatchBindingFail patE ty
 
 
+-- Generate a type name for the dictionary type
+-- corresponding to this protocol
+protoDictId :: ProtocolId -> Checked UniqId
+protoDictId (UniqId _ rawId) = makeFresh (rawId ++ "Dict")
+
+
+-- Generate a name for the (single) dictionary constructor
+-- for the given protocol
+protoDictCtorId :: ProtocolId -> Checked UniqId
+protoDictCtorId (UniqId _ rawId) = makeFresh ("Mk" ++ rawId ++ "Dict")
+
+
+-- Map each function parameter to a fresh id,
+-- if this is an function syn ty
+freshMethodParamIds :: UntypedUniq SynTy -> Checked [UniqId]
+freshMethodParamIds (SynTyArrow _ paramTys _) = mapM (\_ -> makeFresh "arg") paramTys
+
+
+-- Replace all occurrences of the first type id with the second,
+-- in the given synTy
+replaceTyIdIn :: UniqId -> UniqId -> UntypedUniq SynTy -> UntypedUniq SynTy
+replaceTyIdIn oldTyId newTyId (SynTyArrow p paramTys retTy) =
+  SynTyArrow p (map replace paramTys) $ replace retTy
+  where
+    replace = replaceTyIdIn oldTyId newTyId
+
+replaceTyIdIn oldTyId newTyId (SynTyRef p qid@(Id ip tyRefId) synTyArgs)
+  | tyRefId == oldTyId = SynTyRef p (Id ip newTyId) $ map replace synTyArgs
+  | otherwise          = SynTyRef p qid $ map replace synTyArgs
+  where
+    replace = replaceTyIdIn oldTyId newTyId
+
+
 tc :: Untyped IL -> Checked (Ty, Typed IL)
 tc (ILUnit p) = return (mtApp TyConUnit, ILUnit (OfTy p (mtApp TyConUnit)))
 tc (ILFail p msg) = do
@@ -1068,51 +1116,73 @@ tc (ILFunDef p id paramIds bodyE) = do
   bindVar id fty'
   return (tyUnit, ILFunDef (OfTy p fty') id paramIds bodyE')
 
-tc (ILWithAnn p (TyAnn _ id tyParamIds synTy constrs) e) = do
+tc (ILWithAnn p (TyAnn _ id tyParamIds synTy straints) e) = do
   oldMetaEnv <- markMetaEnv
   mapM_ (\tyParamId -> exportTy tyParamId $ TyConTyVar tyParamId) tyParamIds
+  let straints' = map (\(Constraint _ tyId protoId) -> (TyVar tyId, protoId)) straints
   givenTy <- tcTy synTy
-  let givenTy' = case tyParamIds of
-                  [] -> givenTy
-                  _  -> TyPoly tyParamIds givenTy
+  let givenTy' = case straints' of
+                   [] -> givenTy
+                   _  -> TyOverloaded straints' givenTy
+  let givenTy'' = case tyParamIds of
+                   [] -> givenTy'
+                   _  -> TyPoly tyParamIds givenTy'
   (_, e') <- tc e
   inferredTy <- lookupVar id `reportErrorAt` ilNodeData e
-  givenTy'' <- instantiate givenTy'
+  givenTy''' <- instantiate givenTy''
   inferredTy' <- instantiate inferredTy
-  ty <- unify givenTy'' inferredTy' `reportErrorAt` p
+  ty <- unify givenTy''' inferredTy' `reportErrorAt` p
 
   restoreMetaEnv oldMetaEnv
   generalize ty >>= bindVar id
   return (ty, e')
 
+
 tc (ILProtoDec p protoId tyParamId straints tyAnns) = do
-  bindProtoDec protoId $ Protocol protoId tyParamId $ map bindingId tyAnns
-  -- Bind the target type as a tyvar (tycon), with its given constraints
-  -- and an added one for the protocol dec being checked
-  let constraints = TyConstraint protoId : getProtoConstraints straints
-  exportTy tyParamId $ TyConProtoParam tyParamId protoId
-  mapM_ (\(TyAnn _ name tyParamIds synTy straints) -> do
-            ty <- tcTy synTy
-            -- bindVar name $ TyPoly [tyParamId] ty)
-            bindVar name $ TyOverloaded [(tyParamId, protoId)] ty
-            traceM $ show "protocol method: " ++ show ty
-        )
-        tyAnns
-  -- TODO: 1) Need to generate actual functions here,
-  -- one for each declaration, that take dictionaries as arguments
-  -- and pass through to the corresponding entries in said dictionaries
-  -- e.g. equal : a -> a -> Bool
-  -- -->
-  -- equal : (Dict Eq a) -> a -> a -> Bool
-  -- equal(dictEqA, a1, a2) = dictEqA["equal"](a1, a2)
-  -- 2) Add an empty instance environment for this protocol
-  modifyTC $ \tcEnv ->
-              tcEnv { impEnv = Map.insert protoId Map.empty (impEnv tcEnv) }
-  return (tyUnit, ILUnit (OfTy p tyUnit))
+    dictTyId   <- protoDictId protoId
+    dictCtorId <- protoDictCtorId protoId
+
+    bindProtoDec protoId $ Protocol protoId tyParamId $ map bindingId tyAnns
+    dictTyParamId <- freshId
+    let methodSynTys = map (\(TyAnn _ _ _ synTy _) -> synTy) tyAnns
+        dictTyDec = TypeDecAdt p dictTyId [tyParamId] [AdtAlternative p dictCtorId 0 methodSynTys]
+    (dictTy, dictTyIl) <- tcTyDec dictTyDec
+    (_, methods) <- liftM unzip $ mapIndM (genMethodFun dictTyId dictCtorId) 0 tyAnns
+
+    modifyTC $ \tcEnv -> tcEnv { impEnv = Map.insert protoId Map.empty (impEnv tcEnv) }
+    return (tyUnit, ILBegin (OfTy p tyUnit) (dictTyIl ++ methods))
+  where
+    genMethodFun dictTyId dictCtorId index (TyAnn tp name _ synTy _) = do
+      freshTyParamId <- freshId
+      dictParamId <- makeFresh "dict"
+      (selectorPat, fId) <- dictMethodSelector dictCtorId index
+      methodParamIds <- freshMethodParamIds synTy
+      let funSynTy' = replaceTyIdIn tyParamId freshTyParamId synTy
+          wrapperSynTy = SynTyArrow tp [SynTyRef tp (Id tp dictTyId) [SynTyRef tp (Id tp freshTyParamId) []]] funSynTy'
+          tyAnn  = TyAnn tp name [freshTyParamId] wrapperSynTy [Constraint tp freshTyParamId protoId]
+          il = ILWithAnn tp tyAnn
+                $ ILFunDef tp name [dictParamId]
+                 $ ILSwitch tp (ILRef tp dictParamId)
+                  [ILCase tp selectorPat
+                    $ ILFun tp methodParamIds
+                      $ ILApp tp (ILRef tp fId) (map (ILRef tp) methodParamIds)]
+      (_, il') <- tc il
+      inferredTy <- lookupVar name
+      traceM $ "inferredTy: " ++ show inferredTy
+      bindVar name inferredTy
+      -- tc il >>= return
+      return (tyUnit, il')
+
+    dictMethodSelector ctorId index = do
+      fid <- makeFresh (show ctorId ++ "_" ++ show index)
+      let argPats = replicate (length tyAnns) $ ILPatWildcard p
+          argPats' = mapi (\i pat -> if i == index then (ILPatId p fid) else pat) argPats
+      return (ILPatAdt p ctorId argPats, fid)
+
 
 tc (ILProtoImp p synTy protoId straints bodyEs) = do
   tyCon <- tcTycon synTy
-  protoImpEnv <- envLookupOrFail impEnv protoId
+  protoImpEnv <- envLookupOrFail impEnv protoId `reportErrorAt` p
   let maybeImp = Map.lookup tyCon protoImpEnv
   case maybeImp of
     Just _ -> throwError $ ErrProtocolAlreadyImplemented protoId tyCon
@@ -1140,7 +1210,7 @@ tcTyDecs :: [UntypedUniq TypeDec] -> Checked [Typed IL]
 tcTyDecs tyDecs = do
     ilSeqs <- mapM (\(id, tyDec) -> do
                 (tyCon, ilSeq) <- tcTyDec tyDec
-                exportTy id tyCon
+                exportTy id tyCon --TODO: this seems redundant
                 return ilSeq)
               idsAndTyDecs
     return $ concat ilSeqs

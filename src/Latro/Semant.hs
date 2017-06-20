@@ -265,7 +265,7 @@ data Ty =
   | TyMeta TyVarId
   | TyRef (QualifiedId SourcePos UniqId) -- Only for recursive type definitions
   | TyConstrained Ty [TyConstraint]
-  | TyOverloaded [(UniqId, ProtocolId)] Ty
+  | TyOverloaded [(Ty, ProtocolId)] Ty
   deriving Generic
 
 
