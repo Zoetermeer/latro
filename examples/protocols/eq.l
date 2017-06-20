@@ -1,15 +1,13 @@
-//Implicit free type variable identifiers
-//Still need the single-param restriction check
-//
 protocol Eq(a) {
   infixl (==) : a -> a -> Bool
 }
 
 //-->
+type Eq<a> = | MkEq(a -> a -> Bool)
 
-==<a> : EqDict -> a -> a -> Bool
-        where a : Eq
-==(eqDict, x, y) = eqDict[a](x, y)
+infixl (==) : Eq<a> -> a -> a -> Bool
+infixl (==)(MkEq(f), x, y) = f(x, y)
+//---
 
 imp Eq(Int) {
   infixl (==)(x, y) = prim(intEq)(x, y)
@@ -17,33 +15,13 @@ imp Eq(Int) {
 
 //-->
 
-DE[Eq] += { Int |-> fun(x, y) = prim(intEq)(x, y) }
+let EqInt = MkEq(fun(x, y) = prim(intEq)(x, y))
 
-member(_, []) = False
-member(v, x @ xs) = {
-  cond {
-    v == x -> True
-    _      -> member(v, xs)
-  }
-}
+//---
+
+areEq(a, b) = a == b
 
 //-->
 
-member(eqDict, v, xs) = {
-  let args = %(v, xs)
-  switch (args) {
-    case %(_, [])     -> False
-    case %(v, x @ xs) -> {
-      cond {
-        (prim(lookup)(eqDict, ==))(v, x) -> True
-        _                                -> member(eqDict, v, xs)
-      }
-    }
-  }
-}
-
-
-//Example
-main(_) = {
-  prim(println)(42 == 43)
-}
+areEq<a> : Eq<a> -> a -> a -> Bool
+areEq(d, x, y) = (==)(d, x, y)
