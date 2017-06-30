@@ -291,23 +291,14 @@ isOverloaded :: Ty -> Bool
 isOverloaded ty = not $ null $ constraints ty
 
 
-class HasTyConstraints a where
-  constraints :: a -> [TyConstraint]
-
-instance HasTyConstraints TyCon where
-  constraints (TyConTyFun _ ty) = constraints ty
-  constraints (TyConUnique _ tyCon) = constraints tyCon
-  constraints (TyConProtoParam _ protoId) = [TyConstraint protoId]
-  constraints _ = []
-
-instance HasTyConstraints Ty where
-  constraints ty =
-    case ty of
-      TyApp tyCon tyArgs ->
-        constraints tyCon ++  concatMap constraints tyArgs
-      TyPoly _ ty -> constraints ty
-      TyConstrained ty straints -> constraints ty ++ straints
-      _ -> []
+constraints :: Ty -> [(Ty, ProtocolId)]
+constraints ty =
+  case ty of
+    TyApp tyCon tyArgs ->
+      constraints tyCon ++  concatMap constraints tyArgs
+    TyPoly _ ty -> constraints ty
+    TyOverloaded straints ty -> straints
+    _ -> []
 
 
 occursInTyCon :: Ty -> TyCon -> Bool
@@ -326,7 +317,6 @@ occursIn tyMeta@(TyMeta metaId) ty =
     TyVar _ -> False
     TyMeta otherMetaId -> metaId == otherMetaId
     TyRef _ -> False
-    TyConstrained ty _ -> occursIn tyMeta ty
 
 occursIn _ _ = False
 
@@ -368,7 +358,6 @@ allMetaIdsIn ty =
     TyVar _            -> []
     TyMeta id          -> [id]
     TyRef _            -> []
-    TyConstrained ty _ -> allMetaIdsIn ty
     TyOverloaded context ty ->
       let contextMetas = concatMap allMetaIdsIn $ fst $ unzip context
       in contextMetas ++ allMetaIdsIn ty
@@ -504,9 +493,6 @@ subst ty =
       | otherwise ->
         throwError $ ErrPartialTyConApp tyCon tyArgs
 
-    TyApp (TyConProtoParam tyVarId protoId) [] ->
-      return $ TyConstrained (TyVar tyVarId) [TyConstraint protoId]
-
     TyApp tyCon tyArgs -> do
       tyCon' <- substTyCon tyCon
       tyArgs' <- mapM subst tyArgs
@@ -521,10 +507,6 @@ subst ty =
     TyPoly tyParamIds ty -> do
       ty' <- subst ty
       return $ TyPoly tyParamIds ty'
-
-    TyConstrained ty straints -> do
-      ty' <- subst ty
-      return $ TyConstrained ty' straints
 
     TyOverloaded context ty -> do
       context' <- mapM (\(ty, protoId) -> do { ty' <- subst ty; return (ty', protoId) }) context
@@ -543,7 +525,6 @@ checkConstraints :: TyCon -> [TyConstraint] -> Checked ()
 checkConstraints _ [] = return ()
 checkConstraints tyCon (TyConstraint protoId : straints) =
   throwError $ ErrDoesNotImplementProtocol tyCon protoId
-  
 
 
 -- Helper for type mismatches (we don't want
@@ -635,16 +616,6 @@ unify tya tyb = do
       tyb <- lookupTyQual qid
       unify ty $ TyApp tyb []
 
-    (ty, tyConstr@TyConstrained{}) -> unify tyConstr ty
-
-    (TyConstrained tyA straints, tyB@(TyApp tyCon tyArgs)) -> do
-      checkConstraints tyCon straints
-      unify tyA tyB 
-
-    (TyConstrained tyA straints, tyB) -> do
-      ty' <- unify tyA tyB
-      return $ TyConstrained ty' straints
-
     (TyOverloaded straints tyA, tyB) -> do
       ty' <- unify tyA tyB
       return $ TyOverloaded straints ty'
@@ -698,8 +669,6 @@ tcTy (SynTyRef _ qid synTyArgs) = do
   tyCon <- lookupTyQual qid
   case tyCon of
     TyConTyVar id'                -> return $ TyVar id'
-    TyConProtoParam tyVarId protoId ->
-      return $ TyConstrained (TyVar tyVarId) [TyConstraint protoId]
     _ -> do
       tyArgs <- mapM tcTy synTyArgs
       return $ TyApp tyCon tyArgs
@@ -928,6 +897,22 @@ replaceTyIdIn oldTyId newTyId (SynTyRef p qid@(Id ip tyRefId) synTyArgs)
     replace = replaceTyIdIn oldTyId newTyId
 
 
+tcILAppWithoutOverloadRewriting :: SourcePos -> UntypedIL -> [Untyped IL] -> Checked (Ty, Typed IL)
+tcILAppWithoutOverloadRewriting p ratorE randEs = do
+  retTyMeta@(TyMeta retTyMetaId) <- freshMeta
+  (TyApp TyConArrow arrowTys) <-
+    withFailPos' p $ unify fty $ TyApp TyConArrow $ randTys ++ [retTyMeta]
+  let ty = case reverse arrowTys of
+              [] -> tyUnit
+              retTy:_ -> retTy
+      arity = length arrowTys - 1
+      argLen = length randEs
+  if arity /= argLen
+  then throwError (ErrWrongArity ratorE' arity argLen) `reportErrorAt` p
+  else do ty' <- subst ty
+          return (ty', ILApp (OfTy p ty') ratorE' randEs')
+
+
 tc :: Untyped IL -> Checked (Ty, Typed IL)
 tc (ILUnit p) = return (mtApp TyConUnit, ILUnit (OfTy p (mtApp TyConUnit)))
 tc (ILFail p msg) = do
@@ -967,22 +952,19 @@ tc (ILCons p headE listE) = do
                 unify (TyApp TyConList [tyHeadE]) tyListE' `reportErrorAt` p
   return (listTy, ILCons (OfTy p listTy) headE' listE')
 
+tc (ILMethodApp p ratorE dictEs randEs) = do
+    ...
+  where il = ILApp p (ILApp p ratorE dictEs) randEs
+
 tc (ILApp p ratorE randEs) = do
   (fty, ratorE') <- tc ratorE
   -- traceM $ "tc ILApp: " ++ show fty
-  (randTys, randEs') <- mapAndUnzipM tc randEs
-  retTyMeta@(TyMeta retTyMetaId) <- freshMeta
-  (TyApp TyConArrow arrowTys) <-
-    withFailPos' p $ unify fty $ TyApp TyConArrow $ randTys ++ [retTyMeta]
-  let ty = case reverse arrowTys of
-              [] -> tyUnit
-              retTy:_ -> retTy
-      arity = length arrowTys - 1
-      argLen = length randEs
-  if arity /= argLen
-  then throwError (ErrWrongArity ratorE' arity argLen) `reportErrorAt` p
-  else do ty' <- subst ty
-          return (ty', ILApp (OfTy p ty') ratorE' randEs')
+  case fty of
+    TyOverloaded straints innerFty ->
+      dictEs <- mapM (\(tyArg, protoId) -> lookupDict tyArg protoId) straints
+      tcILAppWithoutOverloadRewriting p (ILApp p ratorE dictEs) randEs
+    _ ->
+      tcILApp p ratorE randEs
 
 tc (ILPrim p prim) = do
     primTy <- case prim of
