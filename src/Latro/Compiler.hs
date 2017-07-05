@@ -141,7 +141,9 @@ data TCEnv = TCEnv
   , metaEnv       :: Map.Map UniqId Ty
   , protoEnv      :: Map.Map UniqId Protocol
   -- protocolId --o--> (implementing tycon --o--> instance dictionary)
-  , impEnv        :: Map.Map UniqId (Map.Map TyCon (ImpDict CheckedData))
+  , impEnv        :: Map.Map UniqId (Map.Map TyCon TyCon)
+  , impEnv        :: Map.Map UniqId (Map.Map TyCon (Checked IL))
+  , impContext    :: Maybe (TyCon, ProtocolId)
   }
   deriving (Eq, Show)
 

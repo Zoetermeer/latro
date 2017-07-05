@@ -1164,15 +1164,18 @@ tc (ILProtoDec p protoId tyParamId straints tyAnns) = do
 
 tc (ILProtoImp p synTy protoId straints bodyEs) = do
   tyCon <- tcTycon synTy
+  dictTyId <- protoDictId protoId
+  dictCtorId <- protoDictCtorId protoId
   protoImpEnv <- envLookupOrFail impEnv protoId `reportErrorAt` p
   let maybeImp = Map.lookup tyCon protoImpEnv
   case maybeImp of
     Just _ -> throwError $ ErrProtocolAlreadyImplemented protoId tyCon
-    _ ->
-      let imp = Map.empty
-          protoImpEnv' = Map.insert tyCon imp protoImpEnv
-      in do modifyTC $ \tcEnv -> tcEnv { impEnv = Map.insert protoId protoImpEnv' (impEnv tcEnv) }
-            return (tyUnit, ILUnit (OfTy p tyUnit))
+    _ -> do
+      dictTyCon <- tcTycon $ SynTyRef p dictTyId 
+      let protoImpEnv' = Map.insert tyCon dictTyCon protoImpEnv
+      modifyTC $ \tcEnv -> tcEnv { impEnv = Map.insert protoId protoImpEnv' (impEnv tcEnv) }
+      mapM_ tc bodyEs
+      return (tyUnit, ILUnit (OfTy p tyUnit))
 
 tc (ILBegin p es) = do
   (ty, es') <- tcEs es
