@@ -1119,8 +1119,9 @@ tc (ILWithAnn p (TyAnn _ id tyParamIds synTy straints) e) = do
   generalize ty >>= bindVar id
   return (ty, e')
 
-
 tc (ILProtoDec p protoId tyParamId straints tyAnns) = do
+
+
     dictTyId   <- protoDictId protoId
     dictCtorId <- protoDictCtorId protoId
 
@@ -1129,37 +1130,62 @@ tc (ILProtoDec p protoId tyParamId straints tyAnns) = do
     let methodSynTys = map (\(TyAnn _ _ _ synTy _) -> synTy) tyAnns
         dictTyDec = TypeDecAdt p dictTyId [tyParamId] [AdtAlternative p dictCtorId 0 methodSynTys]
     (dictTy, dictTyIl) <- tcTyDec dictTyDec
-    (_, methods) <- liftM unzip $ mapIndM (genMethodFun dictTyId dictCtorId) 0 tyAnns
+    (_, methods) <- liftM unzip $ mapIndM (genMethod dictTyId dictCtorId) 0 tyAnns
 
     modifyTC $ \tcEnv -> tcEnv { impEnv = Map.insert protoId Map.empty (impEnv tcEnv) }
     return (tyUnit, ILBegin (OfTy p tyUnit) (dictTyIl ++ methods))
   where
-    genMethodFun dictTyId dictCtorId index (TyAnn tp name _ synTy _) = do
+    genMethod index (TyAnn tp methodName _ synTy _) = do
       freshTyParamId <- freshId
-      dictParamId <- makeFresh "dict"
-      (selectorPat, fId) <- dictMethodSelector dictCtorId index
-      methodParamIds <- freshMethodParamIds synTy
       let funSynTy' = replaceTyIdIn tyParamId freshTyParamId synTy
-          wrapperSynTy = SynTyArrow tp [SynTyRef tp (Id tp dictTyId) [SynTyRef tp (Id tp freshTyParamId) []]] funSynTy'
-          tyAnn  = TyAnn tp name [freshTyParamId] wrapperSynTy [Constraint tp freshTyParamId protoId]
-          il = ILWithAnn tp tyAnn
-                $ ILFunDef tp name [dictParamId]
-                 $ ILSwitch tp (ILRef tp dictParamId)
-                  [ILCase tp selectorPat
-                    $ ILFun tp methodParamIds
-                      $ ILApp tp (ILRef tp fId) (map (ILRef tp) methodParamIds)]
-      (_, il') <- tc il
-      inferredTy <- lookupVar name
-      traceM $ "inferredTy: " ++ show inferredTy
-      bindVar name inferredTy
-      -- tc il >>= return
-      return (tyUnit, il')
+          methodTy = tcTy funSynTy'
+          il = ILPlaceholder tp $ PlaceholderMethod methodName freshTyParamId
 
-    dictMethodSelector ctorId index = do
-      fid <- makeFresh (show ctorId ++ "_" ++ show index)
-      let argPats = replicate (length tyAnns) $ ILPatWildcard p
-          argPats' = mapi (\i pat -> if i == index then (ILPatId p fid) else pat) argPats
-      return (ILPatAdt p ctorId argPats, fid)
+          -- Assign the declared type to the method name
+          bindVar methodName $ TyOverloaded [(TyRef (Id tp freshTyParamId), protoId)] methodTy
+      return (tyUnit, il) 
+
+
+-- tc (ILProtoDec p protoId tyParamId straints tyAnns) = do
+--     dictTyId   <- protoDictId protoId
+--     dictCtorId <- protoDictCtorId protoId
+--
+--     bindProtoDec protoId $ Protocol protoId tyParamId $ map bindingId tyAnns
+--     dictTyParamId <- freshId
+--     let methodSynTys = map (\(TyAnn _ _ _ synTy _) -> synTy) tyAnns
+--         dictTyDec = TypeDecAdt p dictTyId [tyParamId] [AdtAlternative p dictCtorId 0 methodSynTys]
+--     (dictTy, dictTyIl) <- tcTyDec dictTyDec
+--     (_, methods) <- liftM unzip $ mapIndM (genMethodFun dictTyId dictCtorId) 0 tyAnns
+--
+--     modifyTC $ \tcEnv -> tcEnv { impEnv = Map.insert protoId Map.empty (impEnv tcEnv) }
+--     return (tyUnit, ILBegin (OfTy p tyUnit) (dictTyIl ++ methods))
+--   where
+--     genMethodFun dictTyId dictCtorId index (TyAnn tp name _ synTy _) = do
+--       freshTyParamId <- freshId
+--       dictParamId <- makeFresh "dict"
+--       (selectorPat, fId) <- dictMethodSelector dictCtorId index
+--       methodParamIds <- freshMethodParamIds synTy
+--       let funSynTy' = replaceTyIdIn tyParamId freshTyParamId synTy
+--           wrapperSynTy = SynTyArrow tp [SynTyRef tp (Id tp dictTyId) [SynTyRef tp (Id tp freshTyParamId) []]] funSynTy'
+--           tyAnn  = TyAnn tp name [freshTyParamId] wrapperSynTy [Constraint tp freshTyParamId protoId]
+--           il = ILWithAnn tp tyAnn
+--                 $ ILFunDef tp name [dictParamId]
+--                  $ ILSwitch tp (ILRef tp dictParamId)
+--                   [ILCase tp selectorPat
+--                     $ ILFun tp methodParamIds
+--                       $ ILApp tp (ILRef tp fId) (map (ILRef tp) methodParamIds)]
+--       (_, il') <- tc il
+--       inferredTy <- lookupVar name
+--       traceM $ "inferredTy: " ++ show inferredTy
+--       bindVar name inferredTy
+--       -- tc il >>= return
+--       return (tyUnit, il')
+--
+--     dictMethodSelector ctorId index = do
+--       fid <- makeFresh (show ctorId ++ "_" ++ show index)
+--       let argPats = replicate (length tyAnns) $ ILPatWildcard p
+--           argPats' = mapi (\i pat -> if i == index then (ILPatId p fid) else pat) argPats
+--       return (ILPatAdt p ctorId argPats, fid)
 
 
 tc (ILProtoImp p synTy protoId straints bodyEs) = do

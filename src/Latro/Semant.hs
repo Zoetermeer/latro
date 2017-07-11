@@ -92,6 +92,7 @@ data IL a =
   | ILBegin a [IL a]
   | ILFail a String
   | ILMain a [UniqId] (IL a)
+  | ILPlaceholder p OverloadPlaceholder
   deriving (Eq, Show)
 
 
@@ -122,6 +123,7 @@ instance ILNode IL where
       ILBegin d _ -> d
       ILFail d _ -> d
       ILMain d _ _ -> d
+      ILPlaceholder d _ -> d
 
 
 data ILCompUnit a = ILCompUnit a [TypeDec a UniqId] [IL a]
@@ -236,17 +238,10 @@ data Protocol = Protocol ProtocolId TyVarId [MethodId]
   deriving (Eq, Show)
 
 
--- data Imp = Imp TyCon Protocol
---   deriving (Eq, Show)
-
-
-data ImpDictValue a =
-    ImpDictValueFun [UniqId] (IL a)
-  | ImpDictValueSuperDict (ImpDictValue a)
+data OverloadPlaceholder =
+    PlaceholderMethod UniqId Ty
+  | PlaceholderDict ProtocolId Ty
   deriving (Eq, Show)
-
-
-type ImpDict a = Map.Map UniqId (ImpDictValue a)
 
 
 data TyConstraint = TyConstraint ProtocolId
