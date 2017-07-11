@@ -234,10 +234,6 @@ type FieldName = UniqId
 type CtorName = UniqId
 
 
-data Protocol = Protocol ProtocolId TyVarId [MethodId]
-  deriving (Eq, Show)
-
-
 data OverloadPlaceholder =
     PlaceholderMethod UniqId Ty
   | PlaceholderDict ProtocolId Ty

@@ -139,10 +139,12 @@ data TCEnv = TCEnv
   , fieldIndexEnv :: Map.Map UniqId Int
   , polyEnv       :: Map.Map UniqId Ty
   , metaEnv       :: Map.Map UniqId Ty
-  , protoEnv      :: Map.Map UniqId Protocol
+  , protoEnv      :: Map.Map UniqId [MethodId]
   -- protocolId --o--> (implementing tycon --o--> instance dictionary)
+  -- The 'instance dictionary' will be an instance of the tuple/ADT type
+  -- we declare to represent the dictionary itself
   , impEnv        :: Map.Map UniqId (Map.Map TyCon (Typed IL))
-  , impContext    :: Maybe (TyCon, ProtocolId)
+  , methodEnv     :: Map.Map MethodId ProtocolId
   }
   deriving (Eq, Show)
 
@@ -159,6 +161,7 @@ instance Environment TCEnv where
       , metaEnv       = Map.empty
       , protoEnv      = Map.empty
       , impEnv        = Map.empty
+      , methodEnv     = Map.empty
       }
 
 
