@@ -130,9 +130,20 @@ bindFieldIndex id ind = do
   modifyTC (\tcEnv -> tcEnv { fieldIndexEnv = Map.insert id ind (fieldIndexEnv tcEnv) })
 
 
-bindProtoDec :: UniqId -> Protocol -> Checked ()
+bindProtoDec :: ProtocolId -> Protocol -> Checked ()
 bindProtoDec id proto =
   modifyTC (\tcEnv -> tcEnv { protoEnv = Map.insert id proto (protoEnv tcEnv) })
+
+
+bindMethodId :: MethodId -> ProtocolId -> Checked ()
+bindMethodId methodId protoId =
+  modifyTC (\tcEnv -> tcEnv { methodEnv = Map.insert methodId protoId (methodEnv tcEnv) })
+
+
+isMethod :: UniqId -> Checked Bool
+isMethod id = do
+  mEnv <- getsTC methodEnv
+  return $ isJust $ Map.lookup id mEnv
 
 
 mtApp :: TyCon -> Ty
@@ -933,8 +944,13 @@ tc (ILRef p id) = do
   ty <- lookupVar id `reportErrorAt` p
   -- traceM $ "tc ILRef " ++ show id ++ ": " ++ show ty
   ty' <- instantiate ty
-  -- traceM $ "  (instantiated) " ++ show id ++ ": " ++ show ty'
-  return (ty', ILRef (OfTy p ty') id)
+  -- If a method, return a method placeholder
+  isAMethod <- isMethod id
+  if isAMethod
+    then do metas <- freeMetas ty'
+            let meta = TyMeta $ head $ metas
+            return (ty', ILPlaceholder (OfTy p ty') $ PlaceholderMethod id meta
+    else return (ty', ILRef (OfTy p ty') id)
 
 tc (ILStr p s) = return (tyStr, ILStr (OfTy p tyStr) s)
 tc (ILChar p s) = return (tyChar, ILChar (OfTy p tyChar) s)
@@ -1120,31 +1136,16 @@ tc (ILWithAnn p (TyAnn _ id tyParamIds synTy straints) e) = do
   return (ty, e')
 
 tc (ILProtoDec p protoId tyParamId straints tyAnns) = do
-
-
-    dictTyId   <- protoDictId protoId
-    dictCtorId <- protoDictCtorId protoId
-
     bindProtoDec protoId $ Protocol protoId tyParamId $ map bindingId tyAnns
-    dictTyParamId <- freshId
-    let methodSynTys = map (\(TyAnn _ _ _ synTy _) -> synTy) tyAnns
-        dictTyDec = TypeDecAdt p dictTyId [tyParamId] [AdtAlternative p dictCtorId 0 methodSynTys]
-    (dictTy, dictTyIl) <- tcTyDec dictTyDec
-    (_, methods) <- liftM unzip $ mapIndM (genMethod dictTyId dictCtorId) 0 tyAnns
-
-    modifyTC $ \tcEnv -> tcEnv { impEnv = Map.insert protoId Map.empty (impEnv tcEnv) }
-    return (tyUnit, ILBegin (OfTy p tyUnit) (dictTyIl ++ methods))
+    mapM bindMethod tyAnns
+    return (tyUnit, ILBegin (OfTy p tyUnit) [])
   where
-    genMethod index (TyAnn tp methodName _ synTy _) = do
+    bindMethod (TyAnn tp methodId _ synTy _) = do
       freshTyParamId <- freshId
-      let funSynTy' = replaceTyIdIn tyParamId freshTyParamId synTy
-          methodTy = tcTy funSynTy'
-          il = ILPlaceholder tp $ PlaceholderMethod methodName freshTyParamId
-
-          -- Assign the declared type to the method name
-          bindVar methodName $ TyOverloaded [(TyRef (Id tp freshTyParamId), protoId)] methodTy
-      return (tyUnit, il) 
-
+      bindMethodId methodId protoId
+      let synTy' = replaceTyIdIn tyParamId freshTyParamId synTy
+      methodTy <- tcTy synTy'
+      bindVar methodId $ TyOverloaded [(TyRef (Id tp freshTyParamId), protoId)] methodTy
 
 -- tc (ILProtoDec p protoId tyParamId straints tyAnns) = do
 --     dictTyId   <- protoDictId protoId
@@ -1215,6 +1216,10 @@ tcEs [] = return (mtApp TyConUnit, [])
 tcEs es = do
   (tys, es') <- mapAndUnzipM tc es
   return (last tys, es')
+
+
+tcProtoMethod :: ProtocolId -> Untyped IL -> Checked (Ty, [Typed IL])
+tcProtoMethod protoId e = return (tyUnit, e)
 
 
 tcTyDecs :: [UntypedUniq TypeDec] -> Checked [Typed IL]

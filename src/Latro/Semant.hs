@@ -235,7 +235,7 @@ type CtorName = UniqId
 
 
 data OverloadPlaceholder =
-    PlaceholderMethod UniqId Ty
+    PlaceholderMethod MethodId Ty
   | PlaceholderDict ProtocolId Ty
   deriving (Eq, Show)
 
