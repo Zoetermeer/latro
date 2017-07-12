@@ -200,6 +200,12 @@ instance Sexpable Err where
           , sexp protoId
           ]
 
+  sexp (ErrUnknownMethodId methodId protoId) =
+    List  [ Symbol "UnknownMethodId"
+          , sexp methodId
+          , sexp protoId
+          ]
+
   sexp (ErrMultipleDataDecs typeModuleId) =
     List  [ Symbol "MultipleDataDecs"
           , sexp typeModuleId
@@ -298,5 +304,10 @@ instance CompilerOutput Err where
     printf "No %s implementation found for %s"
       (render protoId)
       (render tyCon)
+
+  render (ErrUnknownMethodId methodId protoId) =
+    printf "Protocol %s does not declare method with name '%s'"
+      (render protoId)
+      (render methodId)
 
   render err = showSexp err

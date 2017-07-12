@@ -1219,6 +1219,10 @@ tcEs es = do
 
 
 tcProtoMethod :: ProtocolId -> Untyped IL -> Checked (Ty, [Typed IL])
+tcProtoMethod protoId (ILFunDef p id paramIds bodyE) = do
+  isAMethod <- isMethod id
+  unless isAMethod $ throwError $ ErrUnknownMethodId id protoId
+  
 tcProtoMethod protoId e = return (tyUnit, e)
 
 
