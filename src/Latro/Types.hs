@@ -1198,11 +1198,15 @@ tc (ILProtoImp p synTy protoId straints bodyEs) = do
     case maybeImp of
       Just _ -> throwError $ ErrProtocolAlreadyImplemented protoId tyCon
       _ -> do
-        dictTyCon <- tcTycon $ SynTyRef p dictTyId 
-        let protoImpEnv' = Map.insert tyCon dictTyCon protoImpEnv
-        modifyTC $ \tcEnv -> tcEnv { impEnv = Map.insert protoId protoImpEnv' (impEnv tcEnv) }
-        mapM_ tc bodyEs
-        return (tyUnit, ILUnit (OfTy p tyUnit))
+        methods <- liftM (snd . unzip) $ mapM tcProtoMethod bodyEs'
+        let dict = foldl (addMethodToDict protoId tyCon) (ILTuple p []) methods
+        theImpEnv <- getsTC impEnv
+        let instanceEnv = Map.lookup protoId theImpEnv
+            instanceEnv' = Map.insert tyCon dict instanceEnv
+            theImpEnv' = Map.insert protoId instanceEnv' theImpEnv
+        modifyTC (\tcEnv -> tcEnv { impEnv = theImpEnv' }) 
+
+        return (tyUnit, ILBegin p methods)
   where
     bodyEs' = sortBindings bodyEs
 
@@ -1224,7 +1228,9 @@ sortBindings :: [IL a] -> [IL a]
 sortBindings es = sortOn bindingId es
 
 
-bindMethodImpl :: ProtocolId -> TyCon -> 
+addMethodToDict :: ProtocolId -> TyCon -> IL a -> IL a -> IL a
+addMethodToDict protoId tyCon (ILTuple p es) methodIL =
+  ILTuple p (es ++ [ILRef p $ bindingId methodIL])
 
 
 protoMethodImplId :: ProtocolId -> TyCon -> UniqId -> String
@@ -1232,7 +1238,7 @@ protoMethodImplId protoId implementingTyCon methodId =
   show protoId + "." + show methodId + "@" + show implementingTyCon
 
 
-tcProtoMethod :: ProtocolId -> TyCon -> Untyped IL -> Checked (Ty, [Typed IL])
+tcProtoMethod :: ProtocolId -> TyCon -> Untyped IL -> Checked (Ty, Typed IL)
 tcProtoMethod protoId implementingTyCon (ILFunDef p id paramIds bodyE) = do
   isAMethod <- isMethod id
   unless isAMethod $ throwError $ ErrUnknownMethodId id protoId
