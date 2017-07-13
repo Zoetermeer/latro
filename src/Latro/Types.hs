@@ -1188,7 +1188,6 @@ tc (ILProtoDec p protoId tyParamId straints tyAnns) = do
 --           argPats' = mapi (\i pat -> if i == index then (ILPatId p fid) else pat) argPats
 --       return (ILPatAdt p ctorId argPats, fid)
 
-
 tc (ILProtoImp p synTy protoId straints bodyEs) = do
     tyCon <- tcTycon synTy
     dictTyId <- protoDictId protoId
