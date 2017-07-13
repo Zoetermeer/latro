@@ -91,7 +91,7 @@ instance AstNode QualifiedId where
 
 
 class BindingOccurrence a where
-  bindingId :: a b id -> id
+  bindingId :: a d -> UniqId
 
 
 data CompUnit a id = CompUnit a [Exp a id]
@@ -164,7 +164,7 @@ instance AstNode TyAnn where
   nodeData (TyAnn d _ _ _ _) = d
 
 
-instance BindingOccurrence TyAnn where
+instance BindingOccurrence (TyAnn a UniqId) where
   bindingId (TyAnn _ id _ _ _) = id
 
 

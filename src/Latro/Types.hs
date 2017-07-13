@@ -1190,19 +1190,21 @@ tc (ILProtoDec p protoId tyParamId straints tyAnns) = do
 
 
 tc (ILProtoImp p synTy protoId straints bodyEs) = do
-  tyCon <- tcTycon synTy
-  dictTyId <- protoDictId protoId
-  dictCtorId <- protoDictCtorId protoId
-  protoImpEnv <- envLookupOrFail impEnv protoId `reportErrorAt` p
-  let maybeImp = Map.lookup tyCon protoImpEnv
-  case maybeImp of
-    Just _ -> throwError $ ErrProtocolAlreadyImplemented protoId tyCon
-    _ -> do
-      dictTyCon <- tcTycon $ SynTyRef p dictTyId 
-      let protoImpEnv' = Map.insert tyCon dictTyCon protoImpEnv
-      modifyTC $ \tcEnv -> tcEnv { impEnv = Map.insert protoId protoImpEnv' (impEnv tcEnv) }
-      mapM_ tc bodyEs
-      return (tyUnit, ILUnit (OfTy p tyUnit))
+    tyCon <- tcTycon synTy
+    dictTyId <- protoDictId protoId
+    dictCtorId <- protoDictCtorId protoId
+    protoImpEnv <- envLookupOrFail impEnv protoId `reportErrorAt` p
+    let maybeImp = Map.lookup tyCon protoImpEnv
+    case maybeImp of
+      Just _ -> throwError $ ErrProtocolAlreadyImplemented protoId tyCon
+      _ -> do
+        dictTyCon <- tcTycon $ SynTyRef p dictTyId 
+        let protoImpEnv' = Map.insert tyCon dictTyCon protoImpEnv
+        modifyTC $ \tcEnv -> tcEnv { impEnv = Map.insert protoId protoImpEnv' (impEnv tcEnv) }
+        mapM_ tc bodyEs
+        return (tyUnit, ILUnit (OfTy p tyUnit))
+  where
+    bodyEs' = sortBindings bodyEs
 
 tc (ILBegin p es) = do
   (ty, es') <- tcEs es
@@ -1218,12 +1220,42 @@ tcEs es = do
   return (last tys, es')
 
 
-tcProtoMethod :: ProtocolId -> Untyped IL -> Checked (Ty, [Typed IL])
-tcProtoMethod protoId (ILFunDef p id paramIds bodyE) = do
+sortBindings :: [IL a] -> [IL a]
+sortBindings es = sortOn bindingId es
+
+
+bindMethodImpl :: ProtocolId -> TyCon -> 
+
+
+protoMethodImplId :: ProtocolId -> TyCon -> UniqId -> String
+protoMethodImplId protoId implementingTyCon methodId =
+  show protoId + "." + show methodId + "@" + show implementingTyCon
+
+
+tcProtoMethod :: ProtocolId -> TyCon -> Untyped IL -> Checked (Ty, [Typed IL])
+tcProtoMethod protoId implementingTyCon (ILFunDef p id paramIds bodyE) = do
   isAMethod <- isMethod id
   unless isAMethod $ throwError $ ErrUnknownMethodId id protoId
+  declaredMethodTy <- lookupVar id
+  let funId = protoMethodImplId protoId implementingTyCon id
+      funDef' = ILFunDef p funId paramIds bodyE
+  (_, funDef'') <- tc funDef'
+  funTy <- lookupVar funId
+  unify declaredMethodTy funTy
+  return (tyUnit, funDef'') 
+
+tcProtoMethod protoId implementingTyCon (ILWithAnn p (TyAnn annId tyParamIds synTy straints) (ILFunDef fp fid paramIds bodyE)) = do
+  isAMethod <- isMethod annId
+  unless isAMethod $ throwError $ ErrUnknownMethodId annId protoId
+  declaredMethodTy <- lookupVar annId
+  let funId = protoMethodImplId protoId implementingTyCon id
+      def = ILWithAnn p (TyAnn funId tyParamIds synTy straints) $ ILFunDef fp funId paramIds bodyE
+  (_, def') <- tc def
+  funTy <- lookupVar funId
+  unify declaredMethodTy funTy
+  return (tyUnit, def')
   
-tcProtoMethod protoId e = return (tyUnit, e)
+tcProtoMethod protoId e = throwError $ ErrInterpFailure "Unsupported definition form in protocol implementation"
 
 
 tcTyDecs :: [UntypedUniq TypeDec] -> Checked [Typed IL]
