@@ -92,18 +92,18 @@ data IL a =
   | ILBegin a [IL a]
   | ILFail a String
   | ILMain a [UniqId] (IL a)
-  | ILPlaceholder p OverloadPlaceholder
+  | ILPlaceholder a OverloadPlaceholder
   deriving (Eq, Show)
 
 
 -- This is left inexhaustive for now.  We would prefer
 -- to blow up on non-binding ocurrences in things like
 -- protocol implementations
-instance BindingOccurrence IL where
-  bindingId e =
-    case e of
-      ILWithAnn _ tyAnn _ -> bindingId tyAnn
-      ILFunDef _ id _ _ -> id
+ilBindingId :: IL a -> UniqId
+ilBindingId e =
+  case e of
+    ILWithAnn _ tyAnn _ -> bindingId tyAnn
+    ILFunDef _ id _ _ -> id
 
 
 instance ILNode IL where
