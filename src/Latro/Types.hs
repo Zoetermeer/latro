@@ -1149,6 +1149,8 @@ tc (ILWithAnn p (TyAnn _ id tyParamIds synTy straints) e) = do
 tc (ILProtoDec p protoId tyParamId straints tyAnns) = do
     bindProtoDec protoId $ map bindingId tyAnns
     mapM bindMethod tyAnns
+    modifyTC (\tcEnv -> tcEnv { impEnv = Map.insert protoId Map.empty (impEnv tcEnv) })
+
     return (tyUnit, ILBegin (OfTy p tyUnit) [])
   where
     bindMethod (TyAnn tp methodId _ synTy _) = do
@@ -1157,7 +1159,7 @@ tc (ILProtoDec p protoId tyParamId straints tyAnns) = do
       exportTy freshTyParamId $ TyConTyVar freshTyParamId
       let synTy' = replaceTyIdIn tyParamId freshTyParamId synTy
       methodTy <- tcTy synTy'
-      bindVar methodId $ TyOverloaded [(TyRef (Id tp freshTyParamId), protoId)] methodTy
+      bindVar methodId $ TyOverloaded [(TyVar freshTyParamId, protoId)] methodTy
 
 -- tc (ILProtoDec p protoId tyParamId straints tyAnns) = do
 --     dictTyId   <- protoDictId protoId
@@ -1258,7 +1260,8 @@ tcProtoMethod protoId implementingTyCon (ILFunDef p id paramIds bodyE) = do
   let funDef' = ILFunDef p funId paramIds bodyE
   (_, funDef'') <- tc funDef'
   funTy <- lookupVar funId
-  unify declaredMethodTy funTy
+  declaredMethodTy' <- instantiate declaredMethodTy
+  unify declaredMethodTy' funTy
   return (tyUnit, funDef'')
 
 tcProtoMethod protoId implementingTyCon (ILWithAnn p (TyAnn _ annId tyParamIds synTy straints) (ILFunDef fp fid paramIds bodyE)) = do
@@ -1269,7 +1272,8 @@ tcProtoMethod protoId implementingTyCon (ILWithAnn p (TyAnn _ annId tyParamIds s
   let def = ILWithAnn p (TyAnn p funId tyParamIds synTy straints) $ ILFunDef fp funId paramIds bodyE
   (_, def') <- tc def
   funTy <- lookupVar funId
-  unify declaredMethodTy funTy
+  declaredMethodTy' <- instantiate declaredMethodTy
+  unify declaredMethodTy' funTy
   return (tyUnit, def')
 
 tcProtoMethod protoId _ _ = throwError $ ErrInterpFailure $ "Unsupported definition form in protocol implementation for " ++ show protoId
