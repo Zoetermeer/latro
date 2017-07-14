@@ -1,19 +1,19 @@
 {-# LANGUAGE Strict, FlexibleContexts #-}
 module Latro.Types where
 
-import qualified Latro.AlphaConvert as AlphaConvert
-import Latro.Common
-import Latro.Compiler
 import Control.Error.Util (hoistEither)
 import Control.Monad.Except
 import Control.Monad.State
 import Data.Either.Utils (maybeToEither)
 import qualified Data.Map.Strict as Map
-import Data.List (sortBy)
-import Data.Maybe (fromMaybe, isNothing, mapMaybe)
+import Data.List (sortBy, sortOn)
+import Data.Maybe (fromMaybe, isJust, isNothing, mapMaybe)
 import qualified Data.Set as Set
 import Debug.Trace (trace, traceM)
+import qualified Latro.AlphaConvert as AlphaConvert
 import Latro.Ast
+import Latro.Common
+import Latro.Compiler
 import Latro.Errors
 import Latro.Semant
 import Latro.Semant.Display ()
@@ -130,9 +130,9 @@ bindFieldIndex id ind = do
   modifyTC (\tcEnv -> tcEnv { fieldIndexEnv = Map.insert id ind (fieldIndexEnv tcEnv) })
 
 
-bindProtoDec :: ProtocolId -> Protocol -> Checked ()
-bindProtoDec id proto =
-  modifyTC (\tcEnv -> tcEnv { protoEnv = Map.insert id proto (protoEnv tcEnv) })
+bindProtoDec :: ProtocolId -> [MethodId] -> Checked ()
+bindProtoDec id methodIds =
+  modifyTC (\tcEnv -> tcEnv { protoEnv = Map.insert id methodIds (protoEnv tcEnv) })
 
 
 bindMethodId :: MethodId -> ProtocolId -> Checked ()
@@ -169,6 +169,9 @@ tyUnit = mtApp TyConUnit
 
 tyList :: Ty -> Ty
 tyList elemTy = TyApp TyConList [elemTy]
+
+tyTuple :: [Ty] -> Ty
+tyTuple elemTys = TyApp TyConTuple elemTys
 
 tyMain :: Ty
 tyMain = TyApp TyConArrow [tyList tyStr, tyUnit]
@@ -305,11 +308,15 @@ isOverloaded ty = not $ null $ constraints ty
 constraints :: Ty -> [(Ty, ProtocolId)]
 constraints ty =
   case ty of
-    TyApp tyCon tyArgs ->
-      constraints tyCon ++  concatMap constraints tyArgs
+    TyApp tyCon tyArgs -> concatMap constraints tyArgs
     TyPoly _ ty -> constraints ty
     TyOverloaded straints ty -> straints
     _ -> []
+
+
+stripConstraints :: Ty -> Ty
+stripConstraints (TyOverloaded straints ty) = ty
+stripConstraints ty = ty
 
 
 occursInTyCon :: Ty -> TyCon -> Bool
@@ -908,20 +915,20 @@ replaceTyIdIn oldTyId newTyId (SynTyRef p qid@(Id ip tyRefId) synTyArgs)
     replace = replaceTyIdIn oldTyId newTyId
 
 
-tcILAppWithoutOverloadRewriting :: SourcePos -> UntypedIL -> [Untyped IL] -> Checked (Ty, Typed IL)
-tcILAppWithoutOverloadRewriting p ratorE randEs = do
-  retTyMeta@(TyMeta retTyMetaId) <- freshMeta
-  (TyApp TyConArrow arrowTys) <-
-    withFailPos' p $ unify fty $ TyApp TyConArrow $ randTys ++ [retTyMeta]
-  let ty = case reverse arrowTys of
-              [] -> tyUnit
-              retTy:_ -> retTy
-      arity = length arrowTys - 1
-      argLen = length randEs
-  if arity /= argLen
-  then throwError (ErrWrongArity ratorE' arity argLen) `reportErrorAt` p
-  else do ty' <- subst ty
-          return (ty', ILApp (OfTy p ty') ratorE' randEs')
+-- tcILAppWithoutOverloadRewriting :: SourcePos -> Ty -> Untyped IL -> [Untyped IL] -> Checked (Ty, Typed IL)
+-- tcILAppWithoutOverloadRewriting p fty ratorE randEs = do
+--   retTyMeta@(TyMeta retTyMetaId) <- freshMeta
+--   (TyApp TyConArrow arrowTys) <-
+--     withFailPos' p $ unify fty $ TyApp TyConArrow $ randTys ++ [retTyMeta]
+--   let ty = case reverse arrowTys of
+--               [] -> tyUnit
+--               retTy:_ -> retTy
+--       arity = length arrowTys - 1
+--       argLen = length randEs
+--   if arity /= argLen
+--   then throwError (ErrWrongArity ratorE' arity argLen) `reportErrorAt` p
+--   else do ty' <- subst ty
+--           return (ty', ILApp (OfTy p ty') ratorE' randEs')
 
 
 tc :: Untyped IL -> Checked (Ty, Typed IL)
@@ -949,7 +956,7 @@ tc (ILRef p id) = do
   if isAMethod
     then do metas <- freeMetas ty'
             let meta = TyMeta $ head $ metas
-            return (ty', ILPlaceholder (OfTy p ty') $ PlaceholderMethod id meta
+            return (ty', ILPlaceholder (OfTy p ty') $ PlaceholderMethod id meta)
     else return (ty', ILRef (OfTy p ty') id)
 
 tc (ILStr p s) = return (tyStr, ILStr (OfTy p tyStr) s)
@@ -968,19 +975,23 @@ tc (ILCons p headE listE) = do
                 unify (TyApp TyConList [tyHeadE]) tyListE' `reportErrorAt` p
   return (listTy, ILCons (OfTy p listTy) headE' listE')
 
-tc (ILMethodApp p ratorE dictEs randEs) = do
-    ...
-  where il = ILApp p (ILApp p ratorE dictEs) randEs
 
 tc (ILApp p ratorE randEs) = do
   (fty, ratorE') <- tc ratorE
   -- traceM $ "tc ILApp: " ++ show fty
-  case fty of
-    TyOverloaded straints innerFty ->
-      dictEs <- mapM (\(tyArg, protoId) -> lookupDict tyArg protoId) straints
-      tcILAppWithoutOverloadRewriting p (ILApp p ratorE dictEs) randEs
-    _ ->
-      tcILApp p ratorE randEs
+  (randTys, randEs') <- mapAndUnzipM tc randEs
+  retTyMeta@(TyMeta retTyMetaId) <- freshMeta
+  fty' <- withFailPos' p $ unify fty $ TyApp TyConArrow $ randTys ++ [retTyMeta]
+  let (TyApp TyConArrow arrowTys) = stripConstraints fty'
+      ty = case reverse arrowTys of
+              []      -> tyUnit
+              retTy:_ -> retTy
+      arity = length arrowTys - 1
+      argLen = length randEs
+  if arity /= argLen
+  then throwError (ErrWrongArity ratorE' arity argLen) `reportErrorAt` p
+  else do ty' <- subst ty
+          return (ty', ILApp (OfTy p ty') ratorE' randEs')
 
 tc (ILPrim p prim) = do
     primTy <- case prim of
@@ -1136,7 +1147,7 @@ tc (ILWithAnn p (TyAnn _ id tyParamIds synTy straints) e) = do
   return (ty, e')
 
 tc (ILProtoDec p protoId tyParamId straints tyAnns) = do
-    bindProtoDec protoId $ Protocol protoId tyParamId $ map bindingId tyAnns
+    bindProtoDec protoId $ map bindingId tyAnns
     mapM bindMethod tyAnns
     return (tyUnit, ILBegin (OfTy p tyUnit) [])
   where
@@ -1189,23 +1200,23 @@ tc (ILProtoDec p protoId tyParamId straints tyAnns) = do
 --       return (ILPatAdt p ctorId argPats, fid)
 
 tc (ILProtoImp p synTy protoId straints bodyEs) = do
-    tyCon <- tcTycon synTy
-    dictTyId <- protoDictId protoId
-    dictCtorId <- protoDictCtorId protoId
-    protoImpEnv <- envLookupOrFail impEnv protoId `reportErrorAt` p
-    let maybeImp = Map.lookup tyCon protoImpEnv
+    tyCon       <- tcTycon synTy
+    dictTyId    <- protoDictId protoId
+    dictCtorId  <- protoDictCtorId protoId
+    instanceEnv <- envLookupOrFail impEnv protoId `reportErrorAt` p
+    let maybeImp = Map.lookup tyCon instanceEnv
     case maybeImp of
       Just _ -> throwError $ ErrProtocolAlreadyImplemented protoId tyCon
       _ -> do
-        methods <- liftM (snd . unzip) $ mapM tcProtoMethod bodyEs'
-        let dict = foldl (addMethodToDict protoId tyCon) (ILTuple p []) methods
+        methods <- liftM (snd . unzip) $ mapM (tcProtoMethod protoId tyCon) bodyEs'
+        let dictTy = tyTuple []
+            dict = foldl (addMethodToDict protoId tyCon) (ILTuple (OfTy p dictTy) []) methods
         theImpEnv <- getsTC impEnv
-        let instanceEnv = Map.lookup protoId theImpEnv
-            instanceEnv' = Map.insert tyCon dict instanceEnv
-            theImpEnv' = Map.insert protoId instanceEnv' theImpEnv
-        modifyTC (\tcEnv -> tcEnv { impEnv = theImpEnv' }) 
+        let instanceEnv' = Map.insert tyCon dict instanceEnv
+            theImpEnv'   = Map.insert protoId instanceEnv' theImpEnv
+        modifyTC (\tcEnv -> tcEnv { impEnv = theImpEnv' })
 
-        return (tyUnit, ILBegin p methods)
+        return (tyUnit, ILBegin (OfTy p tyUnit) methods)
   where
     bodyEs' = sortBindings bodyEs
 
@@ -1224,17 +1235,17 @@ tcEs es = do
 
 
 sortBindings :: [IL a] -> [IL a]
-sortBindings es = sortOn bindingId es
+sortBindings es = sortOn ilBindingId es
 
 
 addMethodToDict :: ProtocolId -> TyCon -> IL a -> IL a -> IL a
 addMethodToDict protoId tyCon (ILTuple p es) methodIL =
-  ILTuple p (es ++ [ILRef p $ bindingId methodIL])
+  ILTuple p (es ++ [ILRef p $ ilBindingId methodIL])
 
 
-protoMethodImplId :: ProtocolId -> TyCon -> UniqId -> String
+protoMethodImplId :: ProtocolId -> TyCon -> UniqId -> Checked UniqId
 protoMethodImplId protoId implementingTyCon methodId =
-  show protoId + "." + show methodId + "@" + show implementingTyCon
+  makeFresh (show protoId ++ "." ++ show methodId ++ "@" ++ show implementingTyCon)
 
 
 tcProtoMethod :: ProtocolId -> TyCon -> Untyped IL -> Checked (Ty, Typed IL)
@@ -1242,25 +1253,25 @@ tcProtoMethod protoId implementingTyCon (ILFunDef p id paramIds bodyE) = do
   isAMethod <- isMethod id
   unless isAMethod $ throwError $ ErrUnknownMethodId id protoId
   declaredMethodTy <- lookupVar id
-  let funId = protoMethodImplId protoId implementingTyCon id
-      funDef' = ILFunDef p funId paramIds bodyE
+  funId <- protoMethodImplId protoId implementingTyCon id
+  let funDef' = ILFunDef p funId paramIds bodyE
   (_, funDef'') <- tc funDef'
   funTy <- lookupVar funId
   unify declaredMethodTy funTy
-  return (tyUnit, funDef'') 
+  return (tyUnit, funDef'')
 
-tcProtoMethod protoId implementingTyCon (ILWithAnn p (TyAnn annId tyParamIds synTy straints) (ILFunDef fp fid paramIds bodyE)) = do
+tcProtoMethod protoId implementingTyCon (ILWithAnn p (TyAnn _ annId tyParamIds synTy straints) (ILFunDef fp fid paramIds bodyE)) = do
   isAMethod <- isMethod annId
   unless isAMethod $ throwError $ ErrUnknownMethodId annId protoId
   declaredMethodTy <- lookupVar annId
-  let funId = protoMethodImplId protoId implementingTyCon id
-      def = ILWithAnn p (TyAnn funId tyParamIds synTy straints) $ ILFunDef fp funId paramIds bodyE
+  funId <- protoMethodImplId protoId implementingTyCon annId
+  let def = ILWithAnn p (TyAnn p funId tyParamIds synTy straints) $ ILFunDef fp funId paramIds bodyE
   (_, def') <- tc def
   funTy <- lookupVar funId
   unify declaredMethodTy funTy
   return (tyUnit, def')
-  
-tcProtoMethod protoId e = throwError $ ErrInterpFailure "Unsupported definition form in protocol implementation"
+
+tcProtoMethod protoId _ _ = throwError $ ErrInterpFailure $ "Unsupported definition form in protocol implementation for " ++ show protoId
 
 
 tcTyDecs :: [UntypedUniq TypeDec] -> Checked [Typed IL]
