@@ -259,21 +259,24 @@ instance Show TyConstraint where
   show = pretty
 
 
+type Context = [(Ty, ProtocolId)]
+
+
 data Ty =
     TyApp TyCon [Ty]
-  | TyPoly [TyVarId] Ty
+  | TyPoly [TyVarId] Context Ty
   | TyVar TyVarId
   | TyMeta TyVarId
   | TyRef (QualifiedId SourcePos UniqId) -- Only for recursive type definitions
-  | TyOverloaded [(Ty, ProtocolId)] Ty
+  | TyOverloaded Context Ty -- Only for instantiated types
   deriving Generic
 
 
 instance Eq Ty where
   (TyApp tyConA tyAs) == (TyApp tyConB tyBs) =
     tyConA == tyConB && tyAs == tyBs
-  (TyPoly aVars tyA) == (TyPoly bVars tyB) =
-    tyA == tyB
+  (TyPoly aVars ctxA tyA) == (TyPoly bVars ctxB tyB) =
+    ctxA == ctxB && tyA == tyB
   (TyVar idA) == (TyVar idB) = idA == idB
   (TyMeta idA) == (TyMeta idB) = idA == idB
   (TyRef idA) == (TyRef idB) = idA == idB

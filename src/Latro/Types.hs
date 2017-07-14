@@ -61,14 +61,6 @@ traceFieldIndices = do
   traceM $ showHum fiEnv
 
 
--- Convenience methods for manipulating the environment
-newContextWith :: (TCEnv -> TCEnv) -> Checked TCEnv
-newContextWith fupdate = do
-  oldEnv <- getTC
-  modifyTC fupdate
-  return oldEnv
-
-
 -- A new var env needs to close over all
 -- bindings in the existing env, so
 -- the update function is the identity function
@@ -302,21 +294,20 @@ getProtoConstraints straints =
 
 
 isOverloaded :: Ty -> Bool
-isOverloaded ty = not $ null $ constraints ty
+isOverloaded ty = not $ null $ context ty
 
 
-constraints :: Ty -> [(Ty, ProtocolId)]
-constraints ty =
+context :: Ty -> [(Ty, ProtocolId)]
+context ty =
   case ty of
-    TyApp tyCon tyArgs -> concatMap constraints tyArgs
-    TyPoly _ ty -> constraints ty
-    TyOverloaded straints ty -> straints
+    TyApp tyCon tyArgs -> concatMap context tyArgs
+    TyPoly _ ctx ty -> ctx ++ context ty
     _ -> []
 
 
-stripConstraints :: Ty -> Ty
-stripConstraints (TyOverloaded straints ty) = ty
-stripConstraints ty = ty
+stripContext :: Ty -> Ty
+stripContext (TyOverloaded _ ty) = ty
+stripContext ty = ty
 
 
 occursInTyCon :: Ty -> TyCon -> Bool
@@ -331,7 +322,7 @@ occursIn tyMeta@(TyMeta metaId) ty =
   case ty of
     TyApp tyCon argTys ->
       occursInTyCon tyMeta tyCon || any (occursIn tyMeta) argTys
-    TyPoly _ ty -> occursIn tyMeta ty
+    TyPoly _ ctx ty -> any (occursIn tyMeta) (fst (unzip ctx)) || occursIn tyMeta ty
     TyVar _ -> False
     TyMeta otherMetaId -> metaId == otherMetaId
     TyRef _ -> False
@@ -371,14 +362,12 @@ allMetaIdsInTyCon _ = []
 allMetaIdsIn :: Ty -> [UniqId]
 allMetaIdsIn ty =
   case ty of
-    TyApp tyCon tyArgs -> allMetaIdsInTyCon tyCon ++ concatMap allMetaIdsIn tyArgs
-    TyPoly _ ty        -> allMetaIdsIn ty
-    TyVar _            -> []
-    TyMeta id          -> [id]
-    TyRef _            -> []
-    TyOverloaded context ty ->
-      let contextMetas = concatMap allMetaIdsIn $ fst $ unzip context
-      in contextMetas ++ allMetaIdsIn ty
+    TyApp tyCon tyArgs  -> allMetaIdsInTyCon tyCon ++ concatMap allMetaIdsIn tyArgs
+    TyPoly _ ctx ty     -> (concatMap allMetaIdsIn $ fst $ unzip ctx) ++ allMetaIdsIn ty
+    TyVar _             -> []
+    TyMeta id           -> [id]
+    TyRef _             -> []
+    TyOverloaded ctx ty -> (concatMap allMetaIdsIn $ fst $ unzip ctx) ++ allMetaIdsIn ty
 
 
 referencedMetaIds :: UniqId -> Checked [UniqId]
@@ -417,11 +406,11 @@ freeMetas ty =
 
 
 trimUnusedPolyParams :: Ty -> Checked Ty
-trimUnusedPolyParams (TyPoly [] ty) = return ty
-trimUnusedPolyParams (TyPoly tyParamIds ty) =
+trimUnusedPolyParams (TyPoly [] _ ty) = return ty
+trimUnusedPolyParams (TyPoly tyParamIds ctx ty) =
     case tyParamIds' of
       [] -> return ty
-      _ -> return $ TyPoly tyParamIds' ty
+      _ -> return $ TyPoly tyParamIds' ctx ty
   where
     allTyConVarIds tyCon =
       case tyCon of
@@ -431,14 +420,13 @@ trimUnusedPolyParams (TyPoly tyParamIds ty) =
     allTyVarIds ty =
       case ty of
         TyApp tyCon tys -> allTyConVarIds tyCon ++ concatMap allTyVarIds tys
-        TyPoly _ ty -> allTyVarIds ty
+        TyPoly _ ctx ty -> allTyVarIds ty ++ (concatMap allTyVarIds $ fst $ unzip ctx)
         TyVar id -> [id]
         TyMeta id -> []
         TyRef _ -> []
-        TyOverloaded context ty ->
-          allTyVarIds ty ++ concatMap allTyVarIds (fst (unzip context))
+    allCtxTyVarIds (ty, _) = allTyVarIds ty
     paramIdSet = Set.fromList tyParamIds
-    usedParamIdSet = Set.fromList $ allTyVarIds ty
+    usedParamIdSet = Set.fromList (allTyVarIds ty ++ concatMap allCtxTyVarIds ctx)
     tyParamIds' = Set.toList $ Set.intersection paramIdSet usedParamIdSet
 
 trimUnusedPolyParams ty = return ty
@@ -457,29 +445,24 @@ generalize ty = do
   case tyParamIds of
     [] -> return ty''
     _ ->
-      let retTy = TyPoly tyParamIds ty''
+      let retTy = TyPoly tyParamIds [] ty''
       in trimUnusedPolyParams retTy
 
 
 instantiate :: Ty -> Checked Ty
-instantiate (TyPoly tyParamIds ty) = do
+instantiate (TyPoly tyParamIds ctx ty) = do
   oldPolyEnv <- markPolyEnv
   mapM_ (\paramId -> do { meta <- freshMeta; bindPoly paramId meta })
         tyParamIds
+  ctx' <- mapM (\(ty, protoId) -> do
+                  ty' <- subst ty
+                  return (ty', protoId))
+          ctx
   ty' <- subst ty
   restorePolyEnv oldPolyEnv
-  return ty'
-
-instantiate (TyOverloaded context ty) = do
-  oldPolyEnv <- markPolyEnv
-  context' <- mapM (\(TyVar paramId, protoId) -> do
-                      meta <- freshMeta
-                      bindPoly paramId meta
-                      return (meta, protoId))
-              context
-  ty' <- subst ty
-  restorePolyEnv oldPolyEnv
-  return $ TyOverloaded context' ty'
+  case ctx' of
+    [] -> return ty'
+    _  -> return $ TyOverloaded ctx' ty'
 
 instantiate ty = return ty
 
@@ -522,14 +505,15 @@ subst ty =
         Just ty -> return ty
         _ -> return var
 
-    TyPoly tyParamIds ty -> do
+    TyPoly tyParamIds ctx ty -> do
+      ctx' <- mapM (\(ty, protoId) -> do { ty' <- subst ty; return (ty', protoId) }) ctx
       ty' <- subst ty
-      return $ TyPoly tyParamIds ty'
+      return $ TyPoly tyParamIds ctx' ty'
 
-    TyOverloaded context ty -> do
-      context' <- mapM (\(ty, protoId) -> do { ty' <- subst ty; return (ty', protoId) }) context
+    TyOverloaded ctx ty -> do
+      ctx' <- mapM (\(ty, protoId) -> do { ty' <- subst ty; return (ty', protoId) }) ctx
       ty' <- subst ty
-      return $ TyOverloaded context' ty'
+      return $ TyOverloaded ctx' ty'
 
     TyRef (Id _ id) -> do
       tyCon <- lookupTy id
@@ -583,9 +567,10 @@ unify tya tyb = do
       ty' <- subst ty
       unify tya ty'
 
-    (TyPoly [] ty, tyb) -> unify ty tyb
+    -- TODO: context reduction is needed here
+    (TyPoly [] ctx tya, tyb) -> unify tya tyb
 
-    (TyPoly aParamIds aty, TyPoly bParamIds bty) ->
+    (TyPoly aParamIds ctxA aty, TyPoly bParamIds ctxB bty) ->
       let paramIds = zip bParamIds aParamIds
       in do mapM_ (\(bParamId, aParamId) -> bindPoly bParamId $ TyVar aParamId)
                   paramIds
@@ -634,9 +619,9 @@ unify tya tyb = do
       tyb <- lookupTyQual qid
       unify ty $ TyApp tyb []
 
-    (TyOverloaded straints tyA, tyB) -> do
+    (TyOverloaded ctxA tyA, tyB) -> do
       ty' <- unify tyA tyB
-      return $ TyOverloaded straints ty'
+      return $ TyOverloaded ctxA ty'
 
     (ta, tb) -> unifyFail ta tb
 
@@ -791,7 +776,7 @@ tcTyDec (TypeDecAdt p id tyParamIds alts) = do
   -- Add a function binding for each constructor,
   -- and return a function expression for each one
   ctorEs <- mapM (\(alt@(AdtAlternative altPos ctorName _ _), argTys) ->
-                    let ctorTy = TyPoly tyParamIds $ TyApp TyConArrow (argTys ++ [TyApp adtTyCon (map TyVar tyParamIds)])
+                    let ctorTy = TyPoly tyParamIds [] $ TyApp TyConArrow (argTys ++ [TyApp adtTyCon (map TyVar tyParamIds)])
                     in do bindVar ctorName ctorTy
                           bindPat ctorName ctorTy
                           makeAdtCtor alt (TyApp adtTyCon argTys) ctorTy argTys)
@@ -860,8 +845,8 @@ addBindingsForPat (ILPatList _ elemEs) (TyApp TyConList [tyArg]) =
   let addBindingsForPatWithTy = flip addBindingsForPat tyArg
   in mapM_ addBindingsForPatWithTy elemEs
 
-addBindingsForPat (ILPatList _ elemEs) (TyPoly [tyParamId] (TyApp TyConList [tyArg])) =
-  let elemTy = TyPoly [tyParamId] tyArg
+addBindingsForPat (ILPatList _ elemEs) (TyPoly [tyParamId] _ (TyApp TyConList [tyArg])) =
+  let elemTy = TyPoly [tyParamId] [] tyArg
       addBindingsForPatWithTy = flip addBindingsForPat elemTy
   in mapM_ addBindingsForPatWithTy elemEs
 
@@ -982,7 +967,7 @@ tc (ILApp p ratorE randEs) = do
   (randTys, randEs') <- mapAndUnzipM tc randEs
   retTyMeta@(TyMeta retTyMetaId) <- freshMeta
   fty' <- withFailPos' p $ unify fty $ TyApp TyConArrow $ randTys ++ [retTyMeta]
-  let (TyApp TyConArrow arrowTys) = stripConstraints fty'
+  let (TyApp TyConArrow arrowTys) = stripContext fty'
       ty = case reverse arrowTys of
               []      -> tyUnit
               retTy:_ -> retTy
@@ -1125,26 +1110,39 @@ tc (ILFunDef p id paramIds bodyE) = do
   bindVar id fty'
   return (tyUnit, ILFunDef (OfTy p fty') id paramIds bodyE')
 
+-- Monomorphic case
+tc (ILWithAnn p (TyAnn _ id [] synTy straints) e)
+  | not (null straints) = throwError (ErrInvalidConstraints id) `reportErrorAt` p
+  | otherwise = do
+      oldMetaEnv <- markMetaEnv
+      givenTy <- tcTy synTy
+      (_, e') <- tc e
+      inferredTy <- lookupVar id `reportErrorAt` ilNodeData e
+      givenTy' <- instantiate givenTy
+      inferredTy' <- instantiate inferredTy
+      ty <- unify givenTy' inferredTy' `reportErrorAt` p
+
+      restoreMetaEnv oldMetaEnv
+      generalize ty >>= bindVar id
+      return (ty, e')
+
+-- Polymorphic case
 tc (ILWithAnn p (TyAnn _ id tyParamIds synTy straints) e) = do
   oldMetaEnv <- markMetaEnv
   mapM_ (\tyParamId -> exportTy tyParamId $ TyConTyVar tyParamId) tyParamIds
-  let straints' = map (\(Constraint _ tyId protoId) -> (TyVar tyId, protoId)) straints
+  let ctx = map (\(Constraint _ tyId protoId) -> (TyVar tyId, protoId)) straints
   givenTy <- tcTy synTy
-  let givenTy' = case straints' of
-                   [] -> givenTy
-                   _  -> TyOverloaded straints' givenTy
-  let givenTy'' = case tyParamIds of
-                   [] -> givenTy'
-                   _  -> TyPoly tyParamIds givenTy'
+  let givenTy' = TyPoly tyParamIds ctx givenTy
   (_, e') <- tc e
   inferredTy <- lookupVar id `reportErrorAt` ilNodeData e
-  givenTy''' <- instantiate givenTy''
+  givenTy'' <- instantiate givenTy'
   inferredTy' <- instantiate inferredTy
-  ty <- unify givenTy''' inferredTy' `reportErrorAt` p
+  ty <- unify givenTy'' inferredTy' `reportErrorAt` p
 
   restoreMetaEnv oldMetaEnv
   generalize ty >>= bindVar id
   return (ty, e')
+
 
 tc (ILProtoDec p protoId tyParamId straints tyAnns) = do
     bindProtoDec protoId $ map bindingId tyAnns
@@ -1159,7 +1157,7 @@ tc (ILProtoDec p protoId tyParamId straints tyAnns) = do
       exportTy freshTyParamId $ TyConTyVar freshTyParamId
       let synTy' = replaceTyIdIn tyParamId freshTyParamId synTy
       methodTy <- tcTy synTy'
-      bindVar methodId $ TyOverloaded [(TyVar freshTyParamId, protoId)] methodTy
+      bindVar methodId $ TyPoly [freshTyParamId] [(TyVar freshTyParamId, protoId)] methodTy
 
 -- tc (ILProtoDec p protoId tyParamId straints tyAnns) = do
 --     dictTyId   <- protoDictId protoId
