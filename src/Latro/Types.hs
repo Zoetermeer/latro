@@ -1152,8 +1152,9 @@ tc (ILProtoDec p protoId tyParamId straints tyAnns) = do
     return (tyUnit, ILBegin (OfTy p tyUnit) [])
   where
     bindMethod (TyAnn tp methodId _ synTy _) = do
-      freshTyParamId <- freshId
+      freshTyParamId <- makeFresh "a"
       bindMethodId methodId protoId
+      exportTy freshTyParamId $ TyConTyVar freshTyParamId
       let synTy' = replaceTyIdIn tyParamId freshTyParamId synTy
       methodTy <- tcTy synTy'
       bindVar methodId $ TyOverloaded [(TyRef (Id tp freshTyParamId), protoId)] methodTy

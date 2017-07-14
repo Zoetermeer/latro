@@ -15,7 +15,7 @@
           }
 
           imp Int : Eq {
-            infixl (===)(x, y) = x == y
+            infixl (===)(x, y) = prim(intEq)(x, y)
           }
         }
 
