@@ -12,6 +12,7 @@ else
          tests/scoping.rkt \
          tests/interpreter.rkt \
          tests/typechecker.rkt \
+         tests/protocols.rkt \
          tests/examples.rkt"
 fi
 
