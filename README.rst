@@ -567,6 +567,71 @@ simple binary-tree implementation:
 
   size(Node("a", Leaf("b"), Leaf("c"))) // 3
 
+Protocols
+---------
+
+Latro supports a form of function overloading (ad-hoc polymorphism)
+via the use of *protocols*.  This is best introduced with an example:
+
+.. code:: scala
+
+  protocol Eq(a) {
+    infixl (==) : a -> a -> Bool
+  }
+
+We declare a protocol ``Eq``, with only one operation: the infix
+operator ``==``.  This is the canonical protocol that a type
+must implement if it supports equality comparisons on values.
+The protocol declaration itself resembles a template (in the general
+sense, not in the C++ sense), with a type argument (``a`` in this case)
+used to declare the types of the operations.  The ``==`` operator
+accepts two values of the implementing type ``a``, and returns a boolean
+indicating whether the values are equal.
+
+.. code:: scala
+
+  import Core
+  import IO
+
+  imp Eq(Int) {
+    infixl (==)(x, y) = prim(intEq)(x, y)
+  }
+
+  imp Eq(Bool) {
+    infixl (==)(True, True)   = True
+    infixl (==)(False, False) = True
+    infixl (==)(_, _)         = False
+  }
+
+  main(_) = {
+    println(42 == 43)
+    println(True == True) 
+  }
+
+We define two implementations of ``Eq`` -- one for ``Int`` and
+one for ``Bool``.  The body of ``main`` shows how ``==`` can be
+applied to values of different types, with the compiler selecting
+the appropriate overload based on the types of the arguments.
+
+Polymorphic functions can be overloaded by adding *protocol constraints*
+to type parameters.  For example we could define a membership predicate
+on lists using an ``Eq`` constraint:
+
+.. code:: scala
+
+  contains<a> : a[] -> a -> Bool when a : Eq
+  contains([], _) = False
+  contains(x @ xs, v) = cond {
+    x == v -> True
+    _      -> contains(xs, v)
+  }
+
+A program will fail to compile if we attempt to apply this
+function to arguments of a type that does not implement ``Eq``.
+Note that we can omit the type annotation and Latro will
+still infer the constraint based on the presence of the ``==``
+comparison.
+
 Modules
 -------
 
@@ -1056,18 +1121,12 @@ As mentioned, Latro is still in the experimental/pre-alpha stage and is *not* su
 for use in real-world scenarios.  All features are subject to change.  There are a number of
 non-trivial enhancements planned for the language:
 
-  - Support for ad hoc polymorphism via protocols.  Protocols will be
-    fused with the module system similar to the approach being taken in the work
-    on `OCaml implicit modules`_, which is a derivative of the implicit semantics
-    in Scala.
   - Fixity directives for custom infix operators
   - Separate compilation (module dependencies only recompiled when changed)
   - Support for runtime type reflection, with reification
   - Runtime system with garbage collecition
   - Cross-platform binary compilation using an LLVM backend
-  - Go-style compilation and package ecosystem
-
-.. _Ocaml implicit modules: https://github.com/Zoetermeer/latro/blob/master/papers/module-systems/modular-implicits-ocaml.pdf
+  - Go-style package ecosystem
 
 Contributing
 ============
