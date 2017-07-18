@@ -5,30 +5,39 @@
            rackunit)
 
   (test-case "it selects the right overload when operand types are known at compile time"
-    (check-equal?
-      @interp-lines{
-        module M {
-          import Core
+    (parameterize ([use-core? #f])
+      (check-equal?
+        @interp-lines{
+          module M {
+            type Bool = primtype(bool)
+            type Char = primtype(char)
+            type Int = primtype(int)
 
-          protocol Eq(a) {
-            infixl (===) : a -> a -> Bool
+            protocol Eq(a) {
+              infixl (===) : a -> a -> Bool
+            }
+
+            imp Int : Eq {
+              infixl (===)(x, y) = prim(intEq)(x, y)
+            }
+
+            imp Char : Eq {
+              infixl (===)(a, b) = prim(intEq)(prim(charToInt)(a), prim(charToInt)(b))
+            }
           }
 
-          imp Int : Eq {
-            infixl (===)(x, y) = prim(intEq)(x, y)
+          module Program {
+            import M
+
+            x(y) = y
+            main(_) = {
+              prim(println)(42 === 43)
+              prim(println)('a' === 'a')
+            }
+            //main(_) = IO.println(x(43) === 42)
           }
         }
-
-        module Program {
-          import IO
-          import M
-
-          x(y) = y
-          //main(_) = IO.println(42 === 43)
-          main(_) = IO.println(x(43) === 42)
-        }
-      }
-      '("42")))
+        '("False" "True"))))
 
   #;(test-case "it selects the right overload when operand types are unknown at compile time"
     (check-equal?

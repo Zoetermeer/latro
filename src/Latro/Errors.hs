@@ -55,6 +55,8 @@ data Err =
   | ErrProtocolAlreadyImplemented UniqId TyCon
   | ErrInvalidConstraints UniqId
   | ErrDoesNotImplementProtocol TyCon ProtocolId
+  | ErrCannotResolveProtocolImp Ty ProtocolId
+  | ErrCannotResolveMethod Ty MethodId
   | ErrUnknownMethodId MethodId ProtocolId
   | ErrMultipleDataDecs (QualifiedId SourcePos UniqId)
   | ErrUserFail SourcePos String

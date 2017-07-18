@@ -1,4 +1,4 @@
-{-# LANGUAGE Strict, FlexibleContexts #-}
+{-# LANGUAGE Strict, FlexibleContexts, MultiParamTypeClasses #-}
 module Latro.Types where
 
 import Control.Error.Util (hoistEither)
@@ -6,7 +6,7 @@ import Control.Monad.Except
 import Control.Monad.State
 import Data.Either.Utils (maybeToEither)
 import qualified Data.Map.Strict as Map
-import Data.List (sortBy, sortOn)
+import Data.List (sort, sortBy, sortOn)
 import Data.Maybe (fromMaybe, isJust, isNothing, mapMaybe)
 import qualified Data.Set as Set
 import Debug.Trace (trace, traceM)
@@ -28,7 +28,7 @@ traceIt :: Show a => a -> a
 traceIt v = trace (show v) v
 
 
-showHum :: Show v => Map.Map UniqId v -> String
+showHum :: (Show k, Show v) => Map.Map k v -> String
 showHum =
   Map.foldlWithKey
     (\str key val -> str ++ "\n" ++ show key ++ " --> " ++ show val)
@@ -900,6 +900,28 @@ replaceTyIdIn oldTyId newTyId (SynTyRef p qid@(Id ip tyRefId) synTyArgs)
     replace = replaceTyIdIn oldTyId newTyId
 
 
+methodSelector :: Typed IL -> MethodId -> Checked (Typed IL)
+methodSelector dictIl methodId = do
+  protoId <- envLookupOrFail methodEnv methodId
+  methods <- liftM sort $ envLookupOrFail protoEnv protoId
+  fId <- makeFresh "f"
+  let d = ilNodeData dictIl
+  let ilPat = ILPatTuple d (map (\targetMethodId -> if targetMethodId == methodId
+                                                    then ILPatId d fId
+                                                    else ILPatWildcard d
+                                )
+                            methods)
+  return $ ILSwitch d dictIl [ILCase d ilPat $ ILRef d fId]
+
+
+insertDictionaryParams :: Typed IL -> Ty -> Checked (Typed IL)
+insertDictionaryParams funDef@(ILFunDef fty id paramIds bodyE) ty =
+  case ty of
+    TyPoly tyVarIds ctx ty | not (null ctx) ->
+      return funDef
+    _                                    -> return funDef 
+
+
 -- tcILAppWithoutOverloadRewriting :: SourcePos -> Ty -> Untyped IL -> [Untyped IL] -> Checked (Ty, Typed IL)
 -- tcILAppWithoutOverloadRewriting p fty ratorE randEs = do
 --   retTyMeta@(TyMeta retTyMetaId) <- freshMeta
@@ -1096,6 +1118,7 @@ tc (ILStruct p id fieldInitEs) = do
 -- We also prohibit pattern-match bindings
 -- for functions here (require simple identifier patterns)
 tc (ILFunDef p id paramIds bodyE) = do
+  traceM $ showFullUniqId id
   paramMetas <- mapM (const freshMeta) paramIds
   bodyTyMeta <- freshMeta
   let paramsAndTys = zip paramIds paramMetas
@@ -1107,8 +1130,10 @@ tc (ILFunDef p id paramIds bodyE) = do
   unify bodyTyMeta bodyTy
   restoreVarEnv oldVarEnv
   fty' <- generalize fty
+  let funDef = ILFunDef (OfTy p fty') id paramIds bodyE'
+  funDef' <- insertDictionaryParams funDef fty'
   bindVar id fty'
-  return (tyUnit, ILFunDef (OfTy p fty') id paramIds bodyE')
+  return (tyUnit, funDef)
 
 -- Monomorphic case
 tc (ILWithAnn p (TyAnn _ id [] synTy straints) e)
@@ -1201,7 +1226,7 @@ tc (ILProtoDec p protoId tyParamId straints tyAnns) = do
 --       return (ILPatAdt p ctorId argPats, fid)
 
 tc (ILProtoImp p synTy protoId straints bodyEs) = do
-    tyCon       <- tcTycon synTy
+    tyCon       <- (liftM simplify . tcTycon) synTy
     dictTyId    <- protoDictId protoId
     dictCtorId  <- protoDictCtorId protoId
     instanceEnv <- envLookupOrFail impEnv protoId `reportErrorAt` p
@@ -1213,6 +1238,7 @@ tc (ILProtoImp p synTy protoId straints bodyEs) = do
         let dictTy = tyTuple []
             dict = foldl (addMethodToDict protoId tyCon) (ILTuple (OfTy p dictTy) []) methods
         theImpEnv <- getsTC impEnv
+        traceM $ show dict
         let instanceEnv' = Map.insert tyCon dict instanceEnv
             theImpEnv'   = Map.insert protoId instanceEnv' theImpEnv
         modifyTC (\tcEnv -> tcEnv { impEnv = theImpEnv' })
@@ -1308,6 +1334,76 @@ makeSymTables tyDec =
         p = nodeData tyDec
 
 
+simplify :: TyCon -> TyCon
+simplify (TyConTyFun [] (TyApp tyCon [])) = simplify tyCon
+simplify tyCon = tyCon
+
+
+fullyAppliedMonoTyCon :: Ty -> Maybe TyCon
+fullyAppliedMonoTyCon (TyApp (TyConTyFun [] (TyApp tyCon [])) []) = Just tyCon
+fullyAppliedMonoTyCon (TyApp tyCon []) = Just tyCon
+fullyAppliedMonoTyCon _ = Nothing
+
+
+class ResolveOverloads a d where
+  resolve :: a d -> Checked (a d)
+
+
+instance ResolveOverloads ILCase CheckedData where
+  resolve (ILCase d patE body) = do
+    body' <- resolve body
+    return $ ILCase d patE body'
+
+
+instance ResolveOverloads IL CheckedData where
+  resolve (ILPlaceholder (OfTy p _) (PlaceholderMethod methodId ty)) = do
+    protoId <- envLookupOrFail methodEnv methodId
+    thisProtoImpEnv <- envLookupOrFail impEnv protoId
+    traceM $ showHum thisProtoImpEnv
+    ty' <- subst ty
+    traceM $ show ty'
+    let maybeTyCon = fullyAppliedMonoTyCon ty'
+    case maybeTyCon of
+      Just tyCon ->
+        let maybeDictIl = Map.lookup (simplify tyCon) thisProtoImpEnv
+        in case maybeDictIl of
+             Just dictIl -> methodSelector dictIl methodId
+             _           -> throwError (ErrCannotResolveProtocolImp ty' protoId)
+      _ -> do
+        throwError (ErrCannotResolveProtocolImp ty' protoId)
+
+  resolve (ILCons d a b) = do
+    a' <- resolve a
+    b' <- resolve b
+    return $ ILCons d a' b'
+
+  resolve (ILApp d rator rands) = do
+    rator' <- resolve rator
+    rands' <- mapM resolve rands
+    return $ ILApp d rator' rands'
+
+  resolve (ILMain d argIds bodyE) = do
+    bodyE' <- resolve bodyE
+    return $ ILMain d argIds bodyE'
+
+  resolve (ILBegin d es) = do
+    es' <- mapM resolve es
+    return $ ILBegin d es'
+
+  resolve (ILSwitch d e cases) = do
+    e' <- resolve e
+    cases' <- mapM resolve cases
+    return $ ILSwitch d e' cases' 
+
+  resolve e = return e
+
+
+instance ResolveOverloads ILCompUnit CheckedData where
+  resolve (ILCompUnit d typeDecs es) = do
+    es' <- mapM resolve es
+    return $ ILCompUnit d typeDecs es'
+
+
 type Checked a = CompilerPass CompilerEnv a
 
 
@@ -1330,4 +1426,6 @@ modifyTC f = modify (\cEnv -> cEnv { tcEnv = f (tcEnv cEnv) })
 runTypecheck :: Untyped ILCompUnit -> Checked (Ty, Typed ILCompUnit)
 runTypecheck cu = do
   (ty, typedIL) <- tcCompUnit cu True
-  tcCompUnit cu False
+  (ty', typedIL') <- tcCompUnit cu False
+  typedIL'' <- resolve typedIL'
+  return (ty', typedIL'')
