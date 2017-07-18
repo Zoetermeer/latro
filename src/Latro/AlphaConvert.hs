@@ -820,6 +820,10 @@ instance AlphaTopLevel (UniqAst Exp) where
     exportProto id id'
     tyAnns' <- mapM convertTop tyAnns
     return $ ExpProtoDec p id' tyId straints tyAnns'
+
+  convertTop (ExpProtoImp p synTy protoId straints bodyEs) = do
+    bodyEs' <- mapM convertLoc bodyEs
+    return $ ExpProtoImp p synTy protoId straints bodyEs'
     
 
   convertTop e = return e
@@ -902,6 +906,10 @@ instance AlphaLocal (UniqAst Exp) where
     bodyE' <- convertLoc bodyE
     popLocalScope
     return $ ExpFunDef $ FunDefFun p id' argPatEs' bodyE'
+
+  convertLoc (ExpFunDefClauses p id funDefs) = do
+    funDef <- desugarFunDefs id funDefs
+    return $ ExpFunDef funDef
 
   convertLoc (ExpTopLevelAssign p patExp e) = do
     e' <- convertLoc e
