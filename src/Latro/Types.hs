@@ -1285,7 +1285,7 @@ tcProtoMethod protoId implementingTyCon (ILFunDef p id paramIds bodyE) = do
   (_, funDef'') <- tc funDef'
   funTy <- lookupVar funId
   declaredMethodTy' <- instantiate declaredMethodTy
-  unify declaredMethodTy' funTy
+  unify declaredMethodTy' funTy `reportErrorAt` p
   return (tyUnit, funDef'')
 
 tcProtoMethod protoId implementingTyCon (ILWithAnn p (TyAnn _ annId tyParamIds synTy straints) (ILFunDef fp fid paramIds bodyE)) = do
@@ -1297,7 +1297,7 @@ tcProtoMethod protoId implementingTyCon (ILWithAnn p (TyAnn _ annId tyParamIds s
   (_, def') <- tc def
   funTy <- lookupVar funId
   declaredMethodTy' <- instantiate declaredMethodTy
-  unify declaredMethodTy' funTy
+  unify declaredMethodTy' funTy `reportErrorAt` p
   return (tyUnit, def')
 
 tcProtoMethod protoId _ _ = throwError $ ErrInterpFailure $ "Unsupported definition form in protocol implementation for " ++ show protoId

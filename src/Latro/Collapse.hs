@@ -98,6 +98,11 @@ collapseEs (ExpBegin p bodyEs : es) = do
   es' <- collapseEs es
   return (ExpBegin p bodyEs' : es')
 
+collapseEs (ExpProtoImp p synTy protoId straints bodyEs : es) = do
+  bodyEs' <- collapseEs bodyEs
+  es' <- collapseEs es
+  return (ExpProtoImp p synTy protoId straints bodyEs' : es')
+
 collapseEs (e : es) = do
   e' <- collapse e
   es' <- collapseEs es

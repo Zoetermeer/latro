@@ -24,6 +24,12 @@
             imp Char : Eq {
               infixl (===)(a, b) = prim(intEq)(prim(charToInt)(a), prim(charToInt)(b))
             }
+
+            imp Bool : Eq {
+              infixl (===)(True, True) = True
+              infixl (===)(False, False) = True
+              infixl (===)(_, _) = False
+            }
           }
 
           module Program {
@@ -33,45 +39,45 @@
             main(_) = {
               prim(println)(42 === 43)
               prim(println)('a' === 'a')
+              prim(println)(False === True)
             }
             //main(_) = IO.println(x(43) === 42)
           }
         }
-        '("False" "True"))))
+        '("False" "True" "False"))))
 
-  #;(test-case "it selects the right overload when operand types are unknown at compile time"
-    (check-equal?
-      @interp-lines{
-        module M {
-          import Core
-          import Core.Int (toString) { renaming (toString -> intToString) }
+  (test-case "it selects the right overload when operand types are unknown at compile time"
+    (parameterize ([use-core? #f])
+      (check-equal?
+        @interp-lines{
+          module Program {
+            protocol Show(a) {
+              show : a -> String
+            }
 
-          protocol Stringable(a) {
-            toString : a -> String 
-          }
+            type Int = primtype(int)
+            type Char = primtype(char)
+            type String = Char[]
+            type Unit = primtype(unit)
 
-          imp Int : Stringable {
-            toString(i) = intToString(i)
-          }
+            imp Int : Show {
+              show(_) = "it's an int"
+            }
 
-          imp Bool : Stringable {
-            toString(True) = "True"
-            toString(False) = "False"
+            imp String : Show {
+              show(s) = s
+            }
+
+            println : a -> Unit when a : Show
+            println(v) = prim(println)(v)
+
+            printv(v) = println(show(v))
+
+            main(_) = {
+              printv(42)
+              printv("hello")
+            }
           }
         }
-
-        module Program {
-          import IO
-          import M
-
-          //display : a -> Unit where a : Stringable
-          display(v) = IO.println(toString(v))
-
-          main(_) = {
-            display(False)
-            display(42)
-          }
-        }
-      }
-      '("42")))
+        '("42"))))
 )
