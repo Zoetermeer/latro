@@ -45,7 +45,7 @@ library
                        Latro.Semant
                        Latro.Semant.Display
                        Latro.Sexpable
-                       Latro.Types
+                       Latro.Typecheck
   other-extensions:    FlexibleContexts, NamedFieldPuns, CPP, FlexibleInstances
   build-depends:       array,
                        base,

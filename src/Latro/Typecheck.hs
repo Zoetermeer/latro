@@ -1,5 +1,5 @@
 {-# LANGUAGE Strict, FlexibleContexts, MultiParamTypeClasses #-}
-module Latro.Types where
+module Latro.Typecheck where
 
 import Control.Error.Util (hoistEither)
 import Control.Monad.Except

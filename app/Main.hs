@@ -15,7 +15,7 @@ import Latro.Parser
 import Latro.Reorder
 import Latro.Semant
 import Latro.Semant.Display ()
-import Latro.Types
+import Latro.Typecheck
 import System.Console.GetOpt
 import System.Console.Haskeline
 import System.Environment (getArgs)

@@ -8,7 +8,6 @@ import Control.Monad.Except
 import Latro.Ast
 import Latro.Compiler
 import Latro.Errors
-import Latro.Semant
 
 
 collectFunDefs :: RawId -> [RawAst Exp] -> ([RawAst FunDef], [RawAst Exp])
