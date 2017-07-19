@@ -26,9 +26,10 @@
               show(s) = s
             }
 
-            println : a -> Unit when a : Show
+            println<a> : a -> Unit
             println(v) = prim(println)(v)
 
+            printv<a> : a -> Unit when a : Show
             printv(v) = println(show(v))
 
             main(_) = {

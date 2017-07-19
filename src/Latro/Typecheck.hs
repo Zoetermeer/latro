@@ -433,20 +433,25 @@ trimUnusedPolyParams ty = return ty
 
 
 generalize :: Ty -> Checked Ty
-generalize ty = do
-  -- traceM $ printf "Generalizing %s" $ showSexp ty
-  ty' <- subst ty
-  frees <- freeMetas ty'
-  tyParamIds <- mapM (const freshId) frees
-  let metasAndTyParamIds = zip frees tyParamIds
-  mapM_ (\(metaId, paramId) -> bindMeta metaId $ TyVar paramId)
-        metasAndTyParamIds
-  ty'' <- subst ty'
-  case tyParamIds of
-    [] -> return ty''
-    _ ->
-      let retTy = TyPoly tyParamIds [] ty''
-      in trimUnusedPolyParams retTy
+generalize t = do
+    -- traceM $ printf "Generalizing %s" $ showSexp ty
+    ty' <- subst ty
+    frees <- freeMetas ty'
+    tyParamIds <- mapM (const freshId) frees
+    let metasAndTyParamIds = zip frees tyParamIds
+    mapM_ (\(metaId, paramId) -> bindMeta metaId $ TyVar paramId)
+          metasAndTyParamIds
+    ty'' <- subst ty'
+    ctx' <- mapM (\(ty, protoId) -> do { ty' <- subst ty; return (ty', protoId) }) ctx
+    case tyParamIds of
+      [] -> return ty''
+      _ ->
+        let retTy = TyPoly tyParamIds ctx' ty''
+        in trimUnusedPolyParams retTy
+  where
+    (ctx, ty) = case t of
+                  TyOverloaded ctx innerTy -> (ctx, innerTy)
+                  _                        -> ([], t)
 
 
 instantiate :: Ty -> Checked Ty
