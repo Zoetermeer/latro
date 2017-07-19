@@ -920,6 +920,7 @@ instance AlphaLocal (UniqAst Exp) where
     tyId' <- bindLocalType tyId
     straints' <- mapM convertLoc straints
     tyAnns' <- mapM convertLoc tyAnns
+    popLocalScope
     return $ ExpProtoDec p id tyId' straints' tyAnns'
 
   convertLoc (ExpProtoImp p synTy protoId straints bodyEs) = do

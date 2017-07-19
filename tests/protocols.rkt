@@ -45,4 +45,27 @@
           }
         }
         '("False" "True" "False"))))
+
+  (test-case "it only binds proto dec type parameters in the body"
+    (check-match
+      @interp-sexp{
+        module Program {
+          import Core
+          import IO = IO
+
+          protocol Foo(x) {
+            identity : x -> x
+          }
+
+          imp Bool : Foo {
+            identity(b) = b
+          }
+
+          bad : x -> Int
+          bad(_) = 42
+
+          main(_) = IO.println(bad(False))
+        }
+      }
+    `(AtPos (SourcePos ,_ 13 ,_) (CompilerModule AlphaConvert) (UnboundUniqIdentifier x))))
 )

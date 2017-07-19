@@ -1211,8 +1211,9 @@ tcProtoMethod protoId implementingTyCon (ILFunDef p id paramIds bodyE) = do
   let funDef' = ILFunDef p funId paramIds bodyE
   (_, funDef'') <- tc funDef'
   funTy <- lookupVar funId
+  funTy' <- instantiate funTy
   declaredMethodTy' <- instantiate declaredMethodTy
-  unify declaredMethodTy' funTy `reportErrorAt` p
+  unify declaredMethodTy' funTy' `reportErrorAt` p
   return (tyUnit, funDef'')
 
 tcProtoMethod protoId implementingTyCon (ILWithAnn p (TyAnn _ annId tyParamIds synTy straints) (ILFunDef fp fid paramIds bodyE)) = do
