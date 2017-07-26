@@ -241,6 +241,12 @@ instance Sexpable Err where
           , toSexpList ctorIds
           ]
 
+  sexp (ErrOverlappingProtoImport qid ctorIds) =
+    List  [ Symbol "OverlappingProtoImport"
+          , sexp qid
+          , toSexpList ctorIds
+          ]
+
   sexp (ErrIllegalTopLevelTypeModule qid) =
     List  [ Symbol "IllegalTopLevelTypeModule"
           , sexp qid

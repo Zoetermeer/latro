@@ -113,10 +113,11 @@ openNamespaceDef qid = do
 openNamespaceForConvert :: UniqAst QualifiedId -> AlphaConverted NamespaceScope
 openNamespaceForConvert qid = do
   ns <- lookupNsGlobal qid `reportErrorAt` nodeData qid
-  pushNs $ ns { nsEnv     = Map.empty
-              , varIdEnv  = exportVarIdEnv ns
-              , typeIdEnv = exportTypeIdEnv ns
-              , ctorIdEnv = exportCtorIdEnv ns
+  pushNs $ ns { nsEnv      = Map.empty
+              , varIdEnv   = exportVarIdEnv ns
+              , typeIdEnv  = exportTypeIdEnv ns
+              , ctorIdEnv  = exportCtorIdEnv ns
+              , protoIdEnv = exportProtoIdEnv ns
               }
 
 
@@ -299,18 +300,23 @@ importNs qid ns = do
       curVarIdEnv         = varIdEnv curNs
       curTypeIdEnv        = typeIdEnv curNs
       curCtorIdEnv        = ctorIdEnv curNs
+      curProtoIdEnv       = protoIdEnv curNs
       modVarIdEnv         = exportVarIdEnv ns
       modTypeIdEnv        = exportTypeIdEnv ns
       modCtorIdEnv        = exportCtorIdEnv ns
+      modProtoIdEnv       = exportProtoIdEnv ns
       overlappingVarIds   = Map.keys $ Map.intersection curVarIdEnv modVarIdEnv
       overlappingTypeIds  = Map.keys $ Map.intersection curTypeIdEnv modTypeIdEnv
       overlappingCtorIds  = Map.keys $ Map.intersection curCtorIdEnv modCtorIdEnv
+      overlappingProtoIds = Map.keys $ Map.intersection curProtoIdEnv modProtoIdEnv
   unless (null overlappingVarIds) $ throwError (ErrOverlappingVarImport qid overlappingVarIds) `reportErrorAt` p
   unless (null overlappingTypeIds) $ throwError (ErrOverlappingTyImport qid overlappingTypeIds) `reportErrorAt` p
   unless (null overlappingCtorIds) $ throwError (ErrOverlappingCtorImport qid overlappingCtorIds) `reportErrorAt` p
+  unless (null overlappingProtoIds) $ throwError (ErrOverlappingProtoImport qid overlappingProtoIds) `reportErrorAt` p
   modifyCurNs (\curNs -> curNs { varIdEnv  = Map.union curVarIdEnv modVarIdEnv
                                , typeIdEnv = Map.union curTypeIdEnv modTypeIdEnv
                                , ctorIdEnv = Map.union curCtorIdEnv modCtorIdEnv
+                               , protoIdEnv = Map.union curProtoIdEnv modProtoIdEnv
                                })
   bindNsAs qid ns
 
@@ -326,9 +332,10 @@ class NsFilter a where
 
 instance NsFilter [UniqId] where
   filterNs ns [] = ns
-  filterNs ns onlyIds = ns { exportVarIdEnv  = restrictKeys (exportVarIdEnv ns) onlyIdSet
-                           , exportTypeIdEnv = restrictKeys (exportTypeIdEnv ns) onlyIdSet
-                           , exportCtorIdEnv = restrictKeys (exportCtorIdEnv ns) onlyIdSet
+  filterNs ns onlyIds = ns { exportVarIdEnv   = restrictKeys (exportVarIdEnv ns) onlyIdSet
+                           , exportTypeIdEnv  = restrictKeys (exportTypeIdEnv ns) onlyIdSet
+                           , exportCtorIdEnv  = restrictKeys (exportCtorIdEnv ns) onlyIdSet
+                           , exportProtoIdEnv = restrictKeys (exportProtoIdEnv ns) onlyIdSet
                            }
     where onlyIdSet = Set.fromList $ map show onlyIds
           restrictKeys m keySet = Map.filterWithKey (\k _ -> Set.member k keySet) m
@@ -336,17 +343,19 @@ instance NsFilter [UniqId] where
 
 instance (Show id) => NsFilter (ImportClause a id) where
   filterNs ns (ImportClauseExcept p exceptIds)
-    = ns { exportVarIdEnv  = withoutKeys (exportVarIdEnv ns) exceptIdSet
-         , exportTypeIdEnv = withoutKeys (exportTypeIdEnv ns) exceptIdSet
-         , exportCtorIdEnv = withoutKeys (exportCtorIdEnv ns) exceptIdSet
+    = ns { exportVarIdEnv   = withoutKeys (exportVarIdEnv ns) exceptIdSet
+         , exportTypeIdEnv  = withoutKeys (exportTypeIdEnv ns) exceptIdSet
+         , exportCtorIdEnv  = withoutKeys (exportCtorIdEnv ns) exceptIdSet
+         , exportProtoIdEnv = withoutKeys (exportProtoIdEnv ns) exceptIdSet
          }
     where exceptIdSet = Set.fromList $ map show exceptIds
           withoutKeys m keySet = Map.filterWithKey (\k _ -> Set.notMember k keySet) m
 
   filterNs ns (ImportClauseRenaming p renamePairs)
-    = ns { exportVarIdEnv = renameKeys (exportVarIdEnv ns) renamePairs
-         , exportTypeIdEnv = renameKeys (exportTypeIdEnv ns) renamePairs
-         , exportCtorIdEnv = renameKeys (exportCtorIdEnv ns) renamePairs
+    = ns { exportVarIdEnv   = renameKeys (exportVarIdEnv ns) renamePairs
+         , exportTypeIdEnv  = renameKeys (exportTypeIdEnv ns) renamePairs
+         , exportCtorIdEnv  = renameKeys (exportCtorIdEnv ns) renamePairs
+         , exportProtoIdEnv = renameKeys (exportProtoIdEnv ns) renamePairs
          }
     where renameKeys m [] = m
           renameKeys m ((fromId, toId) : pairs)
@@ -924,7 +933,7 @@ instance AlphaLocal (UniqAst Exp) where
     return $ ExpProtoDec p id tyId' straints' tyAnns'
 
   convertLoc (ExpProtoImp p synTy protoId straints bodyEs) = do
-    protoId' <- lookupProto protoId
+    protoId' <- lookupProto protoId `reportErrorAt` p
     synTy' <- convertLoc synTy
     straints' <- mapM convertLoc straints
     bodyEs' <- mapM convertLoc bodyEs
