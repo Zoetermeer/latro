@@ -8,43 +8,24 @@
     (parameterize ([use-core? #f])
       (check-equal?
         @interp-lines{
-          module Program {
-            protocol Show(a) {
-              show : a -> String
-            }
+					module Main {
+						type Char = primtype(char)
+						type Int = primtype(int)
 
-            type Int = primtype(int)
-            type Bool = primtype(bool)
-            type Char = primtype(char)
-            type String = Char[]
-            type Unit = primtype(unit)
+						protocol Show(a) {
+							show : a -> Char[]
+						}
 
-            imp Int : Show {
-              show(42) = "it's 42"
-              show(_) = "it's not 42"
-            }
+						imp Int : Show {
+							show(_) = "an int"
+						}
 
-            imp String : Show {
-              show(s) = s
-            }
+						showList(x @"@" _) = show(x)
 
-            imp Bool : Show {
-              show(True) = "true!"
-              show(False) = "false!"
-            }
-
-            toString(v) = show(v)
-
-            doit() = {
-              prim(println)(toString(False))
-              prim(println)(toString(42))
-              prim(println)(toString(True))
-            }
-
-            main(_) = {
-              doit()
-            }
-          }
+						main(_) = {
+							prim(println)(showList([1, 2, 3, 4]))
+						}
+					}
         }
-        '("42"))))
+        '("\"an int\""))))
 )

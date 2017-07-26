@@ -322,14 +322,17 @@ addToContext ctx tyVar@(TyVar straints id) =
 addToContext ctx (TyApp TyConArrow arrowTys) =
   concatMap (addToContext ctx) arrowTys ++ ctx
 
+addToContext ctx (TyApp tyCon tyArgs) =
+  concatMap (addToContext ctx) tyArgs ++ ctx
+
 addToContext ctx ty = ctx
 
 
-buildContext :: Ty -> Ty
-buildContext (TyPoly tyVarIds ctx innerTy) =
+liftContext :: Ty -> Ty
+liftContext (TyPoly tyVarIds ctx innerTy) =
   TyPoly tyVarIds (addToContext ctx innerTy) innerTy
 
-buildContext ty = ty
+liftContext ty = ty
 
 
 findConstraintsFor :: Ty -> Context -> [ProtocolId]
@@ -502,7 +505,7 @@ generalize t = do
       [] -> return ty''
       _ -> 
         let poly = distributeContext $ trimUnusedPolyParams $ TyPoly tyParamIds ctx' ty''
-        in return $ buildContext poly
+        in return $ liftContext poly
   where
     (ctx, ty) = case t of
                   TyOverloaded ctx innerTy -> (ctx, innerTy)
@@ -1181,6 +1184,7 @@ tc (ILFunDef p id paramIds bodyE) = do
   retTy <- unify bodyTyMeta bodyTy
   restoreVarEnv oldVarEnv
   fty' <- generalize fty
+  -- traceM ("(" ++ show id ++ ") fty': " ++ show fty')
   bindVar id fty'
   let funDef = ILFunDef (OfTy p fty') id paramIds bodyE'
   funDef' <- insertDictionaryParams funDef fty'
@@ -1383,7 +1387,11 @@ resolveDict ty protoId = do
     Just dictParamId -> return $ ILRef (OfTy mtSourcePos tyUnit) dictParamId
     _                ->
       do thisProtoImpEnv <- envLookupOrFail impEnv protoId
+         -- traceM "thisProtoImpEnv:"
+         -- traceM $ showHum thisProtoImpEnv
+         -- traceM ("ty': " ++ show ty')
          let maybeTyCon = fullyAppliedMonoTyCon ty'
+         -- traceM ("maybeTyCon: " ++ show maybeTyCon)
          case maybeTyCon of
            Just tyCon ->
              let maybeDictIl = Map.lookup (simplify tyCon) thisProtoImpEnv
