@@ -74,15 +74,6 @@ restoreVarEnv varEnv =
   modifyTC (\tcEnv -> tcEnv { varEnv = varEnv })
 
 
-markDictParamEnv :: Checked DictParamEnv
-markDictParamEnv= getsTC dictParamEnv
-
-
-restoreDictParamEnv :: DictParamEnv -> Checked ()
-restoreDictParamEnv env =
-  modifyTC (\tcEnv -> tcEnv { dictParamEnv = env })
-
-
 exportTy :: UniqId -> TyCon -> Checked ()
 exportTy id tyCon =
   modifyTC (\tcEnv -> tcEnv { typeEnv = Map.insert id tyCon (typeEnv tcEnv) })
@@ -986,7 +977,6 @@ insertDictionaryParams funDef@(ILFunDef fty id paramIds bodyE) ty
                                      bindDictParam cProtoId cty paramId
                                      return paramId)
                                ctx
-         traceM (show "insertDictionaryParams: " ++ show dictParamIds)
          return $ ILFunDef fty id dictParamIds $ ILFun fty paramIds bodyE
     | otherwise = return funDef
   where ctx = context ty
@@ -1010,24 +1000,14 @@ tc ilMain@ILMain{} = throwError (ErrWrongMainArity ilMain) `reportErrorAt` ilNod
 
 tc (ILRef p id) = do
   ty <- lookupVar id `reportErrorAt` p
-  -- traceM $ "tc ILRef " ++ show id ++ ": " ++ show ty
   ty' <- instantiate ty
-  traceM ("ty': " ++ show ty')
   -- If a method, return a method placeholder
   isAMethod <- isMethod id
   if isAMethod
-  -- then let (TyPoly [tyParamId] _ _) = ty
-  --      in return (ty', ILPlaceholder (OfTy p ty') $ PlaceholderMethod id $ TyVar [] tyParamId)
   then do metas <- freeMetas ty'
-          --metas <- return [TyMeta [] id]
           let meta = head metas
           return (ty', ILPlaceholder (OfTy p ty') $ PlaceholderMethod id meta)
   else
-    -- if isOverloaded ty'
-    -- then let ctx = context ty
-    --          phs = map (\(cty, cProtoId) -> ILPlaceholder (OfTy p tyUnit) $ PlaceholderDict cProtoId cty) ctx
-    --      in return (ty', ILApp (OfTy p ty') (ILRef (OfTy p ty') id) phs)
-    -- else
       return (ty', ILRef (OfTy p ty') id)
 
 tc (ILStr p s) = return (tyStr, ILStr (OfTy p tyStr) s)
@@ -1196,15 +1176,10 @@ tc (ILFunDef p id paramIds bodyE) = do
   bindVar id fty
   (bodyTy, bodyE') <- tc bodyE
   retTy <- unify bodyTyMeta bodyTy
-  -- traceM ("retTy: " ++ show retTy)
   restoreVarEnv oldVarEnv
-  -- traceM ("tc ILFunDef (" ++ show id ++ "): ")
-  -- traceM ("fty (" ++ show id ++ "): " ++ show fty)
   fty' <- generalize fty
-  -- traceM ("fty' (" ++ show id ++ "): " ++ show fty')
   bindVar id fty'
   let funDef = ILFunDef (OfTy p fty') id paramIds bodyE'
-  -- traceM ("tc ILFunDef, generalized (" ++ show id ++ "): " ++ show fty')
   funDef' <- insertDictionaryParams funDef fty'
   return (tyUnit, funDef')
 
@@ -1397,23 +1372,20 @@ instance ResolveOverloads ILCase CheckedData where
 resolveDict :: Ty -> ProtocolId -> Checked (Typed IL)
 resolveDict ty protoId = do
   theDictParamEnv <- getsTC dictParamEnv
-  traceM $ showHum theDictParamEnv
-  traceM ("There are " ++ show (Map.size theDictParamEnv) ++ " entries in the dict param env")
+  -- traceM $ showHum theDictParamEnv
+  -- traceM ("There are " ++ show (Map.size theDictParamEnv) ++ " entries in the dict param env")
   ty' <- subst ty
   let maybeDictParamId = Map.lookup (protoId, ty') theDictParamEnv
   case maybeDictParamId of
     Just dictParamId -> return $ ILRef (OfTy mtSourcePos tyUnit) dictParamId
     _                ->
       do thisProtoImpEnv <- envLookupOrFail impEnv protoId
-         traceM ("resolveDict: " ++ show ty')
-         traceM ("protoImpEnv: " ++ showHum thisProtoImpEnv)
          let maybeTyCon = fullyAppliedMonoTyCon ty'
          case maybeTyCon of
            Just tyCon ->
              let maybeDictIl = Map.lookup (simplify tyCon) thisProtoImpEnv
              in case maybeDictIl of
-                  Just dictIl -> do traceM ("found dictIl: " ++ show dictIl)
-                                    return dictIl
+                  Just dictIl -> return dictIl
                   _           -> throwError $ ErrCannotResolveProtocolImp ty protoId
            _          ->
               throwError $ ErrCannotResolveProtocolImp ty protoId
