@@ -8,24 +8,24 @@
     (parameterize ([use-core? #f])
       (check-equal?
         @interp-lines{
-					module Main {
-						type Char = primtype(char)
-						type Int = primtype(int)
+          module Main {
+            type Char = primtype(char)
+            type Int = primtype(int)
 
-						protocol Show(a) {
-							show : a -> Char[]
-						}
+            protocol Show(a) {
+              show : a -> Char[]
+            }
 
-						imp Int : Show {
-							show(_) = "an int"
-						}
+            imp Int : Show {
+              show(_) = "an int"
+            }
 
-						showList(x @"@" _) = show(x)
+            showList(x @"@" _) = show(x)
 
-						main(_) = {
-							prim(println)(showList([1, 2, 3, 4]))
-						}
-					}
+            main(_) = {
+              prim(println)(showList([1, 2, 3, 4]))
+            }
+          }
         }
         '("\"an int\""))))
 )
