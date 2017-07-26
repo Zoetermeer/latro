@@ -129,6 +129,7 @@ type InfixReorderEnv = Env PrecLevel
 
 -- |Type checking environment
 type VarEnv = Map.Map UniqId Ty
+type DictParamEnv = Map.Map (ProtocolId, Ty) UniqId
 
 
 data TCEnv = TCEnv
@@ -145,6 +146,7 @@ data TCEnv = TCEnv
   -- we declare to represent the dictionary itself
   , impEnv         :: Map.Map UniqId (Map.Map TyCon (Typed IL))
   , methodEnv      :: Map.Map MethodId ProtocolId
+  , dictParamEnv   :: DictParamEnv
   }
   deriving (Eq, Show)
 
@@ -162,6 +164,7 @@ instance Environment TCEnv where
       , protoEnv        = Map.empty
       , impEnv          = Map.empty
       , methodEnv       = Map.empty
+      , dictParamEnv    = Map.empty
       }
 
 

@@ -620,8 +620,19 @@ instance Sexpable Ty where
     where
       ctxSexp = List $ map (\(ty, protoId) -> List [ sexp ty, sexp protoId ]) ctx
 
-  sexp (TyVar tyVar) = List [ Symbol "Var", sexp tyVar ]
-  sexp (TyMeta id) = List [ Symbol "Meta", sexp id ]
+  sexp (TyVar [] tyVar) = List [ Symbol "Var", sexp tyVar ]
+  sexp (TyVar straints tyVar) =
+    List  [ Symbol "Var"
+          , toSexpList straints
+          , sexp tyVar
+          ]
+  sexp (TyMeta [] id) = List [ Symbol "Meta", sexp id ]
+  sexp (TyMeta straints id) =
+    List  [ Symbol "Meta"
+          , toSexpList straints
+          , sexp id
+          ]
+    
   sexp (TyRef qid) = List [ Symbol "Ref", sexp qid ]
 
 
@@ -655,8 +666,17 @@ instance CompilerOutput Ty where
            (render ty) 
     where contextStr = intercalate "," $ map (\(ty, protoId) -> printf "%s : %s" (render ty) (render protoId)) ctx
 
-  render (TyVar tyVar) = render tyVar
-  render (TyMeta id) = render id
+  render (TyVar [] tyVar) = render tyVar
+  render (TyVar straints tyVar) =
+    printf "(%s) => %s"
+      (intercalate ", " $ map render straints)
+      (render tyVar)
+  render (TyMeta [] id) = render id
+  render (TyMeta straints id) =
+    printf "(%s) => %s"
+      (intercalate ", " $ map render straints)
+      (render id)
+    
   render (TyRef qid) = render qid
   render (TyOverloaded context ty) =
       printf "(%s) => %s"

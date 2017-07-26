@@ -265,11 +265,11 @@ type Context = [(Ty, ProtocolId)]
 data Ty =
     TyApp TyCon [Ty]
   | TyPoly [TyVarId] Context Ty
-  | TyVar TyVarId
-  | TyMeta TyVarId
+  | TyVar [ProtocolId] TyVarId
+  | TyMeta [ProtocolId] TyVarId
   | TyRef (QualifiedId SourcePos UniqId) -- Only for recursive type definitions
   | TyOverloaded Context Ty -- Only for instantiated types
-  deriving Generic
+  deriving (Generic, Ord)
 
 
 instance Eq Ty where
@@ -277,8 +277,8 @@ instance Eq Ty where
     tyConA == tyConB && tyAs == tyBs
   (TyPoly aVars ctxA tyA) == (TyPoly bVars ctxB tyB) =
     ctxA == ctxB && tyA == tyB
-  (TyVar idA) == (TyVar idB) = idA == idB
-  (TyMeta idA) == (TyMeta idB) = idA == idB
+  (TyVar _ idA) == (TyVar _ idB) = idA == idB
+  (TyMeta _ idA) == (TyMeta _ idB) = idA == idB
   (TyRef idA) == (TyRef idB) = idA == idB
   _ == _ = False
 

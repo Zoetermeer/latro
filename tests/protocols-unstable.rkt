@@ -14,27 +14,35 @@
             }
 
             type Int = primtype(int)
+            type Bool = primtype(bool)
             type Char = primtype(char)
             type String = Char[]
             type Unit = primtype(unit)
 
             imp Int : Show {
-              show(_) = "it's an int"
+              show(42) = "it's 42"
+              show(_) = "it's not 42"
             }
 
             imp String : Show {
               show(s) = s
             }
 
-            println<a> : a -> Unit
-            println(v) = prim(println)(v)
+            imp Bool : Show {
+              show(True) = "true!"
+              show(False) = "false!"
+            }
 
-            printv<a> : a -> Unit when a : Show
-            printv(v) = println(show(v))
+            toString(v) = show(v)
+
+            doit() = {
+              prim(println)(toString(False))
+              prim(println)(toString(42))
+              prim(println)(toString(True))
+            }
 
             main(_) = {
-              printv(42)
-              printv("hello")
+              doit()
             }
           }
         }
