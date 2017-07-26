@@ -948,6 +948,9 @@ replaceTyIdIn oldTyId newTyId (SynTyArrow p paramTys retTy) =
   where
     replace = replaceTyIdIn oldTyId newTyId
 
+replaceTyIdIn oldTyId newTyId (SynTyList p elemTy)
+  = SynTyList p $ replaceTyIdIn oldTyId newTyId elemTy
+
 replaceTyIdIn oldTyId newTyId (SynTyRef p qid@(Id ip tyRefId) synTyArgs)
   | tyRefId == oldTyId = SynTyRef p (Id ip newTyId) $ map replace synTyArgs
   | otherwise          = SynTyRef p qid $ map replace synTyArgs
