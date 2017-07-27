@@ -4,7 +4,7 @@
   (require "common.rkt"
            rackunit)
 
-  (test-case "it selects the right overload when operand types are known at compile time"
+  (test-case "it selects the right method implementation when operand types are known at compile time"
     (parameterize ([use-core? #f])
       (check-equal?
         @interp-lines{
@@ -69,7 +69,7 @@
       }
     `(AtPos (SourcePos ,_ 13 ,_) (CompilerModule AlphaConvert) (UnboundUniqIdentifier x))))
 
-  (test-case "it selects the right overload when operand types are unknown at compile time"
+  (test-case "it selects the right dictionary when operand types are unknown at compile time"
     (parameterize ([use-core? #f])
       (check-equal?
         @interp-lines{
@@ -113,7 +113,7 @@
         }
         '("\"false!\"" "\"it's 42\"" "\"true!\""))))
 
-  (test-case "it selects the right overload when operand types are unknown at compile time"
+  (test-case "it passes the correct dictionary at runtime to polymorphic functions"
     (parameterize ([use-core? #f])
       (check-equal?
         @interp-lines{
@@ -137,4 +137,34 @@
           }
         }
         '("\"an int\""))))
+
+  (test-case "it passes dictionaries to recursive function calls"
+    (parameterize ([use-core? #f])
+      (check-equal?
+        @interp-lines{
+          module Main {
+            type Char = primtype(char)
+            type Int = primtype(int)
+
+            protocol Show(a) {
+              show : a -> Char[]
+            }
+
+            imp Int : Show {
+              show(_) = "an int"
+            }
+
+            infixl (++)([], bs)    = bs
+            infixl (++)(as, [])    = as
+            infixl (++)(a @"@" as, bs) = a @"@" (as ++ bs)
+
+            showList([]) = "[]"
+            showList(x @"@" xs) = show(x) ++ ", " ++ showList(xs)
+
+            main(_) = {
+              prim(println)(showList([1, 2, 3, 4]))
+            }
+          }
+        }
+        '("\"an int, an int, an int, an int, []\""))))
 )

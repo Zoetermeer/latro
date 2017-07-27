@@ -20,12 +20,17 @@
               show(_) = "an int"
             }
 
-            showList(x @"@" _) = show(x)
+            infixl (++)([], bs)    = bs
+            infixl (++)(as, [])    = as
+            infixl (++)(a @"@" as, bs) = a @"@" (as ++ bs)
+
+            showList([]) = "[]"
+            showList(x @"@" xs) = show(x) ++ ", " ++ showList(xs)
 
             main(_) = {
               prim(println)(showList([1, 2, 3, 4]))
             }
           }
         }
-        '("\"an int\""))))
+        '("\"an int, an int, an int, an int, []\""))))
 )

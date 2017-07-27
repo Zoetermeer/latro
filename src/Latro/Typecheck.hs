@@ -1179,7 +1179,7 @@ tc (ILFunDef p id paramIds bodyE) = do
       fty = TyApp TyConArrow $ paramMetas ++ [bodyTyMeta]
   oldVarEnv <- markVarEnv
   mapM_ (uncurry bindVar) paramsAndTys
-  bindVar id fty
+  bindVarIfNotBound id fty
   (bodyTy, bodyE') <- tc bodyE
   retTy <- unify bodyTyMeta bodyTy
   restoreVarEnv oldVarEnv
