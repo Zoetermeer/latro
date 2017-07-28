@@ -17,15 +17,15 @@
               infixl (===) : a -> a -> Bool
             }
 
-            imp Int : Eq {
+            imp Eq(Int) {
               infixl (===)(x, y) = prim(intEq)(x, y)
             }
 
-            imp Char : Eq {
+            imp Eq(Char) {
               infixl (===)(a, b) = prim(intEq)(prim(charToInt)(a), prim(charToInt)(b))
             }
 
-            imp Bool : Eq {
+            imp Eq(Bool) {
               infixl (===)(True, True) = True
               infixl (===)(False, False) = True
               infixl (===)(_, _) = False
@@ -57,7 +57,7 @@
             identity : x -> x
           }
 
-          imp Bool : Foo {
+          imp Foo(Bool) {
             identity(b) = b
           }
 
@@ -84,16 +84,16 @@
             type String = Char[]
             type Unit = primtype(unit)
 
-            imp Int : Show {
+            imp Show(Int) {
               show(42) = "it's 42"
               show(_) = "it's not 42"
             }
 
-            imp String : Show {
+            imp Show(String) {
               show(s) = s
             }
 
-            imp Bool : Show {
+            imp Show(Bool) {
               show(True) = "true!"
               show(False) = "false!"
             }
@@ -125,7 +125,7 @@
               show : a -> Char[]
             }
 
-            imp Int : Show {
+            imp Show(Int) {
               show(_) = "an int"
             }
 
@@ -150,7 +150,7 @@
               show : a -> Char[]
             }
 
-            imp Int : Show {
+            imp Show(Int) {
               show(_) = "an int"
             }
 
@@ -181,14 +181,10 @@
               show : a -> String
             }
 
-            imp Int : Show {
+            imp Show(Int) {
               show(0) = "0"
               show(x) = ">0"
             }
-
-            showit(x) = show(x)
-
-            hdapp(f, x @"@" _) = f(x)
 
             map(_, [])   = []
             map(f, x @"@" xs) = f(x) @"@" map(f, xs)
@@ -216,7 +212,7 @@
               infixl (==) : a -> a -> Bool
             }
 
-            imp Int : Eq {
+            imp Eq(Int) {
               infixl (==)(a, b) = prim(intEq)(a, b)
             }
 
@@ -242,7 +238,7 @@
             precedence * 5
             precedence / 5
 
-            imp Int : Show {
+            imp Show(Int) {
               show(0) = "0"
               show(n) = {
                 cond {

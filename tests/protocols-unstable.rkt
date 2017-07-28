@@ -18,7 +18,7 @@
               infixl (==) : a -> a -> Bool
             }
 
-            imp Int : Eq {
+            imp Eq(Int) {
               infixl (==)(a, b) = prim(intEq)(a, b)
             }
 
@@ -44,7 +44,7 @@
             precedence * 5
             precedence / 5
 
-            imp Int : Show {
+            imp Show(Int) {
               show(0) = "0"
               show(n) = {
                 cond {

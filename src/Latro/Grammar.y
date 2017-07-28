@@ -160,7 +160,7 @@ ProtoDecBody : '{' ZeroOrMoreTyAnns '}' { $2 }
 ProtoDec : protocol simple_id '(' simple_id ')' Constraints ProtoDecBody
            { ExpProtoDec (pos $1) (tokValue $2) (tokValue $4) $6 $7 }
 
-ProtoImp : imp SimpleTy ':' SimpleOrMixedId Constraints '{' ZeroOrMoreModuleLevelBindingExps '}' { ExpProtoImp (pos $1) $2 (tokValue $4) $5 $7 }
+ProtoImp : imp SimpleOrMixedId '(' SimpleTy ')' Constraints '{' ZeroOrMoreModuleLevelBindingExps '}' { ExpProtoImp (pos $1) $4 (tokValue $2) $6 $8 }
 
 TupleRestExps : ',' Exp { [$2] }
               | TupleRestExps ',' Exp { $1 ++ [$3] }
