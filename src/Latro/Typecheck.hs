@@ -1004,7 +1004,7 @@ tc (ILMain p [paramId] bodyE) = do
   (bodyTy, bodyE') <- tc bodyE
   unify bodyTy tyUnit `reportErrorAt` p
   restoreVarEnv oldVarEnv
-  main <- resolve $ ILMain (OfTy p tyMain) [paramId] bodyE'
+  let main = ILMain (OfTy p tyMain) [paramId] bodyE'
   return (tyUnit, main)
 
 tc ilMain@ILMain{} = throwError (ErrWrongMainArity ilMain) `reportErrorAt` ilNodeData ilMain
@@ -1192,7 +1192,9 @@ tc (ILFunDef p id paramIds bodyE) = do
   bindVar id fty'
   let funDef = ILFunDef (OfTy p fty') id paramIds bodyE'
   funDef' <- insertDictionaryParams funDef fty'
-  -- Can resolve here.  For every placeholder,
+  -- Can resolve here for non-recursive functions,
+  -- but we defer to after typechecking the entire tree for that
+  -- reason.  For every placeholder,
   -- the meta in the placeholder type can be checked
   -- to see what it's bound to in the meta env.
   -- If it's bound to a TyVar, we must look up the
@@ -1200,8 +1202,7 @@ tc (ILFunDef p id paramIds bodyE) = do
   -- Otherwise it should be in the impl env since this meta
   -- should be bound to a concrete type.
   -- If neither of these conditions hold an ambiguity.
-  funDef'' <- resolve funDef' 
-  return (tyUnit, funDef'')
+  return (tyUnit, funDef')
 
 -- Monomorphic case
 tc (ILWithAnn p (TyAnn _ id [] synTy straints) e)
@@ -1369,12 +1370,12 @@ fullyAppliedMonoTyCon _ = Nothing
 
 
 class ResolveOverloads a d where
-  resolve :: a d -> Checked (a d)
+  resolveOverloads :: a d -> Checked (a d)
 
 
 instance ResolveOverloads ILCase CheckedData where
-  resolve (ILCase d patE body) = do
-    body' <- resolve body
+  resolveOverloads (ILCase d patE body) = do
+    body' <- resolveOverloads body
     return $ ILCase d patE body'
 
 
@@ -1405,52 +1406,52 @@ resolveDict ty protoId = do
 
 
 instance ResolveOverloads IL CheckedData where
-  resolve (ILPlaceholder (OfTy p _) (PlaceholderMethod methodId ty)) = do
+  resolveOverloads (ILPlaceholder (OfTy p _) (PlaceholderMethod methodId ty)) = do
     ty' <- subst ty
     protoId <- envLookupOrFail methodEnv methodId
     dictIl <- resolveDict ty' protoId `reportErrorAt` p
     methodSelector dictIl methodId
 
-  resolve (ILPlaceholder (OfTy p pty) (PlaceholderDict protoId ty)) = do
+  resolveOverloads (ILPlaceholder (OfTy p pty) (PlaceholderDict protoId ty)) = do
     resolveDict ty protoId `reportErrorAt` p
 
-  resolve (ILCons d a b) = do
-    a' <- resolve a
-    b' <- resolve b
+  resolveOverloads (ILCons d a b) = do
+    a' <- resolveOverloads a
+    b' <- resolveOverloads b
     return $ ILCons d a' b'
 
-  resolve (ILApp d rator rands) = do
-    rator' <- resolve rator
-    rands' <- mapM resolve rands
+  resolveOverloads (ILApp d rator rands) = do
+    rator' <- resolveOverloads rator
+    rands' <- mapM resolveOverloads rands
     return $ ILApp d rator' rands'
 
-  resolve (ILFunDef d funId paramIds bodyE) = do
-    bodyE' <- resolve bodyE
+  resolveOverloads (ILFunDef d funId paramIds bodyE) = do
+    bodyE' <- resolveOverloads bodyE
     return $ ILFunDef d funId paramIds bodyE'
 
-  resolve (ILFun d paramIds bodyE) = do
-    bodyE' <- resolve bodyE
+  resolveOverloads (ILFun d paramIds bodyE) = do
+    bodyE' <- resolveOverloads bodyE
     return $ ILFun d paramIds bodyE'
 
-  resolve (ILMain d argIds bodyE) = do
-    bodyE' <- resolve bodyE
+  resolveOverloads (ILMain d argIds bodyE) = do
+    bodyE' <- resolveOverloads bodyE
     return $ ILMain d argIds bodyE'
 
-  resolve (ILBegin d es) = do
-    es' <- mapM resolve es
+  resolveOverloads (ILBegin d es) = do
+    es' <- mapM resolveOverloads es
     return $ ILBegin d es'
 
-  resolve (ILSwitch d e cases) = do
-    e' <- resolve e
-    cases' <- mapM resolve cases
+  resolveOverloads (ILSwitch d e cases) = do
+    e' <- resolveOverloads e
+    cases' <- mapM resolveOverloads cases
     return $ ILSwitch d e' cases' 
 
-  resolve e = return e
+  resolveOverloads e = return e
 
 
 instance ResolveOverloads ILCompUnit CheckedData where
-  resolve (ILCompUnit d typeDecs es) = do
-    es' <- mapM resolve es
+  resolveOverloads (ILCompUnit d typeDecs es) = do
+    es' <- mapM resolveOverloads es
     return $ ILCompUnit d typeDecs es'
 
 
@@ -1477,4 +1478,4 @@ runTypecheck :: Untyped ILCompUnit -> Checked (Ty, Typed ILCompUnit)
 runTypecheck cu = do
   (ty, typedIL) <- tcCompUnit cu True
   (ty', typedIL') <- tcCompUnit cu False
-  return (ty', typedIL')
+  resolveOverloads typedIL' >>= return . (,) ty'
