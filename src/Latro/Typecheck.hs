@@ -1057,13 +1057,6 @@ tc (ILApp p ratorE randEs) = do
   if arity /= argLen
   then throwError (ErrWrongArity ratorE' arity argLen) `reportErrorAt` p
   else do ty' <- subst ty
-          -- fty'' <- subst fty'
-          -- traceM ("tc ILApp, fty'': " ++ show fty'')
-          -- if isOverloaded fty''
-          -- then let ctx = context fty''
-          --          phs = map (\(cty, cProtoId) -> ILPlaceholder (OfTy p tyUnit) $ PlaceholderDict cProtoId cty) ctx
-          --      in return (ty', ILApp (OfTy p ty') (ILApp (OfTy p fty'') ratorE' phs) randEs')
-          -- else
           return (ty', ILApp (OfTy p ty') ratorE' randEs')
 
 tc (ILPrim p prim) = do
@@ -1484,5 +1477,4 @@ runTypecheck :: Untyped ILCompUnit -> Checked (Ty, Typed ILCompUnit)
 runTypecheck cu = do
   (ty, typedIL) <- tcCompUnit cu True
   (ty', typedIL') <- tcCompUnit cu False
-  -- typedIL'' <- resolve typedIL'
   return (ty', typedIL')
