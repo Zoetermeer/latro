@@ -668,12 +668,12 @@ instance CompilerOutput Ty where
 
   render (TyVar [] tyVar) = render tyVar
   render (TyVar straints tyVar) =
-    printf "(%s) => %s"
+    printf "%s(%s)"
       (intercalate ", " $ map render straints)
       (render tyVar)
   render (TyMeta [] id) = render id
   render (TyMeta straints id) =
-    printf "(%s) => %s"
+    printf "%s(%s)"
       (intercalate ", " $ map render straints)
       (render id)
     
@@ -682,7 +682,7 @@ instance CompilerOutput Ty where
       printf "(%s) => %s"
              contextStr
              (render ty) 
-    where contextStr = intercalate "," $ map (\(ty, protoId) -> printf "%s : %s" (render ty) (render protoId)) context
+    where contextStr = intercalate "," $ map (\(ty, protoId) -> printf "%s(%s)" (render protoId) (render ty)) context
   -- render ty = showSexp ty
 
 

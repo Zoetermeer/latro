@@ -11,26 +11,30 @@
           module Main {
             type Char = primtype(char)
             type Int = primtype(int)
+            type String = Char[]
 
             protocol Show(a) {
-              show : a -> Char[]
+              show : a -> String
             }
 
             imp Int : Show {
-              show(_) = "an int"
+              show(0) = "0"
+              show(x) = ">0"
             }
 
-            infixl (++)([], bs)    = bs
-            infixl (++)(as, [])    = as
-            infixl (++)(a @"@" as, bs) = a @"@" (as ++ bs)
+            showit(x) = show(x)
 
-            showList([]) = "[]"
-            showList(x @"@" xs) = show(x) ++ ", " ++ showList(xs)
+            hdapp(f, x @"@" _) = f(x)
+
+            map(_, [])   = []
+            map(f, x @"@" xs) = f(x) @"@" map(f, xs)
+
+            println(v) = prim(println)(v)
 
             main(_) = {
-              prim(println)(showList([1, 2, 3, 4]))
+              println(map(show, [1, 2, 0, 3, 0]))
             }
           }
         }
-        '("\"an int, an int, an int, an int, []\""))))
+        '("[\">0\", \">0\", \"0\", \">0\", \"0\"]"))))
 )

@@ -689,6 +689,10 @@ unify tya tyb = do
       tyb <- lookupTyQual qid
       unify ty $ TyApp tyb []
 
+    (tyA, TyOverloaded ctxB tyB) -> do
+      ty' <- unify tyA tyB
+      return $ TyOverloaded ctxB ty'
+
     (TyOverloaded ctxA tyA, tyB) -> do
       ty' <- unify tyA tyB
       return $ TyOverloaded ctxA ty'
@@ -1000,7 +1004,8 @@ tc (ILMain p [paramId] bodyE) = do
   (bodyTy, bodyE') <- tc bodyE
   unify bodyTy tyUnit `reportErrorAt` p
   restoreVarEnv oldVarEnv
-  return (tyUnit, ILMain (OfTy p tyMain) [paramId] bodyE')
+  main <- resolve $ ILMain (OfTy p tyMain) [paramId] bodyE'
+  return (tyUnit, main)
 
 tc ilMain@ILMain{} = throwError (ErrWrongMainArity ilMain) `reportErrorAt` ilNodeData ilMain
 
@@ -1014,6 +1019,11 @@ tc (ILRef p id) = do
           let meta = head metas
           return (ty', ILPlaceholder (OfTy p ty') $ PlaceholderMethod id meta)
   else
+    if isOverloaded ty'
+    then let ctx = context ty'
+             phs = map (\(cty, cProtoId) -> ILPlaceholder (OfTy p tyUnit) $ PlaceholderDict cProtoId cty) ctx
+         in return (ty', (ILApp (OfTy p ty') (ILRef (OfTy p ty') id) phs))
+    else
       return (ty', ILRef (OfTy p ty') id)
 
 tc (ILStr p s) = return (tyStr, ILStr (OfTy p tyStr) s)
@@ -1047,13 +1057,14 @@ tc (ILApp p ratorE randEs) = do
   if arity /= argLen
   then throwError (ErrWrongArity ratorE' arity argLen) `reportErrorAt` p
   else do ty' <- subst ty
-          fty'' <- subst fty'
-          if isOverloaded fty''
-          then let ctx = context fty''
-                   phs = map (\(cty, cProtoId) -> ILPlaceholder (OfTy p tyUnit) $ PlaceholderDict cProtoId cty) ctx
-               in return (ty', ILApp (OfTy p ty') (ILApp (OfTy p fty'') ratorE' phs) randEs')
-          else
-            return (ty', ILApp (OfTy p ty') ratorE' randEs')
+          -- fty'' <- subst fty'
+          -- traceM ("tc ILApp, fty'': " ++ show fty'')
+          -- if isOverloaded fty''
+          -- then let ctx = context fty''
+          --          phs = map (\(cty, cProtoId) -> ILPlaceholder (OfTy p tyUnit) $ PlaceholderDict cProtoId cty) ctx
+          --      in return (ty', ILApp (OfTy p ty') (ILApp (OfTy p fty'') ratorE' phs) randEs')
+          -- else
+          return (ty', ILApp (OfTy p ty') ratorE' randEs')
 
 tc (ILPrim p prim) = do
     primTy <- case prim of
@@ -1188,7 +1199,16 @@ tc (ILFunDef p id paramIds bodyE) = do
   bindVar id fty'
   let funDef = ILFunDef (OfTy p fty') id paramIds bodyE'
   funDef' <- insertDictionaryParams funDef fty'
-  return (tyUnit, funDef')
+  -- Can resolve here.  For every placeholder,
+  -- the meta in the placeholder type can be checked
+  -- to see what it's bound to in the meta env.
+  -- If it's bound to a TyVar, we must look up the
+  -- entry in the dict param env (it will resolve to a dict param).
+  -- Otherwise it should be in the impl env since this meta
+  -- should be bound to a concrete type.
+  -- If neither of these conditions hold an ambiguity.
+  funDef'' <- resolve funDef' 
+  return (tyUnit, funDef'')
 
 -- Monomorphic case
 tc (ILWithAnn p (TyAnn _ id [] synTy straints) e)
@@ -1296,18 +1316,7 @@ tcProtoMethod protoId implementingTyCon (ILFunDef p id paramIds bodyE) = do
   funTy <- (lookupVar >=> instantiate) funId
   declaredMethodTy <- (lookupVar >=> instantiate) id
   unify declaredMethodTy funTy `reportErrorAt` p
-
-  -- For now, the dictionary argument is ignored.
-  -- When we type an overloaded application, we expect the
-  -- function to be wrapped with a lambda taking arguments
-  -- for every element in the context.
-  -- This transformation will be useful for superclasses.
-  dictId <- makeFresh "d0"
-  freshParamIds <- mapM (const (makeFresh "v")) paramIds
-  let methodFun = ILFun (OfTy p funTy) paramIds bodyE'
-      wrapper = ILFunDef (OfTy p funTy) funId [dictId] methodFun
-
-  return (tyUnit, wrapper)
+  return (tyUnit, ILFunDef (OfTy p funTy) funId paramIds bodyE')
 
 tcProtoMethod protoId implementingTyCon (ILWithAnn p (TyAnn _ annId tyParamIds synTy straints) (ILFunDef fp fid paramIds bodyE)) = do
   isAMethod <- isMethod annId
@@ -1475,5 +1484,5 @@ runTypecheck :: Untyped ILCompUnit -> Checked (Ty, Typed ILCompUnit)
 runTypecheck cu = do
   (ty, typedIL) <- tcCompUnit cu True
   (ty', typedIL') <- tcCompUnit cu False
-  typedIL'' <- resolve typedIL'
-  return (ty', typedIL'')
+  -- typedIL'' <- resolve typedIL'
+  return (ty', typedIL')
