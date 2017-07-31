@@ -1,7 +1,5 @@
 #!/bin/bash
 
-set -x
-
 stack build
 
 if [[ -n $1 ]]; then
