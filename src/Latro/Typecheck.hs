@@ -238,14 +238,6 @@ restorePolyEnv :: Map.Map UniqId Ty -> Checked ()
 restorePolyEnv env = modifyTC (\tcEnv -> tcEnv { polyEnv = env })
 
 
-markMetaEnv :: Checked (Map.Map UniqId Ty)
-markMetaEnv = getsTC metaEnv
-
-
-restoreMetaEnv :: Map.Map UniqId Ty -> Checked ()
-restoreMetaEnv env = modifyTC (\tcEnv -> tcEnv { metaEnv = env })
-
-
 lookupPoly :: UniqId -> Checked (Maybe Ty)
 lookupPoly = envLookup polyEnv
 
@@ -607,7 +599,6 @@ unify :: Ty -> Ty -> Checked Ty
 unify tya tyb = do
   -- traceM $ "UNIFY " ++ show tya ++ " ---> " ++ show tyb
   oldPolyEnv <- markPolyEnv
-  oldMetaEnv <- markMetaEnv
   case (tya, tyb) of
     (a@(TyApp (TyConUnique ida _) tyArgsA), TyApp (TyConUnique idb _) tyArgsB) ->
       if ida == idb
@@ -1082,24 +1073,16 @@ tc (ILPrim p prim) = do
   where intArithTy = return $ TyApp TyConArrow [tyInt, tyInt, tyInt]
         intCmpTy   = return $ TyApp TyConArrow [tyInt, tyInt, tyBool]
 
-tc (ILAssign p patE (ILFun funP paramIds bodyE)) =
+tc (ILAssign p patE ilFun@(ILFun funP paramIds bodyE)) =
   case patE of
     ILPatId patP id -> do
-      paramMetas <- mapM (const freshMeta) paramIds
-      bodyTyMeta <- freshMeta
-      let paramsAndTys = zip paramIds paramMetas
-          fty = TyApp TyConArrow $ paramMetas ++ [bodyTyMeta]
-      oldVarEnv <- markVarEnv
-      mapM_ (uncurry bindVar) paramsAndTys
-      (bodyTy, bodyE') <- tc bodyE
-      unify bodyTyMeta bodyTy
-      restoreVarEnv oldVarEnv
+      (fty, fun) <- tc ilFun
       fty' <- generalize fty
       bindVar id fty'
       patEMeta <- freshMeta
       return (tyUnit, ILAssign (OfTy p tyUnit)
                                (ILPatId (OfTy patP patEMeta) id)
-                               (ILFun (OfTy funP fty') paramIds bodyE'))
+                               fun)
     _ ->
       throwError ErrInvalidFunPattern
 
@@ -1142,10 +1125,8 @@ tc (ILFun p paramIds bodyE) = do
   paramMetas <- mapM (\paramId -> do { ty <- freshMeta; bindVar paramId ty; return ty }) paramIds
   bodyTyMeta <- freshMeta
   let fty = TyApp TyConArrow $ paramMetas ++ [bodyTyMeta]
-  oldVarEnv <- markVarEnv
   (bodyTy, bodyE') <- tc bodyE
   unify bodyTyMeta bodyTy `reportErrorAt` p
-  restoreVarEnv oldVarEnv
   fty' <- subst fty
   return (fty', ILFun (OfTy p fty') paramIds bodyE')
 
@@ -1208,7 +1189,6 @@ tc (ILFunDef p id paramIds bodyE) = do
 tc (ILWithAnn p (TyAnn _ id [] synTy straints) e)
   | not (null straints) = throwError (ErrInvalidConstraints id) `reportErrorAt` p
   | otherwise = do
-      oldMetaEnv <- markMetaEnv
       givenTy <- tcTy synTy
       (_, e') <- tc e
       inferredTy <- lookupVar id `reportErrorAt` ilNodeData e
@@ -1216,13 +1196,12 @@ tc (ILWithAnn p (TyAnn _ id [] synTy straints) e)
       inferredTy' <- instantiate inferredTy
       ty <- unify givenTy' inferredTy' `reportErrorAt` p
 
-      restoreMetaEnv oldMetaEnv
-      generalize ty >>= bindVar id
+      ty' <- generalize ty
+      bindVar id ty'
       return (ty, e')
 
 -- Polymorphic case
 tc (ILWithAnn p (TyAnn _ id tyParamIds synTy straints) e) = do
-  oldMetaEnv <- markMetaEnv
   mapM_ (\tyParamId -> exportTy tyParamId $ TyConTyVar tyParamId) tyParamIds
   let ctx = map (\(Constraint _ tyId protoId) -> (TyVar [] tyId, protoId)) straints
   givenTy <- tcTy synTy
@@ -1232,8 +1211,6 @@ tc (ILWithAnn p (TyAnn _ id tyParamIds synTy straints) e) = do
   givenTy'' <- instantiate givenTy'
   inferredTy' <- instantiate inferredTy
   ty <- unify givenTy'' inferredTy' `reportErrorAt` p
-
-  restoreMetaEnv oldMetaEnv
   generalize ty >>= bindVar id
   return (ty, e')
 
@@ -1400,9 +1377,9 @@ resolveDict ty protoId = do
              let maybeDictIl = Map.lookup (simplify tyCon) thisProtoImpEnv
              in case maybeDictIl of
                   Just dictIl -> return dictIl
-                  _           -> throwError $ ErrCannotResolveProtocolImp ty protoId
+                  _           -> throwError $ ErrCannotResolveProtocolImp ty' protoId
            _          ->
-              throwError $ ErrCannotResolveProtocolImp ty protoId
+              throwError $ ErrCannotResolveProtocolImp ty' protoId
 
 
 instance ResolveOverloads IL CheckedData where
