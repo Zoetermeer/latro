@@ -746,7 +746,6 @@ instance AlphaTopLevel (UniqAst Exp) where
     return $ ExpBegin p es'
 
   convertTop (ExpModule p qid bodyEs) = do
-    -- traceM ("convertTop " ++ render qid)
     case implicitTyDecs of
       [] -> do
         ns <- openNamespaceDef qid
@@ -765,7 +764,6 @@ instance AlphaTopLevel (UniqAst Exp) where
   convertTop (ExpTypeModule p qid tyDec bodyEs) = do
     curPath <- getCurNs >>= return . path
     typeId <- freshTypeIdM (UserId "@__data")
-    -- traceM $ show qid
     let tyDecExp = tyDec `renameTo` typeId
         tyParamIds = getTypeDecParams tyDec
         expModule = ExpModule p qid (bodyEs ++ [tyDecExp])

@@ -635,6 +635,8 @@ instance Sexpable Ty where
     
   sexp (TyRef qid) = List [ Symbol "Ref", sexp qid ]
 
+  sexp (TyRigid ty) = List [ Symbol "Rigid", sexp ty ]
+
 
 instance Sexpable TyConstraint where
   sexp (TyConstraint protoId) = List [ Symbol "TyConstraint", sexp protoId ]
@@ -683,6 +685,9 @@ instance CompilerOutput Ty where
              contextStr
              (render ty) 
     where contextStr = intercalate "," $ map (\(ty, protoId) -> printf "%s(%s)" (render protoId) (render ty)) context
+
+  render (TyRigid ty) =
+    printf "rigid type %s" $ render ty
   -- render ty = showSexp ty
 
 
@@ -717,7 +722,7 @@ instance CompilerOutput TyCon where
   render (TyConStruct _) = "<<struct>>"
   render (TyConAdt _) = "<<adt>>"
   render (TyConUnique id TyConTyFun{}) = render id
-  render (TyConTyFun tyVarIds ty) = "<<tyfun>>"
+  render (TyConTyFun tyVarIds ty) = printf "(tyfun<%s> -> %s)" (renderCommaSep tyVarIds) (render ty)
   render (TyConTyVar varId) = render varId
 
 

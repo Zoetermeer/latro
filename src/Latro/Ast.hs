@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 module Latro.Ast where
 
+import Text.PrettyPrint
 import Text.PrettyPrint.GenericPretty
 
 type LineNumber = Int
@@ -428,7 +429,10 @@ data UniqId =
   | UniqId Int RawId
   deriving (Generic)
 
-instance Out UniqId
+instance Out UniqId where
+  doc (UserId raw) = parens $ sep [text "UserId", text raw]
+  doc (UniqId index raw) = parens $ sep [text "UniqId", (text . show) index, text raw]
+  docPrec _ = doc
 
 instance Show UniqId where
   show (UserId raw) = raw

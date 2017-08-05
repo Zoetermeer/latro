@@ -4,6 +4,7 @@ module Latro.Semant where
 import Data.List (intersperse)
 import qualified Data.Map as Map
 import Latro.Ast
+import Text.PrettyPrint
 import Text.PrettyPrint.GenericPretty
 import Text.Printf (printf)
 
@@ -269,34 +270,69 @@ data Ty =
   | TyMeta [ProtocolId] TyVarId
   | TyRef (QualifiedId SourcePos UniqId) -- Only for recursive type definitions
   | TyOverloaded Context Ty -- Only for instantiated types
+  -- User-supplied types (via annotations) cannot be instantiated
+  -- or have their contexts augmented
+  | TyRigid Ty
   deriving (Generic, Ord)
 
 
 instance Eq Ty where
-  (TyApp tyConA tyAs) == (TyApp tyConB tyBs) =
-    tyConA == tyConB && tyAs == tyBs
-  (TyPoly aVars ctxA tyA) == (TyPoly bVars ctxB tyB) =
-    ctxA == ctxB && tyA == tyB
-  (TyVar _ idA) == (TyVar _ idB) = idA == idB
-  (TyMeta _ idA) == (TyMeta _ idB) = idA == idB
-  (TyRef idA) == (TyRef idB) = idA == idB
-  _ == _ = False
+  (TyApp tyConA tyAs) == (TyApp tyConB tyBs)
+    = tyConA == tyConB && tyAs == tyBs
+  (TyPoly aVars ctxA tyA) == (TyPoly bVars ctxB tyB)
+    = ctxA == ctxB && tyA == tyB
+  (TyVar _ idA) == (TyVar _ idB)
+    = idA == idB
+  (TyMeta _ idA) == (TyMeta _ idB)
+    = idA == idB
+  (TyRef idA) == (TyRef idB)
+    = idA == idB
+  (TyRigid tyA) == (TyRigid tyB)
+    = tyA == tyB
+  _ == _
+    = False
 
 
-instance Out Ty
+squote :: Doc
+squote = char '\''
+
+
+showDoc :: Show a => a -> Doc
+showDoc x = (text . show) x
+
+docContext :: Context -> Doc
+docContext ctx = parens $ sep (text "Context" : [brackets (sep (map (\(ty, protoId) -> parens (sep [doc ty, doc protoId])) ctx))])
+
+
+instance Out Ty where
+  doc (TyApp tyCon tyArgs) =
+    parens ((text "TyApp" $+$ nest 1 (doc tyCon)) $+$ brackets (sep (map (nest 1 . doc) tyArgs)))
+
+  doc (TyPoly tyVarIds ctx ty) =
+      parens $ text "TyPoly" $+$ (vcat (varIdsDoc : map (nest 1) [docContext ctx, doc ty]))
+    where varIdsDoc = nest 1 (brackets (sep (punctuate comma (map doc tyVarIds))))
+
+  doc (TyVar straints tyVarId) =
+    parens $ sep [text "TyVar", brackets (sep (map doc straints)), doc tyVarId]
+
+  doc (TyMeta straints id) =
+    parens $ sep [text "TyMeta", brackets (sep (map doc straints)), doc id]
+
+  doc (TyRef qid) =
+    parens $ sep [text "TyRef", doc qid]
+
+  doc (TyOverloaded ctx ty) =
+    parens $ sep [text "TyOverloaded", docContext ctx, doc ty]
+
+  doc (TyRigid ty) =
+    parens $ sep [text "TyRigid", doc ty]
+
+
+  docPrec _ = doc
+
+
 instance Show Ty where
   show = pretty
-
-
--- instance Show Ty where
---   show (TyApp tyCon []) = show tyCon
---   show (TyApp TyConArrow tyArgs) = concat . intersperse " -> " $ map show tyArgs
---   show (TyApp tyCon tyArgs) = printf "%s{%s}" (show tyCon) (concat . intersperse ", " $ map show tyArgs)
---   show (TyPoly [] ty) = show ty
---   show (TyPoly tyParams ty) = printf "{%s} %s" (concat . intersperse ", " $ map show tyParams) (show ty)
---   show (TyVar id) = show id
---   show (TyMeta id) = show id
---   show (TyRef qid) = show qid
 
 
 data ModuleBinding =
@@ -357,17 +393,27 @@ instance Eq TyCon where
   _ == _ = False
 
 
-instance Out TyCon
+instance Out TyCon where
+  doc tyCon =
+    case tyCon of
+      TyConInt -> text "TyConInt"
+      TyConBool -> text "TyConBool"
+      TyConChar -> text "TyConChar"
+      TyConUnit -> text "TyConUnit"
+      TyConList -> text "TyConList"
+      TyConTuple -> text "TyConTuple"
+      TyConArrow -> text "TyConArrow"
+      TyConStruct fieldNames -> parens $ sep [text "TyConStruct", parens (sep (map doc fieldNames))]
+      TyConAdt ctorNames ->
+        parens $ sep [text "TyConAdt", brackets (sep (map doc ctorNames))]
+      TyConTyFun tyVarIds ty ->
+        parens $ sep [text "TyConTyFun", brackets (sep (map doc tyVarIds)), doc ty]
+      TyConUnique uid tyCon ->
+        parens $ sep [text "TyConUnique", doc uid, doc tyCon]
+      TyConTyVar tyVarId ->
+        parens $ sep [text "TyConTyVar", doc tyVarId]
+
+  docPrec _ = doc
+
 instance Show TyCon where
   show = pretty
-
-
--- instance Show TyCon where
---   show TyConInt = "Int"
---   show TyConBool = "Bool"
---   show TyConChar = "Char"
---   show TyConUnit = "Unit"
---   show TyConList = "[]"
---   show TyConTuple = "(,)"
---   show (TyConUnique id _) = show id
---   show (TyConTyFun [] ty) = show ty
