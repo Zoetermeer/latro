@@ -353,6 +353,7 @@ distContext ctx ty@(TyVar straints id) =
 distContext ctx ty@(TyMeta straints id) =
   TyMeta (combineConstraints straints (findConstraintsFor ty ctx)) id
 
+distContext ctx (TyRigid ty) = TyRigid $ distContext ctx ty
 distContext _ ty@TyRef{} = ty
 
 
@@ -360,6 +361,21 @@ distributeContext :: Ty -> Ty
 distributeContext (TyOverloaded ctx ty) = TyOverloaded ctx $ distContext ctx ty
 distributeContext (TyPoly tyParamIds ctx ty) = TyPoly tyParamIds ctx $ distContext ctx ty
 distributeContext ty = ty
+
+
+-- TODO: Make this exhaustive and truly deep
+makeDeeplyRigid :: Ty -> Ty
+makeDeeplyRigid ty@TyRigid{} = ty
+makeDeeplyRigid (TyApp tyCon tyArgs) = TyApp tyCon $ map makeDeeplyRigid tyArgs
+makeDeeplyRigid ty = TyRigid ty
+
+
+makeDeeplyWobbly :: Ty -> Ty
+makeDeeplyWobbly (TyRigid ty) = makeDeeplyWobbly ty
+makeDeeplyWobbly (TyApp tyCon tyArgs) = TyApp tyCon $ map makeDeeplyWobbly tyArgs
+makeDeeplyWobbly (TyPoly tyVarIds ctx ty) = TyPoly tyVarIds ctx $ makeDeeplyWobbly ty
+makeDeeplyWobbly (TyOverloaded ctx ty) = TyOverloaded ctx $ makeDeeplyWobbly ty
+makeDeeplyWobbly ty = ty
 
 
 metaOccursInTyCon :: Ty -> TyCon -> Bool
@@ -378,6 +394,7 @@ metaOccursIn tyMeta@(TyMeta _ metaId) ty =
     TyMeta _ otherMetaId -> metaId == otherMetaId
     TyRef _              -> False
     TyOverloaded ctx ty  -> any (metaOccursIn tyMeta) (fst (unzip ctx)) || metaOccursIn tyMeta ty
+    TyRigid ty           -> tyMeta `metaOccursIn` ty
 
 metaOccursIn _ _ = False
 
@@ -420,6 +437,7 @@ allMetasIn ty =
     meta@(TyMeta _ id)  -> [meta]
     TyRef _             -> []
     TyOverloaded ctx ty -> (concatMap allMetasIn $ fst $ unzip ctx) ++ allMetasIn ty
+    TyRigid ty          -> allMetasIn ty
 
 
 referencedMetas :: Ty -> Checked [Ty]
@@ -473,6 +491,7 @@ trimUnusedPolyParams (TyPoly tyParamIds ctx ty) =
         TyApp tyCon tys -> allTyConVarIds tyCon ++ concatMap allTyVarIds tys
         TyPoly _ ctx ty -> allTyVarIds ty ++ (concatMap allTyVarIds $ fst $ unzip ctx)
         TyVar _ id      -> [id]
+        TyRigid ty      -> allTyVarIds ty
         _               -> []
     allCtxTyVarIds (ty, _) = allTyVarIds ty
     paramIdSet = Set.fromList tyParamIds
@@ -484,7 +503,6 @@ trimUnusedPolyParams ty = ty
 
 generalize :: Ty -> Checked Ty
 generalize t = do
-    -- traceM $ printf "Generalizing %s" $ showSexp ty
     ty' <- subst ty
     frees <- freeMetas ty'
     tyParamIds <- mapM (const freshId) frees
@@ -532,7 +550,6 @@ substTyCon tyCon = return tyCon
 
 subst :: Ty -> Checked Ty
 subst ty =
-  -- traceM $ printf "Substing %s" $ showSexp ty
   case ty of
     meta@(TyMeta _ id) -> do
       maybeTy <- lookupMeta id
@@ -575,6 +592,10 @@ subst ty =
       tyCon' <- substTyCon tyCon
       return $ TyApp tyCon' []
 
+    TyRigid ty -> do
+      ty' <- subst ty
+      return $ TyRigid ty'
+
     _ -> throwError $ ErrInterpFailure $ "Inexhaustive case in 'subst' for type: " ++ show ty
 
 
@@ -597,7 +618,6 @@ unifyFail a b = do
 
 unify :: Ty -> Ty -> Checked Ty
 unify tya tyb = do
-  -- traceM $ "UNIFY " ++ show tya ++ " ---> " ++ show tyb
   oldPolyEnv <- markPolyEnv
   case (tya, tyb) of
     (a@(TyApp (TyConUnique ida _) tyArgsA), TyApp (TyConUnique idb _) tyArgsB) ->
@@ -687,6 +707,10 @@ unify tya tyb = do
     (TyOverloaded ctxA tyA, tyB) -> do
       ty' <- unify tyA tyB
       return $ TyOverloaded ctxA ty'
+
+    (tyA@(TyRigid (TyMeta straintsA metaIdA)), tyB@(TyRigid (TyMeta straintsB metaIdB)))
+      | metaIdA == metaIdB -> return $ TyRigid (TyMeta straintsA metaIdA)
+      | otherwise -> unifyFail tyA tyB
 
     (ta, tb) -> unifyFail ta tb
 
@@ -1205,13 +1229,13 @@ tc (ILWithAnn p (TyAnn _ id tyParamIds synTy straints) e) = do
   mapM_ (\tyParamId -> exportTy tyParamId $ TyConTyVar tyParamId) tyParamIds
   let ctx = map (\(Constraint _ tyId protoId) -> (TyVar [] tyId, protoId)) straints
   givenTy <- tcTy synTy
-  let givenTy' = distributeContext $ TyPoly tyParamIds ctx givenTy
+  let givenTy' = distributeContext $ TyPoly tyParamIds ctx $ makeDeeplyRigid givenTy
   (_, e') <- tc e
   inferredTy <- lookupVar id `reportErrorAt` ilNodeData e
   givenTy'' <- instantiate givenTy'
   inferredTy' <- instantiate inferredTy
   ty <- unify givenTy'' inferredTy' `reportErrorAt` p
-  generalize ty >>= bindVar id
+  (generalize >=> (return . makeDeeplyWobbly) >=> bindVar id) ty
   return (ty, e')
 
 

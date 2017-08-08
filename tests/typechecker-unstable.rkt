@@ -4,8 +4,7 @@
   (require "common.rkt"
            rackunit)
 
-  #|
-  (test-case "it works"
+  (test-case "does not unify type parameters with concretely-typed values"
     (parameterize ([use-core? #f])
       (check-match
         @interp-sexp{
@@ -19,7 +18,12 @@
             main(_) = prim(println)(foo(42))
           }
         }
-        `(AtPos (SourcePos ,_ 8 ,_) (CompilerModule Typecheck) (CantUnify (Var t) Char)))))
+        `(AtPos
+           (SourcePos ,_ 5 ,_)
+           (CompilerModule Typecheck)
+           (CantUnify
+             (Expected (Rigid ,_))
+             (Got Char))))))
 
   (test-case "it unifies user-specified concrete types with inferred type variables"
     (parameterize ([use-core? #f])
@@ -71,7 +75,6 @@
 					}
 				}
 				'("Cons(43, Nil)"))))
-  |#
 
   (test-case "it allows mutually recursive refs between adt's and aliases"
 		(parameterize ([use-core? #f])
