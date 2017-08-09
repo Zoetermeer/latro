@@ -1170,9 +1170,9 @@
       }
       '("False")))
 
-	(test-case "it unifies no-parens, 0-argument ADT patterns with ctor applications"
-		(check-match
-			@interp-lines-with-wrapper-module{
+  (test-case "it unifies no-parens, 0-argument ADT patterns with ctor applications"
+    (check-match
+      @interp-lines-with-wrapper-module{
         type Lst<a> =
           | Nil
           | Cons(a, Lst<a>)
@@ -1184,9 +1184,9 @@
       }
       '("Nil")))
 
-	(test-case "it unifies forward-referencing, no-paren, 0-argument ADT patterns with ctor apps in recursive type modules"
-		(check-match
-			@interp-lines{
+  (test-case "it unifies forward-referencing, no-paren, 0-argument ADT patterns with ctor apps in recursive type modules"
+    (check-match
+      @interp-lines{
         module Weird {
           import Root
           import Root.Lst
@@ -1215,14 +1215,14 @@
   (test-case "it allows forward references in type annotations"
     (check-match
       @interp-lines-with-wrapper-module{
-				isB : Foo -> Bool
-				isB(_) = False
+        isB : Foo -> Bool
+        isB(_) = False
 
-				type Foo = | A | B
+        type Foo = | A | B
 
-				main(_) = prim(println)(isB(A()))
-			}
-			'("False")))
+        main(_) = prim(println)(isB(A()))
+      }
+      '("False")))
 
   (test-case "does not unify type parameters with concretely-typed values"
     (parameterize ([use-core? #f])
@@ -1267,50 +1267,50 @@
       '("1" "2" "3"))))
 
   (test-case "it allows mutually recursive refs between adt's and aliases"
-		(parameterize ([use-core? #f])
-			(check-equal?
-				@interp-lines{
-					module Main {
-						type Int = primtype(int)
+    (parameterize ([use-core? #f])
+      (check-equal?
+        @interp-lines{
+          module Main {
+            type Int = primtype(int)
 
-						type Lst<b> = t<b>
+            type Lst<b> = t<b>
 
-						type t <a> =
-							| Cons(a, Lst<a>)
-							| Nil
+            type t <a> =
+              | Cons(a, Lst<a>)
+              | Nil
 
-						type IntList = Lst<Int>
+            type IntList = Lst<Int>
 
-						tail<c> : Lst<c> -> Lst<c>
-						tail(Nil) = Nil()
-						tail(Cons(_, tl)) = tl
+            tail<c> : Lst<c> -> Lst<c>
+            tail(Nil) = Nil()
+            tail(Cons(_, tl)) = tl
 
-						main(_) = {
-							ints : IntList
-							let ints = Cons(42, Cons(43, Nil()))
-							prim(println)(tail(ints))
-						}
-					}
-				}
-				'("Cons(43, Nil)"))))
+            main(_) = {
+              ints : IntList
+              let ints = Cons(42, Cons(43, Nil()))
+              prim(println)(tail(ints))
+            }
+          }
+        }
+        '("Cons(43, Nil)"))))
 
   (test-case "it catches type constructor arity mismatches"
-		(parameterize ([use-core? #f])
-			(check-match
-				@interp-sexp{
-					module Main {
-						type Lst<b> = t<b>
+    (parameterize ([use-core? #f])
+      (check-match
+        @interp-sexp{
+          module Main {
+            type Lst<b> = t<b>
 
-						type t <a> =
-							| Cons(a, Lst<a, a>)
-							| Nil
+            type t <a> =
+              | Cons(a, Lst<a, a>)
+              | Nil
 
-						main(_) = {
+            main(_) = {
               prim(println)("hello")
-						}
-					}
-				}
-				`(AtPos
+            }
+          }
+        }
+        `(AtPos
            (SourcePos ,_ 5 ,_)
            (CompilerModule Typecheck)
            (WrongTyConArity
