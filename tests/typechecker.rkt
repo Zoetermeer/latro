@@ -1293,4 +1293,95 @@
 					}
 				}
 				'("Cons(43, Nil)"))))
+
+  (test-case "it catches type constructor arity mismatches"
+		(parameterize ([use-core? #f])
+			(check-match
+				@interp-sexp{
+					module Main {
+						type Lst<b> = t<b>
+
+						type t <a> =
+							| Cons(a, Lst<a, a>)
+							| Nil
+
+						main(_) = {
+              prim(println)("hello")
+						}
+					}
+				}
+				`(AtPos
+           (SourcePos ,_ 5 ,_)
+           (CompilerModule Typecheck)
+           (WrongTyConArity
+             (TyFun ((Id b ,_)) ,_)
+             ((Var (Id a ,_)) (Var (Id a ,_))))))))
+
+    (test-case "it catches attempted applications of monomorphic type constructors"
+      (parameterize ([use-core? #f])
+        (check-match
+          @interp-sexp{
+            module Main {
+              type Int = primtype(int)
+
+              type V<a> =
+                | Num(Int<a>) 
+                | Mt
+
+              main(_) = {
+                prim(println)("hello")
+              }
+            }
+          }
+          `(AtPos
+             (SourcePos ,_ 5 ,_)
+             (CompilerModule Typecheck)
+             (NotPolymorphicType
+               Int
+               ((Var (Id a ,_))))))))
+
+
+    (test-case "it catches attempted applications of monomorphic type constructors in value annotations"
+      (parameterize ([use-core? #f])
+        (check-match
+          @interp-sexp{
+            module Main {
+              type Int = primtype(int)
+
+              foo<a> : Int<a> -> Int
+              foo(_) = 3
+
+              main(_) = {
+                prim(println)("hello")
+              }
+            }
+          }
+          `(AtPos
+             (SourcePos ,_ 4 ,_)
+             (CompilerModule Typecheck)
+             (NotPolymorphicType
+               Int
+               ((Var (Id a ,_))))))))
+
+    (test-case "it catches attempted applications of monomorphic type constructors in local annotations"
+      (parameterize ([use-core? #f])
+        (check-match
+          @interp-sexp{
+            module Main {
+              type Int = primtype(int)
+
+              main(_) = {
+                x : Int<Int>
+                let x = 42
+
+                prim(println)(x)
+              }
+            }
+          }
+          `(AtPos
+             (SourcePos ,_ 5 ,_)
+             (CompilerModule Typecheck)
+             (NotPolymorphicType
+               Int
+               (Int))))))
 )

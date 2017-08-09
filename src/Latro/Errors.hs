@@ -42,7 +42,8 @@ data Err =
   | ErrMultipleDefsInSimpleAnnDec UniqId
   | ErrNoBindingAfterTyAnn RawId
   | ErrCircularType Ty Ty
-  | ErrPartialTyConApp TyCon [Ty]
+  | ErrWrongTyConArity TyCon [Ty]
+  | ErrNotPolymorphicType TyCon [Ty]
   | ErrUnboundRawModulePath (QualifiedId SourcePos RawId)
   | ErrUnboundUniqModulePath (QualifiedId SourcePos UniqId)
   | ErrOverlappingVarImport (QualifiedId SourcePos UniqId) [RawId]

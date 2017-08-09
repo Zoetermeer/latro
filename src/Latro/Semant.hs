@@ -417,3 +417,9 @@ instance Out TyCon where
 
 instance Show TyCon where
   show = pretty
+
+
+data Arity =
+    ArityFixed Int
+  | ArityVariable
+  deriving (Eq)

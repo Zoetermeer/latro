@@ -174,6 +174,28 @@ tyMain :: Ty
 tyMain = TyApp TyConArrow [tyList tyStr, tyUnit]
 
 
+tyConArity :: TyCon -> Arity
+tyConArity TyConTuple              = ArityVariable
+tyConArity (TyConStruct _)         = ArityVariable
+tyConArity (TyConAdt _)            = ArityVariable
+tyConArity (TyConUnique _ tyCon)   = tyConArity tyCon
+tyConArity (TyConTyFun tyVarIds _) = ArityFixed $ length tyVarIds
+tyConArity TyConArrow              = ArityVariable
+
+tyConArity tyCon                   = ArityFixed 0
+
+
+isPolymorphic :: TyCon -> Bool
+isPolymorphic TyConTuple              = True
+isPolymorphic TyConStruct{}           = True
+isPolymorphic (TyConUnique _ tyCon)   = isPolymorphic tyCon
+isPolymorphic (TyConTyFun tyVarIds _) = length tyVarIds > 0
+isPolymorphic TyConArrow              = True
+
+isPolymorphic tyCon                   = False
+
+
+
 makeFresh :: RawId -> Checked UniqId
 makeFresh raw = do
   tcAlphaEnv <- getsTC tcAlphaEnv
@@ -564,7 +586,7 @@ subst ty =
         do mapM_ (uncurry bindPoly) $ zip tyParamIds tyArgs
            subst ty >>= subst
       | otherwise ->
-        throwError $ ErrPartialTyConApp tyCon tyArgs
+        throwError $ ErrWrongTyConArity tyCon tyArgs
 
     TyApp tyCon tyArgs -> do
       tyCon' <- substTyCon tyCon
@@ -757,13 +779,25 @@ tcTy (SynTyList _ tyArg) = do
   tyArg' <- tcTy tyArg
   return $ TyApp TyConList [tyArg']
 
-tcTy (SynTyRef _ qid synTyArgs) = do
+tcTy (SynTyRef _ qid []) = do
   tyCon <- lookupTyQual qid
   case tyCon of
-    TyConTyVar id'                -> return $ TyVar [] id'
-    _ -> do
-      tyArgs <- mapM tcTy synTyArgs
-      return $ TyApp tyCon tyArgs
+    TyConTyVar id' -> return $ TyVar [] id'
+    _              -> return $ TyApp tyCon []
+
+tcTy (SynTyRef p qid synTyArgs) = do
+  tyCon <- lookupTyQual qid
+  tyArgs <- mapM tcTy synTyArgs
+  let arity = tyConArity tyCon
+  if isPolymorphic tyCon
+  then
+    case arity of
+      ArityFixed paramLen
+        | not (length tyArgs == paramLen) -> throwError (ErrWrongTyConArity tyCon tyArgs) `reportErrorAt` p
+        | otherwise                       -> return $ TyApp tyCon tyArgs
+      _ -> return $ TyApp tyCon tyArgs
+  else
+    throwError (ErrNotPolymorphicType tyCon tyArgs) `reportErrorAt` p
 
 
 tcAdtAlt :: UniqAst AdtAlternative -> Checked (UniqId, [Ty])

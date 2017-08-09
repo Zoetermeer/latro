@@ -167,8 +167,14 @@ instance Sexpable Err where
           , sexp tyb
           ]
 
-  sexp (ErrPartialTyConApp tyCon tyArgs) =
-    List  [ Symbol "PartialTyConApp"
+  sexp (ErrWrongTyConArity tyCon tyArgs) =
+    List  [ Symbol "WrongTyConArity"
+          , sexp tyCon
+          , toSexpList tyArgs
+          ]
+
+  sexp (ErrNotPolymorphicType tyCon tyArgs) =
+    List  [ Symbol "NotPolymorphicType"
           , sexp tyCon
           , toSexpList tyArgs
           ]
